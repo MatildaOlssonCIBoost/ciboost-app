@@ -649,16 +649,17 @@ function openModal(id) {
       </div>
     </div>
 
-    ${c.Notes ? `
     <div class="modal-section">
       <div class="modal-section-label">Anteckningar</div>
       <div class="modal-card">
-        <div class="modal-note">${c.Notes}</div>
+        <textarea id="edit-notes" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;height:100px;resize:vertical;">${c.Notes || ''}</textarea>
       </div>
-    </div>` : ''}
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px;">
+      <button onclick="closeModalDirect()" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button>
+      <button onclick="saveCustomer(${c.Id})" style="padding:8px 18px;border:none;border-radius:8px;background:#E8956D;color:white;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">Spara</button>
+    </div>
   `;
-
-  document.getElementById('modal-overlay').classList.add('open');
 }
 
 async function saveCustomer(id) {
