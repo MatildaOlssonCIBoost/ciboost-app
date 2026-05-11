@@ -654,6 +654,33 @@ function openModal(id) {
   document.getElementById('modal-overlay').classList.add('open');
 }
 
+async function saveCustomer(id) {
+  const body = {
+    contact: document.getElementById('edit-contact').value,
+    owner: document.getElementById('edit-owner').value,
+    licenseStart: document.getElementById('edit-start').value,
+    licenseEnd: document.getElementById('edit-end').value,
+    licenseType: document.getElementById('edit-type').value,
+    arr: parseInt(document.getElementById('edit-arr').value) || null,
+    risk: document.getElementById('edit-risk').value,
+    notes: document.getElementById('edit-notes').value
+  };
+  try {
+    const r = await fetch(`${API}/customers/${id}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (r.ok) {
+      closeModalDirect();
+      loadCustomers();
+    } else {
+      alert('Kunde inte spara. Försök igen.');
+    }
+  } catch(e) {
+    alert('Nätverksfel: ' + e.message);
+  }
+}
 function closeModal(e) {
   if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
 }
