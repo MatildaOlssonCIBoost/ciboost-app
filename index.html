@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
@@ -38,7 +38,6 @@
     font-size: 14px;
   }
 
-  /* TOP NAV */
   .topnav {
     background: #1e2140;
     border-bottom: 1px solid #2a2f5a;
@@ -60,13 +59,6 @@
     gap: 8px;
     letter-spacing: -0.3px;
   }
-  .logo-icon {
-    width: 26px; height: 26px;
-    background: #E8956D;
-    border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .logo-icon svg { color: white; }
   .nav-tabs { display: flex; gap: 2px; flex: 1; }
   .nav-tab {
     padding: 6px 14px;
@@ -86,13 +78,10 @@
     font-size: 11px;
     padding: 1px 6px;
     border-radius: 10px;
-    background: var(--border);
-    color: var(--text2);
-    font-family: 'DM Mono', monospace;
+    background: rgba(255,255,255,0.2);
+    color: white;
   }
-  .nav-tab.active .count { background: var(--text); color: white; }
 
-  /* STATS BAR */
   .stats-bar {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -105,7 +94,6 @@
   .stat-val {
     font-size: 20px;
     font-weight: 600;
-    font-family: 'DM Mono', monospace;
     letter-spacing: -0.5px;
     line-height: 1;
   }
@@ -116,10 +104,8 @@
   .stat-val.blue { color: var(--accent); }
   .stat-divider { width: 1px; height: 32px; background: var(--border); }
 
-  /* MAIN */
   .main { padding: 20px 24px; max-width: 1400px; }
 
-  /* FILTERS */
   .filters {
     display: flex;
     gap: 10px;
@@ -174,10 +160,8 @@
     margin-left: auto;
     font-size: 13px;
     color: var(--text3);
-    font-family: 'DM Mono', monospace;
   }
 
-  /* TABLE */
   .table-wrap {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -201,7 +185,6 @@
     user-select: none;
   }
   thead th:hover { color: var(--text); }
-  thead th.sorted { color: var(--text); }
   tbody tr {
     border-bottom: 1px solid var(--border);
     transition: background 0.1s;
@@ -212,10 +195,7 @@
   tbody td { padding: 12px 14px; vertical-align: middle; }
 
   .company-name { font-weight: 500; font-size: 14px; }
-  .company-industry { font-size: 12px; color: var(--text3); margin-top: 1px; }
-
   .contact-name { font-size: 13px; font-weight: 400; }
-  .contact-role { font-size: 11px; color: var(--text3); margin-top: 1px; }
 
   .license-type {
     display: inline-flex;
@@ -224,7 +204,6 @@
     border-radius: 5px;
     font-size: 11px;
     font-weight: 500;
-    font-family: 'DM Mono', monospace;
   }
   .lt-Enterprise { background: #e8f0f8; color: #1a4f7a; }
   .lt-Team { background: #e8f5ee; color: #1a5a38; }
@@ -239,7 +218,6 @@
     border-radius: 5px;
     font-size: 12px;
     font-weight: 500;
-    font-family: 'DM Mono', monospace;
     white-space: nowrap;
   }
   .days-ok { background: var(--green-bg); color: var(--green); }
@@ -266,15 +244,18 @@
 
   .owner-tag {
     font-size: 11px;
-    color: var(--text2);
-    background: var(--surface2);
-    border: 1px solid var(--border);
+    color: var(--gray);
+    background: var(--gray-bg);
     border-radius: 4px;
     padding: 2px 7px;
     white-space: nowrap;
   }
 
-  /* MODAL */
+  .arr-val {
+    font-size: 13px;
+    color: var(--text2);
+  }
+
   .modal-overlay {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.35);
@@ -287,7 +268,7 @@
   .modal-overlay.open { display: flex; }
   .modal {
     background: var(--surface);
-    width: 420px;
+    width: 460px;
     height: 100vh;
     overflow-y: auto;
     box-shadow: var(--shadow-md);
@@ -335,10 +316,18 @@
   }
   .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .modal-field label { font-size: 11px; color: var(--text3); margin-bottom: 3px; display: block; }
-  .modal-field span { font-size: 13px; font-weight: 500; font-family: 'DM Mono', monospace; }
-  .modal-note { font-size: 13px; line-height: 1.6; color: var(--text2); }
+  .edit-input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface);
+  }
+  .edit-input:focus { outline: none; border-color: var(--accent); }
 
-  /* LOADING */
   .loading {
     display: flex; align-items: center; justify-content: center;
     padding: 60px;
@@ -354,13 +343,11 @@
     animation: spin 0.7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-
   .empty { text-align: center; padding: 48px; color: var(--text3); font-size: 13px; }
 </style>
 </head>
 <body>
 
-<!-- TOP NAV -->
 <nav class="topnav">
   <div class="logo">
     <img src="https://application.ciboost.se/images/logos/main-logo.svg" alt="CIBoost" style="height:26px; filter:brightness(0) invert(1);">
@@ -368,14 +355,13 @@
   <div class="nav-tabs">
     <button class="nav-tab">Pipeline</button>
     <button class="nav-tab">Alla prospects <span class="count">1</span></button>
-    <button class="nav-tab">Trial & Pilot</button>
+    <button class="nav-tab">Trial &amp; Pilot</button>
     <button class="nav-tab active">Kunder <span class="count" id="tab-count">–</span></button>
     <button class="nav-tab">Licenstidslinje</button>
     <button class="nav-tab">Arkiv</button>
   </div>
 </nav>
 
-<!-- STATS BAR -->
 <div class="stats-bar">
   <div class="stat">
     <div class="stat-val blue" id="stat-total">–</div>
@@ -406,9 +392,13 @@
     <div class="stat-val" id="stat-expired" style="color:var(--gray)">–</div>
     <div class="stat-label">Utgångna</div>
   </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div class="stat-val blue" id="stat-arr">–</div>
+    <div class="stat-label">Total ARR</div>
+  </div>
 </div>
 
-<!-- MAIN -->
 <div class="main">
   <div class="filters">
     <div class="search-wrap">
@@ -444,19 +434,19 @@
           <th onclick="sortBy('Contact')">Kontakt ↕</th>
           <th>Kundansvarig</th>
           <th onclick="sortBy('LicenseType')">Licenstyp ↕</th>
+          <th onclick="sortBy('ARR')">ARR ↕</th>
           <th onclick="sortBy('LicenseEnd')">Licens slutar ↕</th>
           <th onclick="sortBy('days')">Tid kvar ↕</th>
           <th onclick="sortBy('Risk')">Risk ↕</th>
         </tr>
       </thead>
       <tbody id="table-body">
-        <tr><td colspan="7"><div class="loading"><div class="spinner"></div> Hämtar kunder…</div></td></tr>
+        <tr><td colspan="8"><div class="loading"><div class="spinner"></div> Hämtar kunder…</div></td></tr>
       </tbody>
     </table>
   </div>
 </div>
 
-<!-- MODAL -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal" id="modal">
     <div class="modal-header">
@@ -498,12 +488,8 @@ function daysPill(days) {
   return `<span class="days-pill days-ok">${days}d kvar</span>`;
 }
 
-function ownerInitials(name) {
-  if (!name) return '–';
-  return name.split(' ').map(n => n[0]).join('');
-}
-
 function inferOwner(c) {
+  if (c.Owner) return c.Owner;
   if (c.Notes && c.Notes.includes('Alexandra Henningson')) return 'Alexandra Henningson';
   if (c.Notes && c.Notes.includes('Matilda Olsson')) return 'Matilda Olsson';
   return 'Matilda Olsson';
@@ -517,7 +503,7 @@ async function loadCustomers() {
     updateStats();
     renderTable();
   } catch(e) {
-    document.getElementById('table-body').innerHTML = `<tr><td colspan="7"><div class="empty">Kunde inte hämta data – kontrollera API-anslutningen</div></td></tr>`;
+    document.getElementById('table-body').innerHTML = `<tr><td colspan="8"><div class="empty">Kunde inte hämta data – kontrollera API-anslutningen</div></td></tr>`;
   }
 }
 
@@ -530,6 +516,8 @@ function updateStats() {
   document.getElementById('stat-expiring').textContent = allCustomers.filter(c => c._days !== null && c._days >= 0 && c._days <= 30).length;
   document.getElementById('stat-risk').textContent = allCustomers.filter(c => c.Risk === 'High').length;
   document.getElementById('stat-expired').textContent = allCustomers.filter(c => c._days !== null && c._days < 0).length;
+  const totalArr = allCustomers.reduce((sum, c) => sum + (c.ARR || 0), 0);
+  document.getElementById('stat-arr').textContent = totalArr > 0 ? totalArr.toLocaleString('sv-SE') + ' kr' : '–';
 }
 
 function getFiltered() {
@@ -537,7 +525,6 @@ function getFiltered() {
   const owner = document.getElementById('filter-owner').value;
   const license = document.getElementById('filter-license').value;
   const risk = document.getElementById('filter-risk').value;
-
   return allCustomers.filter(c => {
     const matchQ = !q || (c.Company||'').toLowerCase().includes(q) || (c.Contact||'').toLowerCase().includes(q);
     const matchOwner = !owner || c._owner === owner;
@@ -555,7 +542,6 @@ function sortBy(col) {
 
 function renderTable() {
   let data = getFiltered();
-
   data.sort((a, b) => {
     let va = sortCol === 'days' ? (a._days ?? 99999) : (a[sortCol] || '');
     let vb = sortCol === 'days' ? (b._days ?? 99999) : (b[sortCol] || '');
@@ -565,25 +551,19 @@ function renderTable() {
     if (va > vb) return sortAsc ? 1 : -1;
     return 0;
   });
-
   document.getElementById('filter-count').textContent = `${data.length} kund${data.length !== 1 ? 'er' : ''}`;
-
   if (data.length === 0) {
-    document.getElementById('table-body').innerHTML = `<tr><td colspan="7"><div class="empty">Inga kunder matchar filtren</div></td></tr>`;
+    document.getElementById('table-body').innerHTML = `<tr><td colspan="8"><div class="empty">Inga kunder matchar filtren</div></td></tr>`;
     return;
   }
-
   document.getElementById('table-body').innerHTML = data.map(c => `
     <tr onclick="openModal(${c.Id})">
-      <td>
-        <div class="company-name">${c.Company || '–'}</div>
-      </td>
-      <td>
-        <div class="contact-name">${c.Contact || '–'}</div>
-      </td>
+      <td><div class="company-name">${c.Company || '–'}</div></td>
+      <td><div class="contact-name">${c.Contact || '–'}</div></td>
       <td><span class="owner-tag">${c._owner}</span></td>
       <td><span class="license-type lt-${c.LicenseType}">${c.LicenseType || '–'}</span></td>
-      <td style="font-size:13px; font-family:'DM Mono',monospace; color:var(--text2)">${formatDate(c.LicenseEnd)}</td>
+      <td><span class="arr-val">${c.ARR ? c.ARR.toLocaleString('sv-SE') + ' kr' : '–'}</span></td>
+      <td style="font-size:13px; color:var(--text2)">${formatDate(c.LicenseEnd)}</td>
       <td>${daysPill(c._days)}</td>
       <td><span class="risk-dot risk-${c.Risk}">${c.Risk || '–'}</span></td>
     </tr>
@@ -593,12 +573,10 @@ function renderTable() {
 function openModal(id) {
   const c = allCustomers.find(x => x.Id === id);
   if (!c) return;
-
   document.getElementById('modal-title').textContent = c.Company || '–';
   document.getElementById('modal-subtitle').textContent = `${c.LicenseType || ''} · ${c._owner}`;
-
-  const days = c._days;
-  let daysHtml = daysPill(days);
+  const daysHtml = daysPill(c._days);
+  const inputStyle = 'class="edit-input"';
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-section">
@@ -614,8 +592,14 @@ function openModal(id) {
       <div class="modal-section-label">Kontaktperson</div>
       <div class="modal-card">
         <div class="modal-grid">
-          <div class="modal-field"><label>Kontakt</label><input id="edit-contact" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;" value="${c.Contact || ''}"></div>
-          <div class="modal-field"><label>Kundansvarig</label><input id="edit-owner" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;" value="${c._owner || ''}"></div>
+          <div class="modal-field">
+            <label>Kontakt</label>
+            <input ${inputStyle} id="edit-contact" value="${c.Contact || ''}">
+          </div>
+          <div class="modal-field">
+            <label>Kundansvarig</label>
+            <input ${inputStyle} id="edit-owner" value="${c._owner || ''}">
+          </div>
         </div>
       </div>
     </div>
@@ -624,26 +608,33 @@ function openModal(id) {
       <div class="modal-section-label">Licens</div>
       <div class="modal-card">
         <div class="modal-grid">
-       <div class="modal-field">
+          <div class="modal-field">
             <label>Start</label>
-            <input id="edit-start" type="date" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;" value="${c.LicenseStart ? c.LicenseStart.substring(0,10) : ''}">
+            <input ${inputStyle} id="edit-start" type="date" value="${c.LicenseStart ? c.LicenseStart.substring(0,10) : ''}">
           </div>
           <div class="modal-field">
             <label>Slutar</label>
-            <input id="edit-end" type="date" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;" value="${c.LicenseEnd ? c.LicenseEnd.substring(0,10) : ''}">
+            <input ${inputStyle} id="edit-end" type="date" value="${c.LicenseEnd ? c.LicenseEnd.substring(0,10) : ''}">
           </div>
           <div class="modal-field">
             <label>Typ</label>
-            <select id="edit-type" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;">
+            <select id="edit-type" class="edit-input">
               <option ${c.LicenseType==='Team'?'selected':''}>Team</option>
               <option ${c.LicenseType==='Enterprise'?'selected':''}>Enterprise</option>
               <option ${c.LicenseType==='Trial'?'selected':''}>Trial</option>
             </select>
           </div>
+          <div class="modal-field">
+            <label>ARR (kr)</label>
+            <input ${inputStyle} id="edit-arr" type="number" value="${c.ARR || ''}">
           </div>
           <div class="modal-field">
-            <label>ARR</label>
-            <span>${c.ARR ? c.ARR.toLocaleString('sv-SE') + ' kr' : '–'}</span>
+            <label>Risk</label>
+            <select id="edit-risk" class="edit-input">
+              <option ${c.Risk==='Low'?'selected':''}>Low</option>
+              <option ${c.Risk==='Medium'?'selected':''}>Medium</option>
+              <option ${c.Risk==='High'?'selected':''}>High</option>
+            </select>
           </div>
         </div>
       </div>
@@ -652,14 +643,16 @@ function openModal(id) {
     <div class="modal-section">
       <div class="modal-section-label">Anteckningar</div>
       <div class="modal-card">
-        <textarea id="edit-notes" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;height:100px;resize:vertical;">${c.Notes || ''}</textarea>
+        <textarea id="edit-notes" class="edit-input" style="height:100px;resize:vertical;">${c.Notes || ''}</textarea>
       </div>
     </div>
+
     <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px;">
       <button onclick="closeModalDirect()" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button>
       <button onclick="saveCustomer(${c.Id})" style="padding:8px 18px;border:none;border-radius:8px;background:#E8956D;color:white;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">Spara</button>
     </div>
   `;
+  document.getElementById('modal-overlay').classList.add('open');
 }
 
 async function saveCustomer(id) {
@@ -689,6 +682,7 @@ async function saveCustomer(id) {
     alert('Nätverksfel: ' + e.message);
   }
 }
+
 function closeModal(e) {
   if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
 }
@@ -705,10 +699,3 @@ loadCustomers();
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
