@@ -578,7 +578,7 @@ function openModal(id) {
   const daysHtml = daysPill(c._days);
   const inputStyle = 'class="edit-input"';
 
-  document.getElementById('modal-body').innerHTML = `
+ document.getElementById('modal-body').innerHTML = `
     <div class="modal-section">
       <div class="modal-section-label">Status</div>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -603,8 +603,20 @@ function openModal(id) {
       <div class="modal-card">
         <div class="modal-grid">
           <div class="modal-field">
-            <label>Kontakt</label>
+            <label>Namn</label>
             <input ${inputStyle} id="edit-contact" value="${c.Contact || ''}">
+          </div>
+          <div class="modal-field">
+            <label>Roll</label>
+            <input ${inputStyle} id="edit-contact-role" value="${c.ContactRole || ''}">
+          </div>
+          <div class="modal-field">
+            <label>E-post</label>
+            <input ${inputStyle} id="edit-contact-email" type="email" value="${c.ContactEmail || ''}">
+          </div>
+          <div class="modal-field">
+            <label>Telefon</label>
+            <input ${inputStyle} id="edit-contact-phone" value="${c.ContactPhone || ''}">
           </div>
           <div class="modal-field">
             <label>Kundansvarig</label>
@@ -619,12 +631,8 @@ function openModal(id) {
       <div class="modal-card">
         <div class="modal-grid">
           <div class="modal-field">
-            <label>Start</label>
-            <input ${inputStyle} id="edit-start" type="date" value="${c.LicenseStart ? c.LicenseStart.substring(0,10) : ''}">
-          </div>
-          <div class="modal-field">
-            <label>Slutar</label>
-            <input ${inputStyle} id="edit-end" type="date" value="${c.LicenseEnd ? c.LicenseEnd.substring(0,10) : ''}">
+            <label>Kund sedan</label>
+            <input ${inputStyle} id="edit-customer-since" type="date" value="${c.CustomerSince ? c.CustomerSince.substring(0,10) : ''}">
           </div>
           <div class="modal-field">
             <label>Typ</label>
@@ -635,8 +643,12 @@ function openModal(id) {
             </select>
           </div>
           <div class="modal-field">
-            <label>ARR (kr)</label>
-            <input ${inputStyle} id="edit-arr" type="number" value="${c.ARR || ''}">
+            <label>Start (nuvarande licens)</label>
+            <input ${inputStyle} id="edit-start" type="date" value="${c.LicenseStart ? c.LicenseStart.substring(0,10) : ''}">
+          </div>
+          <div class="modal-field">
+            <label>Slut (nuvarande licens)</label>
+            <input ${inputStyle} id="edit-end" type="date" value="${c.LicenseEnd ? c.LicenseEnd.substring(0,10) : ''}">
           </div>
           <div class="modal-field">
             <label>Risk</label>
@@ -645,6 +657,102 @@ function openModal(id) {
               <option ${c.Risk==='Medium'?'selected':''}>Medium</option>
               <option ${c.Risk==='High'?'selected':''}>High</option>
             </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-label">Intäkter</div>
+      <div class="modal-card">
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label>ARR löpande (kr)</label>
+            <input ${inputStyle} id="edit-arr" type="number" value="${c.ARR || ''}">
+          </div>
+          <div class="modal-field">
+            <label>ARR fast pris (kr)</label>
+            <input ${inputStyle} id="edit-arr-fixed" type="number" value="${c.ARR_Fixed || ''}">
+          </div>
+          <div class="modal-field">
+            <label>Utbildning (kr)</label>
+            <input ${inputStyle} id="edit-revenue-training" type="number" value="${c.Revenue_Training || ''}">
+          </div>
+          <div class="modal-field">
+            <label>Consulting (kr)</label>
+            <input ${inputStyle} id="edit-revenue-consulting" type="number" value="${c.Revenue_Consulting || ''}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${c.LicenseType === 'Team' ? `
+    <div class="modal-section">
+      <div class="modal-section-label">Team</div>
+      <div class="modal-card">
+        <div class="modal-field">
+          <label>Teamnamn</label>
+          <input ${inputStyle} id="edit-team-name" value="${c.TeamName || ''}">
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-label">Mötesledare 1</div>
+      <div class="modal-card">
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label>Namn</label>
+            <input ${inputStyle} id="edit-ml1" value="${c.MeetingLeader1 || ''}">
+          </div>
+          <div class="modal-field">
+            <label>E-post</label>
+            <input ${inputStyle} id="edit-ml1-email" type="email" value="${c.MeetingLeader1Email || ''}">
+          </div>
+          <div class="modal-field">
+            <label>Telefon</label>
+            <input ${inputStyle} id="edit-ml1-phone" value="${c.MeetingLeader1Phone || ''}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-label">Mötesledare 2</div>
+      <div class="modal-card">
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label>Namn</label>
+            <input ${inputStyle} id="edit-ml2" value="${c.MeetingLeader2 || ''}">
+          </div>
+          <div class="modal-field">
+            <label>E-post</label>
+            <input ${inputStyle} id="edit-ml2-email" type="email" value="${c.MeetingLeader2Email || ''}">
+          </div>
+          <div class="modal-field">
+            <label>Telefon</label>
+            <input ${inputStyle} id="edit-ml2-phone" value="${c.MeetingLeader2Phone || ''}">
+          </div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+
+    <div class="modal-section">
+      <div class="modal-section-label">Provision</div>
+      <div class="modal-card">
+        <div class="modal-grid">
+          <div class="modal-field">
+            <label>Säljare</label>
+            <input ${inputStyle} id="edit-commission-salesperson" value="${c.CommissionSalesperson || ''}">
+          </div>
+          <div class="modal-field">
+            <label>Procent (%)</label>
+            <input ${inputStyle} id="edit-commission-percent" type="number" step="0.01" value="${c.CommissionPercent || ''}">
+          </div>
+          <div class="modal-field">
+            <label>Belopp (kr)</label>
+            <input ${inputStyle} id="edit-commission-amount" type="number" value="${c.CommissionAmount || ''}">
           </div>
         </div>
       </div>
@@ -669,12 +777,29 @@ async function saveCustomer(id) {
   const body = {
     company: document.getElementById('edit-company').value,
     contact: document.getElementById('edit-contact').value,
+    contactRole: document.getElementById('edit-contact-role').value,
+    contactEmail: document.getElementById('edit-contact-email').value,
+    contactPhone: document.getElementById('edit-contact-phone').value,
+    customerSince: document.getElementById('edit-customer-since').value,
     owner: document.getElementById('edit-owner').value,
     licenseStart: document.getElementById('edit-start').value,
     licenseEnd: document.getElementById('edit-end').value,
     licenseType: document.getElementById('edit-type').value,
     arr: parseInt(document.getElementById('edit-arr').value) || null,
+    arrFixed: parseInt(document.getElementById('edit-arr-fixed').value) || null,
+    revenueTraining: parseInt(document.getElementById('edit-revenue-training').value) || null,
+    revenueConsulting: parseInt(document.getElementById('edit-revenue-consulting').value) || null,
     risk: document.getElementById('edit-risk').value,
+    teamName: document.getElementById('edit-team-name') ? document.getElementById('edit-team-name').value : null,
+    meetingLeader1: document.getElementById('edit-ml1') ? document.getElementById('edit-ml1').value : null,
+    meetingLeader1Email: document.getElementById('edit-ml1-email') ? document.getElementById('edit-ml1-email').value : null,
+    meetingLeader1Phone: document.getElementById('edit-ml1-phone') ? document.getElementById('edit-ml1-phone').value : null,
+    meetingLeader2: document.getElementById('edit-ml2') ? document.getElementById('edit-ml2').value : null,
+    meetingLeader2Email: document.getElementById('edit-ml2-email') ? document.getElementById('edit-ml2-email').value : null,
+    meetingLeader2Phone: document.getElementById('edit-ml2-phone') ? document.getElementById('edit-ml2-phone').value : null,
+    commissionSalesperson: document.getElementById('edit-commission-salesperson').value,
+    commissionPercent: parseFloat(document.getElementById('edit-commission-percent').value) || null,
+    commissionAmount: parseInt(document.getElementById('edit-commission-amount').value) || null,
     notes: document.getElementById('edit-notes').value
   };
   try {
