@@ -896,8 +896,8 @@ setTimeout(() => setupAutoSave(c.Id), 100);
     if (currentPage === totalPages) setTimeout(() => loadActivities(c.Id), 50);
   }
 
-  function nextPage() { currentPage++; renderPage(); }
-  function prevPage() { currentPage--; renderPage(); }
+ function nextPage() { silentSave(c.Id); currentPage++; renderPage(); }
+function prevPage() { silentSave(c.Id); currentPage--; renderPage(); }
   function goToPage(p) { currentPage = p; renderPage(); }
 
   window.nextPage = nextPage;
