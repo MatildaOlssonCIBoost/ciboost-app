@@ -1199,7 +1199,8 @@ async function silentSave(id) {
     } else {
       showSaveIndicator('⚠ Fel vid sparning', '#a32d2d');
     }
-  } catch(e) {
+  }
+} catch(e) {
     showSaveIndicator('⚠ Fel vid sparning', '#a32d2d');
   }
 }
