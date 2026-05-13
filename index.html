@@ -1136,8 +1136,29 @@ async function silentSave(id) {
       // Uppdatera lokalt
       const idx = allCustomers.findIndex(x => x.Id === id);
       if (idx !== -1) {
-        allCustomers[idx] = { ...allCustomers[idx], ...merged, _owner: merged.owner, _days: daysLeft(merged.licenseEnd) };
-      }
+        allCustomers[idx] = { 
+  ...allCustomers[idx],
+  Company: merged.company || allCustomers[idx].Company,
+  Contact: merged.contact || allCustomers[idx].Contact,
+  ContactRole: merged.contactRole || allCustomers[idx].ContactRole,
+  ContactEmail: merged.contactEmail || allCustomers[idx].ContactEmail,
+  ContactPhone: merged.contactPhone || allCustomers[idx].ContactPhone,
+  CustomerSince: merged.customerSince || allCustomers[idx].CustomerSince,
+  LicenseType: merged.licenseType || allCustomers[idx].LicenseType,
+  LicenseStart: merged.licenseStart || allCustomers[idx].LicenseStart,
+  LicenseEnd: merged.licenseEnd || allCustomers[idx].LicenseEnd,
+  ARR: merged.arr ?? allCustomers[idx].ARR,
+  ARR_Fixed: merged.arrFixed ?? allCustomers[idx].ARR_Fixed,
+  Revenue_Training: merged.revenueTraining ?? allCustomers[idx].Revenue_Training,
+  Revenue_Consulting: merged.revenueConsulting ?? allCustomers[idx].Revenue_Consulting,
+  Risk: merged.risk || allCustomers[idx].Risk,
+  CommissionSalesperson: merged.commissionSalesperson ?? allCustomers[idx].CommissionSalesperson,
+  CommissionPercent: merged.commissionPercent ?? allCustomers[idx].CommissionPercent,
+  CommissionAmount: merged.commissionAmount ?? allCustomers[idx].CommissionAmount,
+  Notes: merged.notes ?? allCustomers[idx].Notes,
+  _owner: merged.owner || allCustomers[idx]._owner,
+  _days: daysLeft(merged.licenseEnd || allCustomers[idx].LicenseEnd)
+};
       showSaveIndicator('✓ Sparat', '#1a7a50');
 
       // Spara teams om på team-sidan
