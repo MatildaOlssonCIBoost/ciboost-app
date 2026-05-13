@@ -657,6 +657,7 @@ function openModal(id) {
 
 async function saveCustomer(id) {
   const body = {
+    company: allCustomers.find(x => x.Id === id)?.Company || '',
     contact: document.getElementById('edit-contact').value,
     owner: document.getElementById('edit-owner').value,
     licenseStart: document.getElementById('edit-start').value,
