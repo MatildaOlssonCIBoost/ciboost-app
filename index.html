@@ -892,6 +892,7 @@ async function openModal(id) {
 
     // Uppdatera total efter render
     setTimeout(updateTotal, 50);
+setTimeout(() => setupAutoSave(c.Id), 100);
     if (currentPage === totalPages) setTimeout(() => loadActivities(c.Id), 50);
   }
 
@@ -1039,6 +1040,137 @@ async function addActivity(customerId) {
   });
   document.getElementById('new-activity-note').value = '';
   loadActivities(customerId);
+}
+let autoSaveTimer = null;
+function setupAutoSave(id) {
+  const fields = document.getElementById('modal-body').querySelectorAll('input, select, textarea');
+  fields.forEach(field => {
+    field.addEventListener('input', () => {
+      clearTimeout(autoSaveTimer);
+      showSaveIndicator('Sparar...');
+      autoSaveTimer = setTimeout(() => silentSave(id), 1500);
+    });
+    field.addEventListener('change', () => {
+      clearTimeout(autoSaveTimer);
+      showSaveIndicator('Sparar...');
+      autoSaveTimer = setTimeout(() => silentSave(id), 1500);
+    });
+  });
+}
+
+function showSaveIndicator(msg, color) {
+  let el = document.getElementById('save-indicator');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'save-indicator';
+    el.style.cssText = 'position:fixed;bottom:20px;right:480px;padding:6px 12px;border-radius:6px;font-size:12px;font-family:Poppins,sans-serif;z-index:300;transition:opacity 0.3s;';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.background = color || '#1e2140';
+  el.style.color = 'white';
+  el.style.opacity = '1';
+  if (msg === '✓ Sparat') setTimeout(() => { el.style.opacity = '0'; }, 2000);
+}
+
+async function silentSave(id) {
+  const c = allCustomers.find(x => x.Id === id);
+  if (!c) return;
+  const licenseType = document.getElementById('edit-type')?.value || c.LicenseType;
+
+  const getValue = (elId) => document.getElementById(elId)?.value || null;
+  const getInt = (elId) => parseInt(document.getElementById(elId)?.value) || null;
+
+  const body = {
+    company: getValue('edit-company') || c.Company,
+    contact: getValue('edit-contact') || c.Contact,
+    contactRole: getValue('edit-contact-role'),
+    contactEmail: getValue('edit-contact-email'),
+    contactPhone: getValue('edit-contact-phone'),
+    customerSince: getValue('edit-customer-since'),
+    owner: getValue('edit-owner') || c._owner,
+    licenseStart: getValue('edit-start'),
+    licenseEnd: getValue('edit-end'),
+    licenseType: licenseType,
+    arr: getInt('edit-arr'),
+    arrFixed: getInt('edit-arr-fixed'),
+    revenueTraining: getInt('edit-revenue-training'),
+    revenueConsulting: getInt('edit-revenue-consulting'),
+    risk: getValue('edit-risk') || c.Risk,
+    commissionSalesperson: document.getElementById('commission-toggle')?.checked ? getValue('edit-commission-salesperson') : null,
+    commissionPercent: document.getElementById('commission-toggle')?.checked ? parseFloat(document.getElementById('edit-commission-percent')?.value) || null : null,
+    commissionAmount: document.getElementById('commission-toggle')?.checked ? getInt('edit-commission-amount') : null,
+    notes: getValue('edit-notes')
+  };
+
+  // Merge med befintlig data för fält som inte visas på denna sida
+  const merged = { ...{
+    company: c.Company, contact: c.Contact, contactRole: c.ContactRole,
+    contactEmail: c.ContactEmail, contactPhone: c.ContactPhone,
+    customerSince: c.CustomerSince, owner: c._owner,
+    licenseStart: c.LicenseStart, licenseEnd: c.LicenseEnd,
+    licenseType: c.LicenseType, arr: c.ARR, arrFixed: c.ARR_Fixed,
+    revenueTraining: c.Revenue_Training, revenueConsulting: c.Revenue_Consulting,
+    risk: c.Risk, commissionSalesperson: c.CommissionSalesperson,
+    commissionPercent: c.CommissionPercent, commissionAmount: c.CommissionAmount,
+    notes: c.Notes
+  }, ...Object.fromEntries(Object.entries(body).filter(([_, v]) => v !== null && v !== '')) };
+
+  try {
+    const r = await fetch(`${API}/customers/${id}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(merged)
+    });
+    if (r.ok) {
+      // Uppdatera lokalt
+      const idx = allCustomers.findIndex(x => x.Id === id);
+      if (idx !== -1) {
+        allCustomers[idx] = { ...allCustomers[idx], ...merged, _owner: merged.owner, _days: daysLeft(merged.licenseEnd) };
+      }
+      showSaveIndicator('✓ Sparat', '#1a7a50');
+
+      // Spara teams om på team-sidan
+      if (licenseType === 'Team' && document.getElementById('edit-team-count')) {
+        await fetch(`${API}/customers/${id}/teams`, { method: 'DELETE', headers: {'Content-Type':'application/json'} });
+        const count = parseInt(document.getElementById('edit-team-count')?.value) || 0;
+        for (let i = 0; i < count; i++) {
+          await fetch(`${API}/customers/${id}/teams`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              teamName: document.getElementById(`team-name-${i}`)?.value || '',
+              meetingLeader1: document.getElementById(`team-ml1-${i}`)?.value || '',
+              meetingLeader1Email: document.getElementById(`team-ml1-email-${i}`)?.value || '',
+              meetingLeader2: document.getElementById(`team-ml2-${i}`)?.value || '',
+              meetingLeader2Email: document.getElementById(`team-ml2-email-${i}`)?.value || ''
+            })
+          });
+        }
+      }
+
+      // Spara admins om på admin-sidan
+      if (licenseType === 'Enterprise' && document.getElementById('edit-admin-count')) {
+        await fetch(`${API}/customers/${id}/admins`, { method: 'DELETE', headers: {'Content-Type':'application/json'} });
+        const count = parseInt(document.getElementById('edit-admin-count')?.value) || 0;
+        for (let i = 0; i < count; i++) {
+          await fetch(`${API}/customers/${id}/admins`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+              name: document.getElementById(`admin-name-${i}`)?.value || '',
+              email: document.getElementById(`admin-email-${i}`)?.value || '',
+              phone: document.getElementById(`admin-phone-${i}`)?.value || ''
+            })
+          });
+        }
+      }
+    } else {
+      showSaveIndicator('⚠ Fel vid sparning', '#a32d2d');
+    }
+  } catch(e) {
+    showSaveIndicator('⚠ Fel vid sparning', '#a32d2d');
+  }
 }
 async function saveCustomer(id) {
   const c = allCustomers.find(x => x.Id === id);
