@@ -1104,17 +1104,27 @@ async function silentSave(id) {
   };
 
   // Merge med befintlig data för fält som inte visas på denna sida
-  const merged = { ...{
-    company: c.Company, contact: c.Contact, contactRole: c.ContactRole,
-    contactEmail: c.ContactEmail, contactPhone: c.ContactPhone,
-    customerSince: c.CustomerSince, owner: c._owner,
-    licenseStart: c.LicenseStart, licenseEnd: c.LicenseEnd,
-    licenseType: c.LicenseType, arr: c.ARR, arrFixed: c.ARR_Fixed,
-    revenueTraining: c.Revenue_Training, revenueConsulting: c.Revenue_Consulting,
-    risk: c.Risk, commissionSalesperson: c.CommissionSalesperson,
-    commissionPercent: c.CommissionPercent, commissionAmount: c.CommissionAmount,
-    notes: c.Notes
-  }, ...Object.fromEntries(Object.entries(body).filter(([_, v]) => v !== null && v !== '')) };
+  const merged = {
+    company: body.company || c.Company,
+    contact: body.contact || c.Contact,
+    contactRole: body.contactRole || c.ContactRole,
+    contactEmail: body.contactEmail || c.ContactEmail,
+    contactPhone: body.contactPhone || c.ContactPhone,
+    customerSince: body.customerSince || c.CustomerSince,
+    owner: body.owner || c._owner,
+    licenseStart: body.licenseStart || c.LicenseStart,
+    licenseEnd: body.licenseEnd || c.LicenseEnd,
+    licenseType: body.licenseType || c.LicenseType,
+    arr: body.arr ?? c.ARR,
+    arrFixed: body.arrFixed ?? c.ARR_Fixed,
+    revenueTraining: body.revenueTraining ?? c.Revenue_Training,
+    revenueConsulting: body.revenueConsulting ?? c.Revenue_Consulting,
+    risk: body.risk || c.Risk,
+    commissionSalesperson: body.commissionSalesperson ?? c.CommissionSalesperson,
+    commissionPercent: body.commissionPercent ?? c.CommissionPercent,
+    commissionAmount: body.commissionAmount ?? c.CommissionAmount,
+    notes: body.notes ?? c.Notes
+  };
 
   try {
     const r = await fetch(`${API}/customers/${id}`, {
