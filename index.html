@@ -1192,15 +1192,18 @@ async function silentSave(id) {
   const gv=elId=>document.getElementById(elId)?.value??null;
   const merged={
     company:gv('edit-company')||c.Company, contact:gv('edit-contact')||c.Contact,
-    contactRole:gv('edit-contact-role')??c.ContactRole, contactEmail:gv('edit-contact-email')??c.ContactEmail,
-    contactPhone:gv('edit-contact-phone')??c.ContactPhone, customerSince:gv('edit-customer-since')??c.CustomerSince,
+    contactRole:document.getElementById('edit-contact-role')?(gv('edit-contact-role')??''):(c.ContactRole??''),
+    contactEmail:document.getElementById('edit-contact-email')?(gv('edit-contact-email')??''):(c.ContactEmail??''),
+    contactPhone:document.getElementById('edit-contact-phone')?(gv('edit-contact-phone')??''):(c.ContactPhone??''),
+    customerSince:document.getElementById('edit-customer-since')?(gv('edit-customer-since')||null):(c.CustomerSince||null),
     owner:gv('edit-owner')||c._owner, licenseStart:gv('edit-start')||c.LicenseStart,
     licenseEnd:gv('edit-end')||c.LicenseEnd, licenseType:lt,
     arr:document.getElementById('edit-arr')?(parseInt(document.getElementById('edit-arr').value)||0):c.ARR,
     arrFixed:c.ARR_Fixed, revenueTraining:c.Revenue_Training, revenueTrainingDate:c.Revenue_Training_Date,
     revenueConsulting:c.Revenue_Consulting, revenueConsultingDate:c.Revenue_Consulting_Date,
-    risk:gv('edit-risk')||c.Risk, subName:gv('edit-subname')??c.SubName,
-    notes:document.getElementById('edit-notes')?document.getElementById('edit-notes').value:c.Notes,
+    risk:gv('edit-risk')||c.Risk,
+    subName:document.getElementById('edit-subname')?(gv('edit-subname')??''):(c.SubName??''),
+    notes:document.getElementById('edit-notes')?document.getElementById('edit-notes').value:(c.Notes??''),
     teamName:c.TeamName, meetingLeader1:c.MeetingLeader1, meetingLeader1Email:c.MeetingLeader1Email,
     meetingLeader1Phone:c.MeetingLeader1Phone, meetingLeader2:c.MeetingLeader2,
     meetingLeader2Email:c.MeetingLeader2Email, meetingLeader2Phone:c.MeetingLeader2Phone,
@@ -1210,7 +1213,7 @@ async function silentSave(id) {
     const r=await fetch(`${API}/customers/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged)});
     if(r.ok){
       const idx=allCustomers.findIndex(x=>x.Id===id);
-      if(idx!==-1) allCustomers[idx]={...allCustomers[idx],Company:merged.company,Contact:merged.contact,LicenseType:merged.licenseType,LicenseStart:merged.licenseStart,LicenseEnd:merged.licenseEnd,Risk:merged.risk,SubName:merged.subName,Notes:merged.notes,_owner:merged.owner,_days:daysLeft(merged.licenseEnd)};
+      if(idx!==-1) allCustomers[idx]={...allCustomers[idx],Company:merged.company,Contact:merged.contact,ContactRole:merged.contactRole,ContactEmail:merged.contactEmail,ContactPhone:merged.contactPhone,CustomerSince:merged.customerSince,LicenseType:merged.licenseType,LicenseStart:merged.licenseStart,LicenseEnd:merged.licenseEnd,ARR:merged.arr,ARR_Fixed:merged.arrFixed,Risk:merged.risk,SubName:merged.subName,Notes:merged.notes,_owner:merged.owner,_days:daysLeft(merged.licenseEnd)};
       showSaveIndicator('✓ Sparat','#1a7a50');
       if(lt==='Team'&&document.getElementById('edit-team-count')){
         await fetch(`${API}/customers/${id}/teams`,{method:'DELETE',headers:{'Content-Type':'application/json'}});
