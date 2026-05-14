@@ -1104,26 +1104,26 @@ async function silentSave(id) {
   };
 
   // Merge med befintlig data för fält som inte visas på denna sida
-  const merged = {
+const merged = {
     company: body.company || c.Company,
     contact: body.contact || c.Contact,
-    contactRole: body.contactRole || c.ContactRole,
-    contactEmail: body.contactEmail || c.ContactEmail,
-    contactPhone: body.contactPhone || c.ContactPhone,
-    customerSince: body.customerSince || c.CustomerSince,
+    contactRole: body.contactRole !== undefined ? body.contactRole : c.ContactRole,
+    contactEmail: body.contactEmail !== undefined ? body.contactEmail : c.ContactEmail,
+    contactPhone: body.contactPhone !== undefined ? body.contactPhone : c.ContactPhone,
+    customerSince: body.customerSince !== undefined ? body.customerSince : c.CustomerSince,
     owner: body.owner || c._owner,
     licenseStart: body.licenseStart || c.LicenseStart,
     licenseEnd: body.licenseEnd || c.LicenseEnd,
     licenseType: body.licenseType || c.LicenseType,
-    arr: body.arr ?? c.ARR,
-    arrFixed: body.arrFixed ?? c.ARR_Fixed,
-    revenueTraining: body.revenueTraining ?? c.Revenue_Training,
-    revenueConsulting: body.revenueConsulting ?? c.Revenue_Consulting,
+    arr: document.getElementById('edit-arr') ? (parseInt(document.getElementById('edit-arr').value) || 0) : c.ARR,
+    arrFixed: document.getElementById('edit-arr-fixed') ? (parseInt(document.getElementById('edit-arr-fixed').value) || 0) : c.ARR_Fixed,
+    revenueTraining: document.getElementById('edit-revenue-training') ? (parseInt(document.getElementById('edit-revenue-training').value) || 0) : c.Revenue_Training,
+    revenueConsulting: document.getElementById('edit-revenue-consulting') ? (parseInt(document.getElementById('edit-revenue-consulting').value) || 0) : c.Revenue_Consulting,
     risk: body.risk || c.Risk,
-    commissionSalesperson: body.commissionSalesperson ?? c.CommissionSalesperson,
-    commissionPercent: body.commissionPercent ?? c.CommissionPercent,
-    commissionAmount: body.commissionAmount ?? c.CommissionAmount,
-    notes: body.notes ?? c.Notes
+    commissionSalesperson: body.commissionSalesperson !== undefined ? body.commissionSalesperson : c.CommissionSalesperson,
+    commissionPercent: body.commissionPercent !== undefined ? body.commissionPercent : c.CommissionPercent,
+    commissionAmount: body.commissionAmount !== undefined ? body.commissionAmount : c.CommissionAmount,
+    notes: document.getElementById('edit-notes') ? document.getElementById('edit-notes').value : c.Notes
   };
 
   try {
