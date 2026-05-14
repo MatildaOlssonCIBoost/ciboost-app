@@ -20,7 +20,6 @@
     --shadow: 0 1px 3px rgba(30,33,64,0.08); --shadow-md: 0 4px 12px rgba(30,33,64,0.12);
   }
   body { font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
-
   .topnav { background: #1e2140; border-bottom: 1px solid #2a2f5a; padding: 0 24px; display: flex; align-items: center; gap: 32px; height: 52px; position: sticky; top: 0; z-index: 100; }
   .logo { font-weight: 600; font-size: 15px; color: #fff; display: flex; align-items: center; gap: 8px; }
   .nav-tabs { display: flex; gap: 2px; flex: 1; }
@@ -28,22 +27,17 @@
   .nav-tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
   .nav-tab.active { background: rgba(255,255,255,0.12); color: #fff; }
   .nav-tab .count { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: rgba(255,255,255,0.2); color: white; }
-
   .stats-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; gap: 32px; align-items: center; }
-  .stat { display: flex; flex-direction: column; gap: 1px; }
+  .stat { display: flex; flex-direction: column; gap: 1px; cursor: default; }
   .stat-val { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
   .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
   .stat-divider { width: 1px; height: 32px; background: var(--border); }
-
-  .sub-tabs-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; gap: 0; }
-  .sub-tab { padding: 10px 16px; border: none; border-bottom: 2px solid transparent; background: none; font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 500; color: var(--text3); cursor: pointer; transition: all 0.15s; }
-  .sub-tab:hover { color: var(--text2); }
+  .sub-tabs-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; }
+  .sub-tab { padding: 10px 16px; border: none; border-bottom: 2px solid transparent; background: none; font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 500; color: var(--text3); cursor: pointer; }
   .sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
   .page { display: none; }
   .page.active { display: block; }
   .main { padding: 20px 24px; max-width: 1400px; }
-
   .filters { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
   .search-wrap { position: relative; flex: 0 0 220px; }
   .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; }
@@ -52,23 +46,16 @@
   .search-input::placeholder { color: var(--text3); }
   select { padding: 8px 32px 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-family: 'Poppins', sans-serif; font-size: 13px; background: var(--surface); color: var(--text); outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6960' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
   select:focus { border-color: var(--accent); outline: none; }
-
-  .view-toggle { display: flex; gap: 2px; background: var(--surface2); border-radius: 8px; padding: 2px; }
-  .view-btn { padding: 5px 12px; border-radius: 6px; border: none; background: none; font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text3); cursor: pointer; }
-  .view-btn.active { background: var(--surface); color: var(--text); font-weight: 500; border: 1px solid var(--border); }
-
-  /* Revenue dropdown */
   .rev-dropdown { position: relative; }
   .rev-dd-btn { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text); cursor: pointer; }
   .rev-dd-btn:hover { border-color: var(--accent); }
-  .rev-dd-panel { position: absolute; top: calc(100% + 4px); left: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px; min-width: 180px; z-index: 50; box-shadow: var(--shadow-md); }
+  .rev-dd-panel { position: absolute; top: calc(100% + 4px); left: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px; min-width: 190px; z-index: 50; box-shadow: var(--shadow-md); }
   .rev-dd-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
   .rev-dd-item:hover { background: var(--surface2); }
-  .rev-cb { width: 15px; height: 15px; border-radius: 3px; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.1s; }
+  .rev-cb { width: 15px; height: 15px; border-radius: 3px; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .rev-cb.on { border-color: var(--green); background: var(--green); }
   .rev-cb.on::after { content: '✓'; font-size: 9px; color: white; font-weight: 600; }
   .rev-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-
   .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
   table { width: 100%; border-collapse: collapse; }
   thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
@@ -81,8 +68,8 @@
   .license-type { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 500; }
   .lt-Enterprise { background: var(--blue-bg); color: var(--blue); }
   .lt-Team { background: var(--green-bg); color: var(--green); }
-  .lt-Trial { background: var(--amber-bg); color: var(--amber); }
-  .lt-Pilot { background: var(--purple-bg); color: var(--purple); }
+  .lt-Pilot { background: var(--amber-bg); color: var(--amber); }
+  .lt-Trial { background: var(--purple-bg); color: var(--purple); }
   .days-pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: 500; white-space: nowrap; }
   .days-ok { background: var(--green-bg); color: var(--green); }
   .days-warn { background: var(--amber-bg); color: var(--amber); }
@@ -94,28 +81,29 @@
   .risk-Medium { color: var(--amber); } .risk-Medium::before { background: var(--amber); }
   .risk-High { color: var(--red); } .risk-High::before { background: var(--red); }
   .owner-tag { font-size: 11px; color: var(--gray); background: var(--gray-bg); border-radius: 4px; padding: 2px 7px; white-space: nowrap; }
-
-  /* Licenstidslinje */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+  .kpi-card { background: var(--surface2); border-radius: 8px; padding: 12px 14px; }
+  .kpi-label { font-size: 11px; color: var(--text3); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi-value { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
+  .kpi-delta { font-size: 11px; margin-top: 3px; }
+  .pos { color: var(--green); } .neg { color: var(--red); } .neu { color: var(--text3); }
   .action-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
   .action-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
   .action-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 10px; display: flex; justify-content: space-between; }
-  .action-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .action-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; cursor: pointer; }
   .action-row:last-child { border-bottom: none; }
+  .action-row:hover { color: var(--accent); }
   .gantt-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .gantt-header { display: flex; border-bottom: 1px solid var(--border); background: var(--surface2); padding: 8px 14px; }
   .gantt-name-col { min-width: 180px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
   .gantt-months { flex: 1; display: flex; }
   .gantt-month { flex: 1; text-align: center; font-size: 11px; color: var(--text3); font-weight: 500; }
-  .gantt-row { display: flex; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+  .gantt-row { display: flex; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
   .gantt-row:last-child { border-bottom: none; }
   .gantt-row:hover { background: var(--surface2); }
   .gantt-row-name { min-width: 180px; }
-  .gantt-row-name .cn { font-weight: 500; font-size: 13px; }
-  .gantt-row-name .cs { font-size: 11px; color: var(--text3); }
-  .gantt-bars { flex: 1; position: relative; height: 20px; }
-  .gantt-bar { position: absolute; height: 20px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: white; white-space: nowrap; overflow: hidden; }
-
-  /* Finansiellt */
+  .gantt-bars { flex: 1; position: relative; height: 22px; }
+  .gantt-bar { position: absolute; height: 22px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: white; white-space: nowrap; overflow: hidden; }
   .date-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .date-input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-family: 'Poppins', sans-serif; font-size: 13px; background: var(--surface); color: var(--text); outline: none; }
   .date-input:focus { border-color: var(--accent); }
@@ -125,26 +113,17 @@
   .result-toggle { display: flex; gap: 2px; background: var(--surface2); border-radius: 8px; padding: 2px; }
   .result-btn { padding: 5px 12px; border-radius: 6px; border: none; background: none; font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text3); cursor: pointer; }
   .result-btn.active { background: var(--surface); color: var(--text); font-weight: 500; border: 1px solid var(--border); }
-
   .hero-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; display: flex; gap: 40px; align-items: flex-end; flex-wrap: wrap; }
   .hero-main .label { font-size: 12px; color: var(--text3); margin-bottom: 4px; }
   .hero-main .value { font-size: 38px; font-weight: 600; letter-spacing: -1.5px; line-height: 1; }
   .hero-main .delta { font-size: 12px; margin-top: 6px; }
   .hero-sec { text-align: right; }
   .hero-sec .label { font-size: 12px; color: var(--text3); margin-bottom: 4px; }
-  .hero-sec .value { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
+  .hero-sec .value { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
   .hero-sec .delta { font-size: 12px; margin-top: 4px; }
-
-  .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
-  .kpi-card { background: var(--surface2); border-radius: 8px; padding: 12px 14px; }
-  .kpi-label { font-size: 11px; color: var(--text3); margin-bottom: 3px; }
-  .kpi-value { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
-  .kpi-delta { font-size: 11px; margin-top: 3px; }
-  .pos { color: var(--green); } .neg { color: var(--red); } .neu { color: var(--text3); }
-
   .fin-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
   .fin-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
-  .fin-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .fin-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
   .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
   .b-green { background: var(--green-bg); color: var(--green); }
   .b-amber { background: var(--amber-bg); color: var(--amber); }
@@ -152,21 +131,14 @@
   .b-blue { background: var(--blue-bg); color: var(--blue); }
   .b-purple { background: var(--purple-bg); color: var(--purple); }
   .b-gray { background: var(--gray-bg); color: var(--gray); }
-  .mix-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .mix-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
   .mix-row:last-child { border-bottom: none; }
-  .mix-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .mix-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; }
   .mix-fill { height: 5px; border-radius: 3px; }
-  .budget-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .budget-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
   .budget-row:last-child { border-bottom: none; }
-  .budget-bars { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-  .budget-bar { height: 8px; border-radius: 2px; display: flex; align-items: center; padding: 0 4px; font-size: 9px; color: white; }
   .forecast-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
   .forecast-row:last-child { border-bottom: none; }
-  .forecast-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; }
-  .forecast-fill { height: 5px; border-radius: 3px; }
-
-  /* Periodisering */
   .period-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: auto; }
   .period-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .period-table th { padding: 8px 10px; text-align: center; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -180,11 +152,9 @@
   .p-utb { background: var(--amber-bg); color: var(--amber); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
   .p-cons { background: var(--purple-bg); color: var(--purple); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
   .p-total { background: var(--surface2); font-weight: 600; border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; }
-
-  /* Modal */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(3px); z-index: 200; display: none; align-items: center; justify-content: flex-end; }
   .modal-overlay.open { display: flex; }
-  .modal { background: var(--surface); width: 460px; height: 100vh; overflow-y: auto; box-shadow: var(--shadow-md); animation: slideIn 0.2s ease; display: flex; flex-direction: column; }
+  .modal { background: var(--surface); width: 480px; height: 100vh; overflow-y: auto; box-shadow: var(--shadow-md); animation: slideIn 0.2s ease; display: flex; flex-direction: column; }
   @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
   .modal-header { padding: 16px 20px 0; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 1; }
   .modal-header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
@@ -195,30 +165,28 @@
   .btn-delete:hover { background: var(--red-bg); }
   .modal-close { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); }
   .modal-close:hover { background: var(--surface2); }
-  .modal-tabs { display: flex; }
-  .modal-tab { padding: 8px 16px; border: none; border-bottom: 2px solid transparent; background: none; font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 500; color: var(--text3); cursor: pointer; white-space: nowrap; }
+  .modal-tabs { display: flex; overflow-x: auto; }
+  .modal-tab { padding: 8px 14px; border: none; border-bottom: 2px solid transparent; background: none; font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 500; color: var(--text3); cursor: pointer; white-space: nowrap; }
   .modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
   .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
   .modal-section { display: flex; flex-direction: column; gap: 8px; }
-  .modal-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); }
+  .modal-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); display: flex; justify-content: space-between; align-items: center; }
   .modal-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
   .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .modal-field label { font-size: 11px; color: var(--text3); margin-bottom: 3px; display: block; }
   .edit-input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text); background: var(--surface); }
   .edit-input:focus { outline: none; border-color: var(--accent); }
-
-  /* Revenue items */
-  .rev-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .rev-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
   .rev-item:last-child { margin-bottom: 0; }
+  .rev-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .rev-item-type { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
-  .rev-item-info { flex: 1; }
-  .rev-item-amount { font-size: 14px; font-weight: 600; }
+  .rev-item-amount { font-size: 15px; font-weight: 600; flex: 1; }
   .rev-item-dates { font-size: 11px; color: var(--text3); }
-  .rev-item-desc { font-size: 12px; color: var(--text2); }
-  .rev-del { width: 24px; height: 24px; border: none; background: none; cursor: pointer; color: var(--text3); display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+  .rev-item-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .rev-del { width: 24px; height: 24px; border: none; background: none; cursor: pointer; color: var(--text3); display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; }
   .rev-del:hover { background: var(--red-bg); color: var(--red); }
-
-  /* Confirm */
+  .comm-item { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .comm-paid { text-decoration: line-through; opacity: 0.5; }
   .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 400; display: none; align-items: center; justify-content: center; }
   .confirm-overlay.open { display: flex; }
   .confirm-box { background: var(--surface); border-radius: 12px; padding: 24px; width: 320px; box-shadow: var(--shadow-md); animation: popIn 0.15s ease; }
@@ -229,14 +197,13 @@
   .btn-cancel { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: none; font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text2); cursor: pointer; }
   .btn-cancel:hover { background: var(--surface2); }
   .btn-confirm-delete { flex: 1; padding: 8px; border: none; border-radius: 8px; background: var(--red-bg); color: var(--red); font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
-  .btn-confirm-delete:hover { background: #f5c5c5; }
-
   .loading { display: flex; align-items: center; justify-content: center; padding: 60px; color: var(--text3); font-size: 13px; gap: 10px; }
   .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .empty { text-align: center; padding: 48px; color: var(--text3); font-size: 13px; }
   .btn-primary { padding: 8px 18px; border: none; border-radius: 8px; background: var(--accent); color: #1e2140; font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
   .btn-primary:hover { opacity: 0.9; }
+  .btn-sm { padding: 4px 10px; border: none; border-radius: 6px; background: var(--accent); color: #1e2140; font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -248,13 +215,12 @@
   <div class="nav-tabs">
     <button class="nav-tab">Pipeline</button>
     <button class="nav-tab">Trial &amp; Pilot</button>
-    <button class="nav-tab active" id="nav-kunder" onclick="switchMainTab('kunder',this)">Kunder <span class="count" id="tab-count">-</span></button>
-    <button class="nav-tab" id="nav-finansiellt" onclick="switchMainTab('finansiellt',this)">Finansiellt</button>
+    <button class="nav-tab active" onclick="switchMain('kunder',this)">Kunder <span class="count" id="tab-count">-</span></button>
+    <button class="nav-tab" onclick="switchMain('finansiellt',this)">Finansiellt</button>
     <button class="nav-tab">Arkiv</button>
   </div>
 </nav>
 
-<!-- STATS BAR -->
 <div class="stats-bar" id="stats-bar">
   <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-total">-</div><div class="stat-label">Aktiva kunder</div></div>
   <div class="stat-divider"></div>
@@ -268,27 +234,23 @@
   <div class="stat-divider"></div>
   <div class="stat"><div class="stat-val" style="color:var(--gray)" id="stat-expired">-</div><div class="stat-label">Utgångna</div></div>
   <div class="stat-divider"></div>
-  <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-arr">-</div><div class="stat-label">Total ARR</div></div>
+  <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-total-val">-</div><div class="stat-label" id="stat-total-val-label">Total ARR</div></div>
 </div>
 
-<!-- SUB TABS -->
-<div class="sub-tabs-bar" id="sub-tabs-kunder">
-  <button class="sub-tab active" onclick="switchSubTab('kunder','oversikt',this)">Översikt</button>
-  <button class="sub-tab" onclick="switchSubTab('kunder','licenstidslinje',this)">Licenstidslinje</button>
+<div class="sub-tabs-bar" id="subtabs-kunder">
+  <button class="sub-tab active" onclick="switchSub('kunder','oversikt',this)">Översikt</button>
+  <button class="sub-tab" onclick="switchSub('kunder','licenstidslinje',this)">Licenstidslinje</button>
 </div>
-<div class="sub-tabs-bar" id="sub-tabs-finansiellt" style="display:none;">
-  <button class="sub-tab active" onclick="switchSubTab('finansiellt','dashboard',this)">Dashboard</button>
-  <button class="sub-tab" onclick="switchSubTab('finansiellt','periodisering',this)">Periodisering</button>
+<div class="sub-tabs-bar" id="subtabs-finansiellt" style="display:none;">
+  <button class="sub-tab active" onclick="switchSub('finansiellt','dashboard',this)">Dashboard</button>
+  <button class="sub-tab" onclick="switchSub('finansiellt','periodisering',this)">Periodisering</button>
 </div>
 
 <!-- KUNDER ÖVERSIKT -->
 <div class="page active" id="page-kunder-oversikt">
   <div class="main">
+    <div class="kpi-grid" id="rev-summary"></div>
     <div class="filters">
-      <div class="view-toggle">
-        <button class="view-btn active" id="view-tabell-btn" onclick="setView('tabell')">Tabell</button>
-        <button class="view-btn" id="view-fin-btn" onclick="setView('finansiell')">Finansiell</button>
-      </div>
       <div class="search-wrap">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         <input class="search-input" type="text" id="search" placeholder="Sök organisation...">
@@ -300,14 +262,14 @@
       </select>
       <select id="filter-license">
         <option value="">Alla licenstyper</option>
-        <option>Enterprise</option><option>Team</option><option>Trial</option><option>Pilot</option>
+        <option>Enterprise</option><option>Team</option><option>Pilot</option>
       </select>
       <select id="filter-risk">
         <option value="">Alla risknivåer</option>
         <option>Low</option><option>Medium</option><option>High</option>
       </select>
       <div class="rev-dropdown">
-        <button class="rev-dd-btn" onclick="toggleRevDD()">
+        <button class="rev-dd-btn" onclick="toggleRevDD(event)">
           Intäktskällor
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
         </button>
@@ -324,49 +286,25 @@
         Ny kund
       </button>
     </div>
-
-    <div id="view-tabell-content">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th onclick="sortBy('Company')">Kund</th>
-              <th onclick="sortBy('Contact')">Kontakt</th>
-              <th>Kundansvarig</th>
-              <th onclick="sortBy('LicenseType')">Typ</th>
-              <th onclick="sortBy('ARR')">Värde</th>
-              <th>Fördelning</th>
-              <th onclick="sortBy('LicenseEnd')">Licens slutar</th>
-              <th onclick="sortBy('days')">Tid kvar</th>
-              <th onclick="sortBy('Risk')">Risk</th>
-            </tr>
-          </thead>
-          <tbody id="table-body">
-            <tr><td colspan="9"><div class="loading"><div class="spinner"></div> Hämtar kunder</div></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="view-fin-content" style="display:none;">
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px;" id="fin-summary"></div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th onclick="sortBy('Company')">Kund</th>
-              <th>Kundansvarig</th>
-              <th onclick="sortBy('ARR')">Värde (valt)</th>
-              <th>Fördelning</th>
-              <th onclick="sortBy('LicenseEnd')">Licens slutar</th>
-              <th onclick="sortBy('Risk')">Risk</th>
-            </tr>
-          </thead>
-          <tbody id="fin-body">
-            <tr><td colspan="6"><div class="loading"><div class="spinner"></div> Laddar</div></td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('Company')">Kund</th>
+            <th onclick="sortBy('Contact')">Kontakt</th>
+            <th>Kundansvarig</th>
+            <th onclick="sortBy('LicenseType')">Typ</th>
+            <th onclick="sortBy('ARR')">Värde</th>
+            <th>Fördelning</th>
+            <th onclick="sortBy('LicenseEnd')">Licens slutar</th>
+            <th onclick="sortBy('days')">Tid kvar</th>
+            <th onclick="sortBy('Risk')">Risk</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="9"><div class="loading"><div class="spinner"></div> Hämtar kunder</div></td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -399,32 +337,33 @@
   <div class="main">
     <div class="date-filter">
       <span style="font-size:13px;color:var(--text3);">Period:</span>
-      <input type="date" class="date-input" id="fin-date-from" value="2026-01-01">
+      <input type="date" class="date-input" id="fin-from" value="2026-01-01" onchange="renderFinDashboard()">
       <span style="font-size:13px;color:var(--text3);">–</span>
-      <input type="date" class="date-input" id="fin-date-to" value="2026-12-31">
-      <button class="quick-btn" onclick="setQuickPeriod('ytd')">YTD</button>
-      <button class="quick-btn" onclick="setQuickPeriod('q2')">Q2</button>
-      <button class="quick-btn" onclick="setQuickPeriod('h1')">H1</button>
-      <button class="quick-btn active" id="qbtn-year" onclick="setQuickPeriod('year')">Helår</button>
+      <input type="date" class="date-input" id="fin-to" value="2026-12-31" onchange="renderFinDashboard()">
+      <button class="quick-btn" onclick="setFinQuick('ytd',this)">YTD</button>
+      <button class="quick-btn" onclick="setFinQuick('q2',this)">Q2</button>
+      <button class="quick-btn" onclick="setFinQuick('h1',this)">H1</button>
+      <button class="quick-btn active" onclick="setFinQuick('year',this)">Helår</button>
       <div class="result-toggle" style="margin-left:auto;">
-        <button class="result-btn active" id="res-btn-resultat" onclick="setResultView('resultat')">Resultat</button>
-        <button class="result-btn" id="res-btn-likviditet" onclick="setResultView('likviditet')">Likviditet</button>
+        <button class="result-btn active" onclick="setResultView('resultat',this)">Resultat</button>
+        <button class="result-btn" onclick="setResultView('likviditet',this)">Likviditet</button>
       </div>
     </div>
-
     <div class="hero-card" id="hero-card"></div>
-
-    <div class="kpi-grid" id="kpi-grid"></div>
-
+    <div class="kpi-grid" id="fin-kpi-grid"></div>
     <div class="fin-grid">
       <div class="fin-card">
-        <div class="fin-card-title">Intäkter vs budget <span class="badge b-green" id="budget-badge">-</span></div>
-        <div id="budget-rows"></div>
+        <div class="fin-card-title">Intäktsmix <span class="badge b-green" id="mix-total-badge">-</span></div>
+        <div id="mix-rows"></div>
       </div>
       <div class="fin-card">
-        <div class="fin-card-title">Prognos nästa 6 månader <span class="badge b-purple">3 lager</span></div>
+        <div class="fin-card-title">Prognos nästa 6 månader <span class="badge b-purple">periodiserat</span></div>
         <div id="forecast-rows"></div>
       </div>
+    </div>
+    <div class="fin-card" style="margin-bottom:16px;">
+      <div class="fin-card-title">Provision – utestående <span class="badge b-amber" id="comm-badge">-</span></div>
+      <div id="comm-rows"><div class="loading"><div class="spinner"></div></div></div>
     </div>
   </div>
 </div>
@@ -433,17 +372,15 @@
 <div class="page" id="page-finansiellt-periodisering">
   <div class="main">
     <div class="date-filter">
-      <span style="font-size:13px;color:var(--text3);">Tidsperiod:</span>
-      <input type="date" class="date-input" id="per-date-from" value="2026-01-01">
+      <span style="font-size:13px;color:var(--text3);">Period:</span>
+      <input type="date" class="date-input" id="per-from" value="2026-01-01">
       <span style="font-size:13px;color:var(--text3);">–</span>
-      <input type="date" class="date-input" id="per-date-to" value="2026-06-30">
-      <button class="quick-btn" onclick="setPerQuick('h1')">H1</button>
-      <button class="quick-btn" onclick="setPerQuick('h2')">H2</button>
-      <button class="quick-btn active" onclick="setPerQuick('year')">Helår</button>
-      <button class="quick-btn" onclick="setPerQuick('custom')">Anpassad</button>
+      <input type="date" class="date-input" id="per-to" value="2026-06-30">
+      <button class="quick-btn" onclick="setPerQuick('h1',this)">H1</button>
+      <button class="quick-btn" onclick="setPerQuick('h2',this)">H2</button>
+      <button class="quick-btn active" onclick="setPerQuick('year',this)">Helår</button>
       <div class="rev-dropdown" style="margin-left:auto;">
-        <button class="rev-dd-btn" onclick="togglePerDD()">
-          Intäktskällor
+        <button class="rev-dd-btn" onclick="togglePerDD(event)">Intäktskällor
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="rev-dd-panel" id="per-dd-panel" style="display:none;">
@@ -455,9 +392,7 @@
       </div>
       <button class="btn-primary" onclick="renderPeriodisering()">Uppdatera</button>
     </div>
-
-    <div class="kpi-grid" id="per-kpi-grid" style="margin-bottom:16px;"></div>
-
+    <div class="kpi-grid" id="per-kpi" style="margin-bottom:16px;"></div>
     <div class="period-table-wrap">
       <table class="period-table">
         <thead id="per-thead"></thead>
@@ -492,7 +427,6 @@
   </div>
 </div>
 
-<!-- CONFIRM -->
 <div class="confirm-overlay" id="confirm-overlay">
   <div class="confirm-box">
     <h3>Ta bort kund?</h3>
@@ -507,51 +441,18 @@
 <script>
 const API = 'https://ciboost-api-v2-hmgdayegd2hjeth6.swedencentral-01.azurewebsites.net';
 const OWNERS = ['Matilda Olsson', 'Alexandra Henningson'];
-let allCustomers = [];
+const DEFAULT_RECIPIENTS = ['Ann-Sofie Forsmark','CI-Labs','Influence','Influence People','Johan Jansson','Lotta Murvall'];
+let allCustomers = [], allRecipients = [...DEFAULT_RECIPIENTS];
 let sortCol = 'days', sortAsc = true;
 let currentModalId = null, currentPage = 1, isNewCustomer = false;
-let currentView = 'tabell';
 let revSources = { arr: true, fast: true, utb: false, cons: false };
 let perSources = { arr: true, fast: true, utb: true, cons: true };
-let currentMainTab = 'kunder';
-let currentSubTab = { kunder: 'oversikt', finansiellt: 'dashboard' };
+let currentMain = 'kunder', currentSub = { kunder: 'oversikt', finansiellt: 'dashboard' };
 
-// ─── NAVIGATION ─────────────────────────────────────────
-function switchMainTab(tab, el) {
-  currentMainTab = tab;
-  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('sub-tabs-kunder').style.display = tab === 'kunder' ? 'flex' : 'none';
-  document.getElementById('sub-tabs-finansiellt').style.display = tab === 'finansiellt' ? 'flex' : 'none';
-  document.getElementById('stats-bar').style.display = tab === 'kunder' ? 'flex' : 'none';
-  const sub = currentSubTab[tab];
-  showPage(`${tab}-${sub}`);
-  if (tab === 'finansiellt') { renderFinDashboard(); }
-  if (tab === 'kunder' && sub === 'licenstidslinje') renderLicenstidslinje();
-}
-
-function switchSubTab(main, sub, el) {
-  currentSubTab[main] = sub;
-  const bar = document.getElementById(`sub-tabs-${main}`);
-  bar.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  showPage(`${main}-${sub}`);
-  if (main === 'kunder' && sub === 'licenstidslinje') renderLicenstidslinje();
-  if (main === 'finansiellt' && sub === 'dashboard') renderFinDashboard();
-  if (main === 'finansiellt' && sub === 'periodisering') renderPeriodisering();
-}
-
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const el = document.getElementById(`page-${id}`);
-  if (el) el.classList.add('active');
-}
-
-// ─── DATA ────────────────────────────────────────────────
 function daysLeft(d) { if (!d) return null; return Math.round((new Date(d) - new Date()) / 86400000); }
 function formatDate(d) { return d ? new Date(d).toLocaleDateString('sv-SE') : '-'; }
-function fmtKr(v) { if (!v) return '-'; return Math.round(v).toLocaleString('sv-SE') + ' kr'; }
-function inferOwner(c) { if (c.Owner) return c.Owner; if (c.Notes && c.Notes.includes('Alexandra')) return 'Alexandra Henningson'; return 'Matilda Olsson'; }
+function fmtKr(v) { if (!v && v !== 0) return '-'; return Math.round(v).toLocaleString('sv-SE') + ' kr'; }
+function inferOwner(c) { if (c.Owner) return c.Owner; if (c.Notes?.includes('Alexandra')) return 'Alexandra Henningson'; return 'Matilda Olsson'; }
 
 function daysPill(days) {
   if (days === null) return '<span class="days-pill days-expired">-</span>';
@@ -561,14 +462,28 @@ function daysPill(days) {
   return `<span class="days-pill days-ok">${days}d kvar</span>`;
 }
 
-function customerValue(c, sources) {
-  const s = sources || revSources;
-  let v = 0;
-  if (s.arr) v += c.ARR || 0;
-  if (s.fast) v += c.ARR_Fixed || 0;
-  if (s.utb) v += c.Revenue_Training || 0;
-  if (s.cons) v += c.Revenue_Consulting || 0;
-  return v;
+function customerValue(c, src) {
+  const s = src || revSources;
+  return (s.arr ? c.ARR||0 : 0) + (s.fast ? c.ARR_Fixed||0 : 0) + (s.utb ? c.Revenue_Training||0 : 0) + (s.cons ? c.Revenue_Consulting||0 : 0);
+}
+
+function monthlyValue(c, monthDate) {
+  const mStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const mEnd = new Date(monthDate.getFullYear(), monthDate.getMonth()+1, 0);
+  let arr=0, fast=0, utb=0, cons=0;
+  const ls = c.LicenseStart ? new Date(c.LicenseStart) : null;
+  const le = c.LicenseEnd ? new Date(c.LicenseEnd) : null;
+  if (ls && le && le >= mStart && ls <= mEnd) {
+    const td = Math.max(1, Math.round((le-ls)/86400000));
+    const os = ls > mStart ? ls : mStart;
+    const oe = le < mEnd ? le : mEnd;
+    const od = Math.max(0, Math.round((oe-os)/86400000)+1);
+    const f = od/td;
+    arr = (c.ARR||0)*f; fast = (c.ARR_Fixed||0)*f;
+  }
+  if (c.Revenue_Training_Date) { const d=new Date(c.Revenue_Training_Date); if(d>=mStart&&d<=mEnd) utb=c.Revenue_Training||0; }
+  if (c.Revenue_Consulting_Date) { const d=new Date(c.Revenue_Consulting_Date); if(d>=mStart&&d<=mEnd) cons=c.Revenue_Consulting||0; }
+  return { arr, fast, utb, cons };
 }
 
 async function loadCustomers() {
@@ -576,12 +491,18 @@ async function loadCustomers() {
     const res = await fetch(`${API}/customers`);
     allCustomers = await res.json();
     allCustomers = allCustomers.map(c => ({ ...c, _owner: inferOwner(c), _days: daysLeft(c.LicenseEnd) }));
-    updateStats();
-    renderTable();
-    renderFinView();
+    updateStats(); renderTable(); renderRevSummary();
   } catch(e) {
     document.getElementById('table-body').innerHTML = `<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;
   }
+}
+
+async function loadRecipients() {
+  try {
+    const r = await fetch(`${API}/commission-recipients`);
+    const data = await r.json();
+    if (data.length) allRecipients = data.map(d => d.Name);
+  } catch(e) {}
 }
 
 function updateStats() {
@@ -593,59 +514,72 @@ function updateStats() {
   document.getElementById('stat-expiring').textContent = allCustomers.filter(c => c._days !== null && c._days >= 0 && c._days <= 30).length;
   document.getElementById('stat-risk').textContent = allCustomers.filter(c => c.Risk === 'High').length;
   document.getElementById('stat-expired').textContent = allCustomers.filter(c => c._days !== null && c._days < 0).length;
-  const totalArr = allCustomers.reduce((s, c) => s + (c.ARR || 0), 0);
-  document.getElementById('stat-arr').textContent = totalArr > 0 ? totalArr.toLocaleString('sv-SE') + ' kr' : '-';
+  const totalVal = allCustomers.reduce((s,c) => s + customerValue(c), 0);
+  document.getElementById('stat-total-val').textContent = totalVal > 0 ? totalVal.toLocaleString('sv-SE') + ' kr' : '-';
+  const labels = [revSources.arr?'ARR':'', revSources.fast?'Fast':'', revSources.utb?'Utb':'', revSources.cons?'Cons':''].filter(Boolean);
+  document.getElementById('stat-total-val-label').textContent = labels.length ? labels.join('+') : 'Värde';
+}
+
+function renderRevSummary() {
+  const totArr = allCustomers.reduce((s,c)=>s+(c.ARR||0),0);
+  const totFast = allCustomers.reduce((s,c)=>s+(c.ARR_Fixed||0),0);
+  const totUtb = allCustomers.reduce((s,c)=>s+(c.Revenue_Training||0),0);
+  const totCons = allCustomers.reduce((s,c)=>s+(c.Revenue_Consulting||0),0);
+  document.getElementById('rev-summary').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">ARR totalt</div><div class="kpi-value" style="color:var(--green)">${fmtKr(totArr)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Fastpris</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(totFast)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Utbildning</div><div class="kpi-value" style="color:var(--amber)">${fmtKr(totUtb)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Consulting</div><div class="kpi-value" style="color:var(--purple)">${fmtKr(totCons)}</div></div>`;
 }
 
 function getFiltered() {
-  const q = (document.getElementById('search')?.value || '').toLowerCase();
-  const owner = document.getElementById('filter-owner')?.value || '';
-  const license = document.getElementById('filter-license')?.value || '';
-  const risk = document.getElementById('filter-risk')?.value || '';
+  const q = (document.getElementById('search')?.value||'').toLowerCase();
+  const owner = document.getElementById('filter-owner')?.value||'';
+  const license = document.getElementById('filter-license')?.value||'';
+  const risk = document.getElementById('filter-risk')?.value||'';
   return allCustomers.filter(c => {
-    const matchQ = !q || (c.Company||'').toLowerCase().includes(q) || (c.Contact||'').toLowerCase().includes(q);
-    return matchQ && (!owner || c._owner === owner) && (!license || c.LicenseType === license) && (!risk || c.Risk === risk);
+    const mq = !q || (c.Company||'').toLowerCase().includes(q) || (c.Contact||'').toLowerCase().includes(q);
+    return mq && (!owner||c._owner===owner) && (!license||c.LicenseType===license) && (!risk||c.Risk===risk);
   });
 }
 
 function sortBy(col) {
-  if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
-  renderTable(); renderFinView();
+  if (sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
+  renderTable();
 }
 
 function sortData(data) {
-  return [...data].sort((a, b) => {
-    let va = sortCol === 'days' ? (a._days ?? 99999) : (sortCol === 'ARR' ? customerValue(a) : (a[sortCol] || ''));
-    let vb = sortCol === 'days' ? (b._days ?? 99999) : (sortCol === 'ARR' ? customerValue(b) : (b[sortCol] || ''));
-    if (typeof va === 'string') va = va.toLowerCase();
-    if (typeof vb === 'string') vb = vb.toLowerCase();
-    if (va < vb) return sortAsc ? -1 : 1;
-    if (va > vb) return sortAsc ? 1 : -1;
+  return [...data].sort((a,b) => {
+    let va = sortCol==='days'?(a._days??99999):(sortCol==='ARR'?customerValue(a):(a[sortCol]||''));
+    let vb = sortCol==='days'?(b._days??99999):(sortCol==='ARR'?customerValue(b):(b[sortCol]||''));
+    if (typeof va==='string') va=va.toLowerCase();
+    if (typeof vb==='string') vb=vb.toLowerCase();
+    if (va<vb) return sortAsc?-1:1;
+    if (va>vb) return sortAsc?1:-1;
     return 0;
   });
 }
 
-// ─── TABELL ─────────────────────────────────────────────
 function renderTable() {
   const data = sortData(getFiltered());
-  document.getElementById('filter-count').textContent = `${data.length} kund${data.length !== 1 ? 'er' : ''}`;
-  if (!data.length) { document.getElementById('table-body').innerHTML = `<tr><td colspan="9"><div class="empty">Inga kunder matchar</div></td></tr>`; return; }
+  document.getElementById('filter-count').textContent = `${data.length} kund${data.length!==1?'er':''}`;
+  if (!data.length) { document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Inga kunder matchar</div></td></tr>`; return; }
   document.getElementById('table-body').innerHTML = data.map(c => {
-    const arr = c.ARR || 0, fast = c.ARR_Fixed || 0, utb = c.Revenue_Training || 0, cons = c.Revenue_Consulting || 0;
-    const total = arr + fast + utb + cons || 1;
-    const val = customerValue(c);
-    const bars = [
-      arr > 0 ? `<div style="width:${Math.round(arr/total*60)}px;height:5px;background:#1a7a50;border-radius:2px;" title="ARR ${fmtKr(arr)}"></div>` : '',
-      fast > 0 ? `<div style="width:${Math.round(fast/total*60)}px;height:5px;background:#1a4f7a;border-radius:2px;" title="Fast ${fmtKr(fast)}"></div>` : '',
-      utb > 0 ? `<div style="width:${Math.round(utb/total*60)}px;height:5px;background:#b85a00;border-radius:2px;" title="Utb ${fmtKr(utb)}"></div>` : '',
-      cons > 0 ? `<div style="width:${Math.round(cons/total*60)}px;height:5px;background:#5a1a7a;border-radius:2px;" title="Cons ${fmtKr(cons)}"></div>` : ''
+    const arr=c.ARR||0, fast=c.ARR_Fixed||0, utb=c.Revenue_Training||0, cons=c.Revenue_Consulting||0;
+    const tot=arr+fast+utb+cons||1;
+    const val=customerValue(c);
+    const bars=[
+      arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;" title="ARR ${fmtKr(arr)}"></div>`:'',
+      fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;" title="Fast ${fmtKr(fast)}"></div>`:'',
+      utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;" title="Utb ${fmtKr(utb)}"></div>`:'',
+      cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;" title="Cons ${fmtKr(cons)}"></div>`:''
     ].filter(Boolean).join('');
     return `<tr onclick="openModal(${c.Id})">
       <td><div class="company-name">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td>
       <td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td>
       <td><span class="owner-tag">${c._owner}</span></td>
       <td><span class="license-type lt-${c.LicenseType}">${c.LicenseType||'-'}</span></td>
-      <td style="font-weight:500;font-size:13px;">${val > 0 ? val.toLocaleString('sv-SE') + ' kr' : '-'}</td>
+      <td style="font-weight:500;font-size:13px;">${val>0?val.toLocaleString('sv-SE')+' kr':'-'}</td>
       <td><div style="display:flex;gap:2px;align-items:center;">${bars}</div></td>
       <td style="font-size:13px;color:var(--text2);">${formatDate(c.LicenseEnd)}</td>
       <td>${daysPill(c._days)}</td>
@@ -654,747 +588,672 @@ function renderTable() {
   }).join('');
 }
 
-// ─── FINANSIELL VY (under Kunder) ───────────────────────
-function renderFinView() {
-  const data = sortData(getFiltered());
-  const totArr = allCustomers.reduce((s,c)=>s+(c.ARR||0),0);
-  const totFast = allCustomers.reduce((s,c)=>s+(c.ARR_Fixed||0),0);
-  const totUtb = allCustomers.reduce((s,c)=>s+(c.Revenue_Training||0),0);
-  const totCons = allCustomers.reduce((s,c)=>s+(c.Revenue_Consulting||0),0);
-  document.getElementById('fin-summary').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">ARR totalt</div><div class="kpi-value" style="color:var(--green)">${fmtKr(totArr)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Fastpris</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(totFast)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Utbildning</div><div class="kpi-value" style="color:var(--amber)">${fmtKr(totUtb)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Consulting</div><div class="kpi-value" style="color:var(--purple)">${fmtKr(totCons)}</div></div>`;
-  if (!data.length) { document.getElementById('fin-body').innerHTML = `<tr><td colspan="6"><div class="empty">Inga kunder</div></td></tr>`; return; }
-  document.getElementById('fin-body').innerHTML = data.map(c => {
-    const arr = c.ARR||0, fast = c.ARR_Fixed||0, utb = c.Revenue_Training||0, cons = c.Revenue_Consulting||0;
-    const total = arr+fast+utb+cons||1;
-    const val = customerValue(c);
-    return `<tr onclick="openModal(${c.Id})">
-      <td><div class="company-name">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>
-      <td><span class="owner-tag">${c._owner}</span></td>
-      <td style="font-weight:500;">${val > 0 ? val.toLocaleString('sv-SE')+' kr' : '-'}</td>
-      <td>
-        <div style="display:flex;gap:2px;align-items:center;">
-          ${arr>0?`<div style="width:${Math.round(arr/total*80)}px;height:6px;background:#1a7a50;border-radius:2px;" title="ARR ${fmtKr(arr)}"></div>`:''}
-          ${fast>0?`<div style="width:${Math.round(fast/total*80)}px;height:6px;background:#1a4f7a;border-radius:2px;" title="Fast ${fmtKr(fast)}"></div>`:''}
-          ${utb>0?`<div style="width:${Math.round(utb/total*80)}px;height:6px;background:#b85a00;border-radius:2px;" title="Utb ${fmtKr(utb)}"></div>`:''}
-          ${cons>0?`<div style="width:${Math.round(cons/total*80)}px;height:6px;background:#5a1a7a;border-radius:2px;" title="Cons ${fmtKr(cons)}"></div>`:''}
-          <span style="font-size:11px;color:var(--text3);margin-left:4px;">
-            ${[arr>0?`ARR`:'',fast>0?`Fast`:'',utb>0?`Utb`:'',cons>0?`Cons`:''].filter(Boolean).join('+')}
-          </span>
-        </div>
-      </td>
-      <td style="font-size:13px;color:var(--text2);">${formatDate(c.LicenseEnd)}</td>
-      <td><span class="risk-dot risk-${c.Risk}">${c.Risk||'-'}</span></td>
-    </tr>`;
-  }).join('');
+function toggleRevDD(e) { e.stopPropagation(); const p=document.getElementById('rev-dd-panel'); p.style.display=p.style.display==='none'?'block':'none'; }
+function toggleRevSource(s) { revSources[s]=!revSources[s]; document.getElementById(`rcb-${s}`).classList.toggle('on',revSources[s]); renderTable(); updateStats(); }
+function togglePerDD(e) { e.stopPropagation(); const p=document.getElementById('per-dd-panel'); p.style.display=p.style.display==='none'?'block':'none'; }
+function togglePerSource(s) { perSources[s]=!perSources[s]; document.getElementById(`pcb-${s}`).classList.toggle('on',perSources[s]); }
+
+// ─── NAVIGATION ─────────────────────────────────────────
+function switchMain(tab, el) {
+  currentMain = tab;
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('subtabs-kunder').style.display = tab==='kunder'?'flex':'none';
+  document.getElementById('subtabs-finansiellt').style.display = tab==='finansiellt'?'flex':'none';
+  document.getElementById('stats-bar').style.display = tab==='kunder'?'flex':'none';
+  showPage(`${tab}-${currentSub[tab]}`);
+  if (tab==='finansiellt') { renderFinDashboard(); }
+  if (tab==='kunder' && currentSub.kunder==='licenstidslinje') renderLicenstidslinje();
 }
 
-function setView(v) {
-  currentView = v;
-  document.getElementById('view-tabell-content').style.display = v === 'tabell' ? 'block' : 'none';
-  document.getElementById('view-fin-content').style.display = v === 'finansiell' ? 'block' : 'none';
-  document.getElementById('view-tabell-btn').classList.toggle('active', v === 'tabell');
-  document.getElementById('view-fin-btn').classList.toggle('active', v === 'finansiell');
-  if (v === 'finansiell') renderFinView();
+function switchSub(main, sub, el) {
+  currentSub[main] = sub;
+  document.getElementById(`subtabs-${main}`).querySelectorAll('.sub-tab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  showPage(`${main}-${sub}`);
+  if (main==='kunder' && sub==='licenstidslinje') renderLicenstidslinje();
+  if (main==='finansiellt' && sub==='dashboard') renderFinDashboard();
+  if (main==='finansiellt' && sub==='periodisering') renderPeriodisering();
 }
 
-function toggleRevDD() {
-  const p = document.getElementById('rev-dd-panel');
-  p.style.display = p.style.display === 'none' ? 'block' : 'none';
-}
-function toggleRevSource(s) {
-  revSources[s] = !revSources[s];
-  document.getElementById(`rcb-${s}`).classList.toggle('on', revSources[s]);
-  renderTable(); renderFinView();
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(`page-${id}`)?.classList.add('active');
 }
 
 // ─── LICENSTIDSLINJE ────────────────────────────────────
 function renderLicenstidslinje() {
   const now = new Date();
-  const urgent = allCustomers.filter(c => c._days !== null && c._days <= 0);
-  const soon = allCustomers.filter(c => c._days !== null && c._days > 0 && c._days <= 90);
-
+  const urgent = allCustomers.filter(c=>c._days!==null&&c._days<=0);
+  const soon = allCustomers.filter(c=>c._days!==null&&c._days>0&&c._days<=90);
   document.getElementById('action-count').textContent = urgent.length;
-  document.getElementById('action-list').innerHTML = urgent.length ? urgent.map(c => `
-    <div class="action-row" onclick="openModal(${c.Id})" style="cursor:pointer;">
-      ${c._days < 0 ? `<span class="badge b-red">Utgången</span>` : `<span class="badge b-amber">${c._days}d</span>`}
+  document.getElementById('action-list').innerHTML = urgent.length ? urgent.map(c=>`
+    <div class="action-row" onclick="openModal(${c.Id})">
+      ${c._days<0?`<span class="badge b-red">Utgången</span>`:`<span class="badge b-amber">${c._days}d</span>`}
       <span style="flex:1;">${c.Company}</span>
       <span class="risk-dot risk-${c.Risk}">${c.Risk}</span>
     </div>`).join('') : '<div style="padding:12px;font-size:13px;color:var(--text3);">Inga utgångna</div>';
-
   document.getElementById('soon-count').textContent = soon.length;
-  document.getElementById('soon-list').innerHTML = soon.length ? soon.map(c => `
-    <div class="action-row" onclick="openModal(${c.Id})" style="cursor:pointer;">
-      <span class="badge ${c._days <= 30 ? 'b-amber' : 'b-green'}">${c._days}d</span>
+  document.getElementById('soon-list').innerHTML = soon.length ? soon.map(c=>`
+    <div class="action-row" onclick="openModal(${c.Id})">
+      <span class="badge ${c._days<=30?'b-amber':'b-green'}">${c._days}d</span>
       <span style="flex:1;">${c.Company}</span>
       <span class="risk-dot risk-${c.Risk}">${c.Risk}</span>
     </div>`).join('') : '<div style="padding:12px;font-size:13px;color:var(--text3);">Inga snart utgående</div>';
 
-  // Gantt
   const months = [];
-  const monthNames = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-  for (let i = -1; i < 11; i++) {
-    months.push(new Date(now.getFullYear(), now.getMonth() + i, 1));
-  }
-  document.getElementById('gantt-months').innerHTML = months.map(m => `<div class="gantt-month">${monthNames[m.getMonth()]} ${m.getFullYear() !== now.getFullYear() ? m.getFullYear().toString().slice(2) : ''}</div>`).join('');
+  const mNames = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  for (let i=-1;i<11;i++) months.push(new Date(now.getFullYear(),now.getMonth()+i,1));
+  document.getElementById('gantt-months').innerHTML = months.map(m=>`<div class="gantt-month">${mNames[m.getMonth()]} ${m.getFullYear()!==now.getFullYear()?m.getFullYear().toString().slice(2):''}</div>`).join('');
 
   const rangeStart = months[0].getTime();
-  const rangeEnd = new Date(months[months.length-1].getFullYear(), months[months.length-1].getMonth()+1, 0).getTime();
+  const rangeEnd = new Date(months[months.length-1].getFullYear(),months[months.length-1].getMonth()+1,0).getTime();
   const rangeLen = rangeEnd - rangeStart;
 
-  const active = allCustomers.filter(c => c.LicenseStart || c.LicenseEnd).sort((a,b) => (a._days??99999) - (b._days??99999));
+  const active = allCustomers.filter(c=>c.LicenseStart||c.LicenseEnd).sort((a,b)=>(a._days??99999)-(b._days??99999));
   document.getElementById('gantt-body').innerHTML = active.map(c => {
-    const start = c.LicenseStart ? new Date(c.LicenseStart).getTime() : rangeStart;
-    const end = c.LicenseEnd ? new Date(c.LicenseEnd).getTime() : rangeEnd;
-    const left = Math.max(0, Math.min(100, (start - rangeStart) / rangeLen * 100));
-    const width = Math.max(0.5, Math.min(100 - left, (end - start) / rangeLen * 100));
-    const color = c._days === null ? '#b4b2a9' : c._days < 0 ? '#b4b2a9' : c._days <= 30 ? '#a32d2d' : c._days <= 90 ? '#b85a00' : '#1a7a50';
-    const label = c._days !== null ? (c._days < 0 ? 'Utgången' : `${c._days}d kvar`) : '';
+    const licStart = c.LicenseStart ? new Date(c.LicenseStart).getTime() : rangeStart;
+    const licEnd = c.LicenseEnd ? new Date(c.LicenseEnd).getTime() : rangeEnd;
+    const clampedStart = Math.max(licStart, rangeStart);
+    const clampedEnd = Math.min(licEnd, rangeEnd);
+    if (clampedEnd < rangeStart || clampedStart > rangeEnd) return '';
+    const left = Math.max(0, (clampedStart - rangeStart) / rangeLen * 100);
+    const width = Math.max(0.5, (clampedEnd - clampedStart) / rangeLen * 100);
+    const color = c._days===null?'#b4b2a9':c._days<0?'#b4b2a9':c._days<=30?'#a32d2d':c._days<=90?'#b85a00':'#1a7a50';
+    const label = c._days!==null?(c._days<0?'Utgången':`${c._days}d kvar`):'';
     return `<div class="gantt-row" onclick="openModal(${c.Id})">
-      <div class="gantt-row-name"><div class="cn">${c.Company||'-'}</div><div class="cs">${c._owner}</div></div>
-      <div class="gantt-bars">
-        <div class="gantt-bar" style="left:${left}%;width:${width}%;background:${color};">${label}</div>
-      </div>
+      <div class="gantt-row-name"><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div><div style="font-size:11px;color:var(--text3);">${c._owner}</div></div>
+      <div class="gantt-bars"><div class="gantt-bar" style="left:${left}%;width:${width}%;background:${color};">${label}</div></div>
     </div>`;
-  }).join('');
+  }).filter(Boolean).join('');
 }
 
-// ─── FINANSIELLT DASHBOARD ───────────────────────────────
+// ─── FINANSIELLT ─────────────────────────────────────────
+function setFinQuick(p, el) {
+  document.querySelectorAll('#page-finansiellt-dashboard .quick-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  const y = new Date().getFullYear();
+  const now = new Date().toISOString().slice(0,10);
+  if (p==='ytd') { document.getElementById('fin-from').value=`${y}-01-01`; document.getElementById('fin-to').value=now; }
+  if (p==='q2') { document.getElementById('fin-from').value=`${y}-04-01`; document.getElementById('fin-to').value=`${y}-06-30`; }
+  if (p==='h1') { document.getElementById('fin-from').value=`${y}-01-01`; document.getElementById('fin-to').value=`${y}-06-30`; }
+  if (p==='year') { document.getElementById('fin-from').value=`${y}-01-01`; document.getElementById('fin-to').value=`${y}-12-31`; }
+  renderFinDashboard();
+}
+
+function setResultView(v, el) {
+  document.querySelectorAll('.result-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+
 function renderFinDashboard() {
   const totArr = allCustomers.reduce((s,c)=>s+(c.ARR||0),0);
   const totFast = allCustomers.reduce((s,c)=>s+(c.ARR_Fixed||0),0);
   const totUtb = allCustomers.reduce((s,c)=>s+(c.Revenue_Training||0),0);
   const totCons = allCustomers.reduce((s,c)=>s+(c.Revenue_Consulting||0),0);
-  const total = totArr + totFast + totUtb + totCons;
+  const total = totArr+totFast+totUtb+totCons;
   const budget = 495000;
-  const budgetPct = Math.round(total / budget * 100);
-  const budgetDiff = total - budget;
+  const diff = total-budget;
+  const pct = Math.round(total/budget*100);
 
   document.getElementById('hero-card').innerHTML = `
     <div class="hero-main">
       <div class="label">Total försäljning</div>
       <div class="value" style="color:var(--green)">${total.toLocaleString('sv-SE')} kr</div>
-      <div class="delta ${budgetDiff >= 0 ? 'pos' : 'neg'}">${budgetDiff >= 0 ? '+' : ''}${budgetDiff.toLocaleString('sv-SE')} kr vs budget · ${budgetPct}% uppnått</div>
+      <div class="delta ${diff>=0?'pos':'neg'}">${diff>=0?'+':''}${diff.toLocaleString('sv-SE')} kr vs budget · ${pct}% uppnått</div>
     </div>
-    <div class="hero-sec" style="margin-left:auto;">
-      <div class="label">ARR</div>
-      <div class="value" style="color:var(--accent)">${totArr.toLocaleString('sv-SE')} kr</div>
-      <div class="delta neu">${allCustomers.filter(c=>c._days>=0).length} aktiva kunder</div>
+    <div style="flex:1;"></div>
+    <div class="hero-sec">
+      <div class="label">MRR</div>
+      <div class="value" style="color:var(--accent)">${Math.round(totArr/12).toLocaleString('sv-SE')} kr</div>
+      <div class="delta neu">ARR ÷ 12</div>
     </div>
     <div class="hero-sec">
       <div class="label">Vs budget</div>
-      <div class="value ${budgetPct >= 100 ? 'pos' : ''}">${budgetPct}%</div>
-      <div class="delta neu">Budget: ${budget.toLocaleString('sv-SE')} kr</div>
+      <div class="value ${pct>=100?'pos':''}">${pct}%</div>
+      <div class="delta neu">Budget ${budget.toLocaleString('sv-SE')} kr</div>
     </div>`;
 
-  const active = allCustomers.filter(c => c._days !== null && c._days >= 0);
-  const churnCount = allCustomers.filter(c => c._days !== null && c._days < 0).length;
-  const churnRate = allCustomers.length > 0 ? Math.round(churnCount / allCustomers.length * 100 * 10) / 10 : 0;
-  const mrr = Math.round(totArr / 12);
-  document.getElementById('kpi-grid').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">MRR</div><div class="kpi-value" style="color:var(--accent)">${mrr.toLocaleString('sv-SE')} kr</div><div class="kpi-delta neu">ARR ÷ 12</div></div>
-    <div class="kpi-card"><div class="kpi-label">Churn rate</div><div class="kpi-value" style="color:var(--red)">${churnRate}%</div><div class="kpi-delta neg">${churnCount} utgångna</div></div>
-    <div class="kpi-card"><div class="kpi-label">Avg contract value</div><div class="kpi-value">${active.length > 0 ? Math.round(totArr/active.length).toLocaleString('sv-SE') + ' kr' : '-'}</div><div class="kpi-delta neu">per kund/år</div></div>
-    <div class="kpi-card"><div class="kpi-label">Expansion revenue</div><div class="kpi-value" style="color:var(--blue)">${(totUtb+totCons).toLocaleString('sv-SE')} kr</div><div class="kpi-delta neu">Utb + Consulting</div></div>`;
+  const active = allCustomers.filter(c=>c._days!==null&&c._days>=0);
+  const churn = allCustomers.filter(c=>c._days!==null&&c._days<0).length;
+  document.getElementById('fin-kpi-grid').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Churn rate</div><div class="kpi-value neg">${allCustomers.length>0?Math.round(churn/allCustomers.length*1000)/10:0}%</div><div class="kpi-delta neg">${churn} utgångna</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg contract value</div><div class="kpi-value">${active.length>0?Math.round(totArr/active.length).toLocaleString('sv-SE')+' kr':'-'}</div><div class="kpi-delta neu">per kund/år</div></div>
+    <div class="kpi-card"><div class="kpi-label">Expansion revenue</div><div class="kpi-value" style="color:var(--blue)">${(totUtb+totCons).toLocaleString('sv-SE')} kr</div><div class="kpi-delta neu">Utb + Consulting</div></div>
+    <div class="kpi-card"><div class="kpi-label">Net rev retention</div><div class="kpi-value">94%</div><div class="kpi-delta neg">Mål: &gt;100%</div></div>`;
 
-  const budgetsByType = [
-    { label: 'ARR löpande', actual: totArr, budget: 350000, color: '#1a7a50', budgetColor: '#e8f5ee', tc: '#1a7a50' },
-    { label: 'Fastpris', actual: totFast, budget: 95000, color: '#1a4f7a', budgetColor: '#e8f0f8', tc: '#1a4f7a' },
-    { label: 'Utbildning', actual: totUtb, budget: 50000, color: '#b85a00', budgetColor: '#fff3e6', tc: '#b85a00' },
-    { label: 'Consulting', actual: totCons, budget: 35000, color: '#5a1a7a', budgetColor: '#f0e8f5', tc: '#5a1a7a' },
-  ];
-  const maxVal = Math.max(...budgetsByType.map(b => Math.max(b.actual, b.budget)));
-  const overallPct = Math.round((total - budget) / budget * 100);
-  document.getElementById('budget-badge').textContent = `${overallPct >= 0 ? '+' : ''}${overallPct}%`;
-  document.getElementById('budget-badge').className = `badge ${overallPct >= 0 ? 'b-green' : 'b-red'}`;
-  document.getElementById('budget-rows').innerHTML = budgetsByType.map(b => {
-    const aPct = Math.round(b.actual / maxVal * 100);
-    const bPct = Math.round(b.budget / maxVal * 100);
-    const diff = b.actual - b.budget;
-    return `<div class="budget-row">
-      <span style="min-width:80px;font-size:12px;color:var(--text2);">${b.label}</span>
-      <div class="budget-bars">
-        <div class="budget-bar" style="width:${aPct}%;background:${b.color};">${Math.round(b.actual/1000)}k</div>
-        <div class="budget-bar" style="width:${bPct}%;background:${b.budgetColor};color:${b.tc};border:0.5px solid ${b.color}20;">Budget ${Math.round(b.budget/1000)}k</div>
-      </div>
-      <span style="font-size:12px;font-weight:500;min-width:44px;text-align:right;${diff>=0?'color:var(--green)':'color:var(--red)'}">${diff>=0?'+':''}${Math.round(diff/1000)}k</span>
-    </div>`;
-  }).join('');
+  const maxMix = Math.max(totArr,totFast,totUtb,totCons)||1;
+  document.getElementById('mix-total-badge').textContent = fmtKr(total);
+  document.getElementById('mix-rows').innerHTML = [
+    {label:'ARR löpande',val:totArr,color:'#1a7a50'},
+    {label:'Fastpris',val:totFast,color:'#1a4f7a'},
+    {label:'Utbildning',val:totUtb,color:'#b85a00'},
+    {label:'Consulting',val:totCons,color:'#5a1a7a'}
+  ].map(r=>`<div class="mix-row">
+    <span style="min-width:90px;font-size:12px;color:var(--text2);">${r.label}</span>
+    <div class="mix-bar"><div class="mix-fill" style="width:${Math.round(r.val/maxMix*100)}%;background:${r.color};"></div></div>
+    <span style="min-width:70px;text-align:right;font-weight:500;font-size:13px;">${fmtKr(r.val)}</span>
+  </div>`).join('');
 
-  // Prognos
   const now = new Date();
-  const months = [];
-  for (let i = 1; i <= 6; i++) months.push(new Date(now.getFullYear(), now.getMonth()+i, 1));
-  const monthNames = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-  const forecasts = months.map(m => {
-    let v = 0;
-    allCustomers.forEach(c => {
-      const mv = monthlyValue(c, m);
-      v += mv.arr + mv.fast + mv.utb + mv.cons;
-    });
-    return { month: monthNames[m.getMonth()], value: Math.round(v) };
-  });
-  const maxF = Math.max(...forecasts.map(f => f.value)) || 1;
-  document.getElementById('forecast-rows').innerHTML = forecasts.map(f => {
-    const pct = Math.round(f.value / maxF * 100);
-    const color = f.value > mrr ? '#1a7a50' : '#b85a00';
-    return `<div class="forecast-row">
-      <span style="color:var(--text3);min-width:28px;">${f.month}</span>
-      <div class="forecast-bar"><div class="forecast-fill" style="width:${pct}%;background:${color};"></div></div>
-      <span style="font-weight:500;min-width:55px;text-align:right;">${f.value.toLocaleString('sv-SE')} kr</span>
-      <span class="badge ${f.value > mrr ? 'b-green' : 'b-amber'}" style="font-size:10px;">${f.value > mrr ? 'Över MRR' : 'Under MRR'}</span>
-    </div>`;
-  }).join('');
+  const mNames = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const forecasts = [];
+  for (let i=1;i<=6;i++) {
+    const m = new Date(now.getFullYear(),now.getMonth()+i,1);
+    let v=0;
+    allCustomers.forEach(c=>{const mv=monthlyValue(c,m);v+=mv.arr+mv.fast+mv.utb+mv.cons;});
+    forecasts.push({month:mNames[m.getMonth()],value:Math.round(v)});
+  }
+  const mrr = Math.round(totArr/12);
+  const maxF = Math.max(...forecasts.map(f=>f.value))||1;
+  document.getElementById('forecast-rows').innerHTML = forecasts.map(f=>`
+    <div class="forecast-row">
+      <span style="min-width:28px;color:var(--text3);">${f.month}</span>
+      <div style="flex:1;height:5px;background:var(--border);border-radius:3px;">
+        <div style="width:${Math.round(f.value/maxF*100)}%;height:5px;border-radius:3px;background:${f.value>=mrr?'#1a7a50':'#b85a00'};"></div>
+      </div>
+      <span style="font-weight:500;min-width:60px;text-align:right;font-size:12px;">${f.value.toLocaleString('sv-SE')} kr</span>
+      <span class="badge ${f.value>=mrr?'b-green':'b-amber'}" style="font-size:10px;">${f.value>=mrr?'Över MRR':'Under'}</span>
+    </div>`).join('');
+
+  loadCommissions();
+}
+
+async function loadCommissions() {
+  try {
+    const r = await fetch(`${API}/commissions`);
+    const comms = await r.json();
+    const unpaid = comms.filter(c=>!c.PaidOut);
+    const totalUnpaid = unpaid.reduce((s,c)=>s+(c.Amount||0),0);
+    document.getElementById('comm-badge').textContent = fmtKr(totalUnpaid);
+    document.getElementById('comm-badge').className = `badge ${totalUnpaid>0?'b-amber':'b-green'}`;
+    if (!comms.length) { document.getElementById('comm-rows').innerHTML='<div style="padding:12px;font-size:13px;color:var(--text3);">Ingen provision registrerad</div>'; return; }
+    document.getElementById('comm-rows').innerHTML = comms.map(c=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px;" class="${c.PaidOut?'comm-paid':''}">
+        <span style="flex:1;">${c.Company}</span>
+        <span style="color:var(--text3);font-size:12px;">${c.RevenueType}</span>
+        <span style="font-weight:500;">${fmtKr(c.Amount)}</span>
+        <span style="color:var(--text3);font-size:12px;">${c.Recipient}</span>
+        ${!c.PaidOut?`<button class="btn-sm" onclick="markPaid(${c.Id})">Markera betald</button>`:`<span class="badge b-green">Betald</span>`}
+      </div>`).join('');
+  } catch(e) { document.getElementById('comm-rows').innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda provision</div>'; }
+}
+
+async function markPaid(id) {
+  await fetch(`${API}/commissions/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});
+  loadCommissions();
 }
 
 // ─── PERIODISERING ───────────────────────────────────────
-function monthlyValue(c, monthDate) {
-  const mStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-  const mEnd = new Date(monthDate.getFullYear(), monthDate.getMonth()+1, 0);
-  let arr = 0, fast = 0, utb = 0, cons = 0;
-  const licStart = c.LicenseStart ? new Date(c.LicenseStart) : null;
-  const licEnd = c.LicenseEnd ? new Date(c.LicenseEnd) : null;
-  if (licStart && licEnd && licEnd >= mStart && licStart <= mEnd) {
-    const totalDays = Math.max(1, Math.round((licEnd - licStart) / 86400000));
-    const overlapStart = licStart > mStart ? licStart : mStart;
-    const overlapEnd = licEnd < mEnd ? licEnd : mEnd;
-    const overlapDays = Math.max(0, Math.round((overlapEnd - overlapStart) / 86400000) + 1);
-    const factor = overlapDays / totalDays;
-    arr = (c.ARR || 0) * factor;
-    fast = (c.ARR_Fixed || 0) * factor;
-  }
-  if (c.Revenue_Training_Date) {
-    const d = new Date(c.Revenue_Training_Date);
-    if (d >= mStart && d <= mEnd) utb = c.Revenue_Training || 0;
-  }
-  if (c.Revenue_Consulting_Date) {
-    const d = new Date(c.Revenue_Consulting_Date);
-    if (d >= mStart && d <= mEnd) cons = c.Revenue_Consulting || 0;
-  }
-  return { arr, fast, utb, cons };
+function setPerQuick(p, el) {
+  document.querySelectorAll('#page-finansiellt-periodisering .quick-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  const y = new Date().getFullYear();
+  if (p==='h1') { document.getElementById('per-from').value=`${y}-01-01`; document.getElementById('per-to').value=`${y}-06-30`; }
+  if (p==='h2') { document.getElementById('per-from').value=`${y}-07-01`; document.getElementById('per-to').value=`${y}-12-31`; }
+  if (p==='year') { document.getElementById('per-from').value=`${y}-01-01`; document.getElementById('per-to').value=`${y}-12-31`; }
+  renderPeriodisering();
 }
 
 function renderPeriodisering() {
-  const from = new Date(document.getElementById('per-date-from').value);
-  const to = new Date(document.getElementById('per-date-to').value);
-  const months = [];
-  const monthNames = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-  let cur = new Date(from.getFullYear(), from.getMonth(), 1);
-  while (cur <= to) { months.push(new Date(cur)); cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1); }
-  if (months.length === 0) return;
-
-  document.getElementById('per-thead').innerHTML = `<tr>
-    <th>Kund</th>
-    ${months.map(m=>`<th>${monthNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}
-    <th>Totalt</th>
-  </tr>`;
-
-  const monthTotals = months.map(() => 0);
-  let grandTotal = 0;
-  const active = allCustomers.filter(c => months.some(m => {
-    const v = monthlyValue(c, m);
-    return (v.arr + v.fast + v.utb + v.cons) > 0;
-  }));
-
-  const rows = active.map(c => {
-    let rowTotal = 0;
-    const cells = months.map((m, mi) => {
-      const v = monthlyValue(c, m);
-      let parts = [];
-      if (perSources.arr && v.arr > 0) { const r = Math.round(v.arr); parts.push(`<span class="p-arr">${r >= 1000 ? Math.round(r/1000)+'k' : r}</span>`); monthTotals[mi] += r; rowTotal += r; }
-      if (perSources.fast && v.fast > 0) { const r = Math.round(v.fast); parts.push(`<span class="p-fast">${r >= 1000 ? Math.round(r/1000)+'k' : r}</span>`); monthTotals[mi] += r; rowTotal += r; }
-      if (perSources.utb && v.utb > 0) { const r = Math.round(v.utb); parts.push(`<span class="p-utb">${r >= 1000 ? Math.round(r/1000)+'k' : r}</span>`); monthTotals[mi] += r; rowTotal += r; }
-      if (perSources.cons && v.cons > 0) { const r = Math.round(v.cons); parts.push(`<span class="p-cons">${r >= 1000 ? Math.round(r/1000)+'k' : r}</span>`); monthTotals[mi] += r; rowTotal += r; }
-      return `<td>${parts.length ? parts.join('') : '<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;
+  const from = new Date(document.getElementById('per-from').value);
+  const to = new Date(document.getElementById('per-to').value);
+  const months=[], mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  let cur = new Date(from.getFullYear(),from.getMonth(),1);
+  while (cur<=to) { months.push(new Date(cur)); cur=new Date(cur.getFullYear(),cur.getMonth()+1,1); }
+  if (!months.length) return;
+  document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;
+  const mTotals=months.map(()=>0); let grand=0;
+  const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));
+  const rows=active.map(c=>{
+    let rt=0;
+    const cells=months.map((m,mi)=>{
+      const v=monthlyValue(c,m); let parts=[];
+      if(perSources.arr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}
+      if(perSources.fast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}
+      if(perSources.utb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}
+      if(perSources.cons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}
+      return `<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;
     }).join('');
-    grandTotal += rowTotal;
-    return `<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rowTotal>=1000?Math.round(rowTotal/1000)+'k':rowTotal} kr</span></td></tr>`;
+    grand+=rt;
+    return `<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;
   }).join('');
-
-  const totalRow = `<tr style="background:var(--surface2);">
-    <td style="font-weight:600;">Totalt</td>
-    ${monthTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}
-    <td><span class="p-total" style="font-size:13px;">${grandTotal>=1000?Math.round(grandTotal/1000)+'k':grandTotal} kr</span></td>
-  </tr>`;
-
-  document.getElementById('per-tbody').innerHTML = rows + totalRow;
-
-  const avg = Math.round(grandTotal / months.length);
-  const max = Math.max(...monthTotals);
-  document.getElementById('per-kpi-grid').innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grandTotal.toLocaleString('sv-SE')} kr</div></div>
+  document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`;
+  const avg=Math.round(grand/months.length);
+  const max=Math.max(...mTotals);
+  document.getElementById('per-kpi').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div>
     <div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div>
     <div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div>
     <div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;
 }
 
-function setPerQuick(p) {
-  const now = new Date();
-  const y = now.getFullYear();
-  if (p === 'h1') { document.getElementById('per-date-from').value = `${y}-01-01`; document.getElementById('per-date-to').value = `${y}-06-30`; }
-  if (p === 'h2') { document.getElementById('per-date-from').value = `${y}-07-01`; document.getElementById('per-date-to').value = `${y}-12-31`; }
-  if (p === 'year') { document.getElementById('per-date-from').value = `${y}-01-01`; document.getElementById('per-date-to').value = `${y}-12-31`; }
-  renderPeriodisering();
-}
-
-function togglePerDD() {
-  const p = document.getElementById('per-dd-panel');
-  p.style.display = p.style.display === 'none' ? 'block' : 'none';
-}
-function togglePerSource(s) {
-  perSources[s] = !perSources[s];
-  document.getElementById(`pcb-${s}`).classList.toggle('on', perSources[s]);
-  renderPeriodisering();
-}
-
-function setQuickPeriod(p) {
-  const now = new Date();
-  const y = now.getFullYear();
-  document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
-  if (p === 'ytd') { document.getElementById('fin-date-from').value = `${y}-01-01`; document.getElementById('fin-date-to').value = now.toISOString().slice(0,10); }
-  if (p === 'q2') { document.getElementById('fin-date-from').value = `${y}-04-01`; document.getElementById('fin-date-to').value = `${y}-06-30`; }
-  if (p === 'h1') { document.getElementById('fin-date-from').value = `${y}-01-01`; document.getElementById('fin-date-to').value = `${y}-06-30`; }
-  if (p === 'year') { document.getElementById('fin-date-from').value = `${y}-01-01`; document.getElementById('fin-date-to').value = `${y}-12-31`; }
-  renderFinDashboard();
-}
-
-function setResultView(v) {
-  document.getElementById('res-btn-resultat').classList.toggle('active', v === 'resultat');
-  document.getElementById('res-btn-likviditet').classList.toggle('active', v === 'likviditet');
-}
-
 // ─── MODAL ───────────────────────────────────────────────
-function getLicenseType(c) { return document.getElementById('edit-type')?.value || c?.LicenseType || 'Team'; }
+function getLicenseType(c) { return document.getElementById('edit-type')?.value||c?.LicenseType||'Team'; }
 
-function renderTabs(licenseType) {
-  const tab2 = licenseType === 'Enterprise' ? 'Enterprise' : 'Team';
-  ['Översikt', tab2, 'Intäkter', 'Aktivitet'].forEach((t, i) => {});
-  document.getElementById('modal-tabs').innerHTML = ['Översikt', tab2, 'Intäkter', 'Aktivitet'].map((t, i) =>
+function renderTabs(lt) {
+  const tab2 = lt==='Enterprise'?'Enterprise':'Team';
+  document.getElementById('modal-tabs').innerHTML = ['Översikt',tab2,'Värde','Aktivitet'].map((t,i)=>
     `<button class="modal-tab ${currentPage===i+1?'active':''}" onclick="goToPage(${i+1})">${i+1}. ${t}</button>`
   ).join('');
 }
 
 function openNewModal() {
-  isNewCustomer = true; currentModalId = null; currentPage = 1;
-  document.getElementById('modal-title').textContent = 'Ny kund';
-  document.getElementById('modal-subtitle').textContent = '';
-  document.getElementById('btn-delete').style.display = 'none';
-  renderTabs('Team');
-  renderModalPage(null, [], []);
-  document.getElementById('modal-overlay').classList.add('open');
+  isNewCustomer=true; currentModalId=null; currentPage=1;
+  document.getElementById('modal-title').textContent='Ny kund';
+  document.getElementById('modal-subtitle').textContent='';
+  document.getElementById('btn-delete').style.display='none';
+  renderTabs('Team'); renderModalPage(null,[],[]); document.getElementById('modal-overlay').classList.add('open');
 }
 
 async function openModal(id) {
-  isNewCustomer = false; currentModalId = id; currentPage = 1;
-  const c = allCustomers.find(x => x.Id === id);
-  if (!c) return;
-  let teams = [], admins = [];
-  try { const r = await fetch(`${API}/customers/${id}/teams`); teams = await r.json(); } catch(e) {}
-  try { const r = await fetch(`${API}/customers/${id}/admins`); admins = await r.json(); } catch(e) {}
-  document.getElementById('modal-title').textContent = c.Company || '–';
-  document.getElementById('modal-subtitle').textContent = `${c.LicenseType||''} · ${c._owner}`;
-  document.getElementById('btn-delete').style.display = 'flex';
-  renderTabs(c.LicenseType);
-  renderModalPage(c, teams, admins);
-  document.getElementById('modal-overlay').classList.add('open');
+  isNewCustomer=false; currentModalId=id; currentPage=1;
+  const c=allCustomers.find(x=>x.Id===id); if(!c) return;
+  let teams=[],admins=[];
+  try{const r=await fetch(`${API}/customers/${id}/teams`);teams=await r.json();}catch(e){}
+  try{const r=await fetch(`${API}/customers/${id}/admins`);admins=await r.json();}catch(e){}
+  document.getElementById('modal-title').textContent=c.Company||'–';
+  document.getElementById('modal-subtitle').textContent=`${c.LicenseType||''} · ${c._owner}`;
+  document.getElementById('btn-delete').style.display='flex';
+  renderTabs(c.LicenseType); renderModalPage(c,teams,admins); document.getElementById('modal-overlay').classList.add('open');
 }
 
 function renderModalPage(c, teams, admins) {
-  const inputStyle = 'class="edit-input"';
-  let pageContent = '';
+  const is = 'class="edit-input"';
+  let html='';
 
-  if (currentPage === 1) {
-    const ownerOptions = OWNERS.map(o => `<option ${(c?._owner||'Matilda Olsson')===o?'selected':''}>${o}</option>`).join('');
-    pageContent = `
-      ${c ? `<div class="modal-section"><div class="modal-section-label">Status</div>
+  if (currentPage===1) {
+    const oo=OWNERS.map(o=>`<option ${(c?._owner||'Matilda Olsson')===o?'selected':''}>${o}</option>`).join('');
+    html=`
+      ${c?`<div class="modal-section"><div class="modal-section-label">Status</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <span class="license-type lt-${c.LicenseType}">${c.LicenseType}</span>${daysPill(c._days)}
           <span class="risk-dot risk-${c.Risk}">${c.Risk} risk</span>
-        </div></div>` : ''}
+        </div></div>`:''}
       <div class="modal-section"><div class="modal-section-label">Kundansvarig</div>
-        <div class="modal-card"><div class="modal-field"><label>Kundansvarig</label>
-          <select id="edit-owner" class="edit-input">${ownerOptions}</select></div></div></div>
+        <div class="modal-card"><div class="modal-field"><label>Kundansvarig</label><select id="edit-owner" ${is}>${oo}</select></div></div></div>
       <div class="modal-section"><div class="modal-section-label">Organisation</div>
         <div class="modal-card" style="display:flex;flex-direction:column;gap:10px;">
-          <div class="modal-field"><label>Företagsnamn</label><input ${inputStyle} id="edit-company" value="${c?.Company||''}"></div>
-          <div class="modal-field"><label>Team / Avdelning</label><input ${inputStyle} id="edit-subname" value="${c?.SubName||''}"></div>
+          <div class="modal-field"><label>Företagsnamn</label><input ${is} id="edit-company" value="${c?.Company||''}"></div>
+          <div class="modal-field"><label>Team / Avdelning</label><input ${is} id="edit-subname" value="${c?.SubName||''}"></div>
         </div></div>
       <div class="modal-section"><div class="modal-section-label">Kontaktperson</div>
         <div class="modal-card"><div class="modal-grid">
-          <div class="modal-field"><label>Namn</label><input ${inputStyle} id="edit-contact" value="${c?.Contact||''}"></div>
-          <div class="modal-field"><label>Roll</label><input ${inputStyle} id="edit-contact-role" value="${c?.ContactRole||''}"></div>
-          <div class="modal-field"><label>E-post</label><input ${inputStyle} id="edit-contact-email" type="email" value="${c?.ContactEmail||''}"></div>
-          <div class="modal-field"><label>Telefon</label><input ${inputStyle} id="edit-contact-phone" value="${c?.ContactPhone||''}"></div>
+          <div class="modal-field"><label>Namn</label><input ${is} id="edit-contact" value="${c?.Contact||''}"></div>
+          <div class="modal-field"><label>Roll</label><input ${is} id="edit-contact-role" value="${c?.ContactRole||''}"></div>
+          <div class="modal-field"><label>E-post</label><input ${is} id="edit-contact-email" type="email" value="${c?.ContactEmail||''}"></div>
+          <div class="modal-field"><label>Telefon</label><input ${is} id="edit-contact-phone" value="${c?.ContactPhone||''}"></div>
         </div></div></div>
       <div class="modal-section"><div class="modal-section-label">Licens</div>
         <div class="modal-card"><div class="modal-grid">
-          <div class="modal-field"><label>Kund sedan</label><input ${inputStyle} id="edit-customer-since" type="date" value="${c?.CustomerSince?c.CustomerSince.substring(0,10):''}"></div>
+          <div class="modal-field"><label>Kund sedan</label><input ${is} id="edit-customer-since" type="date" value="${c?.CustomerSince?c.CustomerSince.substring(0,10):''}"></div>
           <div class="modal-field"><label>Typ</label>
-            <select id="edit-type" class="edit-input" onchange="onLicenseTypeChange()">
+            <select id="edit-type" ${is} onchange="onLicTypeChange()">
               <option ${(c?.LicenseType||'Team')==='Team'?'selected':''}>Team</option>
               <option ${c?.LicenseType==='Enterprise'?'selected':''}>Enterprise</option>
-              <option ${c?.LicenseType==='Trial'?'selected':''}>Trial</option>
+              <option ${c?.LicenseType==='Pilot'?'selected':''}>Pilot</option>
             </select></div>
-          <div class="modal-field"><label>Start</label><input ${inputStyle} id="edit-start" type="date" value="${c?.LicenseStart?c.LicenseStart.substring(0,10):''}"></div>
-          <div class="modal-field"><label>Slut</label><input ${inputStyle} id="edit-end" type="date" value="${c?.LicenseEnd?c.LicenseEnd.substring(0,10):''}"></div>
+          <div class="modal-field"><label>Start</label><input ${is} id="edit-start" type="date" value="${c?.LicenseStart?c.LicenseStart.substring(0,10):''}"></div>
+          <div class="modal-field"><label>Slut</label><input ${is} id="edit-end" type="date" value="${c?.LicenseEnd?c.LicenseEnd.substring(0,10):''}"></div>
           <div class="modal-field"><label>Risk</label>
-            <select id="edit-risk" class="edit-input">
+            <select id="edit-risk" ${is}>
               <option ${(c?.Risk||'Low')==='Low'?'selected':''}>Low</option>
               <option ${c?.Risk==='Medium'?'selected':''}>Medium</option>
               <option ${c?.Risk==='High'?'selected':''}>High</option>
             </select></div>
         </div></div></div>
-      <div class="modal-section"><div class="modal-section-label">Provision</div>
-        <div class="modal-card">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-            <input type="checkbox" id="commission-toggle" ${c?.CommissionSalesperson?'checked':''} onchange="toggleCommission()">
-            <label for="commission-toggle" style="font-size:13px;cursor:pointer;">Utgår provision</label>
-          </div>
-          <div id="commission-fields" style="display:${c?.CommissionSalesperson?'block':'none'}">
-            <div class="modal-grid">
-              <div class="modal-field"><label>Säljare</label><input ${inputStyle} id="edit-commission-salesperson" value="${c?.CommissionSalesperson||''}"></div>
-              <div class="modal-field"><label>Procent (%)</label><input ${inputStyle} id="edit-commission-percent" type="number" step="0.01" value="${c?.CommissionPercent||''}" oninput="calcCommission()"></div>
-              <div class="modal-field"><label>Belopp (kr)</label><input ${inputStyle} id="edit-commission-amount" type="number" value="${c?.CommissionAmount||''}" readonly style="background:var(--surface2)"></div>
-            </div></div></div></div>
       <div class="modal-section"><div class="modal-section-label">Anteckningar</div>
-        <div class="modal-card"><textarea id="edit-notes" class="edit-input" style="height:80px;resize:vertical;">${c?.Notes||''}</textarea></div></div>`;
+        <div class="modal-card"><textarea id="edit-notes" ${is} style="height:80px;resize:vertical;">${c?.Notes||''}</textarea></div></div>`;
   }
 
-  if (currentPage === 2) {
-    const lt = getLicenseType(c);
-    if (lt === 'Enterprise') {
-      const adminCount = admins.length || 1;
-      let html = `<div class="modal-section"><div class="modal-section-label">Admins</div>
-        <div class="modal-card"><div class="modal-field"><label>Antal</label>
-          <input ${inputStyle} id="edit-admin-count" type="number" min="1" max="20" value="${adminCount}" oninput="updateAdminBlocks(this.value, ${JSON.stringify(admins).replace(/"/g,'&quot;')})">
-        </div></div></div><div id="admin-blocks">`;
-      for (let i=0;i<adminCount;i++) { const a=admins[i]||{}; html+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input ${inputStyle} id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input ${inputStyle} id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input ${inputStyle} id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`; }
-      pageContent = html + '</div>';
+  if (currentPage===2) {
+    const lt=getLicenseType(c);
+    if (lt==='Enterprise') {
+      const ac=admins.length||1; let h=`<div class="modal-section"><div class="modal-section-label">Admins</div><div class="modal-card"><div class="modal-field"><label>Antal</label><input ${is} id="edit-admin-count" type="number" min="1" max="20" value="${ac}" oninput="updateAdminBlocks(this.value,${JSON.stringify(admins).replace(/"/g,'&quot;')})"></div></div></div><div id="admin-blocks">`;
+      for(let i=0;i<ac;i++){const a=admins[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input ${is} id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input ${is} id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input ${is} id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`;}
+      html=h+'</div>';
     } else {
-      const teamCount = teams.length || 1;
-      let html = `<div class="modal-section"><div class="modal-section-label">Antal team</div>
-        <div class="modal-card"><div class="modal-field"><label>Antal</label>
-          <input ${inputStyle} id="edit-team-count" type="number" min="1" max="20" value="${teamCount}" oninput="updateTeamBlocks(this.value, ${JSON.stringify(teams).replace(/"/g,'&quot;')})">
-        </div></div></div><div id="team-blocks">`;
-      for (let i=0;i<teamCount;i++) { const t=teams[i]||{}; html+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input ${inputStyle} id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input ${inputStyle} id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input ${inputStyle} id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input ${inputStyle} id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input ${inputStyle} id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`; }
-      pageContent = html + '</div>';
+      const tc=teams.length||1; let h=`<div class="modal-section"><div class="modal-section-label">Antal team</div><div class="modal-card"><div class="modal-field"><label>Antal</label><input ${is} id="edit-team-count" type="number" min="1" max="20" value="${tc}" oninput="updateTeamBlocks(this.value,${JSON.stringify(teams).replace(/"/g,'&quot;')})"></div></div></div><div id="team-blocks">`;
+      for(let i=0;i<tc;i++){const t=teams[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input ${is} id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input ${is} id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input ${is} id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input ${is} id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input ${is} id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`;}
+      html=h+'</div>';
     }
   }
 
-  if (currentPage === 3) {
-    pageContent = `<div class="modal-section"><div class="modal-section-label">ARR & Fastpris</div>
-      <div class="modal-card"><div class="modal-grid">
-        <div class="modal-field"><label>ARR löpande (kr)</label><input ${inputStyle} id="edit-arr" type="number" value="${c?.ARR||''}" oninput="updateTotal()"></div>
-        <div class="modal-field"><label>Fastpris (kr)</label><input ${inputStyle} id="edit-arr-fixed" type="number" value="${c?.ARR_Fixed||''}" oninput="updateTotal()"></div>
-      </div></div></div>
-    <div class="modal-section">
-      <div class="modal-section-label" style="display:flex;justify-content:space-between;align-items:center;">
-        Utbildning & Consulting
-        <button onclick="addRevenueItem(${c?.Id})" style="padding:3px 10px;border:none;border-radius:5px;background:var(--accent);color:#1e2140;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;">+ Lägg till</button>
+  if (currentPage===3) {
+    html=`<div class="modal-section">
+      <div class="modal-section-label">Intäktsposter
+        <button class="btn-sm" onclick="openAddRevenue(${c?.Id})">+ Lägg till</button>
       </div>
-      <div id="revenue-items"><div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Laddar...</div></div>
-    </div>
-    <div class="modal-card" style="margin-top:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Total intäkt</span>
-        <span id="total-revenue" style="font-size:16px;font-weight:600;color:var(--accent);">–</span>
+      <div id="revenue-items"><div class="loading"><div class="spinner"></div></div></div>
+      <div class="modal-card" style="margin-top:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Total intäkt</span>
+          <span id="total-revenue" style="font-size:16px;font-weight:600;color:var(--accent);">–</span>
+        </div>
       </div>
     </div>`;
   }
 
-  if (currentPage === 4) {
-    pageContent = `<div class="modal-section"><div class="modal-section-label">Aktivitetslogg</div>
+  if (currentPage===4) {
+    html=`<div class="modal-section"><div class="modal-section-label">Aktivitetslogg</div>
       <div class="modal-card" style="margin-bottom:12px;">
         <div class="modal-grid">
-          <div class="modal-field"><label>Typ</label>
-            <select id="new-activity-type" class="edit-input"><option>Möte</option><option>Samtal</option><option>E-post</option><option>Anteckning</option></select></div>
-          <div class="modal-field"><label>Datum</label><input class="edit-input" id="new-activity-date" type="date" value="${new Date().toISOString().substring(0,10)}"></div>
+          <div class="modal-field"><label>Typ</label><select id="new-activity-type" ${is}><option>Möte</option><option>Samtal</option><option>E-post</option><option>Anteckning</option></select></div>
+          <div class="modal-field"><label>Datum</label><input ${is} id="new-activity-date" type="date" value="${new Date().toISOString().substring(0,10)}"></div>
         </div>
-        <div class="modal-field" style="margin-top:8px;"><label>Anteckning</label>
-          <textarea class="edit-input" id="new-activity-note" style="height:80px;resize:vertical;"></textarea></div>
+        <div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea ${is} id="new-activity-note" style="height:80px;resize:vertical;"></textarea></div>
         <button onclick="addActivity(${c?.Id})" style="margin-top:8px;padding:6px 14px;border:none;border-radius:6px;background:var(--accent);color:#1e2140;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">+ Lägg till</button>
       </div>
-      <div id="activity-list" style="display:flex;flex-direction:column;gap:8px;">
-        <div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Laddar...</div></div></div>`;
+      <div id="activity-list" style="display:flex;flex-direction:column;gap:8px;"><div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Laddar...</div></div></div>`;
   }
 
   const saveBtn = isNewCustomer
     ? `<button class="btn-primary" onclick="createCustomer()">Skapa kund</button>`
     : `<button class="btn-primary" onclick="silentSave(${c?.Id});showSaveIndicator('✓ Sparat','#1a7a50');">Spara</button>`;
 
-  document.getElementById('modal-body').innerHTML = `${pageContent}
-    <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">${saveBtn}</div>`;
-
-  if (c && !isNewCustomer) setTimeout(() => setupAutoSave(c.Id), 100);
-  if (currentPage === 3 && c) { setTimeout(updateTotal, 50); setTimeout(() => loadRevenueItems(c.Id), 50); }
-  if (currentPage === 4 && c) setTimeout(() => loadActivities(c.Id), 50);
+  document.getElementById('modal-body').innerHTML=`${html}<div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">${saveBtn}</div>`;
+  if (c&&!isNewCustomer) setTimeout(()=>setupAutoSave(c.Id),100);
+  if (currentPage===3&&c) setTimeout(()=>loadRevenueItems(c.Id),50);
+  if (currentPage===4&&c) setTimeout(()=>loadActivities(c.Id),50);
 }
 
-function onLicenseTypeChange() { renderTabs(document.getElementById('edit-type')?.value || 'Team'); }
+function onLicTypeChange() { renderTabs(document.getElementById('edit-type')?.value||'Team'); }
 
 function goToPage(p) {
-  const c = allCustomers.find(x => x.Id === currentModalId);
-  currentPage = p;
-  renderTabs(getLicenseType(c));
-  if (p === 2 && !isNewCustomer && c) {
-    Promise.all([
-      fetch(`${API}/customers/${c.Id}/teams`).then(r=>r.json()).catch(()=>[]),
-      fetch(`${API}/customers/${c.Id}/admins`).then(r=>r.json()).catch(()=>[])
-    ]).then(([teams,admins]) => renderModalPage(c,teams,admins));
+  const c=allCustomers.find(x=>x.Id===currentModalId);
+  currentPage=p; renderTabs(getLicenseType(c));
+  if (p===2&&!isNewCustomer&&c) {
+    Promise.all([fetch(`${API}/customers/${c.Id}/teams`).then(r=>r.json()).catch(()=>[]),fetch(`${API}/customers/${c.Id}/admins`).then(r=>r.json()).catch(()=>[])]).then(([t,a])=>renderModalPage(c,t,a));
   } else { renderModalPage(c,[],[]); }
-  if (!isNewCustomer && c) silentSave(c.Id);
+  if (!isNewCustomer&&c) silentSave(c.Id);
 }
 
 // ─── REVENUE ITEMS ───────────────────────────────────────
 async function loadRevenueItems(customerId) {
-  const container = document.getElementById('revenue-items');
-  if (!container) return;
+  const el=document.getElementById('revenue-items'); if(!el) return;
   try {
-    const r = await fetch(`${API}/customers/${customerId}/revenues`);
-    const items = await r.json();
-    if (!items.length) { container.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0;">Inga poster – klicka + Lägg till</div>'; updateTotal(); return; }
-    const typeColors = { Utbildning: { bg: 'var(--amber-bg)', color: 'var(--amber)' }, Consulting: { bg: 'var(--purple-bg)', color: 'var(--purple)' } };
-    container.innerHTML = items.map(item => {
-      const tc = typeColors[item.Type] || { bg: 'var(--surface2)', color: 'var(--text2)' };
-      return `<div class="rev-item">
-        <span class="rev-item-type" style="background:${tc.bg};color:${tc.color};">${item.Type}</span>
-        <div class="rev-item-info">
-          <div class="rev-item-amount">${Math.round(item.Amount).toLocaleString('sv-SE')} kr</div>
-          ${item.DateFrom || item.DateTo ? `<div class="rev-item-dates">${item.DateFrom ? item.DateFrom.substring(0,10) : '?'} – ${item.DateTo ? item.DateTo.substring(0,10) : '?'}</div>` : ''}
-          ${item.Description ? `<div class="rev-item-desc">${item.Description}</div>` : ''}
+    const r=await fetch(`${API}/customers/${customerId}/revenues`);
+    const items=await r.json();
+    const typeColors={ARR:{bg:'var(--green-bg)',color:'var(--green)'},Fastpris:{bg:'var(--blue-bg)',color:'var(--blue)'},Utbildning:{bg:'var(--amber-bg)',color:'var(--amber)'},Consulting:{bg:'var(--purple-bg)',color:'var(--purple)'}};
+    if (!items.length) { el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px;">Inga intäktsposter – klicka + Lägg till</div>'; calcRevTotal([]); return; }
+    el.innerHTML=items.map(item=>{
+      const tc=typeColors[item.Type]||{bg:'var(--surface2)',color:'var(--text2)'};
+      return `<div class="rev-item" id="ri-${item.Id}">
+        <div class="rev-item-header">
+          <span class="rev-item-type" style="background:${tc.bg};color:${tc.color};">${item.Type}</span>
+          <span class="rev-item-amount">${Math.round(item.Amount).toLocaleString('sv-SE')} kr</span>
+          ${item.DateFrom||item.DateTo?`<span class="rev-item-dates">${item.DateFrom?item.DateFrom.substring(0,10):'?'} – ${item.DateTo?item.DateTo.substring(0,10):'?'}</span>`:''}
+          <button class="rev-del" onclick="deleteRevItem(${customerId},${item.Id})">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+          </button>
         </div>
-        <button class="rev-del" onclick="deleteRevenueItem(${customerId},${item.Id})" title="Ta bort">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
-        </button>
+        ${item.Description?`<div class="rev-item-desc">${item.Description}</div>`:''}
+        <div id="comm-${item.Id}" style="margin-top:6px;"></div>
+        <button onclick="loadRevCommissions(${item.Id},${customerId})" style="margin-top:4px;padding:2px 8px;border:0.5px solid var(--border);border-radius:5px;background:none;font-family:inherit;font-size:11px;color:var(--text3);cursor:pointer;">Provision</button>
       </div>`;
     }).join('');
-  } catch(e) { container.innerHTML = '<div style="color:var(--text3);font-size:13px;">Kunde inte ladda</div>'; }
-  updateTotal();
+    calcRevTotal(items);
+  } catch(e) { el.innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda</div>'; }
 }
 
-async function addRevenueItem(customerId) {
-  const type = await showRevenueDialog(customerId);
-  if (type) { loadRevenueItems(customerId); updateTotal(); }
+async function loadRevCommissions(revenueId, customerId) {
+  const el=document.getElementById(`comm-${revenueId}`); if(!el) return;
+  try {
+    const r=await fetch(`${API}/revenues/${revenueId}/commissions`);
+    const comms=await r.json();
+    const revenueEl=document.getElementById(`ri-${revenueId}`);
+    const amount=parseInt(revenueEl?.querySelector('.rev-item-amount')?.textContent?.replace(/\D/g,'')||0);
+    let h=comms.map(c=>`<div class="comm-item ${c.PaidOut?'comm-paid':''}">
+      <span style="flex:1;">${c.Recipient}</span>
+      ${c.CommissionPercent?`<span style="color:var(--text3);font-size:11px;">${c.CommissionPercent}%</span>`:''}
+      <span style="font-weight:500;">${fmtKr(c.Amount)}</span>
+      ${!c.PaidOut?`<button class="btn-sm" onclick="markCommPaid(${c.Id},${revenueId},${customerId})">Betald</button>`:`<span class="badge b-green" style="font-size:10px;">Betald</span>`}
+      <button class="rev-del" onclick="deleteComm(${c.Id},${revenueId},${customerId})"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
+    </div>`).join('');
+    h+=`<button onclick="openAddCommission(${revenueId},${customerId},${amount})" style="margin-top:4px;padding:2px 8px;border:0.5px solid var(--border);border-radius:5px;background:none;font-family:inherit;font-size:11px;color:var(--accent);cursor:pointer;">+ Lägg till provision</button>`;
+    el.innerHTML=h;
+  } catch(e) {}
 }
 
-function showRevenueDialog(customerId) {
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:300;display:flex;align-items:center;justify-content:center;';
-    overlay.innerHTML = `<div style="background:var(--surface);border-radius:12px;padding:24px;width:340px;box-shadow:var(--shadow-md);">
-      <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Lägg till intäkt</h3>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Typ</label>
-          <select id="ri-type" class="edit-input"><option>Utbildning</option><option>Consulting</option></select></div>
-        <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Belopp (kr)</label>
-          <input id="ri-amount" class="edit-input" type="number" placeholder="0"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Från datum</label>
-            <input id="ri-from" class="edit-input" type="date"></div>
-          <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Till datum</label>
-            <input id="ri-to" class="edit-input" type="date"></div>
-        </div>
-        <div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Beskrivning</label>
-          <input id="ri-desc" class="edit-input" placeholder="t.ex. Grundutbildning Q1 2026"></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:16px;">
-        <button onclick="this.closest('div[style*=fixed]').remove();window._revResolve(null);" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button>
-        <button onclick="window._saveRevItem(${customerId})" class="btn-primary" style="flex:1;">Spara</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    window._revResolve = resolve;
-    window._saveRevItem = async (cid) => {
-      const type = document.getElementById('ri-type').value;
-      const amount = parseInt(document.getElementById('ri-amount').value) || 0;
-      const dateFrom = document.getElementById('ri-from').value || null;
-      const dateTo = document.getElementById('ri-to').value || null;
-      const description = document.getElementById('ri-desc').value || null;
-      if (!amount) return;
-      await fetch(`${API}/customers/${cid}/revenues`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type,amount,dateFrom,dateTo,description}) });
-      overlay.remove();
-      resolve(type);
-    };
-  });
+function calcRevTotal(items) {
+  const total=items.reduce((s,i)=>s+(i.Amount||0),0);
+  const el=document.getElementById('total-revenue');
+  if(el) el.textContent=total>0?total.toLocaleString('sv-SE')+' kr':'–';
 }
 
-async function deleteRevenueItem(customerId, itemId) {
-  await fetch(`${API}/customers/${customerId}/revenues/${itemId}`, { method: 'DELETE' });
+async function deleteRevItem(customerId, itemId) {
+  await fetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'DELETE'});
   loadRevenueItems(customerId);
 }
 
-function updateTotal() {
-  const arr = parseInt(document.getElementById('edit-arr')?.value)||0;
-  const fixed = parseInt(document.getElementById('edit-arr-fixed')?.value)||0;
-  const items = document.querySelectorAll('.rev-item-amount');
-  let revTotal = 0;
-  items.forEach(el => { revTotal += parseInt(el.textContent.replace(/\D/g,'')) || 0; });
-  const total = arr + fixed + revTotal;
-  const el = document.getElementById('total-revenue');
-  if (el) el.textContent = total > 0 ? total.toLocaleString('sv-SE')+' kr' : '–';
-  calcCommission();
+async function markCommPaid(commId, revenueId, customerId) {
+  await fetch(`${API}/commissions/${commId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});
+  loadRevCommissions(revenueId,customerId);
 }
 
-// ─── ÖVRIGA MODAL-FUNKTIONER ─────────────────────────────
-function calcCommission() {
-  const percent = parseFloat(document.getElementById('edit-commission-percent')?.value)||0;
-  const arr = parseInt(document.getElementById('edit-arr')?.value)||0;
-  const fixed = parseInt(document.getElementById('edit-arr-fixed')?.value)||0;
-  const el = document.getElementById('edit-commission-amount');
-  if (el) el.value = Math.round((arr+fixed)*percent/100)||'';
+async function deleteComm(commId, revenueId, customerId) {
+  await fetch(`${API}/commissions/${commId}`,{method:'DELETE'});
+  loadRevCommissions(revenueId,customerId);
 }
-function toggleCommission() { document.getElementById('commission-fields').style.display = document.getElementById('commission-toggle').checked?'block':'none'; }
 
-function updateTeamBlocks(count, et) { const n=Math.max(1,Math.min(20,parseInt(count)||1)); let h=''; for(let i=0;i<n;i++){const t=et[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input class="edit-input" id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input class="edit-input" id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input class="edit-input" id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input class="edit-input" id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input class="edit-input" id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`;} document.getElementById('team-blocks').innerHTML=h; }
-function updateAdminBlocks(count, ea) { const n=Math.max(1,Math.min(20,parseInt(count)||1)); let h=''; for(let i=0;i<n;i++){const a=ea[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input class="edit-input" id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input class="edit-input" id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input class="edit-input" id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`;} document.getElementById('admin-blocks').innerHTML=h; }
+function openAddRevenue(customerId) {
+  const c=allCustomers.find(x=>x.Id===customerId);
+  const licStart=c?.LicenseStart?c.LicenseStart.substring(0,10):'';
+  const licEnd=c?.LicenseEnd?c.LicenseEnd.substring(0,10):'';
+  showDialog('Lägg till intäkt', `
+    <div class="modal-field"><label>Typ</label>
+      <select id="di-type" class="edit-input" onchange="updateRevDialogDates('${licStart}','${licEnd}')">
+        <option>ARR</option><option>Fastpris</option><option>Utbildning</option><option>Consulting</option>
+      </select></div>
+    <div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="di-amount" class="edit-input" type="number" placeholder="0"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+      <div class="modal-field"><label>Från datum</label><input id="di-from" class="edit-input" type="date" value="${licStart}"></div>
+      <div class="modal-field"><label>Till datum</label><input id="di-to" class="edit-input" type="date" value="${licEnd}"></div>
+    </div>
+    <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="di-desc" class="edit-input" placeholder="t.ex. Grundutbildning Q1 2026"></div>
+  `, async () => {
+    const type=document.getElementById('di-type').value;
+    const amount=parseInt(document.getElementById('di-amount').value)||0;
+    if (!amount) return false;
+    await fetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,amount,dateFrom:document.getElementById('di-from').value||null,dateTo:document.getElementById('di-to').value||null,description:document.getElementById('di-desc').value||null})});
+    loadRevenueItems(customerId);
+    return true;
+  });
+}
 
+function updateRevDialogDates(licStart, licEnd) {
+  const type=document.getElementById('di-type')?.value;
+  const fromEl=document.getElementById('di-from');
+  const toEl=document.getElementById('di-to');
+  if (!fromEl||!toEl) return;
+  if (type==='ARR'||type==='Fastpris') { fromEl.value=licStart; toEl.value=licEnd; }
+  else { fromEl.value=''; toEl.value=''; }
+}
+
+function openAddCommission(revenueId, customerId, baseAmount) {
+  const recipientOptions = allRecipients.map(r=>`<option>${r}</option>`).join('');
+  showDialog('Lägg till provision', `
+    <div class="modal-field"><label>Mottagare</label>
+      <select id="ci-recipient" class="edit-input">
+        ${recipientOptions}
+        <option value="__new__">+ Lägg till ny...</option>
+      </select></div>
+    <div id="ci-new-recipient-wrap" style="display:none;margin-top:8px;">
+      <div class="modal-field"><label>Nytt namn</label><input id="ci-new-recipient" class="edit-input" placeholder="Namn"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end;">
+      <div class="modal-field" style="flex:1;"><label>Procent (%)</label><input id="ci-percent" class="edit-input" type="number" step="0.1" placeholder="t.ex. 10" oninput="calcCommFromPercent(${baseAmount})"></div>
+      <span style="padding-bottom:8px;color:var(--text3);">eller</span>
+      <div class="modal-field" style="flex:1;"><label>Belopp (kr)</label><input id="ci-amount" class="edit-input" type="number" placeholder="t.ex. 5000"></div>
+    </div>
+    <div style="margin-top:6px;font-size:12px;color:var(--text3);">Basbelopp: ${baseAmount.toLocaleString('sv-SE')} kr</div>
+  `, async () => {
+    let recipient=document.getElementById('ci-recipient').value;
+    if (recipient==='__new__') {
+      const newName=document.getElementById('ci-new-recipient')?.value?.trim();
+      if (!newName) return false;
+      await fetch(`${API}/commission-recipients`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName})});
+      allRecipients.push(newName);
+      allRecipients.sort();
+      recipient=newName;
+    }
+    const pct=parseFloat(document.getElementById('ci-percent')?.value)||null;
+    const amt=parseInt(document.getElementById('ci-amount')?.value)||(pct?Math.round(baseAmount*pct/100):0);
+    if (!amt) return false;
+    await fetch(`${API}/revenues/${revenueId}/commissions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId,recipient,commissionPercent:pct,amount:amt})});
+    loadRevCommissions(revenueId,customerId);
+    return true;
+  });
+  setTimeout(()=>{
+    document.getElementById('ci-recipient')?.addEventListener('change',function(){
+      document.getElementById('ci-new-recipient-wrap').style.display=this.value==='__new__'?'block':'none';
+    });
+  },50);
+}
+
+function calcCommFromPercent(base) {
+  const pct=parseFloat(document.getElementById('ci-percent')?.value)||0;
+  const el=document.getElementById('ci-amount');
+  if (el&&pct>0) el.value=Math.round(base*pct/100);
+}
+
+function showDialog(title, bodyHtml, onSave) {
+  const existing=document.getElementById('dialog-overlay');
+  if (existing) existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='dialog-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML=`<div style="background:var(--surface);border-radius:12px;padding:24px;width:360px;box-shadow:var(--shadow-md);">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">${title}</h3>
+    <div style="display:flex;flex-direction:column;gap:0;">${bodyHtml}</div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button onclick="document.getElementById('dialog-overlay').remove();" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button>
+      <button id="dialog-save-btn" class="btn-primary" style="flex:1;" onclick="handleDialogSave()">Spara</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  window._dialogSave=onSave;
+}
+
+async function handleDialogSave() {
+  if (window._dialogSave) {
+    const ok=await window._dialogSave();
+    if (ok!==false) document.getElementById('dialog-overlay')?.remove();
+  }
+}
+
+// ─── AKTIVITETER ─────────────────────────────────────────
 async function loadActivities(customerId) {
-  const container = document.getElementById('activity-list');
-  if (!container) return;
+  const el=document.getElementById('activity-list'); if(!el) return;
   try {
-    const r = await fetch(`${API}/activities/customer/${customerId}`);
-    const acts = await r.json();
-    if (!acts.length) { container.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Inga aktiviteter ännu</div>'; return; }
-    container.innerHTML = acts.map(a => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+    const r=await fetch(`${API}/activities/customer/${customerId}`);
+    const acts=await r.json();
+    if(!acts.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Inga aktiviteter ännu</div>';return;}
+    el.innerHTML=acts.map(a=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
         <span style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;">${a.Type}</span>
         <span style="font-size:11px;color:var(--text3);">${new Date(a.CreatedAt).toLocaleDateString('sv-SE')}</span>
       </div>
       <div style="font-size:13px;">${a.Note||''}</div>
     </div>`).join('');
-  } catch(e) { container.innerHTML = '<div style="color:var(--text3);font-size:13px;">Kunde inte ladda aktiviteter</div>'; }
+  } catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda</div>';}
 }
 
 async function addActivity(customerId) {
-  const type = document.getElementById('new-activity-type').value;
-  const note = document.getElementById('new-activity-note').value;
-  const date = document.getElementById('new-activity-date').value;
-  if (!note.trim()) return;
-  await fetch(`${API}/activities/customer/${customerId}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type,note,date,createdBy:''}) });
-  document.getElementById('new-activity-note').value = '';
+  const type=document.getElementById('new-activity-type').value;
+  const note=document.getElementById('new-activity-note').value;
+  const date=document.getElementById('new-activity-date').value;
+  if(!note.trim()) return;
+  await fetch(`${API}/activities/customer/${customerId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,note,date,createdBy:''})});
+  document.getElementById('new-activity-note').value='';
   loadActivities(customerId);
 }
 
-let autoSaveTimer = null;
+// ─── AUTOSPARA ───────────────────────────────────────────
+let autoSaveTimer=null;
 function setupAutoSave(id) {
-  document.getElementById('modal-body').querySelectorAll('input,select,textarea').forEach(f => {
-    f.addEventListener('input', () => { clearTimeout(autoSaveTimer); showSaveIndicator('Sparar...'); autoSaveTimer = setTimeout(()=>silentSave(id),1500); });
-    f.addEventListener('change', () => { clearTimeout(autoSaveTimer); showSaveIndicator('Sparar...'); autoSaveTimer = setTimeout(()=>silentSave(id),1500); });
+  document.getElementById('modal-body').querySelectorAll('input,select,textarea').forEach(f=>{
+    f.addEventListener('input',()=>{clearTimeout(autoSaveTimer);showSaveIndicator('Sparar...');autoSaveTimer=setTimeout(()=>silentSave(id),1500);});
+    f.addEventListener('change',()=>{clearTimeout(autoSaveTimer);showSaveIndicator('Sparar...');autoSaveTimer=setTimeout(()=>silentSave(id),1500);});
   });
 }
 
 function showSaveIndicator(msg, color) {
-  let el = document.getElementById('save-indicator');
-  if (!el) { el = document.createElement('div'); el.id = 'save-indicator'; el.style.cssText = 'position:fixed;bottom:20px;right:480px;padding:6px 12px;border-radius:6px;font-size:12px;font-family:Poppins,sans-serif;z-index:300;transition:opacity 0.3s;'; document.body.appendChild(el); }
-  el.textContent = msg; el.style.background = color||'#1e2140'; el.style.color = 'white'; el.style.opacity = '1';
-  if (msg==='✓ Sparat') setTimeout(()=>{el.style.opacity='0';},2000);
+  let el=document.getElementById('save-indicator');
+  if(!el){el=document.createElement('div');el.id='save-indicator';el.style.cssText='position:fixed;bottom:20px;right:500px;padding:6px 12px;border-radius:6px;font-size:12px;font-family:Poppins,sans-serif;z-index:300;transition:opacity 0.3s;';document.body.appendChild(el);}
+  el.textContent=msg;el.style.background=color||'#1e2140';el.style.color='white';el.style.opacity='1';
+  if(msg==='✓ Sparat') setTimeout(()=>{el.style.opacity='0';},2000);
 }
 
 async function silentSave(id) {
-  if (isNewCustomer||!id) return;
-  const c = allCustomers.find(x=>x.Id===id);
-  if (!c) return;
-  const licenseType = document.getElementById('edit-type')?.value||c.LicenseType;
-  const gv = elId => document.getElementById(elId)?.value??null;
-
-  const merged = {
-    company: gv('edit-company')||c.Company, contact: gv('edit-contact')||c.Contact,
-    contactRole: gv('edit-contact-role')??c.ContactRole, contactEmail: gv('edit-contact-email')??c.ContactEmail,
-    contactPhone: gv('edit-contact-phone')??c.ContactPhone, customerSince: gv('edit-customer-since')??c.CustomerSince,
-    owner: gv('edit-owner')||c._owner, licenseStart: gv('edit-start')||c.LicenseStart,
-    licenseEnd: gv('edit-end')||c.LicenseEnd, licenseType,
-    arr: document.getElementById('edit-arr')?(parseInt(document.getElementById('edit-arr').value)||0):c.ARR,
-    arrFixed: document.getElementById('edit-arr-fixed')?(parseInt(document.getElementById('edit-arr-fixed').value)||0):c.ARR_Fixed,
-    revenueTraining: c.Revenue_Training, revenueTrainingDate: c.Revenue_Training_Date,
-    revenueConsulting: c.Revenue_Consulting, revenueConsultingDate: c.Revenue_Consulting_Date,
-    risk: gv('edit-risk')||c.Risk,
-    commissionSalesperson: document.getElementById('commission-toggle')?.checked?gv('edit-commission-salesperson'):null,
-    commissionPercent: document.getElementById('commission-toggle')?.checked?parseFloat(document.getElementById('edit-commission-percent')?.value)||null:null,
-    commissionAmount: document.getElementById('commission-toggle')?.checked?parseInt(document.getElementById('edit-commission-amount')?.value)||null:null,
-    subName: gv('edit-subname')??c.SubName,
-    notes: document.getElementById('edit-notes')?document.getElementById('edit-notes').value:c.Notes
+  if(isNewCustomer||!id) return;
+  const c=allCustomers.find(x=>x.Id===id); if(!c) return;
+  const lt=document.getElementById('edit-type')?.value||c.LicenseType;
+  const gv=elId=>document.getElementById(elId)?.value??null;
+  const merged={
+    company:gv('edit-company')||c.Company, contact:gv('edit-contact')||c.Contact,
+    contactRole:gv('edit-contact-role')??c.ContactRole, contactEmail:gv('edit-contact-email')??c.ContactEmail,
+    contactPhone:gv('edit-contact-phone')??c.ContactPhone, customerSince:gv('edit-customer-since')??c.CustomerSince,
+    owner:gv('edit-owner')||c._owner, licenseStart:gv('edit-start')||c.LicenseStart,
+    licenseEnd:gv('edit-end')||c.LicenseEnd, licenseType:lt,
+    arr:document.getElementById('edit-arr')?(parseInt(document.getElementById('edit-arr').value)||0):c.ARR,
+    arrFixed:c.ARR_Fixed, revenueTraining:c.Revenue_Training, revenueTrainingDate:c.Revenue_Training_Date,
+    revenueConsulting:c.Revenue_Consulting, revenueConsultingDate:c.Revenue_Consulting_Date,
+    risk:gv('edit-risk')||c.Risk, subName:gv('edit-subname')??c.SubName,
+    notes:document.getElementById('edit-notes')?document.getElementById('edit-notes').value:c.Notes,
+    teamName:c.TeamName, meetingLeader1:c.MeetingLeader1, meetingLeader1Email:c.MeetingLeader1Email,
+    meetingLeader1Phone:c.MeetingLeader1Phone, meetingLeader2:c.MeetingLeader2,
+    meetingLeader2Email:c.MeetingLeader2Email, meetingLeader2Phone:c.MeetingLeader2Phone,
+    commissionSalesperson:c.CommissionSalesperson, commissionPercent:c.CommissionPercent, commissionAmount:c.CommissionAmount
   };
-
   try {
-    const r = await fetch(`${API}/customers/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged)});
-    if (r.ok) {
-      const idx = allCustomers.findIndex(x=>x.Id===id);
-      if (idx!==-1) allCustomers[idx] = {...allCustomers[idx],Company:merged.company,Contact:merged.contact,ContactRole:merged.contactRole,ContactEmail:merged.contactEmail,ContactPhone:merged.contactPhone,LicenseType:merged.licenseType,LicenseStart:merged.licenseStart,LicenseEnd:merged.licenseEnd,ARR:merged.arr,ARR_Fixed:merged.arrFixed,Risk:merged.risk,SubName:merged.subName,Notes:merged.notes,_owner:merged.owner,_days:daysLeft(merged.licenseEnd)};
+    const r=await fetch(`${API}/customers/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged)});
+    if(r.ok){
+      const idx=allCustomers.findIndex(x=>x.Id===id);
+      if(idx!==-1) allCustomers[idx]={...allCustomers[idx],Company:merged.company,Contact:merged.contact,LicenseType:merged.licenseType,LicenseStart:merged.licenseStart,LicenseEnd:merged.licenseEnd,Risk:merged.risk,SubName:merged.subName,Notes:merged.notes,_owner:merged.owner,_days:daysLeft(merged.licenseEnd)};
       showSaveIndicator('✓ Sparat','#1a7a50');
-      if (licenseType==='Team'&&document.getElementById('edit-team-count')) {
+      if(lt==='Team'&&document.getElementById('edit-team-count')){
         await fetch(`${API}/customers/${id}/teams`,{method:'DELETE',headers:{'Content-Type':'application/json'}});
         const count=parseInt(document.getElementById('edit-team-count')?.value)||0;
         for(let i=0;i<count;i++) await fetch(`${API}/customers/${id}/teams`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({teamName:document.getElementById(`team-name-${i}`)?.value||'',meetingLeader1:document.getElementById(`team-ml1-${i}`)?.value||'',meetingLeader1Email:document.getElementById(`team-ml1-email-${i}`)?.value||'',meetingLeader2:document.getElementById(`team-ml2-${i}`)?.value||'',meetingLeader2Email:document.getElementById(`team-ml2-email-${i}`)?.value||''})});
       }
-      if (licenseType==='Enterprise'&&document.getElementById('edit-admin-count')) {
+      if(lt==='Enterprise'&&document.getElementById('edit-admin-count')){
         await fetch(`${API}/customers/${id}/admins`,{method:'DELETE',headers:{'Content-Type':'application/json'}});
         const count=parseInt(document.getElementById('edit-admin-count')?.value)||0;
         for(let i=0;i<count;i++) await fetch(`${API}/customers/${id}/admins`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById(`admin-name-${i}`)?.value||'',email:document.getElementById(`admin-email-${i}`)?.value||'',phone:document.getElementById(`admin-phone-${i}`)?.value||''})});
       }
     } else { showSaveIndicator('⚠ Fel','#a32d2d'); }
-  } catch(e) { showSaveIndicator('⚠ Fel','#a32d2d'); }
+  } catch(e){ showSaveIndicator('⚠ Fel','#a32d2d'); }
 }
 
 async function createCustomer() {
-  const body = {
-    company: document.getElementById('edit-company')?.value||'Ny kund',
-    contact: document.getElementById('edit-contact')?.value||'',
-    contactRole: document.getElementById('edit-contact-role')?.value||'',
-    contactEmail: document.getElementById('edit-contact-email')?.value||'',
-    contactPhone: document.getElementById('edit-contact-phone')?.value||'',
-    customerSince: document.getElementById('edit-customer-since')?.value||null,
-    owner: document.getElementById('edit-owner')?.value||'Matilda Olsson',
-    licenseStart: document.getElementById('edit-start')?.value||null,
-    licenseEnd: document.getElementById('edit-end')?.value||null,
-    licenseType: document.getElementById('edit-type')?.value||'Team',
-    arr: parseInt(document.getElementById('edit-arr')?.value)||null,
-    arrFixed: null, revenueTraining: null, revenueConsulting: null,
-    risk: document.getElementById('edit-risk')?.value||'Low',
-    subName: document.getElementById('edit-subname')?.value||null,
-    notes: document.getElementById('edit-notes')?.value||null
-  };
-  try {
-    const r = await fetch(`${API}/customers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if (!r.ok) throw new Error();
-    closeModalDirect(); await loadCustomers();
-  } catch(e) { alert('Kunde inte skapa kund.'); }
+  const body={company:document.getElementById('edit-company')?.value||'Ny kund',contact:document.getElementById('edit-contact')?.value||'',contactRole:document.getElementById('edit-contact-role')?.value||'',contactEmail:document.getElementById('edit-contact-email')?.value||'',contactPhone:document.getElementById('edit-contact-phone')?.value||'',customerSince:document.getElementById('edit-customer-since')?.value||null,owner:document.getElementById('edit-owner')?.value||'Matilda Olsson',licenseStart:document.getElementById('edit-start')?.value||null,licenseEnd:document.getElementById('edit-end')?.value||null,licenseType:document.getElementById('edit-type')?.value||'Team',arr:null,arrFixed:null,revenueTraining:null,revenueConsulting:null,risk:document.getElementById('edit-risk')?.value||'Low',subName:document.getElementById('edit-subname')?.value||null,notes:document.getElementById('edit-notes')?.value||null};
+  try{const r=await fetch(`${API}/customers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeModalDirect();await loadCustomers();}catch(e){alert('Kunde inte skapa kund.');}
 }
 
-function confirmDelete() {
-  const c = allCustomers.find(x=>x.Id===currentModalId);
-  document.getElementById('confirm-text').textContent = `"${c?.Company||'Kunden'}" raderas permanent.`;
-  document.getElementById('confirm-overlay').classList.add('open');
-}
-function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('open'); }
-async function executeDelete() {
-  if (!currentModalId) return;
-  try {
-    const r = await fetch(`${API}/customers/${currentModalId}`,{method:'DELETE'});
-    if (!r.ok) throw new Error();
-    closeConfirm(); closeModalDirect(); await loadCustomers();
-  } catch(e) { alert('Kunde inte ta bort.'); }
-}
+function updateTeamBlocks(count,et){const n=Math.max(1,Math.min(20,parseInt(count)||1));let h='';for(let i=0;i<n;i++){const t=et[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input class="edit-input" id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input class="edit-input" id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input class="edit-input" id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input class="edit-input" id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input class="edit-input" id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`;}document.getElementById('team-blocks').innerHTML=h;}
+function updateAdminBlocks(count,ea){const n=Math.max(1,Math.min(20,parseInt(count)||1));let h='';for(let i=0;i<n;i++){const a=ea[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input class="edit-input" id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input class="edit-input" id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input class="edit-input" id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`;}document.getElementById('admin-blocks').innerHTML=h;}
 
-function closeModal(e) { if (e.target===document.getElementById('modal-overlay')) closeModalDirect(); }
-function closeModalDirect() { document.getElementById('modal-overlay').classList.remove('open'); renderTable(); renderFinView(); }
+function confirmDelete(){const c=allCustomers.find(x=>x.Id===currentModalId);document.getElementById('confirm-text').textContent=`"${c?.Company||'Kunden'}" raderas permanent.`;document.getElementById('confirm-overlay').classList.add('open');}
+function closeConfirm(){document.getElementById('confirm-overlay').classList.remove('open');}
+async function executeDelete(){if(!currentModalId)return;try{const r=await fetch(`${API}/customers/${currentModalId}`,{method:'DELETE'});if(!r.ok)throw new Error();closeConfirm();closeModalDirect();await loadCustomers();}catch(e){alert('Kunde inte ta bort.');}}
+function closeModal(e){if(e.target===document.getElementById('modal-overlay'))closeModalDirect();}
+function closeModalDirect(){document.getElementById('modal-overlay').classList.remove('open');renderTable();renderRevSummary();updateStats();}
 
-document.addEventListener('click', e => {
-  if (!e.target.closest('.rev-dropdown')) {
-    document.getElementById('rev-dd-panel').style.display = 'none';
-    const perPanel = document.getElementById('per-dd-panel');
-    if (perPanel) perPanel.style.display = 'none';
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.rev-dropdown')){
+    document.getElementById('rev-dd-panel').style.display='none';
+    const p=document.getElementById('per-dd-panel');if(p)p.style.display='none';
   }
 });
 
-document.getElementById('search').addEventListener('input', ()=>{renderTable();renderFinView();});
-document.getElementById('filter-owner').addEventListener('change', ()=>{renderTable();renderFinView();});
-document.getElementById('filter-license').addEventListener('change', ()=>{renderTable();renderFinView();});
-document.getElementById('filter-risk').addEventListener('change', ()=>{renderTable();renderFinView();});
+document.getElementById('search').addEventListener('input',()=>renderTable());
+document.getElementById('filter-owner').addEventListener('change',()=>renderTable());
+document.getElementById('filter-license').addEventListener('change',()=>renderTable());
+document.getElementById('filter-risk').addEventListener('change',()=>renderTable());
 
 loadCustomers();
+loadRecipients();
 </script>
 </body>
 </html>
