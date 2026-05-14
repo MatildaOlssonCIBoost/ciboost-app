@@ -553,13 +553,15 @@ function renderTable() {
   });
   document.getElementById('filter-count').textContent = `${data.length} kund${data.length !== 1 ? 'er' : ''}`;
   if (data.length === 0) {
-    document.getElementById('table-body').innerHTML = `<tr><td colspan="7"><div class="empty">Inga kunder matchar filtren</div></td></tr>`;
+    document.getElementById('table-body').innerHTML = `<tr><td colspan="8"><div class="empty">Inga kunder matchar filtren</div></td></tr>`;
     return;
   }
   document.getElementById('table-body').innerHTML = data.map(c => `
     <tr onclick="openModal(${c.Id})">
-      <div class="company-name">${c.Company || '-'}</div>
-              ${c.SubName ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">${c.SubName}</div>` : ''}
+      <td>
+        <div class="company-name">${c.Company || '-'}</div>
+        ${c.SubName ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">${c.SubName}</div>` : ''}
+      </td>
       <td><div class="contact-name">${c.Contact || '-'}</div></td>
       <td><span class="owner-tag">${c._owner}</span></td>
       <td><span class="license-type lt-${c.LicenseType}">${c.LicenseType || '-'}</span></td>
