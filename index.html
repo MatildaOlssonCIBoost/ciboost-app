@@ -558,7 +558,8 @@ function renderTable() {
   }
   document.getElementById('table-body').innerHTML = data.map(c => `
     <tr onclick="openModal(${c.Id})">
-      <td><div class="company-name">${c.Company || '-'}</div></td>
+      <div class="company-name">${c.Company || '-'}</div>
+              ${c.SubName ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">${c.SubName}</div>` : ''}
       <td><div class="contact-name">${c.Contact || '-'}</div></td>
       <td><span class="owner-tag">${c._owner}</span></td>
       <td><span class="license-type lt-${c.LicenseType}">${c.LicenseType || '-'}</span></td>
@@ -628,7 +629,11 @@ async function openModal(id) {
           <div class="modal-card">
             <div class="modal-field">
               <label>Företagsnamn</label>
-              <input ${inputStyle} id="edit-company" value="${c.Company || ''}">
+               <input ${inputStyle} id="edit-company" value="${c.Company || ''}">
+          </div>
+          <div class="modal-field">
+            <label>Team / Avdelning</label>
+            <input ${inputStyle} id="edit-subname" value="${c.SubName || ''}">
             </div>
           </div>
         </div>
@@ -1100,6 +1105,7 @@ async function silentSave(id) {
     commissionSalesperson: document.getElementById('commission-toggle')?.checked ? getValue('edit-commission-salesperson') : null,
     commissionPercent: document.getElementById('commission-toggle')?.checked ? parseFloat(document.getElementById('edit-commission-percent')?.value) || null : null,
     commissionAmount: document.getElementById('commission-toggle')?.checked ? getInt('edit-commission-amount') : null,
+    subName: document.getElementById('edit-subname')?.value ?? null,
     notes: document.getElementById('edit-notes')?.value ?? null
   };
 
