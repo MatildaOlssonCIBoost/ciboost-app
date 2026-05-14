@@ -251,10 +251,7 @@
     white-space: nowrap;
   }
 
-  .arr-val {
-    font-size: 13px;
-    color: var(--text2);
-  }
+  .arr-val { font-size: 13px; color: var(--text2); }
 
   .modal-overlay {
     position: fixed; inset: 0;
@@ -273,21 +270,44 @@
     overflow-y: auto;
     box-shadow: var(--shadow-md);
     animation: slideIn 0.2s ease;
+    display: flex;
+    flex-direction: column;
   }
   @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
   .modal-header {
-    padding: 20px 20px 16px;
+    padding: 16px 20px 0;
     border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .modal-header-top {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 12px;
-    position: sticky; top: 0;
-    background: var(--surface);
-    z-index: 1;
+    margin-bottom: 12px;
   }
   .modal-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
   .modal-subtitle { font-size: 12px; color: var(--text3); margin-top: 3px; }
+  .modal-header-actions { display: flex; gap: 8px; align-items: center; }
+
+  .btn-delete {
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    color: var(--red);
+    font-family: 'Poppins', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-delete:hover { background: var(--red-bg); }
+
   .modal-close {
     width: 28px; height: 28px;
     border: 1px solid var(--border);
@@ -296,10 +316,27 @@
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     color: var(--text2);
-    flex-shrink: 0;
   }
   .modal-close:hover { background: var(--surface2); }
-  .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+
+  .modal-tabs { display: flex; gap: 0; margin-top: 4px; }
+  .modal-tab {
+    padding: 8px 16px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text3);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .modal-tab:hover { color: var(--text2); }
+  .modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
   .modal-section { display: flex; flex-direction: column; gap: 8px; }
   .modal-section-label {
     font-size: 10px;
@@ -328,12 +365,54 @@
   }
   .edit-input:focus { outline: none; border-color: var(--accent); }
 
+  .confirm-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 400;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .confirm-overlay.open { display: flex; }
+  .confirm-box {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 24px;
+    width: 320px;
+    box-shadow: var(--shadow-md);
+    animation: popIn 0.15s ease;
+  }
+  @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: none; opacity: 1; } }
+  .confirm-box h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .confirm-box p { font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
+  .confirm-actions { display: flex; gap: 8px; }
+  .btn-cancel {
+    flex: 1; padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: none;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+  }
+  .btn-cancel:hover { background: var(--surface2); }
+  .btn-confirm-delete {
+    flex: 1; padding: 8px;
+    border: none;
+    border-radius: 8px;
+    background: var(--red-bg);
+    color: var(--red);
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-confirm-delete:hover { background: #f5c5c5; }
+
   .loading {
     display: flex; align-items: center; justify-content: center;
-    padding: 60px;
-    color: var(--text3);
-    font-size: 13px;
-    gap: 10px;
+    padding: 60px; color: var(--text3); font-size: 13px; gap: 10px;
   }
   .spinner {
     width: 16px; height: 16px;
@@ -344,6 +423,30 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .empty { text-align: center; padding: 48px; color: var(--text3); font-size: 13px; }
+
+  .btn-primary {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #1e2140;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-secondary {
+    padding: 8px 18px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text2);
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .btn-secondary:hover { background: var(--surface2); }
 </style>
 </head>
 <body>
@@ -363,40 +466,19 @@
 </nav>
 
 <div class="stats-bar">
-  <div class="stat">
-    <div class="stat-val blue" id="stat-total">-</div>
-    <div class="stat-label">Aktiva kunder</div>
-  </div>
+  <div class="stat"><div class="stat-val blue" id="stat-total">-</div><div class="stat-label">Aktiva kunder</div></div>
   <div class="stat-divider"></div>
-  <div class="stat">
-    <div class="stat-val green" id="stat-enterprise">-</div>
-    <div class="stat-label">Enterprise</div>
-  </div>
+  <div class="stat"><div class="stat-val green" id="stat-enterprise">-</div><div class="stat-label">Enterprise</div></div>
   <div class="stat-divider"></div>
-  <div class="stat">
-    <div class="stat-val green" id="stat-team">-</div>
-    <div class="stat-label">Team</div>
-  </div>
+  <div class="stat"><div class="stat-val green" id="stat-team">-</div><div class="stat-label">Team</div></div>
   <div class="stat-divider"></div>
-  <div class="stat">
-    <div class="stat-val amber" id="stat-expiring">-</div>
-    <div class="stat-label">Förfaller &lt;30d</div>
-  </div>
+  <div class="stat"><div class="stat-val amber" id="stat-expiring">-</div><div class="stat-label">Förfaller &lt;30d</div></div>
   <div class="stat-divider"></div>
-  <div class="stat">
-    <div class="stat-val red" id="stat-risk">-</div>
-    <div class="stat-label">High risk</div>
-  </div>
+  <div class="stat"><div class="stat-val red" id="stat-risk">-</div><div class="stat-label">High risk</div></div>
   <div class="stat-divider"></div>
-  <div class="stat">
-    <div class="stat-val" id="stat-expired" style="color:var(--gray)">-</div>
-    <div class="stat-label">Utgångna</div>
-  </div>
+  <div class="stat"><div class="stat-val" id="stat-expired" style="color:var(--gray)">-</div><div class="stat-label">Utgångna</div></div>
   <div class="stat-divider"></div>
-  <div class="stat">
-    <div class="stat-val blue" id="stat-arr">-</div>
-    <div class="stat-label">Total ARR</div>
-  </div>
+  <div class="stat"><div class="stat-val blue" id="stat-arr">-</div><div class="stat-label">Total ARR</div></div>
 </div>
 
 <div class="main">
@@ -424,6 +506,10 @@
       <option>High</option>
     </select>
     <div class="filter-count" id="filter-count"></div>
+    <button class="btn-primary" onclick="openNewModal()" style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+      Ny kund
+    </button>
   </div>
 
   <div class="table-wrap">
@@ -441,7 +527,7 @@
         </tr>
       </thead>
       <tbody id="table-body">
-        <tr><td colspan="7"><div class="loading"><div class="spinner"></div> Hämtar kunder</div></td></tr>
+        <tr><td colspan="8"><div class="loading"><div class="spinner"></div> Hämtar kunder</div></td></tr>
       </tbody>
     </table>
   </div>
@@ -450,23 +536,47 @@
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal" id="modal">
     <div class="modal-header">
-      <div>
-        <div class="modal-title" id="modal-title"></div>
-        <div class="modal-subtitle" id="modal-subtitle"></div>
+      <div class="modal-header-top">
+        <div>
+          <div class="modal-title" id="modal-title"></div>
+          <div class="modal-subtitle" id="modal-subtitle"></div>
+        </div>
+        <div class="modal-header-actions">
+          <button class="btn-delete" id="btn-delete" onclick="confirmDelete()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            Ta bort
+          </button>
+          <button class="modal-close" onclick="closeModalDirect()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
       </div>
-      <button class="modal-close" onclick="closeModalDirect()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
+      <div class="modal-tabs" id="modal-tabs"></div>
     </div>
     <div class="modal-body" id="modal-body"></div>
   </div>
 </div>
 
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <h3>Ta bort kund?</h3>
+    <p id="confirm-text">Kunden kommer att raderas permanent. Det går inte att ångra.</p>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="closeConfirm()">Avbryt</button>
+      <button class="btn-confirm-delete" onclick="executeDelete()">Ta bort</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = 'https://ciboost-api-v2-hmgdayegd2hjeth6.swedencentral-01.azurewebsites.net';
+const OWNERS = ['Matilda Olsson', 'Alexandra Henningson'];
 let allCustomers = [];
 let sortCol = 'days';
 let sortAsc = true;
+let currentModalId = null;
+let currentPage = 1;
+let isNewCustomer = false;
 
 function daysLeft(dateStr) {
   if (!dateStr) return null;
@@ -503,7 +613,7 @@ async function loadCustomers() {
     updateStats();
     renderTable();
   } catch(e) {
-    document.getElementById('table-body').innerHTML = `<tr><td colspan="7"><div class="empty">Kunde inte hämta data“ kontrollera API-anslutningen</div></td></tr>`;
+    document.getElementById('table-body').innerHTML = `<tr><td colspan="8"><div class="empty">Kunde inte hämta data – kontrollera API-anslutningen</div></td></tr>`;
   }
 }
 
@@ -573,246 +683,225 @@ function renderTable() {
   `).join('');
 }
 
+function getLicenseType(c) {
+  return document.getElementById('edit-type')?.value || c?.LicenseType || 'Team';
+}
+
+function getTabs(licenseType) {
+  const tab2 = licenseType === 'Enterprise' ? 'Enterprise' : 'Team';
+  return ['Översikt', tab2, 'Aktivitet'];
+}
+
+function renderTabs(licenseType) {
+  const tabs = getTabs(licenseType);
+  document.getElementById('modal-tabs').innerHTML = tabs.map((t, i) => `
+    <button class="modal-tab ${currentPage === i+1 ? 'active' : ''}" onclick="goToPage(${i+1})">${i+1}. ${t}</button>
+  `).join('');
+}
+
+function openNewModal() {
+  isNewCustomer = true;
+  currentModalId = null;
+  currentPage = 1;
+  document.getElementById('modal-title').textContent = 'Ny kund';
+  document.getElementById('modal-subtitle').textContent = '';
+  document.getElementById('btn-delete').style.display = 'none';
+  renderTabs('Team');
+  renderModalPage(null, [], []);
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
 async function openModal(id) {
+  isNewCustomer = false;
+  currentModalId = id;
+  currentPage = 1;
   const c = allCustomers.find(x => x.Id === id);
   if (!c) return;
 
-  // Hämta teams och admins
-  let teams = [];
-  let admins = [];
-  try {
-    const tr = await fetch(`${API}/customers/${id}/teams`);
-    teams = await tr.json();
-  } catch(e) {}
-  try {
-    const ar = await fetch(`${API}/customers/${id}/admins`);
-    admins = await ar.json();
-  } catch(e) {}
+  let teams = [], admins = [];
+  try { const r = await fetch(`${API}/customers/${id}/teams`); teams = await r.json(); } catch(e) {}
+  try { const r = await fetch(`${API}/customers/${id}/admins`); admins = await r.json(); } catch(e) {}
 
   document.getElementById('modal-title').textContent = c.Company || '–';
   document.getElementById('modal-subtitle').textContent = `${c.LicenseType || ''} · ${c._owner}`;
+  document.getElementById('btn-delete').style.display = 'flex';
 
-  let currentPage = 1;
-  const totalPages = c.LicenseType === 'Team' || c.LicenseType === 'Enterprise' ? 3 : 2;
+  renderTabs(c.LicenseType);
+  renderModalPage(c, teams, admins);
+  document.getElementById('modal-overlay').classList.add('open');
+}
 
-  function renderPage() {
-    const daysHtml = daysPill(c._days);
-    const inputStyle = 'class="edit-input"';
-    const totalRevenue = (parseInt(document.getElementById('edit-arr')?.value) || c.ARR || 0)
-      + (parseInt(document.getElementById('edit-arr-fixed')?.value) || c.ARR_Fixed || 0)
-      + (parseInt(document.getElementById('edit-revenue-training')?.value) || c.Revenue_Training || 0)
-      + (parseInt(document.getElementById('edit-revenue-consulting')?.value) || c.Revenue_Consulting || 0);
+function renderModalPage(c, teams, admins) {
+  const licenseType = c ? getLicenseType(c) : 'Team';
+  const inputStyle = 'class="edit-input"';
+  const daysHtml = c ? daysPill(c._days) : '';
 
-    let pageContent = '';
+  let pageContent = '';
 
-    if (currentPage === 1) {
-      pageContent = `
-        <div class="modal-section">
-          <div class="modal-section-label">Status</div>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <span class="license-type lt-${c.LicenseType}">${c.LicenseType}</span>
-            ${daysHtml}
-            <span class="risk-dot risk-${c.Risk}">${c.Risk} risk</span>
+  if (currentPage === 1) {
+    const ownerOptions = OWNERS.map(o => `<option ${(c?._owner||'Matilda Olsson')===o?'selected':''}>${o}</option>`).join('');
+    pageContent = `
+      ${c ? `
+      <div class="modal-section">
+        <div class="modal-section-label">Status</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <span class="license-type lt-${c.LicenseType}">${c.LicenseType}</span>
+          ${daysHtml}
+          <span class="risk-dot risk-${c.Risk}">${c.Risk} risk</span>
+        </div>
+      </div>` : ''}
+
+      <div class="modal-section">
+        <div class="modal-section-label">Kundansvarig</div>
+        <div class="modal-card">
+          <div class="modal-field">
+            <label>Kundansvarig</label>
+            <select id="edit-owner" class="edit-input">${ownerOptions}</select>
           </div>
         </div>
+      </div>
 
-        <div class="modal-section">
-          <div class="modal-section-label">Kundansvarig</div>
-          <div class="modal-card">
-            <div class="modal-field">
-              <label>Kundansvarig</label>
-              <input ${inputStyle} id="edit-owner" value="${c._owner || ''}">
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-section">
-          <div class="modal-section-label">Organisation</div>
-          <div class="modal-card">
-            <div class="modal-field">
-              <label>Företagsnamn</label>
-               <input ${inputStyle} id="edit-company" value="${c.Company || ''}">
+      <div class="modal-section">
+        <div class="modal-section-label">Organisation</div>
+        <div class="modal-card" style="display:flex;flex-direction:column;gap:10px;">
+          <div class="modal-field">
+            <label>Företagsnamn</label>
+            <input ${inputStyle} id="edit-company" value="${c?.Company || ''}">
           </div>
           <div class="modal-field">
             <label>Team / Avdelning</label>
-            <input ${inputStyle} id="edit-subname" value="${c.SubName || ''}">
-            </div>
+            <input ${inputStyle} id="edit-subname" value="${c?.SubName || ''}">
           </div>
         </div>
+      </div>
 
-        <div class="modal-section">
-          <div class="modal-section-label">Kontaktperson</div>
-          <div class="modal-card">
-            <div class="modal-grid">
-              <div class="modal-field">
-                <label>Namn</label>
-                <input ${inputStyle} id="edit-contact" value="${c.Contact || ''}">
-              </div>
-              <div class="modal-field">
-                <label>Roll</label>
-                <input ${inputStyle} id="edit-contact-role" value="${c.ContactRole || ''}">
-              </div>
-              <div class="modal-field">
-                <label>E-post</label>
-                <input ${inputStyle} id="edit-contact-email" type="email" value="${c.ContactEmail || ''}">
-              </div>
-              <div class="modal-field">
-                <label>Telefon</label>
-                <input ${inputStyle} id="edit-contact-phone" value="${c.ContactPhone || ''}">
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-section">
-          <div class="modal-section-label">Licens</div>
-          <div class="modal-card">
-            <div class="modal-grid">
-              <div class="modal-field">
-                <label>Kund sedan</label>
-                <input ${inputStyle} id="edit-customer-since" type="date" value="${c.CustomerSince ? c.CustomerSince.substring(0,10) : ''}">
-              </div>
-              <div class="modal-field">
-                <label>Typ</label>
-                <select id="edit-type" class="edit-input" onchange="renderPage && renderPage()">
-                  <option ${c.LicenseType==='Team'?'selected':''}>Team</option>
-                  <option ${c.LicenseType==='Enterprise'?'selected':''}>Enterprise</option>
-                  <option ${c.LicenseType==='Trial'?'selected':''}>Trial</option>
-                </select>
-              </div>
-              <div class="modal-field">
-                <label>Start (nuvarande licens)</label>
-                <input ${inputStyle} id="edit-start" type="date" value="${c.LicenseStart ? c.LicenseStart.substring(0,10) : ''}">
-              </div>
-              <div class="modal-field">
-                <label>Slut (nuvarande licens)</label>
-                <input ${inputStyle} id="edit-end" type="date" value="${c.LicenseEnd ? c.LicenseEnd.substring(0,10) : ''}">
-              </div>
-              <div class="modal-field">
-                <label>Risk</label>
-                <select id="edit-risk" class="edit-input">
-                  <option ${c.Risk==='Low'?'selected':''}>Low</option>
-                  <option ${c.Risk==='Medium'?'selected':''}>Medium</option>
-                  <option ${c.Risk==='High'?'selected':''}>High</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-section">
-          <div class="modal-section-label">Intäkter</div>
-          <div class="modal-card">
-            <div class="modal-grid">
-              <div class="modal-field">
-                <label>ARR löpande (kr)</label>
-                <input ${inputStyle} id="edit-arr" type="number" value="${c.ARR || ''}" oninput="updateTotal()">
-              </div>
-              <div class="modal-field">
-                <label>Licensintäkt fastpris (kr)</label>
-                <input ${inputStyle} id="edit-arr-fixed" type="number" value="${c.ARR_Fixed || ''}" oninput="updateTotal()">
-              </div>
-              <div class="modal-field">
-                <label>Utbildning (kr)</label>
-                <input ${inputStyle} id="edit-revenue-training" type="number" value="${c.Revenue_Training || ''}" oninput="updateTotal()">
-              </div>
-              <div class="modal-field">
-                <label>Consulting (kr)</label>
-                <input ${inputStyle} id="edit-revenue-consulting" type="number" value="${c.Revenue_Consulting || ''}" oninput="updateTotal()">
-              </div>
-            </div>
-            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-              <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Total intäkt</span>
-              <span id="total-revenue" style="font-size:16px;font-weight:600;color:var(--accent);">–</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-section">
-          <div class="modal-section-label">Provision</div>
-          <div class="modal-card">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-              <input type="checkbox" id="commission-toggle" ${c.CommissionSalesperson ? 'checked' : ''} onchange="toggleCommission()">
-              <label for="commission-toggle" style="font-size:13px;cursor:pointer;">Utgår provision</label>
-            </div>
-            <div id="commission-fields" style="display:${c.CommissionSalesperson ? 'block' : 'none'}">
-              <div class="modal-grid">
-                <div class="modal-field">
-                  <label>Säljare</label>
-                  <input ${inputStyle} id="edit-commission-salesperson" value="${c.CommissionSalesperson || ''}">
-                </div>
-                <div class="modal-field">
-                  <label>Procent (%)</label>
-                  <input ${inputStyle} id="edit-commission-percent" type="number" step="0.01" value="${c.CommissionPercent || ''}" oninput="calcCommission()">
-                </div>
-                <div class="modal-field">
-                  <label>Belopp (kr)</label>
-                  <input ${inputStyle} id="edit-commission-amount" type="number" value="${c.CommissionAmount || ''}" readonly style="background:var(--surface2)">
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-section">
-          <div class="modal-section-label">Anteckningar</div>
-          <div class="modal-card">
-            <textarea id="edit-notes" class="edit-input" style="height:80px;resize:vertical;">${c.Notes || ''}</textarea>
-          </div>
-        </div>`;
-    }
-
-    if (currentPage === 2 && (c.LicenseType === 'Team' || document.getElementById('edit-type')?.value === 'Team')) {
-      const teamCount = teams.length || 1;
-      let teamBlocks = `
-        <div class="modal-section">
-          <div class="modal-section-label">Antal team</div>
-          <div class="modal-card">
+      <div class="modal-section">
+        <div class="modal-section-label">Kontaktperson</div>
+        <div class="modal-card">
+          <div class="modal-grid">
             <div class="modal-field">
-              <label>Antal team</label>
-              <input ${inputStyle} id="edit-team-count" type="number" min="1" max="20" value="${teamCount}" oninput="updateTeamBlocks(this.value, ${JSON.stringify(teams).replace(/"/g, '&quot;')})">
+              <label>Namn</label>
+              <input ${inputStyle} id="edit-contact" value="${c?.Contact || ''}">
+            </div>
+            <div class="modal-field">
+              <label>Roll</label>
+              <input ${inputStyle} id="edit-contact-role" value="${c?.ContactRole || ''}">
+            </div>
+            <div class="modal-field">
+              <label>E-post</label>
+              <input ${inputStyle} id="edit-contact-email" type="email" value="${c?.ContactEmail || ''}">
+            </div>
+            <div class="modal-field">
+              <label>Telefon</label>
+              <input ${inputStyle} id="edit-contact-phone" value="${c?.ContactPhone || ''}">
             </div>
           </div>
         </div>
-        <div id="team-blocks">`;
-      for (let i = 0; i < teamCount; i++) {
-        const t = teams[i] || {};
-        teamBlocks += `
-          <div class="modal-section">
-            <div class="modal-section-label">Team ${i+1}</div>
-            <div class="modal-card">
-              <div class="modal-grid">
-                <div class="modal-field" style="grid-column:span 2">
-                  <label>Teamnamn</label>
-                  <input ${inputStyle} id="team-name-${i}" value="${t.TeamName || ''}">
-                </div>
-                <div class="modal-field">
-                  <label>Mötesledare 1</label>
-                  <input ${inputStyle} id="team-ml1-${i}" value="${t.MeetingLeader1 || ''}">
-                </div>
-                <div class="modal-field">
-                  <label>E-post ML1</label>
-                  <input ${inputStyle} id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email || ''}">
-                </div>
-                <div class="modal-field">
-                  <label>Mötesledare 2</label>
-                  <input ${inputStyle} id="team-ml2-${i}" value="${t.MeetingLeader2 || ''}">
-                </div>
-                <div class="modal-field">
-                  <label>E-post ML2</label>
-                  <input ${inputStyle} id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email || ''}">
-                </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-label">Licens</div>
+        <div class="modal-card">
+          <div class="modal-grid">
+            <div class="modal-field">
+              <label>Kund sedan</label>
+              <input ${inputStyle} id="edit-customer-since" type="date" value="${c?.CustomerSince ? c.CustomerSince.substring(0,10) : ''}">
+            </div>
+            <div class="modal-field">
+              <label>Typ</label>
+              <select id="edit-type" class="edit-input" onchange="onLicenseTypeChange()">
+                <option ${(c?.LicenseType||'Team')==='Team'?'selected':''}>Team</option>
+                <option ${c?.LicenseType==='Enterprise'?'selected':''}>Enterprise</option>
+                <option ${c?.LicenseType==='Trial'?'selected':''}>Trial</option>
+              </select>
+            </div>
+            <div class="modal-field">
+              <label>Start (nuvarande licens)</label>
+              <input ${inputStyle} id="edit-start" type="date" value="${c?.LicenseStart ? c.LicenseStart.substring(0,10) : ''}">
+            </div>
+            <div class="modal-field">
+              <label>Slut (nuvarande licens)</label>
+              <input ${inputStyle} id="edit-end" type="date" value="${c?.LicenseEnd ? c.LicenseEnd.substring(0,10) : ''}">
+            </div>
+            <div class="modal-field">
+              <label>Risk</label>
+              <select id="edit-risk" class="edit-input">
+                <option ${(c?.Risk||'Low')==='Low'?'selected':''}>Low</option>
+                <option ${c?.Risk==='Medium'?'selected':''}>Medium</option>
+                <option ${c?.Risk==='High'?'selected':''}>High</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-label">Intäkter</div>
+        <div class="modal-card">
+          <div class="modal-grid">
+            <div class="modal-field">
+              <label>ARR löpande (kr)</label>
+              <input ${inputStyle} id="edit-arr" type="number" value="${c?.ARR || ''}" oninput="updateTotal()">
+            </div>
+            <div class="modal-field">
+              <label>Licensintäkt fastpris (kr)</label>
+              <input ${inputStyle} id="edit-arr-fixed" type="number" value="${c?.ARR_Fixed || ''}" oninput="updateTotal()">
+            </div>
+            <div class="modal-field">
+              <label>Utbildning (kr)</label>
+              <input ${inputStyle} id="edit-revenue-training" type="number" value="${c?.Revenue_Training || ''}" oninput="updateTotal()">
+            </div>
+            <div class="modal-field">
+              <label>Consulting (kr)</label>
+              <input ${inputStyle} id="edit-revenue-consulting" type="number" value="${c?.Revenue_Consulting || ''}" oninput="updateTotal()">
+            </div>
+          </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Total intäkt</span>
+            <span id="total-revenue" style="font-size:16px;font-weight:600;color:var(--accent);">–</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-section-label">Provision</div>
+        <div class="modal-card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <input type="checkbox" id="commission-toggle" ${c?.CommissionSalesperson ? 'checked' : ''} onchange="toggleCommission()">
+            <label for="commission-toggle" style="font-size:13px;cursor:pointer;">Utgår provision</label>
+          </div>
+          <div id="commission-fields" style="display:${c?.CommissionSalesperson ? 'block' : 'none'}">
+            <div class="modal-grid">
+              <div class="modal-field">
+                <label>Säljare</label>
+                <input ${inputStyle} id="edit-commission-salesperson" value="${c?.CommissionSalesperson || ''}">
+              </div>
+              <div class="modal-field">
+                <label>Procent (%)</label>
+                <input ${inputStyle} id="edit-commission-percent" type="number" step="0.01" value="${c?.CommissionPercent || ''}" oninput="calcCommission()">
+              </div>
+              <div class="modal-field">
+                <label>Belopp (kr)</label>
+                <input ${inputStyle} id="edit-commission-amount" type="number" value="${c?.CommissionAmount || ''}" readonly style="background:var(--surface2)">
               </div>
             </div>
-          </div>`;
-      }
-      teamBlocks += '</div>';
-      pageContent = teamBlocks;
-    }
+          </div>
+        </div>
+      </div>
 
-    if (currentPage === 2 && c.LicenseType === 'Enterprise') {
+      <div class="modal-section">
+        <div class="modal-section-label">Anteckningar</div>
+        <div class="modal-card">
+          <textarea id="edit-notes" class="edit-input" style="height:80px;resize:vertical;">${c?.Notes || ''}</textarea>
+        </div>
+      </div>`;
+  }
+
+  if (currentPage === 2) {
+    const lt = getLicenseType(c);
+    if (lt === 'Enterprise') {
       const adminCount = admins.length || 1;
-      let adminBlocks = `
+      let html = `
         <div class="modal-section">
           <div class="modal-section-label">Organisationsadministratörer</div>
           <div class="modal-card">
@@ -825,95 +914,175 @@ async function openModal(id) {
         <div id="admin-blocks">`;
       for (let i = 0; i < adminCount; i++) {
         const a = admins[i] || {};
-        adminBlocks += `
+        html += `
           <div class="modal-section">
             <div class="modal-section-label">Admin ${i+1}</div>
             <div class="modal-card">
               <div class="modal-grid">
-                <div class="modal-field">
-                  <label>Namn</label>
-                  <input ${inputStyle} id="admin-name-${i}" value="${a.Name || ''}">
-                </div>
-                <div class="modal-field">
-                  <label>E-post</label>
-                  <input ${inputStyle} id="admin-email-${i}" type="email" value="${a.Email || ''}">
-                </div>
-                <div class="modal-field">
-                  <label>Telefon</label>
-                  <input ${inputStyle} id="admin-phone-${i}" value="${a.Phone || ''}">
-                </div>
+                <div class="modal-field"><label>Namn</label><input ${inputStyle} id="admin-name-${i}" value="${a.Name || ''}"></div>
+                <div class="modal-field"><label>E-post</label><input ${inputStyle} id="admin-email-${i}" type="email" value="${a.Email || ''}"></div>
+                <div class="modal-field"><label>Telefon</label><input ${inputStyle} id="admin-phone-${i}" value="${a.Phone || ''}"></div>
               </div>
             </div>
           </div>`;
       }
-      adminBlocks += '</div>';
-      pageContent = adminBlocks;
-    }
-
-    if (currentPage === totalPages) {
-      pageContent = `
+      html += '</div>';
+      pageContent = html;
+    } else {
+      const teamCount = teams.length || 1;
+      let html = `
         <div class="modal-section">
-          <div class="modal-section-label">Aktivitetslogg</div>
-          <div class="modal-card" style="margin-bottom:12px;">
-            <div class="modal-grid">
-              <div class="modal-field">
-                <label>Typ</label>
-                <select id="new-activity-type" class="edit-input">
-                  <option>Möte</option>
-                  <option>Samtal</option>
-                  <option>E-post</option>
-                  <option>Anteckning</option>
-                </select>
-              </div>
-              <div class="modal-field">
-                <label>Datum</label>
-                <input class="edit-input" id="new-activity-date" type="date" value="${new Date().toISOString().substring(0,10)}">
+          <div class="modal-section-label">Antal team</div>
+          <div class="modal-card">
+            <div class="modal-field">
+              <label>Antal team</label>
+              <input ${inputStyle} id="edit-team-count" type="number" min="1" max="20" value="${teamCount}" oninput="updateTeamBlocks(this.value, ${JSON.stringify(teams).replace(/"/g, '&quot;')})">
+            </div>
+          </div>
+        </div>
+        <div id="team-blocks">`;
+      for (let i = 0; i < teamCount; i++) {
+        const t = teams[i] || {};
+        html += `
+          <div class="modal-section">
+            <div class="modal-section-label">Team ${i+1}</div>
+            <div class="modal-card">
+              <div class="modal-grid">
+                <div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input ${inputStyle} id="team-name-${i}" value="${t.TeamName || ''}"></div>
+                <div class="modal-field"><label>Mötesledare 1</label><input ${inputStyle} id="team-ml1-${i}" value="${t.MeetingLeader1 || ''}"></div>
+                <div class="modal-field"><label>E-post ML1</label><input ${inputStyle} id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email || ''}"></div>
+                <div class="modal-field"><label>Mötesledare 2</label><input ${inputStyle} id="team-ml2-${i}" value="${t.MeetingLeader2 || ''}"></div>
+                <div class="modal-field"><label>E-post ML2</label><input ${inputStyle} id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email || ''}"></div>
               </div>
             </div>
-            <div class="modal-field" style="margin-top:8px;">
-              <label>Anteckning</label>
-              <textarea class="edit-input" id="new-activity-note" style="height:80px;resize:vertical;"></textarea>
-            </div>
-            <button onclick="addActivity(${c.Id})" style="margin-top:8px;padding:6px 14px;border:none;border-radius:6px;background:var(--accent);color:white;font-family:inherit;font-size:13px;cursor:pointer;">+ Lägg till</button>
-          </div>
-          <div id="activity-list" style="display:flex;flex-direction:column;gap:8px;">
-            <div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Laddar...</div>
-          </div>
-        </div>`;
+          </div>`;
+      }
+      html += '</div>';
+      pageContent = html;
     }
-
-    const pageIndicator = Array.from({length: totalPages}, (_, i) => 
-      `<div style="width:8px;height:8px;border-radius:50%;background:${i+1===currentPage ? 'var(--accent)' : 'var(--border)'};cursor:pointer;" onclick="goToPage(${i+1})"></div>`
-    ).join('');
-
-    document.getElementById('modal-body').innerHTML = `
-      ${pageContent}
-      <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px solid var(--border);margin-top:8px;">
-        <button onclick="prevPage()" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;visibility:${currentPage>1?'visible':'hidden'}">← Föregående</button>
-        <div style="display:flex;gap:6px;align-items:center;">${pageIndicator}</div>
-        ${currentPage < totalPages 
-          ? `<button onclick="nextPage()" style="padding:8px 18px;border:none;border-radius:8px;background:var(--accent);color:white;font-family:inherit;font-size:13px;cursor:pointer;">Nästa →</button>`
-          : `<button onclick="saveCustomer(${c.Id})" style="padding:8px 18px;border:none;border-radius:8px;background:#E8956D;color:white;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">Spara</button>`
-        }
-      </div>`;
-
-    // Uppdatera total efter render
-    setTimeout(updateTotal, 50);
-setTimeout(() => setupAutoSave(c.Id), 100);
-    if (currentPage === totalPages) setTimeout(() => loadActivities(c.Id), 50);
   }
 
- function nextPage() { silentSave(c.Id); currentPage++; renderPage(); }
-function prevPage() { silentSave(c.Id); currentPage--; renderPage(); }
-  function goToPage(p) { currentPage = p; renderPage(); }
+  if (currentPage === 3) {
+    pageContent = `
+      <div class="modal-section">
+        <div class="modal-section-label">Aktivitetslogg</div>
+        <div class="modal-card" style="margin-bottom:12px;">
+          <div class="modal-grid">
+            <div class="modal-field">
+              <label>Typ</label>
+              <select id="new-activity-type" class="edit-input">
+                <option>Möte</option><option>Samtal</option><option>E-post</option><option>Anteckning</option>
+              </select>
+            </div>
+            <div class="modal-field">
+              <label>Datum</label>
+              <input class="edit-input" id="new-activity-date" type="date" value="${new Date().toISOString().substring(0,10)}">
+            </div>
+          </div>
+          <div class="modal-field" style="margin-top:8px;">
+            <label>Anteckning</label>
+            <textarea class="edit-input" id="new-activity-note" style="height:80px;resize:vertical;"></textarea>
+          </div>
+          <button onclick="addActivity(${c?.Id})" style="margin-top:8px;padding:6px 14px;border:none;border-radius:6px;background:var(--accent);color:#1e2140;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">+ Lägg till</button>
+        </div>
+        <div id="activity-list" style="display:flex;flex-direction:column;gap:8px;">
+          <div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Laddar...</div>
+        </div>
+      </div>`;
+  }
 
-  window.nextPage = nextPage;
-  window.prevPage = prevPage;
-  window.goToPage = goToPage;
+  const saveBtn = isNewCustomer
+    ? `<button class="btn-primary" onclick="createCustomer()">Skapa kund</button>`
+    : `<button class="btn-primary" onclick="silentSave(${c?.Id}); showSaveIndicator('✓ Sparat', '#1a7a50');">Spara</button>`;
 
-  document.getElementById('modal-overlay').classList.add('open');
-  renderPage();
+  document.getElementById('modal-body').innerHTML = `
+    ${pageContent}
+    <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">
+      ${saveBtn}
+    </div>`;
+
+  setTimeout(updateTotal, 50);
+  if (c && !isNewCustomer) setTimeout(() => setupAutoSave(c.Id), 100);
+  if (currentPage === 3 && c) setTimeout(() => loadActivities(c.Id), 50);
 }
+
+function onLicenseTypeChange() {
+  const lt = document.getElementById('edit-type')?.value || 'Team';
+  renderTabs(lt);
+}
+
+function goToPage(p) {
+  const c = allCustomers.find(x => x.Id === currentModalId);
+  currentPage = p;
+  renderTabs(getLicenseType(c));
+  if (p === 2 && !isNewCustomer && c) {
+    Promise.all([
+      fetch(`${API}/customers/${c.Id}/teams`).then(r => r.json()).catch(() => []),
+      fetch(`${API}/customers/${c.Id}/admins`).then(r => r.json()).catch(() => [])
+    ]).then(([teams, admins]) => renderModalPage(c, teams, admins));
+  } else {
+    renderModalPage(c, [], []);
+  }
+  if (!isNewCustomer && c) silentSave(c.Id);
+}
+
+async function createCustomer() {
+  const body = {
+    company: document.getElementById('edit-company')?.value || 'Ny kund',
+    contact: document.getElementById('edit-contact')?.value || '',
+    contactRole: document.getElementById('edit-contact-role')?.value || '',
+    contactEmail: document.getElementById('edit-contact-email')?.value || '',
+    contactPhone: document.getElementById('edit-contact-phone')?.value || '',
+    customerSince: document.getElementById('edit-customer-since')?.value || null,
+    owner: document.getElementById('edit-owner')?.value || 'Matilda Olsson',
+    licenseStart: document.getElementById('edit-start')?.value || null,
+    licenseEnd: document.getElementById('edit-end')?.value || null,
+    licenseType: document.getElementById('edit-type')?.value || 'Team',
+    arr: parseInt(document.getElementById('edit-arr')?.value) || null,
+    arrFixed: parseInt(document.getElementById('edit-arr-fixed')?.value) || null,
+    revenueTraining: parseInt(document.getElementById('edit-revenue-training')?.value) || null,
+    revenueConsulting: parseInt(document.getElementById('edit-revenue-consulting')?.value) || null,
+    risk: document.getElementById('edit-risk')?.value || 'Low',
+    subName: document.getElementById('edit-subname')?.value || null,
+    notes: document.getElementById('edit-notes')?.value || null
+  };
+  try {
+    const r = await fetch(`${API}/customers`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error();
+    closeModalDirect();
+    await loadCustomers();
+  } catch(e) {
+    alert('Kunde inte skapa kund. Försök igen.');
+  }
+}
+
+function confirmDelete() {
+  const c = allCustomers.find(x => x.Id === currentModalId);
+  document.getElementById('confirm-text').textContent = `"${c?.Company || 'Kunden'}" kommer att raderas permanent. Det går inte att ångra.`;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+
+async function executeDelete() {
+  if (!currentModalId) return;
+  try {
+    const r = await fetch(`${API}/customers/${currentModalId}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error();
+    closeConfirm();
+    closeModalDirect();
+    await loadCustomers();
+  } catch(e) {
+    alert('Kunde inte ta bort kunden. Försök igen.');
+  }
+}
+
 function updateTotal() {
   const arr = parseInt(document.getElementById('edit-arr')?.value) || 0;
   const fixed = parseInt(document.getElementById('edit-arr-fixed')?.value) || 0;
@@ -929,8 +1098,7 @@ function calcCommission() {
   const percent = parseFloat(document.getElementById('edit-commission-percent')?.value) || 0;
   const arr = parseInt(document.getElementById('edit-arr')?.value) || 0;
   const fixed = parseInt(document.getElementById('edit-arr-fixed')?.value) || 0;
-  const total = arr + fixed;
-  const amount = Math.round(total * percent / 100);
+  const amount = Math.round((arr + fixed) * percent / 100);
   const el = document.getElementById('edit-commission-amount');
   if (el) el.value = amount || '';
 }
@@ -952,26 +1120,11 @@ function updateTeamBlocks(count, existingTeams) {
         <div class="modal-section-label">Team ${i+1}</div>
         <div class="modal-card">
           <div class="modal-grid">
-            <div class="modal-field" style="grid-column:span 2">
-              <label>Teamnamn</label>
-              <input class="edit-input" id="team-name-${i}" value="${t.TeamName || ''}">
-            </div>
-            <div class="modal-field">
-              <label>Mötesledare 1</label>
-              <input class="edit-input" id="team-ml1-${i}" value="${t.MeetingLeader1 || ''}">
-            </div>
-            <div class="modal-field">
-              <label>E-post ML1</label>
-              <input class="edit-input" id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email || ''}">
-            </div>
-            <div class="modal-field">
-              <label>Mötesledare 2</label>
-              <input class="edit-input" id="team-ml2-${i}" value="${t.MeetingLeader2 || ''}">
-            </div>
-            <div class="modal-field">
-              <label>E-post ML2</label>
-              <input class="edit-input" id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email || ''}">
-            </div>
+            <div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input class="edit-input" id="team-name-${i}" value="${t.TeamName || ''}"></div>
+            <div class="modal-field"><label>Mötesledare 1</label><input class="edit-input" id="team-ml1-${i}" value="${t.MeetingLeader1 || ''}"></div>
+            <div class="modal-field"><label>E-post ML1</label><input class="edit-input" id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email || ''}"></div>
+            <div class="modal-field"><label>Mötesledare 2</label><input class="edit-input" id="team-ml2-${i}" value="${t.MeetingLeader2 || ''}"></div>
+            <div class="modal-field"><label>E-post ML2</label><input class="edit-input" id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email || ''}"></div>
           </div>
         </div>
       </div>`;
@@ -991,18 +1144,9 @@ function updateAdminBlocks(count, existingAdmins) {
         <div class="modal-section-label">Admin ${i+1}</div>
         <div class="modal-card">
           <div class="modal-grid">
-            <div class="modal-field">
-              <label>Namn</label>
-              <input class="edit-input" id="admin-name-${i}" value="${a.Name || ''}">
-            </div>
-            <div class="modal-field">
-              <label>E-post</label>
-              <input class="edit-input" id="admin-email-${i}" type="email" value="${a.Email || ''}">
-            </div>
-            <div class="modal-field">
-              <label>Telefon</label>
-              <input class="edit-input" id="admin-phone-${i}" value="${a.Phone || ''}">
-            </div>
+            <div class="modal-field"><label>Namn</label><input class="edit-input" id="admin-name-${i}" value="${a.Name || ''}"></div>
+            <div class="modal-field"><label>E-post</label><input class="edit-input" id="admin-email-${i}" type="email" value="${a.Email || ''}"></div>
+            <div class="modal-field"><label>Telefon</label><input class="edit-input" id="admin-phone-${i}" value="${a.Phone || ''}"></div>
           </div>
         </div>
       </div>`;
@@ -1048,6 +1192,7 @@ async function addActivity(customerId) {
   document.getElementById('new-activity-note').value = '';
   loadActivities(customerId);
 }
+
 let autoSaveTimer = null;
 function setupAutoSave(id) {
   const fields = document.getElementById('modal-body').querySelectorAll('input, select, textarea');
@@ -1081,58 +1226,34 @@ function showSaveIndicator(msg, color) {
 }
 
 async function silentSave(id) {
+  if (isNewCustomer || !id) return;
   const c = allCustomers.find(x => x.Id === id);
   if (!c) return;
   const licenseType = document.getElementById('edit-type')?.value || c.LicenseType;
 
-  const getValue = (elId) => document.getElementById(elId)?.value || null;
-  const getInt = (elId) => parseInt(document.getElementById(elId)?.value) || null;
+  const getValue = (elId) => document.getElementById(elId)?.value ?? null;
 
-  const body = {
+  const merged = {
     company: getValue('edit-company') || c.Company,
     contact: getValue('edit-contact') || c.Contact,
-    contactRole: getValue('edit-contact-role'),
-    contactEmail: getValue('edit-contact-email'),
-    contactPhone: getValue('edit-contact-phone'),
-    customerSince: getValue('edit-customer-since'),
+    contactRole: getValue('edit-contact-role') ?? c.ContactRole,
+    contactEmail: getValue('edit-contact-email') ?? c.ContactEmail,
+    contactPhone: getValue('edit-contact-phone') ?? c.ContactPhone,
+    customerSince: getValue('edit-customer-since') ?? c.CustomerSince,
     owner: getValue('edit-owner') || c._owner,
-    licenseStart: getValue('edit-start'),
-    licenseEnd: getValue('edit-end'),
+    licenseStart: getValue('edit-start') || c.LicenseStart,
+    licenseEnd: getValue('edit-end') || c.LicenseEnd,
     licenseType: licenseType,
-    arr: getInt('edit-arr'),
-    arrFixed: getInt('edit-arr-fixed'),
-    revenueTraining: getInt('edit-revenue-training'),
-    revenueConsulting: getInt('edit-revenue-consulting'),
-    risk: getValue('edit-risk') || c.Risk,
-    commissionSalesperson: document.getElementById('commission-toggle')?.checked ? getValue('edit-commission-salesperson') : null,
-    commissionPercent: document.getElementById('commission-toggle')?.checked ? parseFloat(document.getElementById('edit-commission-percent')?.value) || null : null,
-    commissionAmount: document.getElementById('commission-toggle')?.checked ? getInt('edit-commission-amount') : null,
-    subName: document.getElementById('edit-subname')?.value ?? null,
-    notes: document.getElementById('edit-notes')?.value ?? null
-  };
-
-  // Merge med befintlig data för fält som inte visas på denna sida
-const merged = {
-    company: body.company || c.Company,
-    contact: body.contact || c.Contact,
-    contactRole: body.contactRole !== undefined ? body.contactRole : c.ContactRole,
-    contactEmail: body.contactEmail !== undefined ? body.contactEmail : c.ContactEmail,
-    contactPhone: body.contactPhone !== undefined ? body.contactPhone : c.ContactPhone,
-    customerSince: body.customerSince !== undefined ? body.customerSince : c.CustomerSince,
-    owner: body.owner || c._owner,
-    licenseStart: body.licenseStart || c.LicenseStart,
-    licenseEnd: body.licenseEnd || c.LicenseEnd,
-    licenseType: body.licenseType || c.LicenseType,
     arr: document.getElementById('edit-arr') ? (parseInt(document.getElementById('edit-arr').value) || 0) : c.ARR,
     arrFixed: document.getElementById('edit-arr-fixed') ? (parseInt(document.getElementById('edit-arr-fixed').value) || 0) : c.ARR_Fixed,
     revenueTraining: document.getElementById('edit-revenue-training') ? (parseInt(document.getElementById('edit-revenue-training').value) || 0) : c.Revenue_Training,
     revenueConsulting: document.getElementById('edit-revenue-consulting') ? (parseInt(document.getElementById('edit-revenue-consulting').value) || 0) : c.Revenue_Consulting,
-    risk: body.risk || c.Risk,
-    commissionSalesperson: body.commissionSalesperson !== undefined ? body.commissionSalesperson : c.CommissionSalesperson,
-    commissionPercent: body.commissionPercent !== undefined ? body.commissionPercent : c.CommissionPercent,
-    commissionAmount: body.commissionAmount !== undefined ? body.commissionAmount : c.CommissionAmount,
-    notes: document.getElementById('edit-notes') ? document.getElementById('edit-notes').value : c.Notes,
-subName: document.getElementById('edit-subname') ? document.getElementById('edit-subname').value : c.SubName
+    risk: getValue('edit-risk') || c.Risk,
+    commissionSalesperson: document.getElementById('commission-toggle')?.checked ? getValue('edit-commission-salesperson') : null,
+    commissionPercent: document.getElementById('commission-toggle')?.checked ? parseFloat(document.getElementById('edit-commission-percent')?.value) || null : null,
+    commissionAmount: document.getElementById('commission-toggle')?.checked ? parseInt(document.getElementById('edit-commission-amount')?.value) || null : null,
+    subName: getValue('edit-subname') ?? c.SubName,
+    notes: document.getElementById('edit-notes') ? document.getElementById('edit-notes').value : c.Notes
   };
 
   try {
@@ -1142,35 +1263,24 @@ subName: document.getElementById('edit-subname') ? document.getElementById('edit
       body: JSON.stringify(merged)
     });
     if (r.ok) {
-      // Uppdatera lokalt
       const idx = allCustomers.findIndex(x => x.Id === id);
       if (idx !== -1) {
-        allCustomers[idx] = { 
-  ...allCustomers[idx],
-  Company: merged.company || allCustomers[idx].Company,
-  Contact: merged.contact || allCustomers[idx].Contact,
-  ContactRole: merged.contactRole || allCustomers[idx].ContactRole,
-  ContactEmail: merged.contactEmail || allCustomers[idx].ContactEmail,
-  ContactPhone: merged.contactPhone || allCustomers[idx].ContactPhone,
-  CustomerSince: merged.customerSince || allCustomers[idx].CustomerSince,
-  LicenseType: merged.licenseType || allCustomers[idx].LicenseType,
-  LicenseStart: merged.licenseStart || allCustomers[idx].LicenseStart,
-  LicenseEnd: merged.licenseEnd || allCustomers[idx].LicenseEnd,
-  ARR: merged.arr ?? allCustomers[idx].ARR,
-  ARR_Fixed: merged.arrFixed ?? allCustomers[idx].ARR_Fixed,
-  Revenue_Training: merged.revenueTraining ?? allCustomers[idx].Revenue_Training,
-  Revenue_Consulting: merged.revenueConsulting ?? allCustomers[idx].Revenue_Consulting,
-  Risk: merged.risk || allCustomers[idx].Risk,
-  CommissionSalesperson: merged.commissionSalesperson ?? allCustomers[idx].CommissionSalesperson,
-  CommissionPercent: merged.commissionPercent ?? allCustomers[idx].CommissionPercent,
-  CommissionAmount: merged.commissionAmount ?? allCustomers[idx].CommissionAmount,
-  Notes: merged.notes ?? allCustomers[idx].Notes,
-  _owner: merged.owner || allCustomers[idx]._owner,
-  _days: daysLeft(merged.licenseEnd || allCustomers[idx].LicenseEnd)
-};
+        allCustomers[idx] = {
+          ...allCustomers[idx],
+          Company: merged.company, Contact: merged.contact,
+          ContactRole: merged.contactRole, ContactEmail: merged.contactEmail,
+          ContactPhone: merged.contactPhone, CustomerSince: merged.customerSince,
+          LicenseType: merged.licenseType, LicenseStart: merged.licenseStart,
+          LicenseEnd: merged.licenseEnd, ARR: merged.arr, ARR_Fixed: merged.arrFixed,
+          Revenue_Training: merged.revenueTraining, Revenue_Consulting: merged.revenueConsulting,
+          Risk: merged.risk, CommissionSalesperson: merged.commissionSalesperson,
+          CommissionPercent: merged.commissionPercent, CommissionAmount: merged.commissionAmount,
+          SubName: merged.subName, Notes: merged.notes,
+          _owner: merged.owner, _days: daysLeft(merged.licenseEnd)
+        };
+      }
       showSaveIndicator('✓ Sparat', '#1a7a50');
 
-      // Spara teams om på team-sidan
       if (licenseType === 'Team' && document.getElementById('edit-team-count')) {
         await fetch(`${API}/customers/${id}/teams`, { method: 'DELETE', headers: {'Content-Type':'application/json'} });
         const count = parseInt(document.getElementById('edit-team-count')?.value) || 0;
@@ -1189,7 +1299,6 @@ subName: document.getElementById('edit-subname') ? document.getElementById('edit
         }
       }
 
-      // Spara admins om på admin-sidan
       if (licenseType === 'Enterprise' && document.getElementById('edit-admin-count')) {
         await fetch(`${API}/customers/${id}/admins`, { method: 'DELETE', headers: {'Content-Type':'application/json'} });
         const count = parseInt(document.getElementById('edit-admin-count')?.value) || 0;
@@ -1208,84 +1317,8 @@ subName: document.getElementById('edit-subname') ? document.getElementById('edit
     } else {
       showSaveIndicator('⚠ Fel vid sparning', '#a32d2d');
     }
-  }
-} catch(e) {
-    showSaveIndicator('⚠ Fel vid sparning', '#a32d2d');
-  }
-}
-async function saveCustomer(id) {
-  const c = allCustomers.find(x => x.Id === id);
-  const licenseType = document.getElementById('edit-type')?.value || c.LicenseType;
-  
-  const body = {
-    company: document.getElementById('edit-company').value,
-    contact: document.getElementById('edit-contact').value,
-    contactRole: document.getElementById('edit-contact-role').value,
-    contactEmail: document.getElementById('edit-contact-email').value,
-    contactPhone: document.getElementById('edit-contact-phone').value,
-    customerSince: document.getElementById('edit-customer-since').value,
-    owner: document.getElementById('edit-owner').value,
-    licenseStart: document.getElementById('edit-start').value,
-    licenseEnd: document.getElementById('edit-end').value,
-    licenseType: licenseType,
-    arr: parseInt(document.getElementById('edit-arr').value) || null,
-    arrFixed: parseInt(document.getElementById('edit-arr-fixed').value) || null,
-    revenueTraining: parseInt(document.getElementById('edit-revenue-training').value) || null,
-    revenueConsulting: parseInt(document.getElementById('edit-revenue-consulting').value) || null,
-    risk: document.getElementById('edit-risk').value,
-    commissionSalesperson: document.getElementById('commission-toggle')?.checked ? document.getElementById('edit-commission-salesperson').value : null,
-    commissionPercent: document.getElementById('commission-toggle')?.checked ? parseFloat(document.getElementById('edit-commission-percent').value) || null : null,
-    commissionAmount: document.getElementById('commission-toggle')?.checked ? parseInt(document.getElementById('edit-commission-amount').value) || null : null,
-    notes: document.getElementById('edit-notes').value
-  };
-
-  try {
-    const r = await fetch(`${API}/customers/${id}`, {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    });
-    if (!r.ok) throw new Error();
-
-    // Spara teams
-    if (licenseType === 'Team') {
-      await fetch(`${API}/customers/${id}/teams`, { method: 'DELETE', headers: {'Content-Type':'application/json'} });
-      const count = parseInt(document.getElementById('edit-team-count')?.value) || 0;
-      for (let i = 0; i < count; i++) {
-        await fetch(`${API}/customers/${id}/teams`, {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            teamName: document.getElementById(`team-name-${i}`)?.value || '',
-            meetingLeader1: document.getElementById(`team-ml1-${i}`)?.value || '',
-            meetingLeader1Email: document.getElementById(`team-ml1-email-${i}`)?.value || '',
-            meetingLeader2: document.getElementById(`team-ml2-${i}`)?.value || '',
-            meetingLeader2Email: document.getElementById(`team-ml2-email-${i}`)?.value || ''
-          })
-        });
-      }
-    }
-
-    // Spara admins
-    if (licenseType === 'Enterprise') {
-      await fetch(`${API}/customers/${id}/admins`, { method: 'DELETE', headers: {'Content-Type':'application/json'} });
-      const count = parseInt(document.getElementById('edit-admin-count')?.value) || 0;
-      for (let i = 0; i < count; i++) {
-        await fetch(`${API}/customers/${id}/admins`, {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            name: document.getElementById(`admin-name-${i}`)?.value || '',
-            email: document.getElementById(`admin-email-${i}`)?.value || '',
-            phone: document.getElementById(`admin-phone-${i}`)?.value || ''
-          })
-        });
-      }
-    }
-
-    closeModalDirect();
   } catch(e) {
-    alert('Kunde inte spara. Försök igen.');
+    showSaveIndicator('⚠ Fel vid sparning', '#a32d2d');
   }
 }
 
@@ -1294,6 +1327,7 @@ function closeModal(e) {
 }
 function closeModalDirect() {
   document.getElementById('modal-overlay').classList.remove('open');
+  renderTable();
 }
 
 document.getElementById('search').addEventListener('input', renderTable);
@@ -1305,4 +1339,3 @@ loadCustomers();
 </script>
 </body>
 </html>
-
