@@ -1100,7 +1100,7 @@ async function silentSave(id) {
     commissionSalesperson: document.getElementById('commission-toggle')?.checked ? getValue('edit-commission-salesperson') : null,
     commissionPercent: document.getElementById('commission-toggle')?.checked ? parseFloat(document.getElementById('edit-commission-percent')?.value) || null : null,
     commissionAmount: document.getElementById('commission-toggle')?.checked ? getInt('edit-commission-amount') : null,
-    notes: getValue('edit-notes')
+    notes: document.getElementById('edit-notes')?.value ?? null
   };
 
   // Merge med befintlig data för fält som inte visas på denna sida
