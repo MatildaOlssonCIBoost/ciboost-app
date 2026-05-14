@@ -1131,7 +1131,8 @@ const merged = {
     commissionSalesperson: body.commissionSalesperson !== undefined ? body.commissionSalesperson : c.CommissionSalesperson,
     commissionPercent: body.commissionPercent !== undefined ? body.commissionPercent : c.CommissionPercent,
     commissionAmount: body.commissionAmount !== undefined ? body.commissionAmount : c.CommissionAmount,
-    notes: document.getElementById('edit-notes') ? document.getElementById('edit-notes').value : c.Notes
+    notes: document.getElementById('edit-notes') ? document.getElementById('edit-notes').value : c.Notes,
+subName: document.getElementById('edit-subname') ? document.getElementById('edit-subname').value : c.SubName
   };
 
   try {
