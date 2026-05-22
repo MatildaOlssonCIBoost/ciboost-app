@@ -231,27 +231,6 @@
 </style>
 </head>
 <body>
-<div id="login-screen" style="position:fixed;inset:0;background:#1e2140;z-index:9999;display:flex;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:12px;padding:32px;width:320px;text-align:center;">
-    <img src="https://application.ciboost.se/images/logos/main-logo.svg" style="height:32px;margin-bottom:24px;">
-    <div style="font-size:14px;color:#4a4f72;margin-bottom:16px;">Ange lösenord för att fortsätta</div>
-    <input id="pw-input" type="password" placeholder="Lösenord" style="width:100%;padding:10px;border:1px solid #d8dae6;border-radius:8px;font-family:Poppins,sans-serif;font-size:14px;margin-bottom:8px;" onkeydown="if(event.key==='Enter')checkPw()">
-    <div id="pw-error" style="color:#a32d2d;font-size:12px;margin-bottom:8px;display:none;">Fel lösenord</div>
-    <button onclick="checkPw()" style="width:100%;padding:10px;border:none;border-radius:8px;background:#E8956D;color:#1e2140;font-family:Poppins,sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Logga in</button>
-  </div>
-</div>
-<script>
-  function checkPw(){
-    const pw=document.getElementById('pw-input').value;
-    if(pw==='CIBoost2026!'){
-      document.getElementById('login-screen').style.display='none';
-      sessionStorage.setItem('auth','1');
-    } else {
-      document.getElementById('pw-error').style.display='block';
-    }
-  }
-  if(sessionStorage.getItem('auth')==='1') document.getElementById('login-screen').style.display='none';
-</script>
 <nav class="topnav">
   <div style="font-weight:600;font-size:15px;color:#fff;display:flex;align-items:center;gap:8px;">
     <img src="https://application.ciboost.se/images/logos/main-logo.svg" alt="CIBoost" style="height:26px;filter:brightness(0) invert(1);">
