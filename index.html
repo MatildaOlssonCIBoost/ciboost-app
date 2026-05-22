@@ -244,255 +244,249 @@
   .vs-over { color: var(--green); font-weight: 500; }
   .vs-under { color: var(--red); font-weight: 500; }
 </style>
-</head>
-<!DOCTYPE html>
-<html lang="sv">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CIBoost</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #f0f1f5; --surface: #ffffff; --surface2: #e8eaf0; --border: #d8dae6;
-    --text: #1e2140; --text2: #4a4f72; --text3: #8b90b0;
-    --green: #1a7a50; --green-bg: #e8f5ee;
-    --amber: #b85a00; --amber-bg: #fff3e6;
-    --red: #a32d2d; --red-bg: #fceaea;
-    --gray-bg: #F3D3B5; --gray: #5a3a1a;
-    --accent: #E8956D; --accent-bg: #fdf0e8;
-    --blue: #1a4f7a; --blue-bg: #e8f0f8;
-    --purple: #5a1a7a; --purple-bg: #f0e8f5;
-    --shadow: 0 1px 3px rgba(30,33,64,0.08); --shadow-md: 0 4px 12px rgba(30,33,64,0.12);
-  }
-  body { font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
-  .topnav { background: #1e2140; border-bottom: 1px solid #2a2f5a; padding: 0 24px; display: flex; align-items: center; gap: 32px; height: 52px; position: sticky; top: 0; z-index: 100; }
-  .nav-tabs { display: flex; gap: 2px; flex: 1; }
-  .nav-tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.65); cursor: pointer; border: none; background: none; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
-  .nav-tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
-  .nav-tab.active { background: rgba(255,255,255,0.12); color: #fff; }
-  .nav-tab .count { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: rgba(255,255,255,0.2); color: white; }
-  .stats-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; gap: 32px; align-items: center; }
-  .stat { display: flex; flex-direction: column; gap: 1px; }
-  .stat-val { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
-  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
-  .stat-divider { width: 1px; height: 32px; background: var(--border); }
-  .sub-tabs-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; }
-  .sub-tab { padding: 10px 16px; border: none; border-bottom: 2px solid transparent; background: none; font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 500; color: var(--text3); cursor: pointer; }
-  .sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .page { display: none; }
-  .page.active { display: block; }
-  .main { padding: 20px 24px; max-width: 1400px; }
-  .filters { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
-  .search-wrap { position: relative; flex: 0 0 220px; }
-  .search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; }
-  .search-input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid var(--border); border-radius: 8px; font-family: 'Poppins', sans-serif; font-size: 13px; background: var(--surface); color: var(--text); outline: none; }
-  .search-input:focus { border-color: var(--accent); }
-  .search-input::placeholder { color: var(--text3); }
-  select { padding: 8px 32px 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-family: 'Poppins', sans-serif; font-size: 13px; background: var(--surface); color: var(--text); outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6960' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
-  select:focus { border-color: var(--accent); outline: none; }
-  .rev-dropdown { position: relative; }
-  .rev-dd-btn { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text); cursor: pointer; }
-  .rev-dd-panel { position: absolute; top: calc(100% + 4px); left: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px; min-width: 190px; z-index: 50; box-shadow: var(--shadow-md); }
-  .rev-dd-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-  .rev-dd-item:hover { background: var(--surface2); }
-  .rev-cb { width: 15px; height: 15px; border-radius: 3px; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .rev-cb.on { border-color: var(--green); background: var(--green); }
-  .rev-cb.on::after { content: '✓'; font-size: 9px; color: white; font-weight: 600; }
-  .rev-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
-  table { width: 100%; border-collapse: collapse; }
-  thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
-  thead th:hover { color: var(--text); }
-  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
-  tbody tr:last-child { border-bottom: none; }
-  tbody tr:hover { background: var(--surface2); }
-  tbody td { padding: 11px 14px; vertical-align: middle; }
-  .company-name { font-weight: 500; font-size: 14px; }
-  .license-type { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 500; }
-  .lt-Enterprise { background: var(--blue-bg); color: var(--blue); }
-  .lt-Team { background: var(--green-bg); color: var(--green); }
-  .lt-Pilot { background: var(--amber-bg); color: var(--amber); }
-  .days-pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: 500; white-space: nowrap; }
-  .days-ok { background: var(--green-bg); color: var(--green); }
-  .days-warn { background: var(--amber-bg); color: var(--amber); }
-  .days-crit { background: var(--red-bg); color: var(--red); }
-  .days-expired { background: var(--gray-bg); color: var(--gray); }
-  .risk-dot { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; }
-  .risk-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-  .risk-Low { color: var(--green); } .risk-Low::before { background: var(--green); }
-  .risk-Medium { color: var(--amber); } .risk-Medium::before { background: var(--amber); }
-  .risk-High { color: var(--red); } .risk-High::before { background: var(--red); }
-  .owner-tag { font-size: 11px; color: var(--gray); background: var(--gray-bg); border-radius: 4px; padding: 2px 7px; white-space: nowrap; }
-  .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
-  .kpi-card { background: var(--surface2); border-radius: 8px; padding: 12px 14px; }
-  .kpi-label { font-size: 11px; color: var(--text3); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .kpi-value { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
-  .kpi-delta { font-size: 11px; margin-top: 3px; }
-  .pos { color: var(--green); } .neg { color: var(--red); } .neu { color: var(--text3); }
-  .action-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
-  .action-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
-  .action-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 10px; display: flex; justify-content: space-between; }
-  .action-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; cursor: pointer; }
-  .action-row:last-child { border-bottom: none; }
-  .gantt-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .gantt-header { display: flex; border-bottom: 1px solid var(--border); background: var(--surface2); padding: 8px 14px; }
-  .gantt-name-col { min-width: 180px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
-  .gantt-months { flex: 1; display: flex; }
-  .gantt-month { flex: 1; text-align: center; font-size: 11px; color: var(--text3); font-weight: 500; }
-  .gantt-row { display: flex; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
-  .gantt-row:last-child { border-bottom: none; }
-  .gantt-row:hover { background: var(--surface2); }
-  .gantt-row-name { min-width: 180px; }
-  .gantt-bars { flex: 1; position: relative; height: 22px; }
-  .gantt-bar { position: absolute; height: 22px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: white; white-space: nowrap; overflow: hidden; }
-  .date-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-  .date-input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-family: 'Poppins', sans-serif; font-size: 13px; background: var(--surface); color: var(--text); outline: none; }
-  .quick-btn { padding: 6px 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text2); cursor: pointer; }
-  .quick-btn.active { background: #1e2140; color: white; border-color: #1e2140; }
-  .result-toggle { display: flex; gap: 2px; background: var(--surface2); border-radius: 8px; padding: 2px; }
-  .result-btn { padding: 5px 12px; border-radius: 6px; border: none; background: none; font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text3); cursor: pointer; }
-  .result-btn.active { background: var(--surface); color: var(--text); font-weight: 500; border: 1px solid var(--border); }
-  .hero-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; display: flex; gap: 40px; align-items: flex-end; flex-wrap: wrap; }
-  .hero-main .label { font-size: 12px; color: var(--text3); margin-bottom: 4px; }
-  .hero-main .value { font-size: 38px; font-weight: 600; letter-spacing: -1.5px; line-height: 1; }
-  .hero-main .delta { font-size: 12px; margin-top: 6px; }
-  .hero-sec { text-align: right; }
-  .hero-sec .label { font-size: 12px; color: var(--text3); margin-bottom: 4px; }
-  .hero-sec .value { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
-  .hero-sec .delta { font-size: 12px; margin-top: 4px; }
-  .fin-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
-  .fin-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
-  .fin-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
-  .b-green { background: var(--green-bg); color: var(--green); }
-  .b-amber { background: var(--amber-bg); color: var(--amber); }
-  .b-red { background: var(--red-bg); color: var(--red); }
-  .b-blue { background: var(--blue-bg); color: var(--blue); }
-  .b-purple { background: var(--purple-bg); color: var(--purple); }
-  .b-gray { background: var(--gray-bg); color: var(--gray); }
-  .mix-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-  .mix-row:last-child { border-bottom: none; }
-  .mix-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; }
-  .mix-fill { height: 5px; border-radius: 3px; }
-  .forecast-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
-  .forecast-row:last-child { border-bottom: none; }
-  .period-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: auto; }
-  .period-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .period-table th { padding: 8px 10px; text-align: center; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .period-table th:first-child { text-align: left; min-width: 140px; }
-  .period-table td { padding: 7px 10px; text-align: center; border-bottom: 1px solid var(--border); }
-  .period-table td:first-child { text-align: left; font-weight: 500; }
-  .period-table tr:last-child td { border-bottom: none; }
-  .period-table tr:hover td { background: var(--surface2); }
-  .p-arr { background: var(--green-bg); color: var(--green); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
-  .p-fast { background: var(--blue-bg); color: var(--blue); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
-  .p-utb { background: var(--amber-bg); color: var(--amber); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
-  .p-cons { background: var(--purple-bg); color: var(--purple); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
-  .p-total { background: var(--surface2); font-weight: 600; border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(3px); z-index: 200; display: none; align-items: center; justify-content: flex-end; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: var(--surface); width: 480px; height: 100vh; overflow-y: auto; box-shadow: var(--shadow-md); animation: slideIn 0.2s ease; display: flex; flex-direction: column; }
-  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
-  .modal-header { padding: 16px 20px 0; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 1; }
-  .modal-header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-  .modal-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
-  .modal-subtitle { font-size: 12px; color: var(--text3); margin-top: 3px; }
-  .modal-header-actions { display: flex; gap: 8px; align-items: center; }
-  .btn-delete { padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--red); font-family: 'Poppins', sans-serif; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
-  .btn-delete:hover { background: var(--red-bg); }
-  .modal-close { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); }
-  .modal-tabs { display: flex; overflow-x: auto; }
-  .modal-tab { padding: 8px 14px; border: none; border-bottom: 2px solid transparent; background: none; font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 500; color: var(--text3); cursor: pointer; white-space: nowrap; }
-  .modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .modal-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; flex: 1; }
-  .modal-section { display: flex; flex-direction: column; gap: 8px; }
-  .modal-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); display: flex; justify-content: space-between; align-items: center; }
-  .modal-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
-  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .modal-field label { font-size: 11px; color: var(--text3); margin-bottom: 3px; display: block; }
-  .edit-input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text); background: var(--surface); }
-  .edit-input:focus { outline: none; border-color: var(--accent); }
-  .rev-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
-  .rev-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .rev-item-type { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
-  .rev-item-amount { font-size: 15px; font-weight: 600; flex: 1; }
-  .rev-item-dates { font-size: 11px; color: var(--text3); }
-  .rev-item-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
-  .rev-del { width: 24px; height: 24px; border: none; background: none; cursor: pointer; color: var(--text3); display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; }
-  .rev-del:hover { background: var(--red-bg); color: var(--red); }
-  .comm-item { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
-  .comm-paid { text-decoration: line-through; opacity: 0.5; }
-  .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 400; display: none; align-items: center; justify-content: center; }
-  .confirm-overlay.open { display: flex; }
-  .confirm-box { background: var(--surface); border-radius: 12px; padding: 24px; width: 320px; box-shadow: var(--shadow-md); }
-  .confirm-box h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-  .confirm-box p { font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
-  .confirm-actions { display: flex; gap: 8px; }
-  .btn-cancel { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: none; font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text2); cursor: pointer; }
-  .btn-confirm-delete { flex: 1; padding: 8px; border: none; border-radius: 8px; background: var(--red-bg); color: var(--red); font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
-  .loading { display: flex; align-items: center; justify-content: center; padding: 60px; color: var(--text3); font-size: 13px; gap: 10px; }
-  .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .empty { text-align: center; padding: 48px; color: var(--text3); font-size: 13px; }
-  .btn-primary { padding: 8px 18px; border: none; border-radius: 8px; background: var(--accent); color: #1e2140; font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
-  .btn-primary:hover { opacity: 0.9; }
-  .btn-sm { padding: 4px 10px; border: none; border-radius: 6px; background: var(--accent); color: #1e2140; font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; }
-  .pipe-kpi { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
-  .pipe-stat-val { font-size: 18px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
-  .pipe-stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
-  .pipe-divider { width: 1px; height: 28px; background: var(--border); }
-  .pipe-filters { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 24px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .kanban { display: flex; gap: 10px; padding: 16px 24px; overflow-x: auto; min-height: calc(100vh - 220px); align-items: flex-start; background: var(--bg); }
-  .kanban-col { min-width: 195px; width: 195px; flex-shrink: 0; }
-  .kanban-col-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 2px; margin-bottom: 8px; }
-  .kanban-col-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
-  .kanban-col-count { font-size: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; color: var(--text3); }
-  .kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.1s; }
-  .kanban-card:hover { border-color: var(--accent); }
-  .kanban-card.won { border-color: #C0DD97; background: var(--green-bg); }
-  .kanban-card.lost { border-color: #F7C1C1; background: var(--red-bg); opacity: 0.75; }
-  .kc-name { font-weight: 500; font-size: 13px; margin-bottom: 1px; }
-  .kc-contact { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
-  .kc-owner { font-size: 10px; padding: 1px 7px; border-radius: 10px; background: var(--amber-bg); color: var(--amber); font-weight: 500; display: inline-block; margin-bottom: 5px; }
-  .kc-footer { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
-  .src-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .src-label { font-size: 10px; color: var(--text3); flex: 1; }
-  .kc-val { font-size: 11px; font-weight: 500; color: var(--text2); }
-  .prob-badge { font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 500; }
-  .prob-high { background: var(--green-bg); color: var(--green); }
-  .prob-mid { background: var(--amber-bg); color: var(--amber); }
-  .prob-low { background: var(--red-bg); color: var(--red); }
-  .kc-action-ok { display: flex; align-items: center; gap: 5px; padding: 4px 7px; background: var(--blue-bg); border-radius: 6px; margin-top: 4px; }
-  .kc-action-warn { display: flex; align-items: center; gap: 5px; padding: 4px 7px; background: var(--red-bg); border-radius: 6px; margin-top: 4px; }
-  .kc-action-text { font-size: 11px; font-weight: 500; color: var(--blue); flex: 1; }
-  .kc-action-text-warn { font-size: 11px; font-weight: 500; color: var(--red); flex: 1; }
-  .kc-action-date { font-size: 10px; color: var(--blue); }
-  .kc-action-date-warn { font-size: 10px; color: var(--red); font-weight: 600; }
-  .kc-days { font-size: 10px; color: var(--text3); margin-top: 3px; }
-  .kc-lost-reason { font-size: 10px; color: var(--red); margin-top: 3px; }
-  .lost-reason { font-size: 10px; color: var(--red); margin-top: 4px; }
-  /* BUDGET */
-  .budget-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: auto; margin-bottom: 16px; }
-  .budget-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 900px; }
-  .budget-table th { padding: 8px 10px; text-align: center; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .budget-table th:first-child { text-align: left; min-width: 160px; }
-  .budget-table th:nth-child(2) { text-align: left; min-width: 120px; }
-  .budget-table td { padding: 5px 6px; text-align: center; border-bottom: 1px solid var(--border); }
-  .budget-table td:first-child { text-align: left; font-weight: 500; padding-left: 10px; }
-  .budget-table td:nth-child(2) { text-align: left; padding-left: 10px; }
-  .budget-table tr:last-child td { border-bottom: none; }
-  .budget-table tr.cat-header td { background: var(--surface2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
-  .budget-table tr.total-row td { background: var(--surface2); font-weight: 600; border-top: 2px solid var(--border); }
-  .budget-input { width: 70px; padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; font-family: 'Poppins', sans-serif; font-size: 11px; color: var(--text); background: transparent; text-align: right; }
-  .budget-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
-  .budget-input:hover { border-color: var(--border); background: var(--surface); }
-  .vs-over { color: var(--green); font-weight: 500; }
-  .vs-under { color: var(--red); font-weight: 500; }
-</style>
-</head>
-<script>
+</head><body>
+<nav class="topnav">
+  <div style="font-weight:600;font-size:15px;color:#fff;display:flex;align-items:center;gap:8px;">
+    <img src="https://application.ciboost.se/images/logos/main-logo.svg" alt="CIBoost" style="height:26px;filter:brightness(0) invert(1);">
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchMain('pipeline',this)">Pipeline <span class="count" id="pipe-count">-</span></button>
+    <button class="nav-tab">Trial &amp; Pilot</button>
+    <button class="nav-tab" onclick="switchMain('kunder',this)">Kunder <span class="count" id="tab-count">-</span></button>
+    <button class="nav-tab" onclick="switchMain('finansiellt',this)">Finansiellt</button>
+    <button class="nav-tab">Arkiv</button>
+  </div>
+</nav>
+
+<div id="pipe-kpi-bar" class="pipe-kpi">
+  <div><div class="pipe-stat-val" style="color:var(--accent)" id="pk-total">-</div><div class="pipe-stat-label">Aktiva i pipeline</div></div>
+  <div class="pipe-divider"></div>
+  <div><div class="pipe-stat-val" style="color:var(--purple)" id="pk-weighted">-</div><div class="pipe-stat-label">Viktat värde</div></div>
+  <div class="pipe-divider"></div>
+  <div><div class="pipe-stat-val" style="color:var(--green)" id="pk-won">-</div><div class="pipe-stat-label">Closed won</div></div>
+  <div class="pipe-divider"></div>
+  <div><div class="pipe-stat-val" style="color:var(--red)" id="pk-lost">-</div><div class="pipe-stat-label">Closed lost</div></div>
+  <div class="pipe-divider"></div>
+  <div><div class="pipe-stat-val" style="color:var(--blue)" id="pk-qualified">-</div><div class="pipe-stat-label">Qualified leads</div></div>
+  <div class="pipe-divider"></div>
+  <div><div class="pipe-stat-val" id="pk-overdue">-</div><div class="pipe-stat-label">Passerade åtgärder</div></div>
+</div>
+
+<div class="pipe-filters" id="pipe-filters-bar">
+  <select id="filter-source" onchange="renderKanban()" style="font-size:12px;">
+    <option value="">Alla källor</option>
+    <option>Wow</option><option>Hemsida demo</option><option>30-dagars</option>
+    <option>Traditionell</option><option>Partners</option><option>Event</option>
+  </select>
+  <select id="filter-pipe-owner" onchange="renderKanban()" style="font-size:12px;">
+    <option value="">Alla kundansvariga</option>
+    <option>Matilda Olsson</option><option>Alexandra Henningson</option>
+  </select>
+  <button class="btn-primary" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;" onclick="openNewProspect()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+    Ny prospect
+  </button>
+</div>
+
+<div class="page active" id="page-pipeline">
+  <div class="kanban" id="kanban-board">
+    <div class="loading"><div class="spinner"></div> Laddar pipeline</div>
+  </div>
+</div>
+
+<div class="stats-bar" id="stats-bar" style="display:none;">
+  <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-total">-</div><div class="stat-label">Aktiva kunder</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--green)" id="stat-enterprise">-</div><div class="stat-label">Enterprise</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--green)" id="stat-team">-</div><div class="stat-label">Team</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--amber)" id="stat-expiring">-</div><div class="stat-label">Förfaller &lt;30d</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--red)" id="stat-risk">-</div><div class="stat-label">High risk</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--gray)" id="stat-expired">-</div><div class="stat-label">Utgångna</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-total-val">-</div><div class="stat-label" id="stat-total-val-label">Total ARR</div></div>
+</div>
+
+<div class="sub-tabs-bar" id="subtabs-kunder" style="display:none;">
+  <button class="sub-tab active" onclick="switchSub('kunder','oversikt',this)">Översikt</button>
+  <button class="sub-tab" onclick="switchSub('kunder','licenstidslinje',this)">Licenstidslinje</button>
+</div>
+<div class="sub-tabs-bar" id="subtabs-finansiellt" style="display:none;">
+  <button class="sub-tab active" onclick="switchSub('finansiellt','dashboard',this)">Dashboard</button>
+  <button class="sub-tab" onclick="switchSub('finansiellt','periodisering',this)">Periodisering</button>
+  <button class="sub-tab" onclick="switchSub('finansiellt','budget',this)">Budget</button>
+</div>
+
+<div class="page" id="page-kunder-oversikt">
+  <div class="main">
+    <div class="kpi-grid" id="rev-summary"></div>
+    <div class="filters">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input class="search-input" type="text" id="search" placeholder="Sök organisation...">
+      </div>
+      <select id="filter-owner"><option value="">Alla kundansvariga</option><option>Matilda Olsson</option><option>Alexandra Henningson</option></select>
+      <select id="filter-license"><option value="">Alla licenstyper</option><option>Enterprise</option><option>Team</option><option>Pilot</option></select>
+      <select id="filter-risk"><option value="">Alla risknivåer</option><option>Low</option><option>Medium</option><option>High</option></select>
+      <div class="rev-dropdown">
+        <button class="rev-dd-btn" onclick="toggleRevDD(event)">Intäktskällor <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="rev-dd-panel" id="rev-dd-panel" style="display:none;">
+          <div class="rev-dd-item" onclick="toggleRevSource('arr')"><div class="rev-cb on" id="rcb-arr"></div><span class="rev-dot" style="background:#1a7a50;"></span>ARR löpande</div>
+          <div class="rev-dd-item" onclick="toggleRevSource('fast')"><div class="rev-cb on" id="rcb-fast"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Fastpris</div>
+          <div class="rev-dd-item" onclick="toggleRevSource('utb')"><div class="rev-cb" id="rcb-utb"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
+          <div class="rev-dd-item" onclick="toggleRevSource('cons')"><div class="rev-cb" id="rcb-cons"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
+        </div>
+      </div>
+      <div style="margin-left:auto;font-size:13px;color:var(--text3);" id="filter-count"></div>
+      <button class="btn-primary" onclick="openNewModal()" style="display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Ny kund</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th onclick="sortBy('Company')">Kund</th><th onclick="sortBy('Contact')">Kontakt</th><th>Kundansvarig</th>
+          <th onclick="sortBy('LicenseType')">Typ</th><th onclick="sortBy('ARR')">Värde</th><th>Fördelning</th>
+          <th onclick="sortBy('LicenseEnd')">Licens slutar</th><th onclick="sortBy('days')">Tid kvar</th><th onclick="sortBy('Risk')">Risk</th>
+        </tr></thead>
+        <tbody id="table-body"><tr><td colspan="9"><div class="loading"><div class="spinner"></div> Hämtar kunder</div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-kunder-licenstidslinje">
+  <div class="main">
+    <div class="action-grid">
+      <div class="action-card"><div class="action-card-title">Kräver action <span class="badge b-red" id="action-count">-</span></div><div id="action-list"><div class="loading"><div class="spinner"></div></div></div></div>
+      <div class="action-card"><div class="action-card-title">Förfaller inom 90 dagar <span class="badge b-amber" id="soon-count">-</span></div><div id="soon-list"><div class="loading"><div class="spinner"></div></div></div></div>
+    </div>
+    <div class="gantt-wrap">
+      <div class="gantt-header"><div class="gantt-name-col">Kund</div><div class="gantt-months" id="gantt-months"></div></div>
+      <div id="gantt-body"></div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-finansiellt-dashboard">
+  <div class="main">
+    <div class="date-filter">
+      <span style="font-size:13px;color:var(--text3);">Period:</span>
+      <input type="date" class="date-input" id="fin-from" value="2026-01-01" onchange="renderFinDashboard()">
+      <span style="font-size:13px;color:var(--text3);">–</span>
+      <input type="date" class="date-input" id="fin-to" value="2026-12-31" onchange="renderFinDashboard()">
+      <button class="quick-btn" onclick="setFinQuick('ytd',this)">YTD</button>
+      <button class="quick-btn" onclick="setFinQuick('q2',this)">Q2</button>
+      <button class="quick-btn" onclick="setFinQuick('h1',this)">H1</button>
+      <button class="quick-btn active" onclick="setFinQuick('year',this)">Helår</button>
+      <div class="result-toggle" style="margin-left:auto;"><button class="result-btn active" onclick="setResultView('resultat',this)">Resultat</button><button class="result-btn" onclick="setResultView('likviditet',this)">Likviditet</button></div>
+    </div>
+    <div class="hero-card" id="hero-card"></div>
+    <div class="kpi-grid" id="fin-kpi-grid"></div>
+    <div class="fin-grid">
+      <div class="fin-card"><div class="fin-card-title">Intäktsmix <span class="badge b-green" id="mix-total-badge">-</span></div><div id="mix-rows"></div></div>
+      <div class="fin-card"><div class="fin-card-title">Prognos nästa 6 månader <span class="badge b-purple">periodiserat</span></div><div id="forecast-rows"></div></div>
+    </div>
+    <div class="fin-card" style="margin-bottom:16px;"><div class="fin-card-title">Provision – utestående <span class="badge b-amber" id="comm-badge">-</span></div><div id="comm-rows"><div class="loading"><div class="spinner"></div></div></div></div>
+  </div>
+</div>
+
+<div class="page" id="page-finansiellt-periodisering">
+  <div class="main">
+    <div class="date-filter">
+      <span style="font-size:13px;color:var(--text3);">Period:</span>
+      <input type="date" class="date-input" id="per-from" value="2026-01-01">
+      <span style="font-size:13px;color:var(--text3);">–</span>
+      <input type="date" class="date-input" id="per-to" value="2026-06-30">
+      <button class="quick-btn" onclick="setPerQuick('h1',this)">H1</button>
+      <button class="quick-btn" onclick="setPerQuick('h2',this)">H2</button>
+      <button class="quick-btn active" onclick="setPerQuick('year',this)">Helår</button>
+      <div class="rev-dropdown" style="margin-left:auto;">
+        <button class="rev-dd-btn" onclick="togglePerDD(event)">Intäktskällor <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="rev-dd-panel" id="per-dd-panel" style="display:none;">
+          <div class="rev-dd-item" onclick="togglePerSource('arr')"><div class="rev-cb on" id="pcb-arr"></div><span class="rev-dot" style="background:#1a7a50;"></span>ARR</div>
+          <div class="rev-dd-item" onclick="togglePerSource('fast')"><div class="rev-cb on" id="pcb-fast"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Fastpris</div>
+          <div class="rev-dd-item" onclick="togglePerSource('utb')"><div class="rev-cb on" id="pcb-utb"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
+          <div class="rev-dd-item" onclick="togglePerSource('cons')"><div class="rev-cb on" id="pcb-cons"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="renderPeriodisering()">Uppdatera</button>
+    </div>
+    <div class="kpi-grid" id="per-kpi" style="margin-bottom:16px;"></div>
+    <div class="period-table-wrap"><table class="period-table"><thead id="per-thead"></thead><tbody id="per-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- FINANSIELLT BUDGET -->
+<div class="page" id="page-finansiellt-budget">
+  <div class="main">
+    <!-- VERSION BAR -->
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+      <select id="budget-version-select" onchange="loadBudgetVersion()" style="font-size:13px;">
+        <option value="">Välj budgetversion...</option>
+      </select>
+      <button class="quick-btn" onclick="openNewBudgetVersion()">+ Ny version</button>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <select id="budget-year-select" onchange="renderBudgetTable()" style="font-size:12px;">
+          <option>2026</option><option>2027</option><option>2025</option>
+        </select>
+        <button class="btn-primary" onclick="saveBudget()" id="budget-save-btn" style="display:none;">Spara budget</button>
+      </div>
+    </div>
+    <!-- KPI ROW -->
+    <div class="kpi-grid" id="budget-kpi" style="margin-bottom:16px;"></div>
+    <!-- BUDGET TABLE -->
+    <div id="budget-content">
+      <div style="text-align:center;padding:60px;color:var(--text3);font-size:13px;">Välj eller skapa en budgetversion för att börja</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL KUND -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-top">
+        <div><div class="modal-title" id="modal-title"></div><div class="modal-subtitle" id="modal-subtitle"></div></div>
+        <div class="modal-header-actions">
+          <button class="btn-delete" id="btn-delete" onclick="confirmDelete()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>Ta bort</button>
+          <button class="modal-close" onclick="closeModalDirect()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+      </div>
+      <div class="modal-tabs" id="modal-tabs"></div>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- MODAL PROSPECT -->
+<div class="modal-overlay" id="prospect-overlay" onclick="closeProspectModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-top">
+        <div><div class="modal-title" id="prospect-title">Prospect</div><div class="modal-subtitle" id="prospect-subtitle"></div></div>
+        <div class="modal-header-actions">
+          <button class="btn-delete" id="prospect-delete-btn" onclick="deleteProspect()" style="display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>Ta bort</button>
+          <button class="modal-close" onclick="closeProspectModalDirect()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+      </div>
+      <div class="modal-tabs" id="prospect-tabs"></div>
+    </div>
+    <div class="modal-body" id="prospect-body"></div>
+  </div>
+</div>
+
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <h3>Ta bort kund?</h3>
+    <p id="confirm-text"></p>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="closeConfirm()">Avbryt</button>
+      <button class="btn-confirm-delete" onclick="executeDelete()">Ta bort</button>
+    </div>
+  </div>
+</div><script>
 const API = 'https://ciboost-api-v2-hmgdayegd2hjeth6.swedencentral-01.azurewebsites.net';
 let _token = null;
 async function getToken() {
@@ -957,8 +951,7 @@ function openNewBudgetVersion(){
       document.getElementById('budget-save-btn').style.display='flex';
       return true;
     });
-}
-// ─── MODAL KUND ──────────────────────────────────────────
+}// ─── MODAL KUND ──────────────────────────────────────────
 function getLicenseType(c){return document.getElementById('edit-type')?.value||c?.LicenseType||'Team';}
 function renderTabs(lt){const tab2=lt==='Enterprise'?'Enterprise':'Team';document.getElementById('modal-tabs').innerHTML=['Översikt',tab2,'Värde','Aktivitet'].map((t,i)=>`<button class="modal-tab ${currentPage===i+1?'active':''}" onclick="goToPage(${i+1})">${i+1}. ${t}</button>`).join('');}
 function openNewModal(){isNewCustomer=true;currentModalId=null;currentPage=1;document.getElementById('modal-title').textContent='Ny kund';document.getElementById('modal-subtitle').textContent='';document.getElementById('btn-delete').style.display='none';renderTabs('Team');renderModalPage(null,[],[]);document.getElementById('modal-overlay').classList.add('open');}
