@@ -911,7 +911,7 @@ function renderBudgetTable(){
     <div class="kpi-card"><div class="kpi-label">Budgeterat resultat</div><div class="kpi-value ${resultTotal>=0?'pos':'neg'}">${fmtKr(resultTotal)}</div><div class="kpi-delta neu">Intäkter - Kostnader</div></div>`;
 }
 
-function updateBudgetTotals(){renderBudgetTable();}
+function updateBudgetTotals(){}
 
 async function saveBudget(){
   if(!currentBudgetVersionId)return;
