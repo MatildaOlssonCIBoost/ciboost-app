@@ -21,14 +21,13 @@
   }
   body { font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
   .topnav { background: #1e2140; border-bottom: 1px solid #2a2f5a; padding: 0 24px; display: flex; align-items: center; gap: 32px; height: 52px; position: sticky; top: 0; z-index: 100; }
-  .logo { font-weight: 600; font-size: 15px; color: #fff; display: flex; align-items: center; gap: 8px; }
   .nav-tabs { display: flex; gap: 2px; flex: 1; }
   .nav-tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.65); cursor: pointer; border: none; background: none; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
   .nav-tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
   .nav-tab.active { background: rgba(255,255,255,0.12); color: #fff; }
   .nav-tab .count { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: rgba(255,255,255,0.2); color: white; }
   .stats-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; gap: 32px; align-items: center; }
-  .stat { display: flex; flex-direction: column; gap: 1px; cursor: default; }
+  .stat { display: flex; flex-direction: column; gap: 1px; }
   .stat-val { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
   .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
   .stat-divider { width: 1px; height: 32px; background: var(--border); }
@@ -48,7 +47,6 @@
   select:focus { border-color: var(--accent); outline: none; }
   .rev-dropdown { position: relative; }
   .rev-dd-btn { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text); cursor: pointer; }
-  .rev-dd-btn:hover { border-color: var(--accent); }
   .rev-dd-panel { position: absolute; top: calc(100% + 4px); left: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px; min-width: 190px; z-index: 50; box-shadow: var(--shadow-md); }
   .rev-dd-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
   .rev-dd-item:hover { background: var(--surface2); }
@@ -69,7 +67,6 @@
   .lt-Enterprise { background: var(--blue-bg); color: var(--blue); }
   .lt-Team { background: var(--green-bg); color: var(--green); }
   .lt-Pilot { background: var(--amber-bg); color: var(--amber); }
-  .lt-Trial { background: var(--purple-bg); color: var(--purple); }
   .days-pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: 500; white-space: nowrap; }
   .days-ok { background: var(--green-bg); color: var(--green); }
   .days-warn { background: var(--amber-bg); color: var(--amber); }
@@ -92,7 +89,6 @@
   .action-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 10px; display: flex; justify-content: space-between; }
   .action-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; cursor: pointer; }
   .action-row:last-child { border-bottom: none; }
-  .action-row:hover { color: var(--accent); }
   .gantt-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .gantt-header { display: flex; border-bottom: 1px solid var(--border); background: var(--surface2); padding: 8px 14px; }
   .gantt-name-col { min-width: 180px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
@@ -106,9 +102,7 @@
   .gantt-bar { position: absolute; height: 22px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: white; white-space: nowrap; overflow: hidden; }
   .date-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .date-input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-family: 'Poppins', sans-serif; font-size: 13px; background: var(--surface); color: var(--text); outline: none; }
-  .date-input:focus { border-color: var(--accent); }
   .quick-btn { padding: 6px 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text2); cursor: pointer; }
-  .quick-btn:hover { background: var(--surface2); }
   .quick-btn.active { background: #1e2140; color: white; border-color: #1e2140; }
   .result-toggle { display: flex; gap: 2px; background: var(--surface2); border-radius: 8px; padding: 2px; }
   .result-btn { padding: 5px 12px; border-radius: 6px; border: none; background: none; font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text3); cursor: pointer; }
@@ -135,8 +129,6 @@
   .mix-row:last-child { border-bottom: none; }
   .mix-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; }
   .mix-fill { height: 5px; border-radius: 3px; }
-  .budget-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
-  .budget-row:last-child { border-bottom: none; }
   .forecast-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
   .forecast-row:last-child { border-bottom: none; }
   .period-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: auto; }
@@ -164,7 +156,6 @@
   .btn-delete { padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--red); font-family: 'Poppins', sans-serif; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
   .btn-delete:hover { background: var(--red-bg); }
   .modal-close { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text2); }
-  .modal-close:hover { background: var(--surface2); }
   .modal-tabs { display: flex; overflow-x: auto; }
   .modal-tab { padding: 8px 14px; border: none; border-bottom: 2px solid transparent; background: none; font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 500; color: var(--text3); cursor: pointer; white-space: nowrap; }
   .modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
@@ -177,7 +168,6 @@
   .edit-input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text); background: var(--surface); }
   .edit-input:focus { outline: none; border-color: var(--accent); }
   .rev-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
-  .rev-item:last-child { margin-bottom: 0; }
   .rev-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .rev-item-type { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
   .rev-item-amount { font-size: 15px; font-weight: 600; flex: 1; }
@@ -189,13 +179,11 @@
   .comm-paid { text-decoration: line-through; opacity: 0.5; }
   .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 400; display: none; align-items: center; justify-content: center; }
   .confirm-overlay.open { display: flex; }
-  .confirm-box { background: var(--surface); border-radius: 12px; padding: 24px; width: 320px; box-shadow: var(--shadow-md); animation: popIn 0.15s ease; }
-  @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: none; opacity: 1; } }
+  .confirm-box { background: var(--surface); border-radius: 12px; padding: 24px; width: 320px; box-shadow: var(--shadow-md); }
   .confirm-box h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
   .confirm-box p { font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
   .confirm-actions { display: flex; gap: 8px; }
   .btn-cancel { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: none; font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--text2); cursor: pointer; }
-  .btn-cancel:hover { background: var(--surface2); }
   .btn-confirm-delete { flex: 1; padding: 8px; border: none; border-radius: 8px; background: var(--red-bg); color: var(--red); font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
   .loading { display: flex; align-items: center; justify-content: center; padding: 60px; color: var(--text3); font-size: 13px; gap: 10px; }
   .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
@@ -206,34 +194,24 @@
   .btn-sm { padding: 4px 10px; border: none; border-radius: 6px; background: var(--accent); color: #1e2140; font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; }
 
   /* PIPELINE */
-  .pipe-filters { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .src-chip { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1px solid var(--border); background: none; cursor: pointer; font-family: 'Poppins', sans-serif; color: var(--text2); transition: all 0.1s; }
-  .src-chip:hover { border-color: var(--accent); }
-  .src-chip.active { background: #1e2140; color: white; border-color: #1e2140; }
-  .src-wow { background: var(--green-bg); color: var(--green); border-color: #C0DD97; }
-  .src-wow.active { background: var(--green); color: white; }
-  .src-demo { background: var(--blue-bg); color: var(--blue); border-color: #B5D4F4; }
-  .src-demo.active { background: var(--blue); color: white; }
-  .src-tredagars { background: var(--amber-bg); color: var(--amber); border-color: #FAC775; }
-  .src-tredagars.active { background: var(--amber); color: white; }
-  .src-traditionell { background: var(--surface2); color: var(--text2); border-color: var(--border); }
-  .src-traditionell.active { background: #5F5E5A; color: white; }
-  .src-partners { background: var(--purple-bg); color: var(--purple); border-color: #CECBF6; }
-  .src-partners.active { background: var(--purple); color: white; }
-  .src-event { background: var(--accent-bg); color: var(--accent); border-color: #F5C4B3; }
-  .src-event.active { background: var(--accent); color: #1e2140; }
-  .kanban { display: flex; gap: 10px; padding: 16px 24px; overflow-x: auto; min-height: calc(100vh - 200px); align-items: flex-start; }
-  .kanban-col { min-width: 200px; width: 200px; flex-shrink: 0; }
-  .kanban-col-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; margin-bottom: 8px; }
-  .kanban-col-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
-  .kanban-col-count { font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; color: var(--text3); }
-  .kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.1s; }
-  .kanban-card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+  .pipe-kpi { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 24px; display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  .pipe-stat-val { font-size: 18px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
+  .pipe-stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .pipe-divider { width: 1px; height: 28px; background: var(--border); }
+  .pipe-filters { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 24px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .kanban { display: flex; gap: 10px; padding: 16px 24px; overflow-x: auto; min-height: calc(100vh - 220px); align-items: flex-start; background: var(--bg); }
+  .kanban-col { min-width: 195px; width: 195px; flex-shrink: 0; }
+  .kanban-col-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 2px; margin-bottom: 8px; }
+  .kanban-col-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
+  .kanban-col-count { font-size: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; color: var(--text3); }
+  .kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.1s; }
+  .kanban-card:hover { border-color: var(--accent); }
   .kanban-card.won { border-color: #C0DD97; background: var(--green-bg); }
   .kanban-card.lost { border-color: #F7C1C1; background: var(--red-bg); opacity: 0.75; }
-  .kc-name { font-weight: 500; font-size: 13px; margin-bottom: 2px; }
-  .kc-contact { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
-  .kc-footer { display: flex; align-items: center; gap: 5px; }
+  .kc-name { font-weight: 500; font-size: 13px; margin-bottom: 1px; }
+  .kc-contact { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+  .kc-owner { font-size: 10px; padding: 1px 7px; border-radius: 10px; background: var(--amber-bg); color: var(--amber); font-weight: 500; display: inline-block; margin-bottom: 5px; }
+  .kc-footer { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
   .src-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
   .src-label { font-size: 10px; color: var(--text3); flex: 1; }
   .kc-val { font-size: 11px; font-weight: 500; color: var(--text2); }
@@ -241,18 +219,21 @@
   .prob-high { background: var(--green-bg); color: var(--green); }
   .prob-mid { background: var(--amber-bg); color: var(--amber); }
   .prob-low { background: var(--red-bg); color: var(--red); }
+  .kc-action-ok { display: flex; align-items: center; gap: 5px; padding: 4px 7px; background: var(--blue-bg); border-radius: 6px; margin-top: 4px; }
+  .kc-action-warn { display: flex; align-items: center; gap: 5px; padding: 4px 7px; background: var(--red-bg); border-radius: 6px; margin-top: 4px; }
+  .kc-action-text { font-size: 11px; font-weight: 500; color: var(--blue); flex: 1; }
+  .kc-action-text-warn { font-size: 11px; font-weight: 500; color: var(--red); flex: 1; }
+  .kc-action-date { font-size: 10px; color: var(--blue); }
+  .kc-action-date-warn { font-size: 10px; color: var(--red); font-weight: 600; }
+  .kc-days { font-size: 10px; color: var(--text3); margin-top: 3px; }
+  .kc-lost-reason { font-size: 10px; color: var(--red); margin-top: 3px; }
   .lost-reason { font-size: 10px; color: var(--red); margin-top: 4px; }
-  .pipe-kpi { display: flex; gap: 24px; padding: 10px 24px; background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-  .pipe-stat { display: flex; flex-direction: column; gap: 1px; }
-  .pipe-stat-val { font-size: 18px; font-weight: 600; letter-spacing: -0.5px; line-height: 1; }
-  .pipe-stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
-  .pipe-divider { width: 1px; height: 28px; background: var(--border); align-self: center; }
 </style>
 </head>
 <body>
 
 <nav class="topnav">
-  <div class="logo">
+  <div style="font-weight:600;font-size:15px;color:#fff;display:flex;align-items:center;gap:8px;">
     <img src="https://application.ciboost.se/images/logos/main-logo.svg" alt="CIBoost" style="height:26px;filter:brightness(0) invert(1);">
   </div>
   <div class="nav-tabs">
@@ -266,29 +247,32 @@
 
 <!-- PIPELINE KPI -->
 <div id="pipe-kpi-bar" class="pipe-kpi">
-  <div class="pipe-stat"><div class="pipe-stat-val" style="color:var(--accent)" id="pk-total">-</div><div class="pipe-stat-label">Totalt i pipeline</div></div>
+  <div><div class="pipe-stat-val" style="color:var(--accent)" id="pk-total">-</div><div class="pipe-stat-label">Aktiva i pipeline</div></div>
   <div class="pipe-divider"></div>
-  <div class="pipe-stat"><div class="pipe-stat-val" style="color:var(--green)" id="pk-won">-</div><div class="pipe-stat-label">Closed won</div></div>
+  <div><div class="pipe-stat-val" style="color:var(--purple)" id="pk-weighted">-</div><div class="pipe-stat-label">Viktat värde</div></div>
   <div class="pipe-divider"></div>
-  <div class="pipe-stat"><div class="pipe-stat-val" style="color:var(--red)" id="pk-lost">-</div><div class="pipe-stat-label">Closed lost</div></div>
+  <div><div class="pipe-stat-val" style="color:var(--green)" id="pk-won">-</div><div class="pipe-stat-label">Closed won</div></div>
   <div class="pipe-divider"></div>
-  <div class="pipe-stat"><div class="pipe-stat-val" style="color:var(--blue)" id="pk-value">-</div><div class="pipe-stat-label">Pipeline-värde</div></div>
+  <div><div class="pipe-stat-val" style="color:var(--red)" id="pk-lost">-</div><div class="pipe-stat-label">Closed lost</div></div>
   <div class="pipe-divider"></div>
-  <div class="pipe-stat"><div class="pipe-stat-val" style="color:var(--purple)" id="pk-qualified">-</div><div class="pipe-stat-label">Qualified leads</div></div>
+  <div><div class="pipe-stat-val" style="color:var(--blue)" id="pk-qualified">-</div><div class="pipe-stat-label">Qualified leads</div></div>
+  <div class="pipe-divider"></div>
+  <div><div class="pipe-stat-val" id="pk-overdue">-</div><div class="pipe-stat-label">Passerade åtgärder</div></div>
 </div>
 
-<!-- PIPELINE KÄLLFILTER -->
-<div class="pipe-filters" id="pipe-filters">
-  <span style="font-size:12px;color:var(--text3);">Källa:</span>
-  <button class="src-chip active" onclick="filterSource('',this)">Alla</button>
-  <button class="src-chip src-wow" onclick="filterSource('Wow',this)">Wow</button>
-  <button class="src-chip src-demo" onclick="filterSource('Hemsida demo',this)">Hemsida demo</button>
-  <button class="src-chip src-tredagars" onclick="filterSource('30-dagars',this)">30-dagars</button>
-  <button class="src-chip src-traditionell" onclick="filterSource('Traditionell',this)">Traditionell</button>
-  <button class="src-chip src-partners" onclick="filterSource('Partners',this)">Partners</button>
-  <button class="src-chip src-event" onclick="filterSource('Event',this)">Event</button>
-  <button class="btn-primary" style="margin-left:auto;display:flex;align-items:center;gap:6px;" onclick="openNewProspect()">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+<!-- PIPELINE FILTER -->
+<div class="pipe-filters" id="pipe-filters-bar">
+  <select id="filter-source" onchange="renderKanban()" style="font-size:12px;">
+    <option value="">Alla källor</option>
+    <option>Wow</option><option>Hemsida demo</option><option>30-dagars</option>
+    <option>Traditionell</option><option>Partners</option><option>Event</option>
+  </select>
+  <select id="filter-pipe-owner" onchange="renderKanban()" style="font-size:12px;">
+    <option value="">Alla kundansvariga</option>
+    <option>Matilda Olsson</option><option>Alexandra Henningson</option>
+  </select>
+  <button class="btn-primary" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;" onclick="openNewProspect()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
     Ny prospect
   </button>
 </div>
@@ -456,6 +440,7 @@
           <button class="modal-close" onclick="closeProspectModalDirect()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
         </div>
       </div>
+      <div class="modal-tabs" id="prospect-tabs"></div>
     </div>
     <div class="modal-body" id="prospect-body"></div>
   </div>
@@ -477,33 +462,31 @@ const API = 'https://ciboost-api-v2-hmgdayegd2hjeth6.swedencentral-01.azurewebsi
 const OWNERS = ['Matilda Olsson', 'Alexandra Henningson'];
 const SOURCES = ['Wow','Hemsida demo','30-dagars','Traditionell','Partners','Event'];
 const STAGES = ['Prospect Identified','Contacted','Meeting Booked','Evaluation & Proposal','Qualified Lead','Closed Won','Closed Lost'];
-const SOURCE_COLORS = { 'Wow':'#639922','Hemsida demo':'#185FA5','30-dagars':'#854F0B','Traditionell':'#5F5E5A','Partners':'#534AB7','Event':'#993C1D' };
+const SOURCE_COLORS = {'Wow':'#639922','Hemsida demo':'#185FA5','30-dagars':'#854F0B','Traditionell':'#5F5E5A','Partners':'#534AB7','Event':'#993C1D'};
+const ACTION_TYPES = ['Möte','Samtal','E-post','Demo','Offert','Uppföljning','Annat'];
 const DEFAULT_RECIPIENTS = ['Ann-Sofie Forsmark','CI-Labs','Influence','Influence People','Johan Jansson','Lotta Murvall'];
-let allCustomers = [], allProspects = [], allRecipients = [...DEFAULT_RECIPIENTS];
-let sortCol = 'days', sortAsc = true;
-let currentModalId = null, currentPage = 1, isNewCustomer = false;
-let currentProspectId = null, isNewProspect = false;
-let revSources = { arr: true, fast: true, utb: false, cons: false };
-let perSources = { arr: true, fast: true, utb: true, cons: true };
-let currentMain = 'pipeline', currentSub = { kunder: 'oversikt', finansiellt: 'dashboard' };
-let pipeSourceFilter = '';
+let allCustomers=[], allProspects=[], allRecipients=[...DEFAULT_RECIPIENTS];
+let sortCol='days', sortAsc=true;
+let currentModalId=null, currentPage=1, isNewCustomer=false;
+let currentProspectId=null, isNewProspect=false, currentProspectTab=1;
+let revSources={arr:true,fast:true,utb:false,cons:false};
+let perSources={arr:true,fast:true,utb:true,cons:true};
+let currentMain='pipeline', currentSub={kunder:'oversikt',finansiellt:'dashboard'};
 
-function daysLeft(d) { if (!d) return null; return Math.round((new Date(d) - new Date()) / 86400000); }
-function formatDate(d) { return d ? new Date(d).toLocaleDateString('sv-SE') : '-'; }
-function fmtKr(v) { if (!v && v !== 0) return '-'; return Math.round(v).toLocaleString('sv-SE') + ' kr'; }
-function inferOwner(c) { if (c.Owner) return c.Owner; if (c.Notes?.includes('Alexandra')) return 'Alexandra Henningson'; return 'Matilda Olsson'; }
-function daysPill(days) {
-  if (days === null) return '<span class="days-pill days-expired">-</span>';
-  if (days < 0) return `<span class="days-pill days-expired">Utgången</span>`;
-  if (days <= 30) return `<span class="days-pill days-crit">${days}d kvar</span>`;
-  if (days <= 90) return `<span class="days-pill days-warn">${days}d kvar</span>`;
-  return `<span class="days-pill days-ok">${days}d kvar</span>`;
+function daysLeft(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
+function formatDate(d){return d?new Date(d).toLocaleDateString('sv-SE'):'-';}
+function fmtKr(v){if(!v&&v!==0)return'-';return Math.round(v).toLocaleString('sv-SE')+' kr';}
+function inferOwner(c){if(c.Owner)return c.Owner;if(c.Notes?.includes('Alexandra'))return 'Alexandra Henningson';return 'Matilda Olsson';}
+function fmtShortDate(d){if(!d)return'';const dt=new Date(d);return`${dt.getDate()}/${dt.getMonth()+1}`;}
+function daysPill(days){
+  if(days===null)return'<span class="days-pill days-expired">-</span>';
+  if(days<0)return`<span class="days-pill days-expired">Utgången</span>`;
+  if(days<=30)return`<span class="days-pill days-crit">${days}d kvar</span>`;
+  if(days<=90)return`<span class="days-pill days-warn">${days}d kvar</span>`;
+  return`<span class="days-pill days-ok">${days}d kvar</span>`;
 }
-function customerValue(c, src) {
-  const s = src || revSources;
-  return (s.arr?c.ARR||0:0)+(s.fast?c.ARR_Fixed||0:0)+(s.utb?c.Revenue_Training||0:0)+(s.cons?c.Revenue_Consulting||0:0);
-}
-function monthlyValue(c, monthDate) {
+function customerValue(c,src){const s=src||revSources;return(s.arr?c.ARR||0:0)+(s.fast?c.ARR_Fixed||0:0)+(s.utb?c.Revenue_Training||0:0)+(s.cons?c.Revenue_Consulting||0:0);}
+function monthlyValue(c,monthDate){
   const mStart=new Date(monthDate.getFullYear(),monthDate.getMonth(),1);
   const mEnd=new Date(monthDate.getFullYear(),monthDate.getMonth()+1,0);
   let arr=0,fast=0,utb=0,cons=0;
@@ -516,259 +499,306 @@ function monthlyValue(c, monthDate) {
 }
 
 // ─── NAVIGATION ─────────────────────────────────────────
-function switchMain(tab, el) {
-  currentMain = tab;
+function switchMain(tab,el){
+  currentMain=tab;
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('pipe-kpi-bar').style.display = tab==='pipeline'?'flex':'none';
-  document.getElementById('pipe-filters').style.display = tab==='pipeline'?'flex':'none';
-  document.getElementById('stats-bar').style.display = tab==='kunder'?'flex':'none';
-  document.getElementById('subtabs-kunder').style.display = tab==='kunder'?'flex':'none';
-  document.getElementById('subtabs-finansiellt').style.display = tab==='finansiellt'?'flex':'none';
+  document.getElementById('pipe-kpi-bar').style.display=tab==='pipeline'?'flex':'none';
+  document.getElementById('pipe-filters-bar').style.display=tab==='pipeline'?'flex':'none';
+  document.getElementById('stats-bar').style.display=tab==='kunder'?'flex':'none';
+  document.getElementById('subtabs-kunder').style.display=tab==='kunder'?'flex':'none';
+  document.getElementById('subtabs-finansiellt').style.display=tab==='finansiellt'?'flex':'none';
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  if(tab==='pipeline') { document.getElementById('page-pipeline').classList.add('active'); renderKanban(); }
-  if(tab==='kunder') { showPage(`kunder-${currentSub.kunder}`); }
-  if(tab==='finansiellt') { showPage(`finansiellt-${currentSub.finansiellt}`); renderFinDashboard(); }
+  if(tab==='pipeline'){document.getElementById('page-pipeline').classList.add('active');renderKanban();}
+  if(tab==='kunder'){showPage(`kunder-${currentSub.kunder}`);}
+  if(tab==='finansiellt'){showPage(`finansiellt-${currentSub.finansiellt}`);renderFinDashboard();}
 }
-
-function switchSub(main, sub, el) {
+function switchSub(main,sub,el){
   currentSub[main]=sub;
   document.getElementById(`subtabs-${main}`).querySelectorAll('.sub-tab').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
   showPage(`${main}-${sub}`);
-  if(main==='kunder'&&sub==='licenstidslinje') renderLicenstidslinje();
-  if(main==='finansiellt'&&sub==='dashboard') renderFinDashboard();
-  if(main==='finansiellt'&&sub==='periodisering') renderPeriodisering();
+  if(main==='kunder'&&sub==='licenstidslinje')renderLicenstidslinje();
+  if(main==='finansiellt'&&sub==='dashboard')renderFinDashboard();
+  if(main==='finansiellt'&&sub==='periodisering')renderPeriodisering();
 }
-
-function showPage(id) {
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById(`page-${id}`)?.classList.add('active');
-}
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(`page-${id}`)?.classList.add('active');}
 
 // ─── PIPELINE ────────────────────────────────────────────
-async function loadProspects() {
-  try {
-    const r = await fetch(`${API}/prospects`);
-    allProspects = await r.json();
-    renderKanban();
-    updatePipeKpi();
-  } catch(e) {
-    document.getElementById('kanban-board').innerHTML = '<div class="empty">Kunde inte ladda pipeline</div>';
-  }
+async function loadProspects(){
+  try{const r=await fetch(`${API}/prospects`);allProspects=await r.json();renderKanban();updatePipeKpi();}
+  catch(e){document.getElementById('kanban-board').innerHTML='<div class="empty">Kunde inte ladda pipeline</div>';}
 }
 
-function updatePipeKpi() {
-  const active = allProspects.filter(p => p.Stage !== 'Closed Won' && p.Stage !== 'Closed Lost');
-  document.getElementById('pk-total').textContent = active.length;
-  document.getElementById('pipe-count').textContent = allProspects.length;
-  document.getElementById('pk-won').textContent = allProspects.filter(p=>p.Stage==='Closed Won').length;
-  document.getElementById('pk-lost').textContent = allProspects.filter(p=>p.Stage==='Closed Lost').length;
-  document.getElementById('pk-qualified').textContent = allProspects.filter(p=>p.Stage==='Qualified Lead').length;
-  const pipeVal = active.reduce((s,p)=>s+(p.ValueMax||p.ValueMin||p.Value||0),0);
-  document.getElementById('pk-value').textContent = pipeVal > 0 ? pipeVal.toLocaleString('sv-SE')+' kr' : '-';
+function updatePipeKpi(){
+  const active=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost');
+  document.getElementById('pk-total').textContent=active.length;
+  document.getElementById('pipe-count').textContent=allProspects.length;
+  document.getElementById('pk-won').textContent=allProspects.filter(p=>p.Stage==='Closed Won').length;
+  document.getElementById('pk-lost').textContent=allProspects.filter(p=>p.Stage==='Closed Lost').length;
+  document.getElementById('pk-qualified').textContent=allProspects.filter(p=>p.Stage==='Qualified Lead').length;
+  const weighted=active.reduce((s,p)=>{const val=p.ValueMax||p.ValueMin||p.Value||0;const prob=(p.Probability||0)/100;return s+Math.round(val*prob);},0);
+  document.getElementById('pk-weighted').textContent=weighted>0?weighted.toLocaleString('sv-SE')+' kr':'-';
+  const today=new Date();today.setHours(0,0,0,0);
+  const overdue=active.filter(p=>p.NextActionDate&&new Date(p.NextActionDate)<today).length;
+  const el=document.getElementById('pk-overdue');
+  el.textContent=overdue;
+  el.style.color=overdue>0?'var(--red)':'var(--green)';
 }
 
-function filterSource(src, el) {
-  pipeSourceFilter = src;
-  document.querySelectorAll('.pipe-filters .src-chip').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  renderKanban();
-}
-
-function renderKanban() {
-  const filtered = pipeSourceFilter ? allProspects.filter(p=>p.Source===pipeSourceFilter) : allProspects;
-  const board = document.getElementById('kanban-board');
-  board.innerHTML = STAGES.map(stage => {
-    const cards = filtered.filter(p=>p.Stage===stage);
-    const isWon = stage==='Closed Won';
-    const isLost = stage==='Closed Lost';
-    const cardsHtml = cards.length ? cards.map(p => {
-      const srcColor = SOURCE_COLORS[p.Source] || '#8b90b0';
-      const val = p.ValueMin&&p.ValueMax ? `${Math.round(p.ValueMin/1000)}k–${Math.round(p.ValueMax/1000)}k` : p.ValueMax ? Math.round(p.ValueMax/1000)+'k' : p.ValueMin ? Math.round(p.ValueMin/1000)+'k' : p.Value ? Math.round(p.Value/1000)+'k' : '';
-      const probHtml = p.Probability ? `<span class="prob-badge ${p.Probability>=70?'prob-high':p.Probability>=40?'prob-mid':'prob-low'}">${p.Probability}%</span>` : '';
-      const lostHtml = isLost && p.LostReason ? `<div class="lost-reason">Orsak: ${p.LostReason}</div>` : '';
-      return `<div class="kanban-card ${isWon?'won':isLost?'lost':''}" onclick="openProspectModal(${p.Id})">
+function renderKanban(){
+  const srcFilter=document.getElementById('filter-source')?.value||'';
+  const ownerFilter=document.getElementById('filter-pipe-owner')?.value||'';
+  const filtered=allProspects.filter(p=>{
+    return(!srcFilter||p.Source===srcFilter)&&(!ownerFilter||p.Owner===ownerFilter);
+  });
+  const today=new Date();today.setHours(0,0,0,0);
+  const board=document.getElementById('kanban-board');
+  board.innerHTML=STAGES.map(stage=>{
+    const cards=filtered.filter(p=>p.Stage===stage);
+    const isWon=stage==='Closed Won',isLost=stage==='Closed Lost';
+    const cardsHtml=cards.length?cards.map(p=>{
+      const srcColor=SOURCE_COLORS[p.Source]||'#8b90b0';
+      const val=p.ValueMin&&p.ValueMax?`${Math.round(p.ValueMin/1000)}k–${Math.round(p.ValueMax/1000)}k`:p.ValueMax?Math.round(p.ValueMax/1000)+'k':p.ValueMin?Math.round(p.ValueMin/1000)+'k':p.Value?Math.round(p.Value/1000)+'k':'';
+      const probHtml=p.Probability?`<span class="prob-badge ${p.Probability>=70?'prob-high':p.Probability>=40?'prob-mid':'prob-low'}">${p.Probability}%${p.ValueMax||p.ValueMin||p.Value?' · '+Math.round((p.ValueMax||p.ValueMin||p.Value)*p.Probability/100/1000)+'k viktat':''}</span>`:'';
+      let actionHtml='';
+      if(p.NextActionType&&p.NextActionDate){
+        const actionDate=new Date(p.NextActionDate);actionDate.setHours(0,0,0,0);
+        const overdue=actionDate<today;
+        actionHtml=overdue
+          ?`<div class="kc-action-warn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="kc-action-text-warn">${p.NextActionType}</span><span class="kc-action-date-warn">Passerad ${fmtShortDate(p.NextActionDate)}</span></div>`
+          :`<div class="kc-action-ok"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span class="kc-action-text">${p.NextActionType}</span><span class="kc-action-date">${fmtShortDate(p.NextActionDate)}</span></div>`;
+      }
+      const stageDate=p.UpdatedAt||p.CreatedAt;
+      const daysInStage=stageDate?Math.max(0,Math.round((new Date()-new Date(stageDate))/86400000)):0;
+      return`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" onclick="openProspectModal(${p.Id})">
         <div class="kc-name">${p.Company||'-'}</div>
-        <div class="kc-contact">${p.Contact||'–'}</div>
+        <div class="kc-contact">${p.Contact||'–'}${p.Role?` · ${p.Role}`:''}</div>
+        <div class="kc-owner">${p.Owner||'–'}</div>
         <div class="kc-footer">
           <span class="src-dot" style="background:${srcColor};"></span>
           <span class="src-label">${p.Source||'–'}</span>
           ${val?`<span class="kc-val">${val}</span>`:''}
-          ${probHtml}
         </div>
-        ${lostHtml}
+        ${probHtml?`<div style="margin-bottom:3px;">${probHtml}</div>`:''}
+        ${actionHtml}
+        ${isLost&&p.LostReason?`<div class="kc-lost-reason">Orsak: ${p.LostReason}</div>`:''}
+        <div class="kc-days">I stage: ${daysInStage}d</div>
       </div>`;
-    }).join('') : `<div style="border:1px dashed var(--border);border-radius:8px;padding:12px;text-align:center;font-size:11px;color:var(--text3);">Tom</div>`;
-    return `<div class="kanban-col">
+    }).join(''):`<div style="border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:11px;color:var(--text3);">Tom</div>`;
+    return`<div class="kanban-col">
       <div class="kanban-col-header">
         <span class="kanban-col-title" style="${isWon?'color:var(--green)':isLost?'color:var(--red)':''}">${stage}</span>
         <span class="kanban-col-count">${cards.length}</span>
-      </div>
-      ${cardsHtml}
-    </div>`;
+      </div>${cardsHtml}</div>`;
   }).join('');
 }
 
 // ─── PROSPECT MODAL ──────────────────────────────────────
-function openNewProspect() {
-  isNewProspect=true; currentProspectId=null;
-  document.getElementById('prospect-title').textContent = 'Ny prospect';
-  document.getElementById('prospect-subtitle').textContent = '';
-  document.getElementById('prospect-delete-btn').style.display = 'none';
-  renderProspectModal(null);
+function openNewProspect(){isNewProspect=true;currentProspectId=null;currentProspectTab=1;document.getElementById('prospect-title').textContent='Ny prospect';document.getElementById('prospect-subtitle').textContent='';document.getElementById('prospect-delete-btn').style.display='none';renderProspectTabs(null);renderProspectBody(null,[]);document.getElementById('prospect-overlay').classList.add('open');}
+async function openProspectModal(id){
+  isNewProspect=false;currentProspectId=id;currentProspectTab=1;
+  const p=allProspects.find(x=>x.Id===id);if(!p)return;
+  document.getElementById('prospect-title').textContent=p.Company||'Prospect';
+  document.getElementById('prospect-subtitle').textContent=`${p.Stage||''} · ${p.Source||''}`;
+  document.getElementById('prospect-delete-btn').style.display='flex';
+  renderProspectTabs(p);
+  let acts=[];
+  try{const r=await fetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}
+  renderProspectBody(p,acts);
   document.getElementById('prospect-overlay').classList.add('open');
 }
 
-function openProspectModal(id) {
-  isNewProspect=false; currentProspectId=id;
-  const p = allProspects.find(x=>x.Id===id);
-  if(!p) return;
-  document.getElementById('prospect-title').textContent = p.Company||'Prospect';
-  document.getElementById('prospect-subtitle').textContent = `${p.Stage||''} · ${p.Source||''}`;
-  document.getElementById('prospect-delete-btn').style.display = 'flex';
-  renderProspectModal(p);
-  document.getElementById('prospect-overlay').classList.add('open');
+function renderProspectTabs(p){
+  const tabs=['Översikt','Aktivitet'];
+  document.getElementById('prospect-tabs').innerHTML=tabs.map((t,i)=>`<button class="modal-tab ${currentProspectTab===i+1?'active':''}" onclick="switchProspectTab(${i+1})">${i+1}. ${t}</button>`).join('');
 }
 
-function renderProspectModal(p) {
-  const is = 'class="edit-input"';
-  const stageOptions = STAGES.map(s=>`<option ${(p?.Stage||'Prospect Identified')===s?'selected':''}>${s}</option>`).join('');
-  const sourceOptions = SOURCES.map(s=>`<option ${p?.Source===s?'selected':''}>${s}</option>`).join('');
-  const ownerOptions = OWNERS.map(o=>`<option ${(p?.Owner||'Matilda Olsson')===o?'selected':''}>${o}</option>`).join('');
-  const showVal = p?.Stage==='Evaluation & Proposal'||p?.Stage==='Qualified Lead'||p?.Stage==='Closed Won'||p?.Stage==='Closed Lost';
-  const showProb = p?.Stage==='Qualified Lead'||p?.Stage==='Closed Won'||p?.Stage==='Closed Lost';
-  const showLost = p?.Stage==='Closed Lost';
-
-  document.getElementById('prospect-body').innerHTML = `
-    <div class="modal-section"><div class="modal-section-label">Prospect</div>
-      <div class="modal-card" style="display:flex;flex-direction:column;gap:10px;">
-        <div class="modal-field"><label>Företag</label><input ${is} id="p-company" value="${p?.Company||''}"></div>
-        <div class="modal-grid">
-          <div class="modal-field"><label>Kontaktperson</label><input ${is} id="p-contact" value="${p?.Contact||''}"></div>
-          <div class="modal-field"><label>Roll</label><input ${is} id="p-role" value="${p?.Role||''}"></div>
-        </div>
-      </div></div>
-    <div class="modal-section"><div class="modal-section-label">Pipeline</div>
-      <div class="modal-card"><div class="modal-grid">
-        <div class="modal-field"><label>Stage</label><select id="p-stage" ${is} onchange="onStageChange()">${stageOptions}</select></div>
-        <div class="modal-field"><label>Källa</label><select id="p-source" ${is}>${sourceOptions}</select></div>
-        <div class="modal-field"><label>Kundansvarig</label><select id="p-owner" ${is}>${ownerOptions}</select></div>
-        <div class="modal-field"><label>Score</label><input ${is} id="p-score" type="number" min="0" max="100" value="${p?.Score||''}"></div>
-      </div></div></div>
-    <div id="val-section" style="display:${showVal?'flex':'none'};flex-direction:column;gap:8px;">
-      <div class="modal-section-label">Värde</div>
-      <div class="modal-card"><div class="modal-grid">
-        <div class="modal-field"><label>Värde min (kr)</label><input ${is} id="p-valmin" type="number" value="${p?.ValueMin||''}"></div>
-        <div class="modal-field"><label>Värde max (kr)</label><input ${is} id="p-valmax" type="number" value="${p?.ValueMax||''}"></div>
-      </div></div></div>
-    <div id="prob-section" style="display:${showProb?'flex':'none'};flex-direction:column;gap:8px;">
-      <div class="modal-section-label">Sannolikhet</div>
-      <div class="modal-card"><div class="modal-field"><label>Sannolikhet att vinna (%)</label>
-        <input ${is} id="p-prob" type="number" min="0" max="100" value="${p?.Probability||''}">
-      </div></div></div>
-    <div id="lost-section" style="display:${showLost?'flex':'none'};flex-direction:column;gap:8px;">
-      <div class="modal-section-label">Förlorad orsak</div>
-      <div class="modal-card"><div class="modal-field"><label>Varför förlorades affären?</label>
-        <select id="p-lostreason" ${is}>
-          <option ${p?.LostReason===''?'selected':''}>–</option>
-          <option ${p?.LostReason==='Budget'?'selected':''}>Budget</option>
-          <option ${p?.LostReason==='Konkurrent'?'selected':''}>Konkurrent</option>
-          <option ${p?.LostReason==='Timing'?'selected':''}>Timing</option>
-          <option ${p?.LostReason==='Behov förändrat'?'selected':''}>Behov förändrat</option>
-          <option ${p?.LostReason==='Ingen respons'?'selected':''}>Ingen respons</option>
-          <option ${p?.LostReason==='Annat'?'selected':''}>Annat</option>
-        </select>
-      </div></div></div>
-    <div class="modal-section"><div class="modal-section-label">Anteckningar</div>
-      <div class="modal-card"><textarea id="p-notes" ${is} style="height:80px;resize:vertical;">${p?.Notes||''}</textarea></div></div>
-    <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">
-      ${isNewProspect ? `<button class="btn-primary" onclick="createProspect()">Skapa prospect</button>` : `<button class="btn-primary" onclick="saveProspect(${p?.Id})">Spara</button>`}
-    </div>`;
+async function switchProspectTab(tab){
+  currentProspectTab=tab;
+  const p=allProspects.find(x=>x.Id===currentProspectId);
+  renderProspectTabs(p);
+  let acts=[];
+  if(tab===2&&currentProspectId){try{const r=await fetch(`${API}/activities/prospect/${currentProspectId}`);acts=await r.json();}catch(e){}}
+  renderProspectBody(p,acts);
 }
 
-function onStageChange() {
-  const stage = document.getElementById('p-stage')?.value;
-  const showVal = ['Evaluation & Proposal','Qualified Lead','Closed Won','Closed Lost'].includes(stage);
-  const showProb = ['Qualified Lead','Closed Won','Closed Lost'].includes(stage);
-  const showLost = stage === 'Closed Lost';
-  document.getElementById('val-section').style.display = showVal?'flex':'none';
-  document.getElementById('prob-section').style.display = showProb?'flex':'none';
-  document.getElementById('lost-section').style.display = showLost?'flex':'none';
-}
+function renderProspectBody(p,acts){
+  const is='class="edit-input"';
+  const stageOpts=STAGES.map(s=>`<option ${(p?.Stage||'Prospect Identified')===s?'selected':''}>${s}</option>`).join('');
+  const srcOpts=SOURCES.map(s=>`<option ${p?.Source===s?'selected':''}>${s}</option>`).join('');
+  const ownerOpts=OWNERS.map(o=>`<option ${(p?.Owner||'Matilda Olsson')===o?'selected':''}>${o}</option>`).join('');
+  const actionOpts=ACTION_TYPES.map(a=>`<option ${p?.NextActionType===a?'selected':''}>${a}</option>`).join('');
+  const showVal=['Evaluation & Proposal','Qualified Lead','Closed Won','Closed Lost'].includes(p?.Stage);
+  const showProb=['Qualified Lead','Closed Won','Closed Lost'].includes(p?.Stage);
+  const showLost=p?.Stage==='Closed Lost';
 
-async function createProspect() {
-  const body = {
-    company: document.getElementById('p-company').value||'Ny prospect',
-    contact: document.getElementById('p-contact').value||'',
-    role: document.getElementById('p-role').value||'',
-    source: document.getElementById('p-source').value||'',
-    owner: document.getElementById('p-owner').value||'Matilda Olsson',
-    stage: document.getElementById('p-stage').value||'Prospect Identified',
-    score: parseInt(document.getElementById('p-score').value)||0,
-    valueMin: parseInt(document.getElementById('p-valmin')?.value)||null,
-    valueMax: parseInt(document.getElementById('p-valmax')?.value)||null,
-    probability: parseInt(document.getElementById('p-prob')?.value)||null,
-    lostReason: document.getElementById('p-lostreason')?.value||null,
-    notes: document.getElementById('p-notes').value||''
-  };
-  try {
-    const r = await fetch(`${API}/prospects`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok) throw new Error();
-    closeProspectModalDirect(); await loadProspects();
-  } catch(e) { alert('Kunde inte skapa prospect.'); }
-}
+  if(currentProspectTab===1){
+    document.getElementById('prospect-body').innerHTML=`
+      <div class="modal-section"><div class="modal-section-label">Kontakt</div>
+        <div class="modal-card" style="display:flex;flex-direction:column;gap:10px;">
+          <div class="modal-field"><label>Företag</label><input ${is} id="p-company" value="${p?.Company||''}"></div>
+          <div class="modal-grid">
+            <div class="modal-field"><label>Kontaktperson</label><input ${is} id="p-contact" value="${p?.Contact||''}"></div>
+            <div class="modal-field"><label>Roll</label><input ${is} id="p-role" value="${p?.Role||''}"></div>
+            <div class="modal-field"><label>E-post</label><input ${is} id="p-email" type="email" value="${p?.Email||''}"></div>
+            <div class="modal-field"><label>Antal anställda</label><input ${is} id="p-employees" type="number" value="${p?.Employees||''}"></div>
+            <div class="modal-field"><label>Bransch</label><input ${is} id="p-industry" value="${p?.Industry||''}"></div>
+          </div>
+        </div></div>
+      <div class="modal-section"><div class="modal-section-label">Pipeline</div>
+        <div class="modal-card"><div class="modal-grid">
+          <div class="modal-field"><label>Stage</label><select id="p-stage" ${is} onchange="onStageChange()">${stageOpts}</select></div>
+          <div class="modal-field"><label>Källa</label><select id="p-source" ${is}>${srcOpts}</select></div>
+          <div class="modal-field"><label>Kundansvarig</label><select id="p-owner" ${is}>${ownerOpts}</select></div>
+          <div class="modal-field"><label>Score</label><input ${is} id="p-score" type="number" min="0" max="100" value="${p?.Score||''}"></div>
+        </div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Nästa åtgärd</div>
+        <div class="modal-card"><div class="modal-grid">
+          <div class="modal-field"><label>Typ</label><select id="p-action-type" ${is}><option value="">Ingen</option>${actionOpts}</select></div>
+          <div class="modal-field"><label>Datum</label><input ${is} id="p-action-date" type="date" value="${p?.NextActionDate?p.NextActionDate.substring(0,10):''}"></div>
+        </div></div></div>
+      <div id="val-section" style="${showVal?'':'display:none;'}flex-direction:column;gap:8px;display:${showVal?'flex':'none'};">
+        <div class="modal-section-label">Värde</div>
+        <div class="modal-card"><div class="modal-grid">
+          <div class="modal-field"><label>Värde min (kr)</label><input ${is} id="p-valmin" type="number" value="${p?.ValueMin||''}"></div>
+          <div class="modal-field"><label>Värde max (kr)</label><input ${is} id="p-valmax" type="number" value="${p?.ValueMax||''}"></div>
+        </div></div></div>
+      <div id="prob-section" style="display:${showProb?'flex':'none'};flex-direction:column;gap:8px;">
+        <div class="modal-section-label">Sannolikhet</div>
+        <div class="modal-card"><div class="modal-field"><label>Sannolikhet att vinna (%)</label><input ${is} id="p-prob" type="number" min="0" max="100" value="${p?.Probability||''}"></div></div></div>
+      <div id="lost-section" style="display:${showLost?'flex':'none'};flex-direction:column;gap:8px;">
+        <div class="modal-section-label">Förlorad orsak</div>
+        <div class="modal-card"><div class="modal-field"><label>Varför förlorades affären?</label>
+          <select id="p-lostreason" ${is}>
+            <option>–</option><option ${p?.LostReason==='Budget'?'selected':''}>Budget</option>
+            <option ${p?.LostReason==='Konkurrent'?'selected':''}>Konkurrent</option>
+            <option ${p?.LostReason==='Timing'?'selected':''}>Timing</option>
+            <option ${p?.LostReason==='Behov förändrat'?'selected':''}>Behov förändrat</option>
+            <option ${p?.LostReason==='Ingen respons'?'selected':''}>Ingen respons</option>
+            <option ${p?.LostReason==='Annat'?'selected':''}>Annat</option>
+          </select>
+        </div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Anteckningar</div>
+        <div class="modal-card"><textarea id="p-notes" ${is} style="height:80px;resize:vertical;">${p?.Notes||''}</textarea></div></div>
+      ${p?.Stage==='Closed Won'?`<button onclick="convertToCustomer(${p.Id})" style="width:100%;padding:10px;border:none;border-radius:8px;background:var(--green-bg);color:var(--green);font-family:'Poppins',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Konvertera till kund →</button>`:''}
+      <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">
+        ${isNewProspect?`<button class="btn-primary" onclick="createProspect()">Skapa prospect</button>`:`<button class="btn-primary" onclick="saveProspect(${p?.Id})">Spara</button>`}
+      </div>`;
+  }
 
-async function saveProspect(id) {
-  const body = {
-    company: document.getElementById('p-company').value||'',
-    contact: document.getElementById('p-contact').value||'',
-    role: document.getElementById('p-role').value||'',
-    source: document.getElementById('p-source').value||'',
-    owner: document.getElementById('p-owner').value||'',
-    stage: document.getElementById('p-stage').value||'',
-    score: parseInt(document.getElementById('p-score').value)||0,
-    value: parseInt(document.getElementById('p-valmax')?.value)||parseInt(document.getElementById('p-valmin')?.value)||0,
-    valueMin: parseInt(document.getElementById('p-valmin')?.value)||null,
-    valueMax: parseInt(document.getElementById('p-valmax')?.value)||null,
-    probability: parseInt(document.getElementById('p-prob')?.value)||null,
-    lostReason: document.getElementById('p-lostreason')?.value||null,
-    notes: document.getElementById('p-notes').value||''
-  };
-  try {
-    const r = await fetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok) throw new Error();
-    closeProspectModalDirect(); await loadProspects();
-  } catch(e) { alert('Kunde inte spara.'); }
-}
-
-async function deleteProspect() {
-  if(!currentProspectId) return;
-  if(!confirm('Ta bort prospect?')) return;
-  await fetch(`${API}/prospects/${currentProspectId}`,{method:'DELETE'});
-  closeProspectModalDirect(); await loadProspects();
-}
-
-function closeProspectModal(e) { if(e.target===document.getElementById('prospect-overlay')) closeProspectModalDirect(); }
-function closeProspectModalDirect() { document.getElementById('prospect-overlay').classList.remove('open'); }
-
-// ─── KUNDER ──────────────────────────────────────────────
-async function loadCustomers() {
-  try {
-    const res = await fetch(`${API}/customers`);
-    allCustomers = await res.json();
-    allCustomers = allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));
-    updateStats(); renderTable(); renderRevSummary();
-  } catch(e) {
-    document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;
+  if(currentProspectTab===2){
+    const actsHtml=acts.length?acts.map(a=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;">${a.Type}</span>
+        <span style="font-size:11px;color:var(--text3);">${new Date(a.CreatedAt).toLocaleDateString('sv-SE')}</span>
+      </div>
+      <div style="font-size:13px;">${a.Note||''}</div>
+    </div>`).join(''):'<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Inga aktiviteter ännu</div>';
+    document.getElementById('prospect-body').innerHTML=`
+      <div class="modal-section"><div class="modal-section-label">Ny aktivitet</div>
+        <div class="modal-card">
+          <div class="modal-grid">
+            <div class="modal-field"><label>Typ</label><select id="pa-type" ${is}>${ACTION_TYPES.map(a=>`<option>${a}</option>`).join('')}</select></div>
+            <div class="modal-field"><label>Datum</label><input ${is} id="pa-date" type="date" value="${new Date().toISOString().substring(0,10)}"></div>
+          </div>
+          <div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea ${is} id="pa-note" style="height:80px;resize:vertical;"></textarea></div>
+          <button onclick="addProspectActivity(${p?.Id})" style="margin-top:8px;padding:6px 14px;border:none;border-radius:6px;background:var(--accent);color:#1e2140;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">+ Lägg till</button>
+        </div></div>
+      <div style="display:flex;flex-direction:column;gap:8px;">${actsHtml}</div>`;
   }
 }
 
-async function loadRecipients() {
-  try { const r=await fetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name); } catch(e){}
+function onStageChange(){
+  const stage=document.getElementById('p-stage')?.value;
+  const showVal=['Evaluation & Proposal','Qualified Lead','Closed Won','Closed Lost'].includes(stage);
+  const showProb=['Qualified Lead','Closed Won','Closed Lost'].includes(stage);
+  const showLost=stage==='Closed Lost';
+  document.getElementById('val-section').style.display=showVal?'flex':'none';
+  document.getElementById('prob-section').style.display=showProb?'flex':'none';
+  document.getElementById('lost-section').style.display=showLost?'flex':'none';
 }
 
-function updateStats() {
+function getProspectBody(p){
+  return{
+    company:document.getElementById('p-company')?.value||'',
+    contact:document.getElementById('p-contact')?.value||'',
+    role:document.getElementById('p-role')?.value||'',
+    email:document.getElementById('p-email')?.value||'',
+    employees:parseInt(document.getElementById('p-employees')?.value)||null,
+    industry:document.getElementById('p-industry')?.value||'',
+    source:document.getElementById('p-source')?.value||'',
+    owner:document.getElementById('p-owner')?.value||'Matilda Olsson',
+    stage:document.getElementById('p-stage')?.value||'Prospect Identified',
+    score:parseInt(document.getElementById('p-score')?.value)||0,
+    nextActionType:document.getElementById('p-action-type')?.value||null,
+    nextActionDate:document.getElementById('p-action-date')?.value||null,
+    valueMin:parseInt(document.getElementById('p-valmin')?.value)||null,
+    valueMax:parseInt(document.getElementById('p-valmax')?.value)||null,
+    value:parseInt(document.getElementById('p-valmax')?.value)||parseInt(document.getElementById('p-valmin')?.value)||0,
+    probability:parseInt(document.getElementById('p-prob')?.value)||null,
+    lostReason:document.getElementById('p-lostreason')?.value||null,
+    notes:document.getElementById('p-notes')?.value||''
+  };
+}
+
+async function createProspect(){
+  const body=getProspectBody(null);
+  try{const r=await fetch(`${API}/prospects`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}
+  catch(e){alert('Kunde inte skapa prospect.');}
+}
+
+async function saveProspect(id){
+  const body=getProspectBody(allProspects.find(x=>x.Id===id));
+  try{const r=await fetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}
+  catch(e){alert('Kunde inte spara.');}
+}
+
+async function addProspectActivity(prospectId){
+  const type=document.getElementById('pa-type').value;
+  const note=document.getElementById('pa-note').value;
+  const date=document.getElementById('pa-date').value;
+  if(!note.trim())return;
+  await fetch(`${API}/activities`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectId,type,note,date,createdBy:''})});
+  document.getElementById('pa-note').value='';
+  const r=await fetch(`${API}/activities/prospect/${prospectId}`);
+  const acts=await r.json();
+  const p=allProspects.find(x=>x.Id===prospectId);
+  renderProspectBody(p,acts);
+}
+
+async function deleteProspect(){
+  if(!currentProspectId)return;
+  if(!confirm('Ta bort prospect?'))return;
+  await fetch(`${API}/prospects/${currentProspectId}`,{method:'DELETE'});
+  closeProspectModalDirect();await loadProspects();
+}
+
+function convertToCustomer(prospectId){
+  const p=allProspects.find(x=>x.Id===prospectId);
+  if(!p)return;
+  closeProspectModalDirect();
+  isNewCustomer=true;currentModalId=null;currentPage=1;
+  document.getElementById('modal-title').textContent='Ny kund från prospect';
+  document.getElementById('modal-subtitle').textContent=p.Company||'';
+  document.getElementById('btn-delete').style.display='none';
+  renderTabs('Team');
+  const c={Company:p.Company,Contact:p.Contact,ContactRole:p.Role,ContactEmail:p.Email,_owner:p.Owner,LicenseType:'Team',Risk:'Low'};
+  renderModalPage(c,[],[]);
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeProspectModal(e){if(e.target===document.getElementById('prospect-overlay'))closeProspectModalDirect();}
+function closeProspectModalDirect(){document.getElementById('prospect-overlay').classList.remove('open');}
+
+// ─── KUNDER ──────────────────────────────────────────────
+async function loadCustomers(){
+  try{const res=await fetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();}
+  catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;}
+}
+async function loadRecipients(){try{const r=await fetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
+
+function updateStats(){
   const active=allCustomers.filter(c=>c._days!==null&&c._days>=0);
   document.getElementById('stat-total').textContent=active.length;
   document.getElementById('tab-count').textContent=allCustomers.length;
@@ -783,7 +813,7 @@ function updateStats() {
   document.getElementById('stat-total-val-label').textContent=labels.length?labels.join('+'):'Värde';
 }
 
-function renderRevSummary() {
+function renderRevSummary(){
   const totArr=allCustomers.reduce((s,c)=>s+(c.ARR||0),0);
   const totFast=allCustomers.reduce((s,c)=>s+(c.ARR_Fixed||0),0);
   const totUtb=allCustomers.reduce((s,c)=>s+(c.Revenue_Training||0),0);
@@ -795,28 +825,18 @@ function renderRevSummary() {
     <div class="kpi-card"><div class="kpi-label">Consulting</div><div class="kpi-value" style="color:var(--purple)">${fmtKr(totCons)}</div></div>`;
 }
 
-function getFiltered() {
+function getFiltered(){
   const q=(document.getElementById('search')?.value||'').toLowerCase();
   const owner=document.getElementById('filter-owner')?.value||'';
   const license=document.getElementById('filter-license')?.value||'';
   const risk=document.getElementById('filter-risk')?.value||'';
-  return allCustomers.filter(c=>{
-    const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);
-    return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk);
-  });
+  return allCustomers.filter(c=>{const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk);});
 }
 
-function sortBy(col) { if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;} renderTable(); }
-function sortData(data) {
-  return [...data].sort((a,b)=>{
-    let va=sortCol==='days'?(a._days??99999):(sortCol==='ARR'?customerValue(a):(a[sortCol]||''));
-    let vb=sortCol==='days'?(b._days??99999):(sortCol==='ARR'?customerValue(b):(b[sortCol]||''));
-    if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();
-    if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;
-  });
-}
+function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderTable();}
+function sortData(data){return [...data].sort((a,b)=>{let va=sortCol==='days'?(a._days??99999):(sortCol==='ARR'?customerValue(a):(a[sortCol]||''));let vb=sortCol==='days'?(b._days??99999):(sortCol==='ARR'?customerValue(b):(b[sortCol]||''));if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;});}
 
-function renderTable() {
+function renderTable(){
   const data=sortData(getFiltered());
   document.getElementById('filter-count').textContent=`${data.length} kund${data.length!==1?'er':''}`;
   if(!data.length){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Inga kunder matchar</div></td></tr>`;return;}
@@ -824,7 +844,7 @@ function renderTable() {
     const arr=c.ARR||0,fast=c.ARR_Fixed||0,utb=c.Revenue_Training||0,cons=c.Revenue_Consulting||0;
     const tot=arr+fast+utb+cons||1;const val=customerValue(c);
     const bars=[arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;" title="ARR ${fmtKr(arr)}"></div>`:'',fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;"></div>`:'',utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;"></div>`:'',cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;"></div>`:''].filter(Boolean).join('');
-    return `<tr onclick="openModal(${c.Id})">
+    return`<tr onclick="openModal(${c.Id})">
       <td><div class="company-name">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td>
       <td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td>
       <td><span class="owner-tag">${c._owner}</span></td>
@@ -844,7 +864,7 @@ function togglePerDD(e){e.stopPropagation();const p=document.getElementById('per
 function togglePerSource(s){perSources[s]=!perSources[s];document.getElementById(`pcb-${s}`).classList.toggle('on',perSources[s]);}
 
 // ─── LICENSTIDSLINJE ────────────────────────────────────
-function renderLicenstidslinje() {
+function renderLicenstidslinje(){
   const now=new Date();
   const urgent=allCustomers.filter(c=>c._days!==null&&c._days<=0);
   const soon=allCustomers.filter(c=>c._days!==null&&c._days>0&&c._days<=90);
@@ -864,7 +884,7 @@ function renderLicenstidslinje() {
     const left=Math.max(0,(clampedStart-rangeStart)/rangeLen*100);const width=Math.max(0.5,(clampedEnd-clampedStart)/rangeLen*100);
     const color=c._days===null?'#b4b2a9':c._days<0?'#b4b2a9':c._days<=30?'#a32d2d':c._days<=90?'#b85a00':'#1a7a50';
     const label=c._days!==null?(c._days<0?'Utgången':`${c._days}d kvar`):'';
-    return `<div class="gantt-row" onclick="openModal(${c.Id})"><div class="gantt-row-name"><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div><div style="font-size:11px;color:var(--text3);">${c._owner}</div></div><div class="gantt-bars"><div class="gantt-bar" style="left:${left}%;width:${width}%;background:${color};">${label}</div></div></div>`;
+    return`<div class="gantt-row" onclick="openModal(${c.Id})"><div class="gantt-row-name"><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div><div style="font-size:11px;color:var(--text3);">${c._owner}</div></div><div class="gantt-bars"><div class="gantt-bar" style="left:${left}%;width:${width}%;background:${color};">${label}</div></div></div>`;
   }).filter(Boolean).join('');
 }
 
@@ -872,14 +892,21 @@ function renderLicenstidslinje() {
 function setFinQuick(p,el){document.querySelectorAll('#page-finansiellt-dashboard .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();const now=new Date().toISOString().slice(0,10);if(p==='ytd'){document.getElementById('fin-from').value=`${y}-01-01`;document.getElementById('fin-to').value=now;}if(p==='q2'){document.getElementById('fin-from').value=`${y}-04-01`;document.getElementById('fin-to').value=`${y}-06-30`;}if(p==='h1'){document.getElementById('fin-from').value=`${y}-01-01`;document.getElementById('fin-to').value=`${y}-06-30`;}if(p==='year'){document.getElementById('fin-from').value=`${y}-01-01`;document.getElementById('fin-to').value=`${y}-12-31`;}renderFinDashboard();}
 function setResultView(v,el){document.querySelectorAll('.result-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
 
-function renderFinDashboard() {
+function renderFinDashboard(){
   const totArr=allCustomers.reduce((s,c)=>s+(c.ARR||0),0);const totFast=allCustomers.reduce((s,c)=>s+(c.ARR_Fixed||0),0);const totUtb=allCustomers.reduce((s,c)=>s+(c.Revenue_Training||0),0);const totCons=allCustomers.reduce((s,c)=>s+(c.Revenue_Consulting||0),0);const total=totArr+totFast+totUtb+totCons;const budget=495000;const diff=total-budget;const pct=Math.round(total/budget*100);
   document.getElementById('hero-card').innerHTML=`<div class="hero-main"><div class="label">Total försäljning</div><div class="value" style="color:var(--green)">${total.toLocaleString('sv-SE')} kr</div><div class="delta ${diff>=0?'pos':'neg'}">${diff>=0?'+':''}${diff.toLocaleString('sv-SE')} kr vs budget · ${pct}% uppnått</div></div><div style="flex:1;"></div><div class="hero-sec"><div class="label">MRR</div><div class="value" style="color:var(--accent)">${Math.round(totArr/12).toLocaleString('sv-SE')} kr</div><div class="delta neu">ARR ÷ 12</div></div><div class="hero-sec"><div class="label">Vs budget</div><div class="value ${pct>=100?'pos':''}">${pct}%</div><div class="delta neu">Budget ${budget.toLocaleString('sv-SE')} kr</div></div>`;
   const active=allCustomers.filter(c=>c._days!==null&&c._days>=0);const churn=allCustomers.filter(c=>c._days!==null&&c._days<0).length;
-  document.getElementById('fin-kpi-grid').innerHTML=`<div class="kpi-card"><div class="kpi-label">Churn rate</div><div class="kpi-value neg">${allCustomers.length>0?Math.round(churn/allCustomers.length*1000)/10:0}%</div><div class="kpi-delta neg">${churn} utgångna</div></div><div class="kpi-card"><div class="kpi-label">Avg contract value</div><div class="kpi-value">${active.length>0?Math.round(totArr/active.length).toLocaleString('sv-SE')+' kr':'-'}</div><div class="kpi-delta neu">per kund/år</div></div><div class="kpi-card"><div class="kpi-label">Expansion revenue</div><div class="kpi-value" style="color:var(--blue)">${(totUtb+totCons).toLocaleString('sv-SE')} kr</div><div class="kpi-delta neu">Utb + Consulting</div></div><div class="kpi-card"><div class="kpi-label">Net rev retention</div><div class="kpi-value">94%</div><div class="kpi-delta neg">Mål: &gt;100%</div></div>`;
+  const pipeVal=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost').reduce((s,p)=>s+(p.ValueMax||p.ValueMin||p.Value||0),0);
+  const pipeWeighted=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost').reduce((s,p)=>s+Math.round((p.ValueMax||p.ValueMin||p.Value||0)*(p.Probability||0)/100),0);
+  document.getElementById('fin-kpi-grid').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Churn rate</div><div class="kpi-value neg">${allCustomers.length>0?Math.round(churn/allCustomers.length*1000)/10:0}%</div><div class="kpi-delta neg">${churn} utgångna</div></div>
+    <div class="kpi-card"><div class="kpi-label">Avg contract value</div><div class="kpi-value">${active.length>0?Math.round(totArr/active.length).toLocaleString('sv-SE')+' kr':'-'}</div><div class="kpi-delta neu">per kund/år</div></div>
+    <div class="kpi-card"><div class="kpi-label">Pipeline värde</div><div class="kpi-value" style="color:var(--accent)">${pipeVal>0?pipeVal.toLocaleString('sv-SE')+' kr':'-'}</div><div class="kpi-delta neu">Viktat: ${pipeWeighted>0?pipeWeighted.toLocaleString('sv-SE')+' kr':'-'}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Expansion revenue</div><div class="kpi-value" style="color:var(--blue)">${(totUtb+totCons).toLocaleString('sv-SE')} kr</div><div class="kpi-delta neu">Utb + Consulting</div></div>`;
   const maxMix=Math.max(totArr,totFast,totUtb,totCons)||1;document.getElementById('mix-total-badge').textContent=fmtKr(total);
   document.getElementById('mix-rows').innerHTML=[{label:'ARR löpande',val:totArr,color:'#1a7a50'},{label:'Fastpris',val:totFast,color:'#1a4f7a'},{label:'Utbildning',val:totUtb,color:'#b85a00'},{label:'Consulting',val:totCons,color:'#5a1a7a'}].map(r=>`<div class="mix-row"><span style="min-width:90px;font-size:12px;color:var(--text2);">${r.label}</span><div class="mix-bar"><div class="mix-fill" style="width:${Math.round(r.val/maxMix*100)}%;background:${r.color};"></div></div><span style="min-width:70px;text-align:right;font-weight:500;font-size:13px;">${fmtKr(r.val)}</span></div>`).join('');
-  const now=new Date();const mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const forecasts=[];for(let i=1;i<=6;i++){const m=new Date(now.getFullYear(),now.getMonth()+i,1);let v=0;allCustomers.forEach(c=>{const mv=monthlyValue(c,m);v+=mv.arr+mv.fast+mv.utb+mv.cons;});forecasts.push({month:mNames[m.getMonth()],value:Math.round(v)});}
+  const now=new Date();const mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const forecasts=[];
+  for(let i=1;i<=6;i++){const m=new Date(now.getFullYear(),now.getMonth()+i,1);let v=0;allCustomers.forEach(c=>{const mv=monthlyValue(c,m);v+=mv.arr+mv.fast+mv.utb+mv.cons;});forecasts.push({month:mNames[m.getMonth()],value:Math.round(v)});}
   const mrr=Math.round(totArr/12);const maxF=Math.max(...forecasts.map(f=>f.value))||1;
   document.getElementById('forecast-rows').innerHTML=forecasts.map(f=>`<div class="forecast-row"><span style="min-width:28px;color:var(--text3);">${f.month}</span><div style="flex:1;height:5px;background:var(--border);border-radius:3px;"><div style="width:${Math.round(f.value/maxF*100)}%;height:5px;border-radius:3px;background:${f.value>=mrr?'#1a7a50':'#b85a00'};"></div></div><span style="font-weight:500;min-width:60px;text-align:right;font-size:12px;">${f.value.toLocaleString('sv-SE')} kr</span><span class="badge ${f.value>=mrr?'b-green':'b-amber'}" style="font-size:10px;">${f.value>=mrr?'Över MRR':'Under'}</span></div>`).join('');
   loadCommissions();
@@ -890,16 +917,7 @@ async function markPaid(id){await fetch(`${API}/commissions/${id}`,{method:'PUT'
 
 // ─── PERIODISERING ───────────────────────────────────────
 function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-periodisering .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPeriodisering();}
-
-function renderPeriodisering() {
-  const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;
-  document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;
-  const mTotals=months.map(()=>0);let grand=0;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));
-  const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(perSources.arr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.fast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.utb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.cons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');
-  document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`;
-  const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);
-  document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;
-}
+function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(perSources.arr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.fast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.utb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.cons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
 
 // ─── MODAL KUND ──────────────────────────────────────────
 function getLicenseType(c){return document.getElementById('edit-type')?.value||c?.LicenseType||'Team';}
@@ -929,50 +947,22 @@ function onLicTypeChange(){renderTabs(document.getElementById('edit-type')?.valu
 function goToPage(p){const c=allCustomers.find(x=>x.Id===currentModalId);currentPage=p;renderTabs(getLicenseType(c));if(p===2&&!isNewCustomer&&c){Promise.all([fetch(`${API}/customers/${c.Id}/teams`).then(r=>r.json()).catch(()=>[]),fetch(`${API}/customers/${c.Id}/admins`).then(r=>r.json()).catch(()=>[])]).then(([t,a])=>renderModalPage(c,t,a));}else{renderModalPage(c,[],[]);}if(!isNewCustomer&&c)silentSave(c.Id);}
 
 // ─── REVENUE ITEMS ───────────────────────────────────────
-async function loadRevenueItems(customerId) {
-  const el=document.getElementById('revenue-items');if(!el)return;
-  try{
-    const r=await fetch(`${API}/customers/${customerId}/revenues`);const allItems=await r.json();
-    const nowYear=new Date().getFullYear();let selectedYear=el.dataset.year?parseInt(el.dataset.year):nowYear;
-    const years=[...new Set(allItems.flatMap(i=>{const from=i.DateFrom?new Date(i.DateFrom).getFullYear():null;const to=i.DateTo?new Date(i.DateTo).getFullYear():null;const yrs=[];if(from)for(let y=from;y<=(to||from);y++)yrs.push(y);return yrs;}))].sort();
-    const filterItems=(year)=>{if(year===0)return allItems;return allItems.filter(i=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yStart=new Date(year,0,1);const yEnd=new Date(year,11,31);if(!from&&!to)return true;if(from&&to)return from<=yEnd&&to>=yStart;if(from)return from<=yEnd&&from>=yStart;return true;}).sort((a,b)=>{const da=a.DateFrom||a.DateTo||'';const db=b.DateFrom||b.DateTo||'';return db.localeCompare(da);});};
-    const calcYearTotal=(items,year)=>{if(year===0)return items.reduce((s,i)=>s+(i.Amount||0),0);return items.reduce((s,i)=>{if(!i.DateFrom&&!i.DateTo)return s+(i.Amount||0);const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yStart=new Date(year,0,1);const yEnd=new Date(year,11,31);if(!from||!to)return s+(i.Amount||0);const totalDays=Math.max(1,Math.round((to-from)/86400000));const overlapStart=from>yStart?from:yStart;const overlapEnd=to<yEnd?to:yEnd;const overlapDays=Math.max(0,Math.round((overlapEnd-overlapStart)/86400000)+1);return s+Math.round((i.Amount||0)*overlapDays/totalDays);},0);};
-    const renderYear=(year)=>{
-      selectedYear=year;el.dataset.year=year;const items=filterItems(year);
-      const totArr=calcYearTotal(allItems.filter(i=>i.Type==='ARR'),year);const totFast=calcYearTotal(allItems.filter(i=>i.Type==='Fastpris'),year);const totUtb=calcYearTotal(allItems.filter(i=>i.Type==='Utbildning'),year);const totCons=calcYearTotal(allItems.filter(i=>i.Type==='Consulting'),year);const totCur=totArr+totFast+totUtb+totCons;
-      const totPrev=year>0?calcYearTotal(allItems,year-1):0;const totDiff=totCur-totPrev;const totPct=totPrev>0?Math.round(totDiff/totPrev*100):null;
-      const arrPrev=year>0?calcYearTotal(allItems.filter(i=>i.Type==='ARR'),year-1):0;const arrDiff=totArr-arrPrev;const arrPct=arrPrev>0?Math.round(arrDiff/arrPrev*100):null;
-      const typeColors={ARR:{bg:'#EAF3DE',color:'#3B6D11',bar:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5',bar:'#185FA5'},Utbildning:{bg:'#FAEEDA',color:'#854F0B',bar:'#b85a00'},Consulting:{bg:'#EEEDFE',color:'#3C3489',bar:'#534AB7'}};
-      const yearBtns=[{label:'Alla',val:0},...years.map(y=>({label:String(y),val:y}))];
-      const itemsHtml=items.length?items.map(item=>{const tc=typeColors[item.Type]||{bg:'var(--surface2)',color:'var(--text2)',bar:'#888'};let leftPct=0,widthPct=100;if(year>0&&item.DateFrom&&item.DateTo){const yStart=new Date(year,0,1).getTime();const yEnd=new Date(year,11,31).getTime();const yLen=yEnd-yStart;const from=new Date(item.DateFrom).getTime();const to=new Date(item.DateTo).getTime();leftPct=Math.max(0,Math.min(100,(from-yStart)/yLen*100));widthPct=Math.max(2,Math.min(100-leftPct,(Math.min(to,yEnd)-Math.max(from,yStart))/yLen*100));}const dateRange=item.DateFrom||item.DateTo?`${item.DateFrom?item.DateFrom.substring(0,10):'?'} – ${item.DateTo?item.DateTo.substring(0,10):'?'}`:'';return`<div class="rev-item" id="ri-${item.Id}"><div class="rev-item-header"><span class="rev-item-type" style="background:${tc.bg};color:${tc.color};">${item.Type}</span><span class="rev-item-amount">${Math.round(item.Amount).toLocaleString('sv-SE')} kr</span>${dateRange?`<span class="rev-item-dates">${dateRange}</span>`:''}<button onclick="editRevenueItem(${customerId},${item.Id})" style="width:22px;height:22px;border:0.5px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--accent);font-size:12px;display:flex;align-items:center;justify-content:center;" title="Redigera">✎</button><button class="rev-del" onclick="deleteRevItem(${customerId},${item.Id})"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div>${item.Description?`<div class="rev-item-desc">${item.Description}</div>`:''} ${year>0&&item.DateFrom?`<div style="height:5px;background:var(--border);border-radius:3px;margin-top:6px;position:relative;"><div style="position:absolute;height:5px;border-radius:3px;left:${leftPct}%;width:${widthPct}%;background:${tc.bar};opacity:0.5;"></div></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px;"><span>Jan ${year}</span><span>Dec ${year}</span></div>`:''}<button onclick="loadRevCommissions(${item.Id},${customerId})" style="margin-top:5px;padding:2px 8px;border:0.5px solid var(--border);border-radius:4px;background:none;font-family:inherit;font-size:10px;color:var(--text3);cursor:pointer;" id="prov-btn-${item.Id}">Provision</button><div id="comm-${item.Id}"></div></div>`;}).join(''):`<div style="color:var(--text3);font-size:13px;padding:8px;">Inga poster för ${year>0?year:'alla år'}</div>`;
-      const cmpHtml=year>0?`<div style="margin-top:16px;"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:8px;">Jämförelse med ${year-1}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;"><div style="background:var(--surface2);border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Intäkt ${year}</div><div style="font-size:17px;font-weight:500;color:var(--accent);">${totCur.toLocaleString('sv-SE')} kr</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">${year-1}: ${totPrev.toLocaleString('sv-SE')} kr</div><div style="font-size:12px;font-weight:500;margin-top:1px;color:${totDiff>=0?'var(--green)':'var(--red)'};">${totDiff>=0?'+':''}${totDiff.toLocaleString('sv-SE')} kr${totPct!==null?` · ${totPct>=0?'+':''}${totPct}%`:''}</div></div><div style="background:var(--surface2);border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--text3);margin-bottom:2px;">ARR-tillväxt</div><div style="font-size:17px;font-weight:500;color:var(--green);">${arrPct!==null?`${arrPct>=0?'+':''}${arrPct}%`:'N/A'}</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">${arrPrev.toLocaleString('sv-SE')} → ${totArr.toLocaleString('sv-SE')} kr</div><div style="font-size:12px;font-weight:500;margin-top:1px;color:${arrDiff>=0?'var(--green)':'var(--red)'};">${arrDiff>=0?'+':''}${arrDiff.toLocaleString('sv-SE')} kr</div></div></div></div>`:'';
-      const yearlyTotals=years.map(y=>calcYearTotal(allItems,y));const maxY=Math.max(...yearlyTotals,1);const chartW=360,chartH=80;const pts=years.map((y,i)=>{const x=years.length===1?chartW/2:i/(years.length-1)*chartW;const yy=chartH-(yearlyTotals[i]/maxY*(chartH-10))-5;return{x:Math.round(x),y:Math.round(yy),val:yearlyTotals[i],year:y};});const polyline=pts.map(p=>`${p.x},${p.y}`).join(' ');
-      const chartHtml=years.length>=2?`<div style="margin-top:4px;"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:8px;">Intäktsutveckling sedan start</div><div style="background:var(--surface2);border-radius:8px;padding:12px;"><svg viewBox="0 0 ${chartW} ${chartH+20}" width="100%" style="overflow:visible;"><line x1="0" y1="${chartH}" x2="${chartW}" y2="${chartH}" stroke="var(--border)" stroke-width="0.5"/><line x1="0" y1="${Math.round(chartH/2)}" x2="${chartW}" y2="${Math.round(chartH/2)}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/><polyline points="${polyline}" fill="none" stroke="#E8956D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="${p.year===year?4:2.5}" fill="#E8956D" ${p.year===year?'stroke="white" stroke-width="1.5"':''}/><text x="${p.x}" y="${p.y-6}" font-size="9" fill="${p.year===year?'#E8956D':'var(--color-text-secondary)'}" text-anchor="middle" font-weight="${p.year===year?'500':'400'}">${Math.round(p.val/1000)}k</text><text x="${p.x}" y="${chartH+14}" font-size="9" fill="var(--color-text-secondary)" text-anchor="middle">${p.year}</text>`).join('')}</svg></div></div>`:'';
-      el.innerHTML=`<div style="display:flex;gap:5px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">${yearBtns.map(yb=>`<button onclick="setRevYear(${customerId},${yb.val})" style="padding:4px 10px;border:0.5px solid ${yb.val===year?'#1e2140':'var(--border)'};border-radius:6px;background:${yb.val===year?'#1e2140':'none'};color:${yb.val===year?'white':'var(--text2)'};font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;">${yb.label}</button>`).join('')}</div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:12px;"><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">ARR</div><div style="font-size:14px;font-weight:500;color:var(--green);">${totArr>0?totArr.toLocaleString('sv-SE')+' kr':'–'}</div></div><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Consulting</div><div style="font-size:14px;font-weight:500;color:#3C3489;">${totCons>0?totCons.toLocaleString('sv-SE')+' kr':'–'}</div></div><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Utbildning</div><div style="font-size:14px;font-weight:500;color:#854F0B;">${totUtb>0?totUtb.toLocaleString('sv-SE')+' kr':'–'}</div></div><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Totalt</div><div style="font-size:14px;font-weight:500;color:var(--accent);">${totCur>0?totCur.toLocaleString('sv-SE')+' kr':'–'}</div></div></div>${itemsHtml}<div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border);margin-top:10px;"><span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Totalt ${year>0?year:''}</span><span style="font-size:17px;font-weight:500;color:var(--accent);">${totCur.toLocaleString('sv-SE')} kr</span></div>${cmpHtml}${chartHtml}`;
-      const totalEl=document.getElementById('total-revenue');if(totalEl)totalEl.textContent=calcYearTotal(allItems,0)>0?calcYearTotal(allItems,0).toLocaleString('sv-SE')+' kr':'–';
-    };
-    window.setRevYear=(cid,year)=>{renderYear(year);};renderYear(selectedYear);
-  }catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda</div>';}
-}
+async function loadRevenueItems(customerId){const el=document.getElementById('revenue-items');if(!el)return;try{const r=await fetch(`${API}/customers/${customerId}/revenues`);const allItems=await r.json();const nowYear=new Date().getFullYear();let selectedYear=el.dataset.year?parseInt(el.dataset.year):nowYear;const years=[...new Set(allItems.flatMap(i=>{const from=i.DateFrom?new Date(i.DateFrom).getFullYear():null;const to=i.DateTo?new Date(i.DateTo).getFullYear():null;const yrs=[];if(from)for(let y=from;y<=(to||from);y++)yrs.push(y);return yrs;}))].sort();const filterItems=(year)=>{if(year===0)return allItems;return allItems.filter(i=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yStart=new Date(year,0,1);const yEnd=new Date(year,11,31);if(!from&&!to)return true;if(from&&to)return from<=yEnd&&to>=yStart;if(from)return from<=yEnd&&from>=yStart;return true;}).sort((a,b)=>{const da=a.DateFrom||a.DateTo||'';const db=b.DateFrom||b.DateTo||'';return db.localeCompare(da);});};const calcYearTotal=(items,year)=>{if(year===0)return items.reduce((s,i)=>s+(i.Amount||0),0);return items.reduce((s,i)=>{if(!i.DateFrom&&!i.DateTo)return s+(i.Amount||0);const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yStart=new Date(year,0,1);const yEnd=new Date(year,11,31);if(!from||!to)return s+(i.Amount||0);const totalDays=Math.max(1,Math.round((to-from)/86400000));const overlapStart=from>yStart?from:yStart;const overlapEnd=to<yEnd?to:yEnd;const overlapDays=Math.max(0,Math.round((overlapEnd-overlapStart)/86400000)+1);return s+Math.round((i.Amount||0)*overlapDays/totalDays);},0);};const renderYear=(year)=>{selectedYear=year;el.dataset.year=year;const items=filterItems(year);const totArr=calcYearTotal(allItems.filter(i=>i.Type==='ARR'),year);const totFast=calcYearTotal(allItems.filter(i=>i.Type==='Fastpris'),year);const totUtb=calcYearTotal(allItems.filter(i=>i.Type==='Utbildning'),year);const totCons=calcYearTotal(allItems.filter(i=>i.Type==='Consulting'),year);const totCur=totArr+totFast+totUtb+totCons;const totPrev=year>0?calcYearTotal(allItems,year-1):0;const totDiff=totCur-totPrev;const totPct=totPrev>0?Math.round(totDiff/totPrev*100):null;const arrPrev=year>0?calcYearTotal(allItems.filter(i=>i.Type==='ARR'),year-1):0;const arrDiff=totArr-arrPrev;const arrPct=arrPrev>0?Math.round(arrDiff/arrPrev*100):null;const typeColors={ARR:{bg:'#EAF3DE',color:'#3B6D11',bar:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5',bar:'#185FA5'},Utbildning:{bg:'#FAEEDA',color:'#854F0B',bar:'#b85a00'},Consulting:{bg:'#EEEDFE',color:'#3C3489',bar:'#534AB7'}};const yearBtns=[{label:'Alla',val:0},...years.map(y=>({label:String(y),val:y}))];const itemsHtml=items.length?items.map(item=>{const tc=typeColors[item.Type]||{bg:'var(--surface2)',color:'var(--text2)',bar:'#888'};let leftPct=0,widthPct=100;if(year>0&&item.DateFrom&&item.DateTo){const yStart=new Date(year,0,1).getTime();const yEnd=new Date(year,11,31).getTime();const yLen=yEnd-yStart;const from=new Date(item.DateFrom).getTime();const to=new Date(item.DateTo).getTime();leftPct=Math.max(0,Math.min(100,(from-yStart)/yLen*100));widthPct=Math.max(2,Math.min(100-leftPct,(Math.min(to,yEnd)-Math.max(from,yStart))/yLen*100));}const dateRange=item.DateFrom||item.DateTo?`${item.DateFrom?item.DateFrom.substring(0,10):'?'} – ${item.DateTo?item.DateTo.substring(0,10):'?'}`:'';return`<div class="rev-item" id="ri-${item.Id}"><div class="rev-item-header"><span class="rev-item-type" style="background:${tc.bg};color:${tc.color};">${item.Type}</span><span class="rev-item-amount">${Math.round(item.Amount).toLocaleString('sv-SE')} kr</span>${dateRange?`<span class="rev-item-dates">${dateRange}</span>`:''}<button onclick="editRevenueItem(${customerId},${item.Id})" style="width:22px;height:22px;border:0.5px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--accent);font-size:12px;display:flex;align-items:center;justify-content:center;" title="Redigera">✎</button><button class="rev-del" onclick="deleteRevItem(${customerId},${item.Id})"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div>${item.Description?`<div class="rev-item-desc">${item.Description}</div>`:''} ${year>0&&item.DateFrom?`<div style="height:5px;background:var(--border);border-radius:3px;margin-top:6px;position:relative;"><div style="position:absolute;height:5px;border-radius:3px;left:${leftPct}%;width:${widthPct}%;background:${tc.bar};opacity:0.5;"></div></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px;"><span>Jan ${year}</span><span>Dec ${year}</span></div>`:''}<button onclick="loadRevCommissions(${item.Id},${customerId})" style="margin-top:5px;padding:2px 8px;border:0.5px solid var(--border);border-radius:4px;background:none;font-family:inherit;font-size:10px;color:var(--text3);cursor:pointer;" id="prov-btn-${item.Id}">Provision</button><div id="comm-${item.Id}"></div></div>`;}).join(''):`<div style="color:var(--text3);font-size:13px;padding:8px;">Inga poster för ${year>0?year:'alla år'}</div>`;const cmpHtml=year>0?`<div style="margin-top:16px;"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:8px;">Jämförelse med ${year-1}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;"><div style="background:var(--surface2);border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Intäkt ${year}</div><div style="font-size:17px;font-weight:500;color:var(--accent);">${totCur.toLocaleString('sv-SE')} kr</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">${year-1}: ${totPrev.toLocaleString('sv-SE')} kr</div><div style="font-size:12px;font-weight:500;margin-top:1px;color:${totDiff>=0?'var(--green)':'var(--red)'};">${totDiff>=0?'+':''}${totDiff.toLocaleString('sv-SE')} kr${totPct!==null?` · ${totPct>=0?'+':''}${totPct}%`:''}</div></div><div style="background:var(--surface2);border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--text3);margin-bottom:2px;">ARR-tillväxt</div><div style="font-size:17px;font-weight:500;color:var(--green);">${arrPct!==null?`${arrPct>=0?'+':''}${arrPct}%`:'N/A'}</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">${arrPrev.toLocaleString('sv-SE')} → ${totArr.toLocaleString('sv-SE')} kr</div><div style="font-size:12px;font-weight:500;margin-top:1px;color:${arrDiff>=0?'var(--green)':'var(--red)'};">${arrDiff>=0?'+':''}${arrDiff.toLocaleString('sv-SE')} kr</div></div></div></div>`:'';const yearlyTotals=years.map(y=>calcYearTotal(allItems,y));const maxY=Math.max(...yearlyTotals,1);const chartW=360,chartH=80;const pts=years.map((y,i)=>{const x=years.length===1?chartW/2:i/(years.length-1)*chartW;const yy=chartH-(yearlyTotals[i]/maxY*(chartH-10))-5;return{x:Math.round(x),y:Math.round(yy),val:yearlyTotals[i],year:y};});const polyline=pts.map(p=>`${p.x},${p.y}`).join(' ');const chartHtml=years.length>=2?`<div style="margin-top:4px;"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:8px;">Intäktsutveckling sedan start</div><div style="background:var(--surface2);border-radius:8px;padding:12px;"><svg viewBox="0 0 ${chartW} ${chartH+20}" width="100%" style="overflow:visible;"><line x1="0" y1="${chartH}" x2="${chartW}" y2="${chartH}" stroke="var(--border)" stroke-width="0.5"/><line x1="0" y1="${Math.round(chartH/2)}" x2="${chartW}" y2="${Math.round(chartH/2)}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/><polyline points="${polyline}" fill="none" stroke="#E8956D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="${p.year===year?4:2.5}" fill="#E8956D" ${p.year===year?'stroke="white" stroke-width="1.5"':''}/><text x="${p.x}" y="${p.y-6}" font-size="9" fill="${p.year===year?'#E8956D':'var(--color-text-secondary)'}" text-anchor="middle" font-weight="${p.year===year?'500':'400'}">${Math.round(p.val/1000)}k</text><text x="${p.x}" y="${chartH+14}" font-size="9" fill="var(--color-text-secondary)" text-anchor="middle">${p.year}</text>`).join('')}</svg></div></div>`:'';el.innerHTML=`<div style="display:flex;gap:5px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">${yearBtns.map(yb=>`<button onclick="setRevYear(${customerId},${yb.val})" style="padding:4px 10px;border:0.5px solid ${yb.val===year?'#1e2140':'var(--border)'};border-radius:6px;background:${yb.val===year?'#1e2140':'none'};color:${yb.val===year?'white':'var(--text2)'};font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;">${yb.label}</button>`).join('')}</div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:12px;"><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">ARR</div><div style="font-size:14px;font-weight:500;color:var(--green);">${totArr>0?totArr.toLocaleString('sv-SE')+' kr':'–'}</div></div><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Consulting</div><div style="font-size:14px;font-weight:500;color:#3C3489;">${totCons>0?totCons.toLocaleString('sv-SE')+' kr':'–'}</div></div><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Utbildning</div><div style="font-size:14px;font-weight:500;color:#854F0B;">${totUtb>0?totUtb.toLocaleString('sv-SE')+' kr':'–'}</div></div><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Totalt</div><div style="font-size:14px;font-weight:500;color:var(--accent);">${totCur>0?totCur.toLocaleString('sv-SE')+' kr':'–'}</div></div></div>${itemsHtml}<div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border);margin-top:10px;"><span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Totalt ${year>0?year:''}</span><span style="font-size:17px;font-weight:500;color:var(--accent);">${totCur.toLocaleString('sv-SE')} kr</span></div>${cmpHtml}${chartHtml}`;const totalEl=document.getElementById('total-revenue');if(totalEl)totalEl.textContent=calcYearTotal(allItems,0)>0?calcYearTotal(allItems,0).toLocaleString('sv-SE')+' kr':'–';};window.setRevYear=(cid,year)=>{renderYear(year);};renderYear(selectedYear);}catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda</div>';}}
 
 async function loadRevCommissions(revenueId,customerId){const el=document.getElementById(`comm-${revenueId}`);if(!el)return;try{const r=await fetch(`${API}/revenues/${revenueId}/commissions`);const comms=await r.json();const revenueEl=document.getElementById(`ri-${revenueId}`);const amount=parseInt(revenueEl?.querySelector('.rev-item-amount')?.textContent?.replace(/\D/g,'')||0);let h=comms.map(c=>`<div class="comm-item ${c.PaidOut?'comm-paid':''}"><span style="flex:1;">${c.Recipient}</span>${c.CommissionPercent?`<span style="color:var(--text3);font-size:11px;">${c.CommissionPercent}%</span>`:''}<span style="font-weight:500;">${fmtKr(c.Amount)}</span>${!c.PaidOut?`<button class="btn-sm" onclick="markCommPaid(${c.Id},${revenueId},${customerId})">Betald</button>`:`<span class="badge b-green" style="font-size:10px;">Betald</span>`}<button class="rev-del" onclick="deleteComm(${c.Id},${revenueId},${customerId})"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div>`).join('');h+=`<button onclick="openAddCommission(${revenueId},${customerId},${amount})" style="margin-top:4px;padding:2px 8px;border:0.5px solid var(--border);border-radius:5px;background:none;font-family:inherit;font-size:11px;color:var(--accent);cursor:pointer;">+ Lägg till provision</button>`;el.innerHTML=h;}catch(e){}}
-
 async function deleteRevItem(customerId,itemId){await fetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'DELETE'});loadRevenueItems(customerId);}
 function editRevenueItem(customerId,itemId){fetch(`${API}/customers/${customerId}/revenues`).then(r=>r.json()).then(items=>{const item=items.find(i=>i.Id===itemId);if(!item)return;const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:300;display:flex;align-items:center;justify-content:center;';overlay.innerHTML=`<div style="background:var(--surface);border-radius:12px;padding:24px;width:360px;box-shadow:var(--shadow-md);"><h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Redigera intäkt</h3><div style="display:flex;flex-direction:column;gap:10px;"><div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Typ</label><select id="ei-type" class="edit-input"><option ${item.Type==='ARR'?'selected':''}>ARR</option><option ${item.Type==='Fastpris'?'selected':''}>Fastpris</option><option ${item.Type==='Utbildning'?'selected':''}>Utbildning</option><option ${item.Type==='Consulting'?'selected':''}>Consulting</option></select></div><div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Belopp (kr)</label><input id="ei-amount" class="edit-input" type="number" value="${item.Amount||0}"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Från datum</label><input id="ei-from" class="edit-input" type="date" value="${item.DateFrom?item.DateFrom.substring(0,10):''}"></div><div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Till datum</label><input id="ei-to" class="edit-input" type="date" value="${item.DateTo?item.DateTo.substring(0,10):''}"></div></div><div><label style="font-size:11px;color:var(--text3);display:block;margin-bottom:3px;">Beskrivning</label><input id="ei-desc" class="edit-input" value="${item.Description||''}"></div></div><div style="display:flex;gap:8px;margin-top:16px;"><button onclick="this.closest('div[style*=fixed]').remove();" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button class="btn-primary" style="flex:1;" onclick="saveEditRevItem(${customerId},${itemId})">Spara</button></div></div>`;document.body.appendChild(overlay);});}
 async function saveEditRevItem(customerId,itemId){const type=document.getElementById('ei-type').value;const amount=parseInt(document.getElementById('ei-amount').value)||0;const dateFrom=document.getElementById('ei-from').value||null;const dateTo=document.getElementById('ei-to').value||null;const description=document.getElementById('ei-desc').value||null;await fetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,amount,dateFrom,dateTo,description})});document.querySelector('div[style*="fixed"][style*="rgba"]')?.remove();loadRevenueItems(customerId);}
 async function markCommPaid(commId,revenueId,customerId){await fetch(`${API}/commissions/${commId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadRevCommissions(revenueId,customerId);}
 async function deleteComm(commId,revenueId,customerId){await fetch(`${API}/commissions/${commId}`,{method:'DELETE'});loadRevCommissions(revenueId,customerId);}
-
 function openAddRevenue(customerId){const c=allCustomers.find(x=>x.Id===customerId);const licStart=c?.LicenseStart?c.LicenseStart.substring(0,10):'';const licEnd=c?.LicenseEnd?c.LicenseEnd.substring(0,10):'';showDialog('Lägg till intäkt',`<div class="modal-field"><label>Typ</label><select id="di-type" class="edit-input" onchange="updateRevDialogDates('${licStart}','${licEnd}')"><option>ARR</option><option>Fastpris</option><option>Utbildning</option><option>Consulting</option></select></div><div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="di-amount" class="edit-input" type="number" placeholder="0"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;"><div class="modal-field"><label>Från datum</label><input id="di-from" class="edit-input" type="date" value="${licStart}"></div><div class="modal-field"><label>Till datum</label><input id="di-to" class="edit-input" type="date" value="${licEnd}"></div></div><div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="di-desc" class="edit-input" placeholder="t.ex. Grundutbildning Q1 2026"></div>`,async()=>{const type=document.getElementById('di-type').value;const amount=parseInt(document.getElementById('di-amount').value)||0;if(!amount)return false;await fetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,amount,dateFrom:document.getElementById('di-from').value||null,dateTo:document.getElementById('di-to').value||null,description:document.getElementById('di-desc').value||null})});loadRevenueItems(customerId);return true;});}
 function updateRevDialogDates(licStart,licEnd){const type=document.getElementById('di-type')?.value;const fromEl=document.getElementById('di-from');const toEl=document.getElementById('di-to');if(!fromEl||!toEl)return;if(type==='ARR'||type==='Fastpris'){fromEl.value=licStart;toEl.value=licEnd;}else{fromEl.value='';toEl.value='';}}
-
 function openAddCommission(revenueId,customerId,baseAmount){const recipientOptions=allRecipients.map(r=>`<option>${r}</option>`).join('');showDialog('Lägg till provision',`<div class="modal-field"><label>Mottagare</label><select id="ci-recipient" class="edit-input">${recipientOptions}<option value="__new__">+ Lägg till ny...</option></select></div><div id="ci-new-recipient-wrap" style="display:none;margin-top:8px;"><div class="modal-field"><label>Nytt namn</label><input id="ci-new-recipient" class="edit-input" placeholder="Namn"></div></div><div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end;"><div class="modal-field" style="flex:1;"><label>Procent (%)</label><input id="ci-percent" class="edit-input" type="number" step="0.1" placeholder="t.ex. 10" oninput="calcCommFromPercent(${baseAmount})"></div><span style="padding-bottom:8px;color:var(--text3);">eller</span><div class="modal-field" style="flex:1;"><label>Belopp (kr)</label><input id="ci-amount" class="edit-input" type="number" placeholder="t.ex. 5000"></div></div><div style="margin-top:6px;font-size:12px;color:var(--text3);">Basbelopp: ${baseAmount.toLocaleString('sv-SE')} kr</div>`,async()=>{let recipient=document.getElementById('ci-recipient').value;if(recipient==='__new__'){const newName=document.getElementById('ci-new-recipient')?.value?.trim();if(!newName)return false;await fetch(`${API}/commission-recipients`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName})});allRecipients.push(newName);allRecipients.sort();recipient=newName;}const pct=parseFloat(document.getElementById('ci-percent')?.value)||null;const amt=parseInt(document.getElementById('ci-amount')?.value)||(pct?Math.round(baseAmount*pct/100):0);if(!amt)return false;await fetch(`${API}/revenues/${revenueId}/commissions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId,recipient,commissionPercent:pct,amount:amt})});loadRevCommissions(revenueId,customerId);return true;});setTimeout(()=>{document.getElementById('ci-recipient')?.addEventListener('change',function(){document.getElementById('ci-new-recipient-wrap').style.display=this.value==='__new__'?'block':'none';});},50);}
 function calcCommFromPercent(base){const pct=parseFloat(document.getElementById('ci-percent')?.value)||0;const el=document.getElementById('ci-amount');if(el&&pct>0)el.value=Math.round(base*pct/100);}
-
 function showDialog(title,bodyHtml,onSave){const existing=document.getElementById('dialog-overlay');if(existing)existing.remove();const overlay=document.createElement('div');overlay.id='dialog-overlay';overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';overlay.innerHTML=`<div style="background:var(--surface);border-radius:12px;padding:24px;width:360px;box-shadow:var(--shadow-md);"><h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">${title}</h3><div style="display:flex;flex-direction:column;gap:0;">${bodyHtml}</div><div style="display:flex;gap:8px;margin-top:16px;"><button onclick="document.getElementById('dialog-overlay').remove();" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="dialog-save-btn" class="btn-primary" style="flex:1;" onclick="handleDialogSave()">Spara</button></div></div>`;document.body.appendChild(overlay);window._dialogSave=onSave;}
 async function handleDialogSave(){if(window._dialogSave){const ok=await window._dialogSave();if(ok!==false)document.getElementById('dialog-overlay')?.remove();}}
 
-// ─── AKTIVITETER ─────────────────────────────────────────
+// ─── AKTIVITETER KUND ────────────────────────────────────
 async function loadActivities(customerId){const el=document.getElementById('activity-list');if(!el)return;try{const r=await fetch(`${API}/activities/customer/${customerId}`);const acts=await r.json();if(!acts.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Inga aktiviteter ännu</div>';return;}el.innerHTML=acts.map(a=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;">${a.Type}</span><span style="font-size:11px;color:var(--text3);">${new Date(a.CreatedAt).toLocaleDateString('sv-SE')}</span></div><div style="font-size:13px;">${a.Note||''}</div></div>`).join('');}catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda</div>';}}
 async function addActivity(customerId){const type=document.getElementById('new-activity-type').value;const note=document.getElementById('new-activity-note').value;const date=document.getElementById('new-activity-date').value;if(!note.trim())return;await fetch(`${API}/activities/customer/${customerId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,note,date,createdBy:''})});document.getElementById('new-activity-note').value='';loadActivities(customerId);}
 
@@ -986,7 +976,6 @@ const merged={company:gv('edit-company')||c.Company,contact:gv('edit-contact')||
 try{const r=await fetch(`${API}/customers/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged)});if(r.ok){const idx=allCustomers.findIndex(x=>x.Id===id);if(idx!==-1)allCustomers[idx]={...allCustomers[idx],Company:merged.company,Contact:merged.contact,ContactRole:merged.contactRole,ContactEmail:merged.contactEmail,ContactPhone:merged.contactPhone,CustomerSince:merged.customerSince,LicenseType:merged.licenseType,LicenseStart:merged.licenseStart,LicenseEnd:merged.licenseEnd,ARR:merged.arr,ARR_Fixed:merged.arrFixed,Risk:merged.risk,SubName:merged.subName,Notes:merged.notes,_owner:merged.owner,_days:daysLeft(merged.licenseEnd)};showSaveIndicator('✓ Sparat','#1a7a50');if(lt==='Team'&&document.getElementById('edit-team-count')){await fetch(`${API}/customers/${id}/teams`,{method:'DELETE',headers:{'Content-Type':'application/json'}});const count=parseInt(document.getElementById('edit-team-count')?.value)||0;for(let i=0;i<count;i++)await fetch(`${API}/customers/${id}/teams`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({teamName:document.getElementById(`team-name-${i}`)?.value||'',meetingLeader1:document.getElementById(`team-ml1-${i}`)?.value||'',meetingLeader1Email:document.getElementById(`team-ml1-email-${i}`)?.value||'',meetingLeader2:document.getElementById(`team-ml2-${i}`)?.value||'',meetingLeader2Email:document.getElementById(`team-ml2-email-${i}`)?.value||''})});}if(lt==='Enterprise'&&document.getElementById('edit-admin-count')){await fetch(`${API}/customers/${id}/admins`,{method:'DELETE',headers:{'Content-Type':'application/json'}});const count=parseInt(document.getElementById('edit-admin-count')?.value)||0;for(let i=0;i<count;i++)await fetch(`${API}/customers/${id}/admins`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById(`admin-name-${i}`)?.value||'',email:document.getElementById(`admin-email-${i}`)?.value||'',phone:document.getElementById(`admin-phone-${i}`)?.value||''})});}}else{showSaveIndicator('⚠ Fel','#a32d2d');}}catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}}
 
 async function createCustomer(){const body={company:document.getElementById('edit-company')?.value||'Ny kund',contact:document.getElementById('edit-contact')?.value||'',contactRole:document.getElementById('edit-contact-role')?.value||'',contactEmail:document.getElementById('edit-contact-email')?.value||'',contactPhone:document.getElementById('edit-contact-phone')?.value||'',customerSince:document.getElementById('edit-customer-since')?.value||null,owner:document.getElementById('edit-owner')?.value||'Matilda Olsson',licenseStart:document.getElementById('edit-start')?.value||null,licenseEnd:document.getElementById('edit-end')?.value||null,licenseType:document.getElementById('edit-type')?.value||'Team',arr:null,arrFixed:null,revenueTraining:null,revenueConsulting:null,risk:document.getElementById('edit-risk')?.value||'Low',subName:document.getElementById('edit-subname')?.value||null,notes:document.getElementById('edit-notes')?.value||null};try{const r=await fetch(`${API}/customers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeModalDirect();await loadCustomers();}catch(e){alert('Kunde inte skapa kund.');}}
-
 function updateTeamBlocks(count,et){const n=Math.max(1,Math.min(20,parseInt(count)||1));let h='';for(let i=0;i<n;i++){const t=et[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input class="edit-input" id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input class="edit-input" id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input class="edit-input" id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input class="edit-input" id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input class="edit-input" id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`;}document.getElementById('team-blocks').innerHTML=h;}
 function updateAdminBlocks(count,ea){const n=Math.max(1,Math.min(20,parseInt(count)||1));let h='';for(let i=0;i<n;i++){const a=ea[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input class="edit-input" id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input class="edit-input" id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input class="edit-input" id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`;}document.getElementById('admin-blocks').innerHTML=h;}
 
@@ -997,12 +986,8 @@ function closeModal(e){if(e.target===document.getElementById('modal-overlay'))cl
 function closeModalDirect(){document.getElementById('modal-overlay').classList.remove('open');renderTable();renderRevSummary();updateStats();}
 
 document.addEventListener('click',e=>{
-  if(!e.target.closest('.rev-dropdown')){
-    const p=document.getElementById('rev-dd-panel');if(p)p.style.display='none';
-    const pp=document.getElementById('per-dd-panel');if(pp)pp.style.display='none';
-  }
+  if(!e.target.closest('.rev-dropdown')){const p=document.getElementById('rev-dd-panel');if(p)p.style.display='none';const pp=document.getElementById('per-dd-panel');if(pp)pp.style.display='none';}
 });
-
 document.getElementById('search')?.addEventListener('input',()=>renderTable());
 document.getElementById('filter-owner')?.addEventListener('change',()=>renderTable());
 document.getElementById('filter-license')?.addEventListener('change',()=>renderTable());
