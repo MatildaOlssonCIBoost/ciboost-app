@@ -422,18 +422,20 @@
 <div class="page" id="page-finansiellt-budget">
   <div class="main">
     <!-- VERSION BAR -->
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
-      <select id="budget-version-select" onchange="loadBudgetVersion()" style="font-size:13px;">
-        <option value="">Välj budgetversion...</option>
-      </select>
-      <button class="quick-btn" onclick="openNewBudgetVersion()">+ Ny version</button>
-      <div style="margin-left:auto;display:flex;gap:8px;">
-        <select id="budget-year-select" onchange="renderBudgetTable()" style="font-size:12px;">
-          <option>2026</option><option>2027</option><option>2025</option>
-        </select>
-        <button class="btn-primary" onclick="saveBudget()" id="budget-save-btn" style="display:none;">Spara budget</button>
-      </div>
-    </div>
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+  <select id="budget-version-select" onchange="loadBudgetVersion()" style="font-size:13px;">
+    <option value="">Välj budgetversion...</option>
+  </select>
+  <button class="quick-btn" onclick="openNewBudgetVersion()">+ Ny version</button>
+  <button class="quick-btn" onclick="renameBudgetVersion()" id="btn-rename-budget" style="display:none;">✎ Byt namn</button>
+  <button class="quick-btn" onclick="deleteBudgetVersion()" id="btn-delete-budget" style="display:none;color:var(--red);">🗑 Radera</button>
+  <div style="margin-left:auto;display:flex;gap:8px;">
+    <select id="budget-year-select" onchange="renderBudgetTable()" style="font-size:12px;">
+      <option>2026</option><option>2027</option><option>2025</option>
+    </select>
+    <button class="btn-primary" onclick="saveBudget()" id="budget-save-btn" style="display:none;">Spara budget</button>
+  </div>
+</div>
     <!-- KPI ROW -->
     <div class="kpi-grid" id="budget-kpi" style="margin-bottom:16px;"></div>
     <!-- BUDGET TABLE -->
@@ -507,11 +509,11 @@ const SOURCE_COLORS = {'Wow':'#639922','Hemsida demo':'#185FA5','30-dagars':'#85
 const ACTION_TYPES = ['Möte','Samtal','E-post','Demo','Offert','Uppföljning','Annat'];
 const DEFAULT_RECIPIENTS = ['Ann-Sofie Forsmark','CI-Labs','Influence','Influence People','Johan Jansson','Lotta Murvall'];
 const BUDGET_ROWS_DEF = [
-  {category:'Intäkter', subCategory:'ARR löpande'},
-  {category:'Intäkter', subCategory:'Fastpris'},
+  {category:'Intäkter', subCategory:'Licens (prenumeration)'},
+  {category:'Intäkter', subCategory:'Licens (fast pris)'},
   {category:'Intäkter', subCategory:'Utbildning'},
   {category:'Intäkter', subCategory:'Consulting'},
-  {category:'Kostnader', subCategory:'Personal'},
+  {category:'Kostnader', subCategory:'Personalkostnader'},
   {category:'Kostnader', subCategory:'Lokalkostnader'},
   {category:'Kostnader', subCategory:'Marknadsföring'},
   {category:'Kostnader', subCategory:'IT & System'},
@@ -826,26 +828,20 @@ function renderBudgetTable(){
     allCustomers.forEach(c=>{const mv=monthlyValue(c,monthDate);tot+=mv.arr+mv.fast+mv.utb+mv.cons;});
     return Math.round(tot);
   });
-
-  // Bygg tabellen
+// Bygg tabellen
   let html=`<div class="budget-table-wrap"><table class="budget-table">
     <thead><tr>
       <th>Kategori</th><th>Rad</th>
       ${MONTHS.map(m=>`<th>${m}</th>`).join('')}
       <th>Totalt</th>
     </tr></thead><tbody>`;
-
   const categories=['Intäkter','Kostnader'];
-  let totalBudgetInkomst=0, totalBudgetKostnad=0;
-  let totalActualInkomst=0;
   const categoryTotals={};
-
   categories.forEach(cat=>{
     const catRows=BUDGET_ROWS_DEF.filter(r=>r.category===cat);
-    html+=`<tr class="cat-header"><td colspan="${14}">${cat}</td></tr>`;
+    html+=`<tr class="cat-header"><td colspan="15">${cat}</td></tr>`;
     const catMonthTotals=MONTHS.map(()=>0);
     let catTotal=0;
-
     catRows.forEach(rd=>{
       const key=`${rd.category}__${rd.subCategory}`;
       const saved=rowMap[key]||{};
@@ -853,54 +849,20 @@ function renderBudgetTable(){
       const rowTotal=vals.reduce((a,b)=>a+b,0);
       catTotal+=rowTotal;
       vals.forEach((v,i)=>catMonthTotals[i]+=v);
-      if(cat==='Intäkter')totalBudgetInkomst+=rowTotal;
-      if(cat==='Kostnader')totalBudgetKostnad+=rowTotal;
-
-      html+=`<tr>
-        <td></td>
-        <td style="color:var(--text2);font-size:12px;">${rd.subCategory}</td>
-        ${MONTHS.map((m,mi)=>`<td><input class="budget-input" type="number" data-cat="${rd.category}" data-sub="${rd.subCategory}" data-month="${m}" value="${vals[mi]||''}" placeholder="0" oninput="updateBudgetTotals()"></td>`).join('')}
-        <td style="font-weight:500;font-size:12px;">${rowTotal>0?Math.round(rowTotal/1000)+'k':'-'}</td>
-      </tr>`;
+      html+=`<tr><td></td><td style="color:var(--text2);font-size:12px;">${rd.subCategory}</td>${MONTHS.map((m,mi)=>`<td><input class="budget-input" type="number" data-cat="${rd.category}" data-sub="${rd.subCategory}" data-month="${m}" value="${vals[mi]||''}" placeholder="0" oninput="updateBudgetTotals()"></td>`).join('')}<td style="font-weight:500;font-size:12px;">${rowTotal>0?Math.round(rowTotal/1000)+'k':'-'}</td></tr>`;
     });
-
-    html+=`<tr class="total-row">
-      <td></td><td>Summa ${cat}</td>
-      ${catMonthTotals.map(t=>`<td style="font-size:11px;">${t>0?Math.round(t/1000)+'k':'-'}</td>`).join('')}
-      <td>${catTotal>0?Math.round(catTotal/1000)+'k':'-'}</td>
-    </tr>`;
+    html+=`<tr class="total-row"><td></td><td>Summa ${cat}</td>${catMonthTotals.map(t=>`<td style="font-size:11px;">${t>0?Math.round(t/1000)+'k':'-'}</td>`).join('')}<td>${catTotal>0?Math.round(catTotal/1000)+'k':'-'}</td></tr>`;
     categoryTotals[cat]={monthly:catMonthTotals,total:catTotal};
   });
-
-  // Resultatrad
   const resultMonthly=MONTHS.map((_,i)=>(categoryTotals['Intäkter']?.monthly[i]||0)-(categoryTotals['Kostnader']?.monthly[i]||0));
   const resultTotal=(categoryTotals['Intäkter']?.total||0)-(categoryTotals['Kostnader']?.total||0);
-  html+=`<tr style="background:#1e2140;color:white;">
-    <td colspan="2" style="font-weight:600;color:white;">Resultat</td>
-    ${resultMonthly.map(v=>`<td style="font-weight:500;color:${v>=0?'#6fcf97':'#ff7979'};font-size:11px;">${v!==0?(v>=0?'+':'')+Math.round(v/1000)+'k':'-'}</td>`).join('')}
-    <td style="font-weight:600;color:${resultTotal>=0?'#6fcf97':'#ff7979'};">${resultTotal!==0?(resultTotal>=0?'+':'')+Math.round(resultTotal/1000)+'k':'-'}</td>
-  </tr>`;
-
-  // Utfall-rad (faktiska intäkter)
+  html+=`<tr style="background:#1e2140;color:white;"><td colspan="2" style="font-weight:600;color:white;">Resultat</td>${resultMonthly.map(v=>`<td style="font-weight:500;color:${v>=0?'#6fcf97':'#ff7979'};font-size:11px;">${v!==0?(v>=0?'+':'')+Math.round(v/1000)+'k':'-'}</td>`).join('')}<td style="font-weight:600;color:${resultTotal>=0?'#6fcf97':'#ff7979'};">${resultTotal!==0?(resultTotal>=0?'+':'')+Math.round(resultTotal/1000)+'k':'-'}</td></tr>`;
   const utfallTotal=actualByMonth.reduce((a,b)=>a+b,0);
-  html+=`<tr style="background:var(--green-bg);">
-    <td colspan="2" style="font-weight:600;color:var(--green);font-size:11px;">Utfall intäkter</td>
-    ${actualByMonth.map(v=>`<td style="color:var(--green);font-size:11px;font-weight:500;">${v>0?Math.round(v/1000)+'k':'-'}</td>`).join('')}
-    <td style="font-weight:600;color:var(--green);">${utfallTotal>0?Math.round(utfallTotal/1000)+'k':'-'}</td>
-  </tr>`;
-
-  // Vs budget-rad
+  html+=`<tr style="background:var(--green-bg);"><td colspan="2" style="font-weight:600;color:var(--green);font-size:11px;">Utfall intäkter</td>${actualByMonth.map(v=>`<td style="color:var(--green);font-size:11px;font-weight:500;">${v>0?Math.round(v/1000)+'k':'-'}</td>`).join('')}<td style="font-weight:600;color:var(--green);">${utfallTotal>0?Math.round(utfallTotal/1000)+'k':'-'}</td></tr>`;
   const intäktBudgetMonthly=categoryTotals['Intäkter']?.monthly||MONTHS.map(()=>0);
-  html+=`<tr style="background:var(--surface2);">
-    <td colspan="2" style="font-weight:600;font-size:11px;color:var(--text3);">Vs budget</td>
-    ${actualByMonth.map((v,i)=>{const diff=v-(intäktBudgetMonthly[i]||0);return`<td style="font-size:11px;font-weight:500;" class="${diff>=0?'vs-over':'vs-under'}">${diff!==0?(diff>=0?'+':'')+Math.round(diff/1000)+'k':'-'}</td>`;}).join('')}
-    <td style="font-weight:600;" class="${utfallTotal-(categoryTotals['Intäkter']?.total||0)>=0?'vs-over':'vs-under'}">${((utfallTotal-(categoryTotals['Intäkter']?.total||0))!==0)?(utfallTotal-(categoryTotals['Intäkter']?.total||0)>=0?'+':'')+Math.round((utfallTotal-(categoryTotals['Intäkter']?.total||0))/1000)+'k':'-'}</td>
-  </tr>`;
-
+  html+=`<tr style="background:var(--surface2);"><td colspan="2" style="font-weight:600;font-size:11px;color:var(--text3);">Vs budget</td>${actualByMonth.map((v,i)=>{const diff=v-(intäktBudgetMonthly[i]||0);return`<td style="font-size:11px;font-weight:500;" class="${diff>=0?'vs-over':'vs-under'}">${diff!==0?(diff>=0?'+':'')+Math.round(diff/1000)+'k':'-'}</td>`;}).join('')}<td style="font-weight:600;" class="${utfallTotal-(categoryTotals['Intäkter']?.total||0)>=0?'vs-over':'vs-under'}">${((utfallTotal-(categoryTotals['Intäkter']?.total||0))!==0)?(utfallTotal-(categoryTotals['Intäkter']?.total||0)>=0?'+':'')+Math.round((utfallTotal-(categoryTotals['Intäkter']?.total||0))/1000)+'k':'-'}</td></tr>`;
   html+='</tbody></table></div>';
   document.getElementById('budget-content').innerHTML=html;
-
-  // KPI
   const budgetedTotal=categoryTotals['Intäkter']?.total||0;
   const vsAmt=utfallTotal-budgetedTotal;
   const vsPct=budgetedTotal>0?Math.round(utfallTotal/budgetedTotal*100):0;
@@ -910,7 +872,6 @@ function renderBudgetTable(){
     <div class="kpi-card"><div class="kpi-label">Uppnått</div><div class="kpi-value ${vsPct>=100?'pos':vsPct>=80?'neu':'neg'}">${vsPct}%</div><div class="kpi-delta neu">av budgeterat</div></div>
     <div class="kpi-card"><div class="kpi-label">Budgeterat resultat</div><div class="kpi-value ${resultTotal>=0?'pos':'neg'}">${fmtKr(resultTotal)}</div><div class="kpi-delta neu">Intäkter - Kostnader</div></div>`;
 }
-
 function updateBudgetTotals(){}
 
 async function saveBudget(){
@@ -949,9 +910,41 @@ function openNewBudgetVersion(){
       budgetRows=[];
       renderBudgetTable();
       document.getElementById('budget-save-btn').style.display='flex';
+      document.getElementById('btn-rename-budget').style.display='flex';
+      document.getElementById('btn-delete-budget').style.display='flex';
       return true;
     });
-}// ─── MODAL KUND ──────────────────────────────────────────
+}
+
+async function renameBudgetVersion(){
+  const v=budgetVersions.find(x=>x.Id==currentBudgetVersionId);
+  if(!v)return;
+  showDialog('Byt namn på version',`<div class="modal-field"><label>Namn</label><input id="bv-rename" class="edit-input" value="${v.Name}"></div>`,
+    async()=>{
+      const name=document.getElementById('bv-rename').value.trim();
+      if(!name)return false;
+      await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,year:v.Year,createdBy:v.CreatedBy})});
+      await loadBudgetVersions();
+      return true;
+    });
+}
+
+async function deleteBudgetVersion(){
+  if(!currentBudgetVersionId)return;
+  const v=budgetVersions.find(x=>x.Id==currentBudgetVersionId);
+  if(!confirm(`Radera "${v?.Name}"? Detta går inte att ångra.`))return;
+  await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}`,{method:'DELETE'});
+  currentBudgetVersionId=null;
+  budgetRows=[];
+  await loadBudgetVersions();
+  document.getElementById('budget-content').innerHTML='<div style="text-align:center;padding:60px;color:var(--text3);font-size:13px;">Välj eller skapa en budgetversion för att börja</div>';
+  document.getElementById('budget-save-btn').style.display='none';
+  document.getElementById('btn-rename-budget').style.display='none';
+  document.getElementById('btn-delete-budget').style.display='none';
+  document.getElementById('budget-kpi').innerHTML='';
+}
+
+// ─── MODAL KUND ──────────────────────────────────────────
 function getLicenseType(c){return document.getElementById('edit-type')?.value||c?.LicenseType||'Team';}
 function renderTabs(lt){const tab2=lt==='Enterprise'?'Enterprise':'Team';document.getElementById('modal-tabs').innerHTML=['Översikt',tab2,'Värde','Aktivitet'].map((t,i)=>`<button class="modal-tab ${currentPage===i+1?'active':''}" onclick="goToPage(${i+1})">${i+1}. ${t}</button>`).join('');}
 function openNewModal(){isNewCustomer=true;currentModalId=null;currentPage=1;document.getElementById('modal-title').textContent='Ny kund';document.getElementById('modal-subtitle').textContent='';document.getElementById('btn-delete').style.display='none';renderTabs('Team');renderModalPage(null,[],[]);document.getElementById('modal-overlay').classList.add('open');}
@@ -977,7 +970,6 @@ function renderModalPage(c,teams,admins){
 
 function onLicTypeChange(){renderTabs(document.getElementById('edit-type')?.value||'Team');}
 function goToPage(p){const c=allCustomers.find(x=>x.Id===currentModalId);currentPage=p;renderTabs(getLicenseType(c));if(p===2&&!isNewCustomer&&c){Promise.all([apiFetch(`${API}/customers/${c.Id}/teams`).then(r=>r.json()).catch(()=>[]),apiFetch(`${API}/customers/${c.Id}/admins`).then(r=>r.json()).catch(()=>[])]).then(([t,a])=>renderModalPage(c,t,a));}else{renderModalPage(c,[],[]);}if(!isNewCustomer&&c)silentSave(c.Id);}
-
 // ─── REVENUE ITEMS ───────────────────────────────────────
 async function loadRevenueItems(customerId){const el=document.getElementById('revenue-items');if(!el)return;try{const r=await apiFetch(`${API}/customers/${customerId}/revenues`);const allItems=await r.json();const nowYear=new Date().getFullYear();let selectedYear=el.dataset.year?parseInt(el.dataset.year):nowYear;const years=[...new Set(allItems.flatMap(i=>{const from=i.DateFrom?new Date(i.DateFrom).getFullYear():null;const to=i.DateTo?new Date(i.DateTo).getFullYear():null;const yrs=[];if(from)for(let y=from;y<=(to||from);y++)yrs.push(y);return yrs;}))].sort();const filterItems=(year)=>{if(year===0)return allItems;return allItems.filter(i=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yStart=new Date(year,0,1);const yEnd=new Date(year,11,31);if(!from&&!to)return true;if(from&&to)return from<=yEnd&&to>=yStart;if(from)return from<=yEnd&&from>=yStart;return true;}).sort((a,b)=>{const da=a.DateFrom||a.DateTo||'';const db=b.DateFrom||b.DateTo||'';return db.localeCompare(da);});};const calcYearTotal=(items,year)=>{if(year===0)return items.reduce((s,i)=>s+(i.Amount||0),0);return items.reduce((s,i)=>{if(!i.DateFrom&&!i.DateTo)return s+(i.Amount||0);const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yStart=new Date(year,0,1);const yEnd=new Date(year,11,31);if(!from||!to)return s+(i.Amount||0);const totalDays=Math.max(1,Math.round((to-from)/86400000));const overlapStart=from>yStart?from:yStart;const overlapEnd=to<yEnd?to:yEnd;const overlapDays=Math.max(0,Math.round((overlapEnd-overlapStart)/86400000)+1);return s+Math.round((i.Amount||0)*overlapDays/totalDays);},0);};const renderYear=(year)=>{selectedYear=year;el.dataset.year=year;const items=filterItems(year);const totArr=calcYearTotal(allItems.filter(i=>i.Type==='ARR'),year);const totFast=calcYearTotal(allItems.filter(i=>i.Type==='Fastpris'),year);const totUtb=calcYearTotal(allItems.filter(i=>i.Type==='Utbildning'),year);const totCons=calcYearTotal(allItems.filter(i=>i.Type==='Consulting'),year);const totCur=totArr+totFast+totUtb+totCons;const totPrev=year>0?calcYearTotal(allItems,year-1):0;const totDiff=totCur-totPrev;const totPct=totPrev>0?Math.round(totDiff/totPrev*100):null;const arrPrev=year>0?calcYearTotal(allItems.filter(i=>i.Type==='ARR'),year-1):0;const arrDiff=totArr-arrPrev;const arrPct=arrPrev>0?Math.round(arrDiff/arrPrev*100):null;const typeColors={ARR:{bg:'#EAF3DE',color:'#3B6D11',bar:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5',bar:'#185FA5'},Utbildning:{bg:'#FAEEDA',color:'#854F0B',bar:'#b85a00'},Consulting:{bg:'#EEEDFE',color:'#3C3489',bar:'#534AB7'}};const yearBtns=[{label:'Alla',val:0},...years.map(y=>({label:String(y),val:y}))];const itemsHtml=items.length?items.map(item=>{const tc=typeColors[item.Type]||{bg:'var(--surface2)',color:'var(--text2)',bar:'#888'};let leftPct=0,widthPct=100;if(year>0&&item.DateFrom&&item.DateTo){const yStart=new Date(year,0,1).getTime();const yEnd=new Date(year,11,31).getTime();const yLen=yEnd-yStart;const from=new Date(item.DateFrom).getTime();const to=new Date(item.DateTo).getTime();leftPct=Math.max(0,Math.min(100,(from-yStart)/yLen*100));widthPct=Math.max(2,Math.min(100-leftPct,(Math.min(to,yEnd)-Math.max(from,yStart))/yLen*100));}const dateRange=item.DateFrom||item.DateTo?`${item.DateFrom?item.DateFrom.substring(0,10):'?'} – ${item.DateTo?item.DateTo.substring(0,10):'?'}`:'';return`<div class="rev-item" id="ri-${item.Id}"><div class="rev-item-header"><span class="rev-item-type" style="background:${tc.bg};color:${tc.color};">${item.Type}</span><span class="rev-item-amount">${Math.round(item.Amount).toLocaleString('sv-SE')} kr</span>${dateRange?`<span class="rev-item-dates">${dateRange}</span>`:''}<button onclick="editRevenueItem(${customerId},${item.Id})" style="width:22px;height:22px;border:0.5px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--accent);font-size:12px;display:flex;align-items:center;justify-content:center;" title="Redigera">✎</button><button class="rev-del" onclick="deleteRevItem(${customerId},${item.Id})"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div>${item.Description?`<div class="rev-item-desc">${item.Description}</div>`:''} ${year>0&&item.DateFrom?`<div style="height:5px;background:var(--border);border-radius:3px;margin-top:6px;position:relative;"><div style="position:absolute;height:5px;border-radius:3px;left:${leftPct}%;width:${widthPct}%;background:${tc.bar};opacity:0.5;"></div></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px;"><span>Jan ${year}</span><span>Dec ${year}</span></div>`:''}<button onclick="loadRevCommissions(${item.Id},${customerId})" style="margin-top:5px;padding:2px 8px;border:0.5px solid var(--border);border-radius:4px;background:none;font-family:inherit;font-size:10px;color:var(--text3);cursor:pointer;" id="prov-btn-${item.Id}">Provision</button><div id="comm-${item.Id}"></div></div>`;}).join(''):`<div style="color:var(--text3);font-size:13px;padding:8px;">Inga poster för ${year>0?year:'alla år'}</div>`;const cmpHtml=year>0?`<div style="margin-top:16px;"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:8px;">Jämförelse med ${year-1}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;"><div style="background:var(--surface2);border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Intäkt ${year}</div><div style="font-size:17px;font-weight:500;color:var(--accent);">${totCur.toLocaleString('sv-SE')} kr</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">${year-1}: ${totPrev.toLocaleString('sv-SE')} kr</div><div style="font-size:12px;font-weight:500;margin-top:1px;color:${totDiff>=0?'var(--green)':'var(--red)'};">${totDiff>=0?'+':''}${totDiff.toLocaleString('sv-SE')} kr${totPct!==null?` · ${totPct>=0?'+':''}${totPct}%`:''}</div></div><div style="background:var(--surface2);border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--text3);margin-bottom:2px;">ARR-tillväxt</div><div style="font-size:17px;font-weight:500;color:var(--green);">${arrPct!==null?`${arrPct>=0?'+':''}${arrPct}%`:'N/A'}</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">${arrPrev.toLocaleString('sv-SE')} → ${totArr.toLocaleString('sv-SE')} kr</div><div style="font-size:12px;font-weight:500;margin-top:1px;color:${arrDiff>=0?'var(--green)':'var(--red)'};">${arrDiff>=0?'+':''}${arrDiff.toLocaleString('sv-SE')} kr</div></div></div></div>`:'';const yearlyTotals=years.map(y=>calcYearTotal(allItems,y));const maxY=Math.max(...yearlyTotals,1);const chartW=360,chartH=80;const pts=years.map((y,i)=>{const x=years.length===1?chartW/2:i/(years.length-1)*chartW;const yy=chartH-(yearlyTotals[i]/maxY*(chartH-10))-5;return{x:Math.round(x),y:Math.round(yy),val:yearlyTotals[i],year:y};});const polyline=pts.map(p=>`${p.x},${p.y}`).join(' ');const chartHtml=years.length>=2?`<div style="margin-top:4px;"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:8px;">Intäktsutveckling sedan start</div><div style="background:var(--surface2);border-radius:8px;padding:12px;"><svg viewBox="0 0 ${chartW} ${chartH+20}" width="100%" style="overflow:visible;"><line x1="0" y1="${chartH}" x2="${chartW}" y2="${chartH}" stroke="var(--border)" stroke-width="0.5"/><line x1="0" y1="${Math.round(chartH/2)}" x2="${chartW}" y2="${Math.round(chartH/2)}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3 3"/><polyline points="${polyline}" fill="none" stroke="#E8956D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="${p.year===year?4:2.5}" fill="#E8956D" ${p.year===year?'stroke="white" stroke-width="1.5"':''}/><text x="${p.x}" y="${p.y-6}" font-size="9" fill="${p.year===year?'#E8956D':'var(--color-text-secondary)'}" text-anchor="middle" font-weight="${p.year===year?'500':'400'}">${Math.round(p.val/1000)}k</text><text x="${p.x}" y="${chartH+14}" font-size="9" fill="var(--color-text-secondary)" text-anchor="middle">${p.year}</text>`).join('')}</svg></div></div>`:'';el.innerHTML=`<div style="display:flex;gap:5px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">${yearBtns.map(yb=>`<button onclick="setRevYear(${customerId},${yb.val})" style="padding:4px 10px;border:0.5px solid ${yb.val===year?'#1e2140':'var(--border)'};border-radius:6px;background:${yb.val===year?'#1e2140':'none'};color:${yb.val===year?'white':'var(--text2)'};font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;">${yb.label}</button>`).join('')}</div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:12px;"><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">ARR</div><div style="font-size:14px;font-weight:500;color:var(--green);">${totArr>0?totArr.toLocaleString('sv-SE')+' kr':'–'}</div></div><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Consulting</div><div style="font-size:14px;font-weight:500;color:#3C3489;">${totCons>0?totCons.toLocaleString('sv-SE')+' kr':'–'}</div></div><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Utbildning</div><div style="font-size:14px;font-weight:500;color:#854F0B;">${totUtb>0?totUtb.toLocaleString('sv-SE')+' kr':'–'}</div></div><div style="background:var(--surface2);border-radius:7px;padding:8px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">Totalt</div><div style="font-size:14px;font-weight:500;color:var(--accent);">${totCur>0?totCur.toLocaleString('sv-SE')+' kr':'–'}</div></div></div>${itemsHtml}<div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border);margin-top:10px;"><span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Totalt ${year>0?year:''}</span><span style="font-size:17px;font-weight:500;color:var(--accent);">${totCur.toLocaleString('sv-SE')} kr</span></div>${cmpHtml}${chartHtml}`;const totalEl=document.getElementById('total-revenue');if(totalEl)totalEl.textContent=calcYearTotal(allItems,0)>0?calcYearTotal(allItems,0).toLocaleString('sv-SE')+' kr':'–';};window.setRevYear=(cid,year)=>{renderYear(year);};renderYear(selectedYear);}catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda</div>';}}
 
