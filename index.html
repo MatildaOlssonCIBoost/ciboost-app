@@ -812,6 +812,8 @@ async function loadBudgetVersion(){
     const r=await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`);
     budgetRows=await r.json();
     document.getElementById('budget-save-btn').style.display='flex';
+    document.getElementById('btn-rename-budget').style.display='flex';
+    document.getElementById('btn-delete-budget').style.display='flex';
     renderBudgetTable();
   }catch(e){}
 }
