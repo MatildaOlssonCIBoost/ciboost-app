@@ -107,10 +107,66 @@ module.exports = async function (context, req) {
           .input('ARR', sql.Int, c.arr)
           .input('Risk', sql.NVarChar, c.risk)
           .input('Notes', sql.NVarChar, c.notes)
-          .query(`INSERT INTO Customers (Company,Contact,Source,LicenseType,LicenseStart,LicenseEnd,ARR,Risk,Notes)
-                  VALUES (@Company,@Contact,@Source,@LicenseType,@LicenseStart,@LicenseEnd,@ARR,@Risk,@Notes)`);
+          .input('ParentCompany', sql.NVarChar, c.parentCompany || null)
+          .query(`INSERT INTO Customers (Company,Contact,Source,LicenseType,LicenseStart,LicenseEnd,ARR,Risk,Notes,ParentCompany)
+                  VALUES (@Company,@Contact,@Source,@LicenseType,@LicenseStart,@LicenseEnd,@ARR,@Risk,@Notes,@ParentCompany)`);
         return respond(context, 201, { message: 'Kund skapad' });
       }
+    }
+
+    if (path.startsWith('customers/') && !path.includes('/teams') && !path.includes('/admins') && !path.includes('/revenues')) {
+      const id = path.split('/')[1];
+
+      if (method === 'PUT') {
+        const c = req.body;
+        await db.request()
+          .input('Id', sql.Int, id)
+          .input('Company', sql.NVarChar, c.company)
+          .input('SubName', sql.NVarChar, c.subName || null)
+          .input('Contact', sql.NVarChar, c.contact)
+          .input('ContactRole', sql.NVarChar, c.contactRole || null)
+          .input('ContactEmail', sql.NVarChar, c.contactEmail || null)
+          .input('ContactPhone', sql.NVarChar, c.contactPhone || null)
+          .input('CustomerSince', sql.Date, c.customerSince || null)
+          .input('Owner', sql.NVarChar, c.owner)
+          .input('LicenseType', sql.NVarChar, c.licenseType)
+          .input('LicenseStart', sql.Date, c.licenseStart || null)
+          .input('LicenseEnd', sql.Date, c.licenseEnd || null)
+          .input('ARR', sql.Int, c.arr || null)
+          .input('ARR_Fixed', sql.Int, c.arrFixed || null)
+          .input('Revenue_Training', sql.Int, c.revenueTraining || null)
+          .input('Revenue_Training_Date', sql.Date, c.revenueTrainingDate || null)
+          .input('Revenue_Consulting', sql.Int, c.revenueConsulting || null)
+          .input('Revenue_Consulting_Date', sql.Date, c.revenueConsultingDate || null)
+          .input('Risk', sql.NVarChar, c.risk)
+          .input('Notes', sql.NVarChar, c.notes || null)
+          .input('ParentCompany', sql.NVarChar, c.parentCompany || null)
+          .query(`UPDATE Customers SET
+            Company=@Company, SubName=@SubName, Contact=@Contact, ContactRole=@ContactRole,
+            ContactEmail=@ContactEmail, ContactPhone=@ContactPhone, CustomerSince=@CustomerSince,
+            Owner=@Owner, LicenseType=@LicenseType, LicenseStart=@LicenseStart, LicenseEnd=@LicenseEnd,
+            ARR=@ARR, ARR_Fixed=@ARR_Fixed, Revenue_Training=@Revenue_Training,
+            Revenue_Training_Date=@Revenue_Training_Date, Revenue_Consulting=@Revenue_Consulting,
+            Revenue_Consulting_Date=@Revenue_Consulting_Date, Risk=@Risk, Notes=@Notes,
+            ParentCompany=@ParentCompany
+            WHERE Id=@Id`);
+        return respond(context, 200, { message: 'Uppdaterad' });
+      }
+
+      if (method === 'DELETE') {
+        await db.request().input('Id', sql.Int, id)
+          .query('DELETE FROM Customers WHERE Id=@Id');
+        return respond(context, 200, { message: 'Borttagen' });
+      }
+    }
+
+    // Koncern-sökning
+    if (path === 'customers/by-parent' && method === 'GET') {
+      const parent = req.query.name;
+      const result = await db.request()
+        .input('ParentCompany', sql.NVarChar, parent)
+        .query('SELECT * FROM Customers WHERE ParentCompany=@ParentCompany ORDER BY LicenseEnd ASC');
+      return respond(context, 200, result.recordset);
     }
 
     if (path === 'activities' && method === 'POST') {
@@ -132,22 +188,23 @@ module.exports = async function (context, req) {
     }
 
     if (path.startsWith('budget-versions/') && !path.includes('/rows')) {
-    const versionId = path.split('/')[1];
-    if (method === 'PUT') {
-      const b = req.body;
-      await db.request()
-        .input('Id', sql.Int, versionId)
-        .input('Name', sql.NVarChar, b.name)
-        .input('Year', sql.Int, b.year)
-        .query('UPDATE BudgetVersions SET Name=@Name, Year=@Year WHERE Id=@Id');
-      return respond(context, 200, { message: 'Uppdaterad' });
+      const versionId = path.split('/')[1];
+      if (method === 'PUT') {
+        const b = req.body;
+        await db.request()
+          .input('Id', sql.Int, versionId)
+          .input('Name', sql.NVarChar, b.name)
+          .input('Year', sql.Int, b.year)
+          .query('UPDATE BudgetVersions SET Name=@Name, Year=@Year WHERE Id=@Id');
+        return respond(context, 200, { message: 'Uppdaterad' });
+      }
+      if (method === 'DELETE') {
+        await db.request().input('Id', sql.Int, versionId)
+          .query('DELETE FROM BudgetRows WHERE VersionId=@Id; DELETE FROM BudgetVersions WHERE Id=@Id');
+        return respond(context, 200, { message: 'Borttagen' });
+      }
     }
-    if (method === 'DELETE') {
-      await db.request().input('Id', sql.Int, versionId)
-        .query('DELETE FROM BudgetRows WHERE VersionId=@Id; DELETE FROM BudgetVersions WHERE Id=@Id');
-      return respond(context, 200, { message: 'Borttagen' });
-    }
-  }
+
     return respond(context, 404, { message: 'Endpoint hittades inte' });
 
   } catch (err) {
