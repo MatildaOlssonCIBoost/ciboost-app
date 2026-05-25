@@ -1151,7 +1151,8 @@ async function deleteBudgetVersion(){
   if(!currentBudgetVersionId)return;
   const v=budgetVersions.find(x=>x.Id==currentBudgetVersionId);
   if(!confirm(`Radera "${v?.Name}"? Detta går inte att ångra.`))return;
-  await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}`,{method:'DELETE'});
+  const delRes=await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}`,{method:'DELETE'});
+  console.log('Delete status:', delRes.status);
   currentBudgetVersionId=null;
   budgetRows=[];
   await loadBudgetVersions();
@@ -1160,6 +1161,7 @@ async function deleteBudgetVersion(){
   document.getElementById('btn-rename-budget').style.display='none';
   document.getElementById('btn-delete-budget').style.display='none';
   document.getElementById('budget-kpi').innerHTML='';
+}
 }
 // ─── MODAL KUND ──────────────────────────────────────────
 function getLicenseType(c){return document.getElementById('edit-type')?.value||c?.LicenseType||'Team';}
