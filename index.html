@@ -228,21 +228,21 @@
   .lost-reason { font-size: 10px; color: var(--red); margin-top: 4px; }
   /* BUDGET */
   .budget-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: auto; margin-bottom: 16px; }
-  .budget-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 900px; }
-  .budget-table th { padding: 8px 10px; text-align: center; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .budget-table th:first-child { text-align: left; min-width: 160px; }
-  .budget-table th:nth-child(2) { text-align: left; min-width: 120px; }
-  .budget-table td { padding: 5px 6px; text-align: center; border-bottom: 1px solid var(--border); }
-  .budget-table td:first-child { text-align: left; font-weight: 500; padding-left: 10px; }
-  .budget-table td:nth-child(2) { text-align: left; padding-left: 10px; }
+  .budget-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1100px; }
+  .budget-table th { padding: 7px 6px; text-align: center; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .budget-table th:first-child { text-align: left; min-width: 180px; padding-left: 10px; }
+  .budget-table td { padding: 3px 4px; text-align: center; border-bottom: 0.5px solid var(--border); }
+  .budget-table td:first-child { text-align: left; padding-left: 10px; }
   .budget-table tr:last-child td { border-bottom: none; }
-  .budget-table tr.cat-header td { background: var(--surface2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
-  .budget-table tr.total-row td { background: var(--surface2); font-weight: 600; border-top: 2px solid var(--border); }
-  .budget-input { width: 70px; padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; font-family: 'Poppins', sans-serif; font-size: 11px; color: var(--text); background: transparent; text-align: right; }
+  .budget-input { width: 62px; padding: 3px 4px; border: 1px solid transparent; border-radius: 4px; font-family: 'Poppins', sans-serif; font-size: 11px; color: var(--text); background: transparent; text-align: right; }
   .budget-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
   .budget-input:hover { border-color: var(--border); background: var(--surface); }
   .vs-over { color: var(--green); font-weight: 500; }
   .vs-under { color: var(--red); font-weight: 500; }
+  .ndot { width:6px; height:6px; border-radius:50%; flex-shrink:0; cursor:pointer; display:inline-block; vertical-align:middle; }
+  .ndot.nempty { background:transparent; border:1.5px dashed var(--border); }
+  .ndot.nempty:hover { border-color:var(--accent); background:var(--accent-bg); }
+  .ndot.nfilled { background:var(--accent); border:none; }
 </style>
 </head><body>
 <nav class="topnav">
@@ -418,34 +418,29 @@
   </div>
 </div>
 
-<!-- FINANSIELLT BUDGET -->
 <div class="page" id="page-finansiellt-budget">
   <div class="main">
-    <!-- VERSION BAR -->
-<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
-  <select id="budget-version-select" onchange="loadBudgetVersion()" style="font-size:13px;">
-    <option value="">Välj budgetversion...</option>
-  </select>
-  <button class="quick-btn" onclick="openNewBudgetVersion()">+ Ny version</button>
-  <button class="quick-btn" onclick="renameBudgetVersion()" id="btn-rename-budget" style="display:none;">✎ Byt namn</button>
-  <button class="quick-btn" onclick="deleteBudgetVersion()" id="btn-delete-budget" style="display:none;color:var(--red);">🗑 Radera</button>
-  <div style="margin-left:auto;display:flex;gap:8px;">
-    <select id="budget-year-select" onchange="renderBudgetTable()" style="font-size:12px;">
-      <option>2026</option><option>2027</option><option>2025</option>
-    </select>
-    <button class="btn-primary" onclick="saveBudget()" id="budget-save-btn" style="display:none;">Spara budget</button>
-  </div>
-</div>
-    <!-- KPI ROW -->
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+      <select id="budget-version-select" onchange="loadBudgetVersion()" style="font-size:13px;">
+        <option value="">Välj budgetversion...</option>
+      </select>
+      <button class="quick-btn" onclick="openNewBudgetVersion()">+ Ny version</button>
+      <button class="quick-btn" onclick="renameBudgetVersion()" id="btn-rename-budget" style="display:none;">✎ Byt namn</button>
+      <button class="quick-btn" onclick="deleteBudgetVersion()" id="btn-delete-budget" style="display:none;color:var(--red);">🗑 Radera</button>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <select id="budget-year-select" onchange="renderBudgetTable()" style="font-size:12px;">
+          <option>2026</option><option>2027</option><option>2025</option>
+        </select>
+        <button class="btn-primary" onclick="saveBudget()" id="budget-save-btn" style="display:none;">Spara budget</button>
+      </div>
+    </div>
     <div class="kpi-grid" id="budget-kpi" style="margin-bottom:16px;"></div>
-    <!-- BUDGET TABLE -->
     <div id="budget-content">
       <div style="text-align:center;padding:60px;color:var(--text3);font-size:13px;">Välj eller skapa en budgetversion för att börja</div>
     </div>
   </div>
 </div>
 
-<!-- MODAL KUND -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal">
     <div class="modal-header">
@@ -462,7 +457,6 @@
   </div>
 </div>
 
-<!-- MODAL PROSPECT -->
 <div class="modal-overlay" id="prospect-overlay" onclick="closeProspectModal(event)">
   <div class="modal">
     <div class="modal-header">
@@ -488,7 +482,8 @@
       <button class="btn-confirm-delete" onclick="executeDelete()">Ta bort</button>
     </div>
   </div>
-</div><script>
+</div>
+<script>
 const API = 'https://ciboost-api-v2-hmgdayegd2hjeth6.swedencentral-01.azurewebsites.net';
 let _token = null;
 async function getToken() {
@@ -509,15 +504,23 @@ const SOURCE_COLORS = {'Wow':'#639922','Hemsida demo':'#185FA5','30-dagars':'#85
 const ACTION_TYPES = ['Möte','Samtal','E-post','Demo','Offert','Uppföljning','Annat'];
 const DEFAULT_RECIPIENTS = ['Ann-Sofie Forsmark','CI-Labs','Influence','Influence People','Johan Jansson','Lotta Murvall'];
 const BUDGET_ROWS_DEF = [
-  {category:'Intäkter', subCategory:'Licens (prenumeration)'},
-  {category:'Intäkter', subCategory:'Licens (fast pris)'},
-  {category:'Intäkter', subCategory:'Utbildning'},
-  {category:'Intäkter', subCategory:'Consulting'},
-  {category:'Kostnader', subCategory:'Personalkostnader'},
-  {category:'Kostnader', subCategory:'Lokalkostnader'},
-  {category:'Kostnader', subCategory:'Marknadsföring'},
-  {category:'Kostnader', subCategory:'IT & System'},
-  {category:'Kostnader', subCategory:'Övriga kostnader'},
+  {section:'REVENUE', category:'Revenue', subCategory:'Licens (prenumeration)', type:'revenue'},
+  {section:'REVENUE', category:'Revenue', subCategory:'Licens (fast pris)', type:'revenue'},
+  {section:'REVENUE', category:'Revenue', subCategory:'Utbildning', type:'revenue'},
+  {section:'REVENUE', category:'Revenue', subCategory:'Consulting', type:'revenue'},
+  {section:'COGS', category:'Direct Costs (COGS)', subCategory:'Hosting & support', type:'cost'},
+  {section:'COGS', category:'Direct Costs (COGS)', subCategory:'Third party licensing', type:'cost'},
+  {section:'OPEX', category:'Product Development', subCategory:'Content', type:'cost'},
+  {section:'OPEX', category:'Product Development', subCategory:'Compileit', type:'cost'},
+  {section:'OPEX', category:'Sales', subCategory:'CSO/CEO', type:'cost'},
+  {section:'OPEX', category:'Sales', subCategory:'Customer Success Manager', type:'cost'},
+  {section:'OPEX', category:'Sales', subCategory:'Customer Success Representative', type:'cost'},
+  {section:'OPEX', category:'Marketing & Growth', subCategory:'CMO', type:'cost'},
+  {section:'OPEX', category:'Marketing & Growth', subCategory:'Marketing & Communication', type:'cost'},
+  {section:'OPEX', category:'Marketing & Growth', subCategory:'Sales initiatives', type:'cost'},
+  {section:'OPEX', category:'Other OPEX', subCategory:'IT, telecom, pc etc.', type:'cost'},
+  {section:'OPEX', category:'Other OPEX', subCategory:'Other', type:'cost'},
+  {section:'SM', category:'S&M Fee', subCategory:'Service & Management fee', type:'cost'},
 ];
 const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 let allCustomers=[], allProspects=[], allRecipients=[...DEFAULT_RECIPIENTS];
@@ -528,6 +531,7 @@ let revSources={arr:true,fast:true,utb:false,cons:false};
 let perSources={arr:true,fast:true,utb:true,cons:true};
 let currentMain='pipeline', currentSub={kunder:'oversikt',finansiellt:'dashboard'};
 let budgetVersions=[], currentBudgetVersionId=null, budgetRows=[];
+let budgetNotes={};
 
 function daysLeft(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
 function formatDate(d){return d?new Date(d).toLocaleDateString('sv-SE'):'-';}
@@ -553,7 +557,6 @@ function monthlyValue(c,monthDate){
   if(c.Revenue_Consulting_Date){const d=new Date(c.Revenue_Consulting_Date);if(d>=mStart&&d<=mEnd)cons=c.Revenue_Consulting||0;}
   return{arr,fast,utb,cons};
 }
-
 // ─── NAVIGATION ─────────────────────────────────────────
 function switchMain(tab,el){
   currentMain=tab;
@@ -641,7 +644,6 @@ function renderKanban(){
     return`<div class="kanban-col"><div class="kanban-col-header"><span class="kanban-col-title" style="${isWon?'color:var(--green)':isLost?'color:var(--red)':''}">${stage}</span><span class="kanban-col-count">${cards.length}</span></div>${cardsHtml}</div>`;
   }).join('');
 }
-
 // ─── PROSPECT MODAL ──────────────────────────────────────
 function openNewProspect(){isNewProspect=true;currentProspectId=null;currentProspectTab=1;document.getElementById('prospect-title').textContent='Ny prospect';document.getElementById('prospect-subtitle').textContent='';document.getElementById('prospect-delete-btn').style.display='none';renderProspectTabs(null);renderProspectBody(null,[]);document.getElementById('prospect-overlay').classList.add('open');}
 async function openProspectModal(id){
@@ -764,7 +766,6 @@ async function deleteProspect(){if(!currentProspectId)return;if(!confirm('Ta bor
 function convertToCustomer(prospectId){const p=allProspects.find(x=>x.Id===prospectId);if(!p)return;closeProspectModalDirect();isNewCustomer=true;currentModalId=null;currentPage=1;document.getElementById('modal-title').textContent='Ny kund från prospect';document.getElementById('modal-subtitle').textContent=p.Company||'';document.getElementById('btn-delete').style.display='none';renderTabs('Team');const c={Company:p.Company,Contact:p.Contact,ContactRole:p.Role,ContactEmail:p.Email,_owner:p.Owner,LicenseType:'Team',Risk:'Low'};renderModalPage(c,[],[]);document.getElementById('modal-overlay').classList.add('open');}
 function closeProspectModal(e){if(e.target===document.getElementById('prospect-overlay'))closeProspectModalDirect();}
 function closeProspectModalDirect(){document.getElementById('prospect-overlay').classList.remove('open');}
-
 // ─── KUNDER ──────────────────────────────────────────────
 async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
 async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
@@ -792,7 +793,33 @@ async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'P
 // ─── PERIODISERING ───────────────────────────────────────
 function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-periodisering .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPeriodisering();}
 function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(perSources.arr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.fast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.utb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.cons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
+// ─── KUNDER ──────────────────────────────────────────────
+async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
+async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
+function updateStats(){const active=allCustomers.filter(c=>c._days!==null&&c._days>=0);document.getElementById('stat-total').textContent=active.length;document.getElementById('tab-count').textContent=allCustomers.length;document.getElementById('stat-enterprise').textContent=allCustomers.filter(c=>c.LicenseType==='Enterprise').length;document.getElementById('stat-team').textContent=allCustomers.filter(c=>c.LicenseType==='Team').length;document.getElementById('stat-expiring').textContent=allCustomers.filter(c=>c._days!==null&&c._days>=0&&c._days<=30).length;document.getElementById('stat-risk').textContent=allCustomers.filter(c=>c.Risk==='High').length;document.getElementById('stat-expired').textContent=allCustomers.filter(c=>c._days!==null&&c._days<0).length;const totalVal=allCustomers.reduce((s,c)=>s+customerValue(c),0);document.getElementById('stat-total-val').textContent=totalVal>0?totalVal.toLocaleString('sv-SE')+' kr':'-';const labels=[revSources.arr?'ARR':'',revSources.fast?'Fast':'',revSources.utb?'Utb':'',revSources.cons?'Cons':''].filter(Boolean);document.getElementById('stat-total-val-label').textContent=labels.length?labels.join('+'):'Värde';}
+function renderRevSummary(){const totArr=allCustomers.reduce((s,c)=>s+(c.ARR||0),0);const totFast=allCustomers.reduce((s,c)=>s+(c.ARR_Fixed||0),0);const totUtb=allCustomers.reduce((s,c)=>s+(c.Revenue_Training||0),0);const totCons=allCustomers.reduce((s,c)=>s+(c.Revenue_Consulting||0),0);document.getElementById('rev-summary').innerHTML=`<div class="kpi-card"><div class="kpi-label">ARR totalt</div><div class="kpi-value" style="color:var(--green)">${fmtKr(totArr)}</div></div><div class="kpi-card"><div class="kpi-label">Fastpris</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(totFast)}</div></div><div class="kpi-card"><div class="kpi-label">Utbildning</div><div class="kpi-value" style="color:var(--amber)">${fmtKr(totUtb)}</div></div><div class="kpi-card"><div class="kpi-label">Consulting</div><div class="kpi-value" style="color:var(--purple)">${fmtKr(totCons)}</div></div>`;}
+function getFiltered(){const q=(document.getElementById('search')?.value||'').toLowerCase();const owner=document.getElementById('filter-owner')?.value||'';const license=document.getElementById('filter-license')?.value||'';const risk=document.getElementById('filter-risk')?.value||'';return allCustomers.filter(c=>{const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk);});}
+function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderTable();}
+function sortData(data){return [...data].sort((a,b)=>{let va=sortCol==='days'?(a._days??99999):(sortCol==='ARR'?customerValue(a):(a[sortCol]||''));let vb=sortCol==='days'?(b._days??99999):(sortCol==='ARR'?customerValue(b):(b[sortCol]||''));if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;});}
+function renderTable(){const data=sortData(getFiltered());document.getElementById('filter-count').textContent=`${data.length} kund${data.length!==1?'er':''}`;if(!data.length){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Inga kunder matchar</div></td></tr>`;return;}document.getElementById('table-body').innerHTML=data.map(c=>{const arr=c.ARR||0,fast=c.ARR_Fixed||0,utb=c.Revenue_Training||0,cons=c.Revenue_Consulting||0;const tot=arr+fast+utb+cons||1;const val=customerValue(c);const bars=[arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;"></div>`:'',fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;"></div>`:'',utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;"></div>`:'',cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;"></div>`:''].filter(Boolean).join('');return`<tr onclick="openModal(${c.Id})"><td><div class="company-name">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td><td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td><td><span class="owner-tag">${c._owner}</span></td><td><span class="license-type lt-${c.LicenseType}">${c.LicenseType||'-'}</span></td><td style="font-weight:500;font-size:13px;">${val>0?val.toLocaleString('sv-SE')+' kr':'-'}</td><td><div style="display:flex;gap:2px;align-items:center;">${bars}</div></td><td style="font-size:13px;color:var(--text2);">${formatDate(c.LicenseEnd)}</td><td>${daysPill(c._days)}</td><td><span class="risk-dot risk-${c.Risk}">${c.Risk||'-'}</span></td></tr>`;}).join('');}
+function toggleRevDD(e){e.stopPropagation();const p=document.getElementById('rev-dd-panel');p.style.display=p.style.display==='none'?'block':'none';}
+function toggleRevSource(s){revSources[s]=!revSources[s];document.getElementById(`rcb-${s}`).classList.toggle('on',revSources[s]);renderTable();updateStats();}
+function togglePerDD(e){e.stopPropagation();const p=document.getElementById('per-dd-panel');p.style.display=p.style.display==='none'?'block':'none';}
+function togglePerSource(s){perSources[s]=!perSources[s];document.getElementById(`pcb-${s}`).classList.toggle('on',perSources[s]);}
 
+// ─── LICENSTIDSLINJE ────────────────────────────────────
+function renderLicenstidslinje(){const now=new Date();const urgent=allCustomers.filter(c=>c._days!==null&&c._days<=0);const soon=allCustomers.filter(c=>c._days!==null&&c._days>0&&c._days<=90);document.getElementById('action-count').textContent=urgent.length;document.getElementById('action-list').innerHTML=urgent.length?urgent.map(c=>`<div class="action-row" onclick="openModal(${c.Id})">${c._days<0?`<span class="badge b-red">Utgången</span>`:`<span class="badge b-amber">${c._days}d</span>`}<span style="flex:1;">${c.Company}</span><span class="risk-dot risk-${c.Risk}">${c.Risk}</span></div>`).join(''):'<div style="padding:12px;font-size:13px;color:var(--text3);">Inga utgångna</div>';document.getElementById('soon-count').textContent=soon.length;document.getElementById('soon-list').innerHTML=soon.length?soon.map(c=>`<div class="action-row" onclick="openModal(${c.Id})"><span class="badge ${c._days<=30?'b-amber':'b-green'}">${c._days}d</span><span style="flex:1;">${c.Company}</span><span class="risk-dot risk-${c.Risk}">${c.Risk}</span></div>`).join(''):'<div style="padding:12px;font-size:13px;color:var(--text3);">Inga snart utgående</div>';const months=[];const mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];for(let i=-1;i<11;i++)months.push(new Date(now.getFullYear(),now.getMonth()+i,1));document.getElementById('gantt-months').innerHTML=months.map(m=>`<div class="gantt-month">${mNames[m.getMonth()]} ${m.getFullYear()!==now.getFullYear()?m.getFullYear().toString().slice(2):''}</div>`).join('');const rangeStart=months[0].getTime();const rangeEnd=new Date(months[months.length-1].getFullYear(),months[months.length-1].getMonth()+1,0).getTime();const rangeLen=rangeEnd-rangeStart;const active=allCustomers.filter(c=>c.LicenseStart||c.LicenseEnd).sort((a,b)=>(a._days??99999)-(b._days??99999));document.getElementById('gantt-body').innerHTML=active.map(c=>{const licStart=c.LicenseStart?new Date(c.LicenseStart).getTime():rangeStart;const licEnd=c.LicenseEnd?new Date(c.LicenseEnd).getTime():rangeEnd;const clampedStart=Math.max(licStart,rangeStart);const clampedEnd=Math.min(licEnd,rangeEnd);if(clampedEnd<rangeStart||clampedStart>rangeEnd)return'';const left=Math.max(0,(clampedStart-rangeStart)/rangeLen*100);const width=Math.max(0.5,(clampedEnd-clampedStart)/rangeLen*100);const color=c._days===null?'#b4b2a9':c._days<0?'#b4b2a9':c._days<=30?'#a32d2d':c._days<=90?'#b85a00':'#1a7a50';const label=c._days!==null?(c._days<0?'Utgången':`${c._days}d kvar`):'';return`<div class="gantt-row" onclick="openModal(${c.Id})"><div class="gantt-row-name"><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div><div style="font-size:11px;color:var(--text3);">${c._owner}</div></div><div class="gantt-bars"><div class="gantt-bar" style="left:${left}%;width:${width}%;background:${color};">${label}</div></div></div>`;}).filter(Boolean).join('');}
+
+// ─── FINANSIELLT ─────────────────────────────────────────
+function setFinQuick(p,el){document.querySelectorAll('#page-finansiellt-dashboard .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();const now=new Date().toISOString().slice(0,10);if(p==='ytd'){document.getElementById('fin-from').value=`${y}-01-01`;document.getElementById('fin-to').value=now;}if(p==='q2'){document.getElementById('fin-from').value=`${y}-04-01`;document.getElementById('fin-to').value=`${y}-06-30`;}if(p==='h1'){document.getElementById('fin-from').value=`${y}-01-01`;document.getElementById('fin-to').value=`${y}-06-30`;}if(p==='year'){document.getElementById('fin-from').value=`${y}-01-01`;document.getElementById('fin-to').value=`${y}-12-31`;}renderFinDashboard();}
+function setResultView(v,el){document.querySelectorAll('.result-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+function renderFinDashboard(){const totArr=allCustomers.reduce((s,c)=>s+(c.ARR||0),0);const totFast=allCustomers.reduce((s,c)=>s+(c.ARR_Fixed||0),0);const totUtb=allCustomers.reduce((s,c)=>s+(c.Revenue_Training||0),0);const totCons=allCustomers.reduce((s,c)=>s+(c.Revenue_Consulting||0),0);const total=totArr+totFast+totUtb+totCons;const budget=495000;const diff=total-budget;const pct=Math.round(total/budget*100);document.getElementById('hero-card').innerHTML=`<div class="hero-main"><div class="label">Total försäljning</div><div class="value" style="color:var(--green)">${total.toLocaleString('sv-SE')} kr</div><div class="delta ${diff>=0?'pos':'neg'}">${diff>=0?'+':''}${diff.toLocaleString('sv-SE')} kr vs budget · ${pct}% uppnått</div></div><div style="flex:1;"></div><div class="hero-sec"><div class="label">MRR</div><div class="value" style="color:var(--accent)">${Math.round(totArr/12).toLocaleString('sv-SE')} kr</div><div class="delta neu">ARR ÷ 12</div></div><div class="hero-sec"><div class="label">Vs budget</div><div class="value ${pct>=100?'pos':''}">${pct}%</div><div class="delta neu">Budget ${budget.toLocaleString('sv-SE')} kr</div></div>`;const active=allCustomers.filter(c=>c._days!==null&&c._days>=0);const churn=allCustomers.filter(c=>c._days!==null&&c._days<0).length;const pipeVal=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost').reduce((s,p)=>s+(p.ValueMax||p.ValueMin||p.Value||0),0);const pipeWeighted=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost').reduce((s,p)=>s+Math.round((p.ValueMax||p.ValueMin||p.Value||0)*(p.Probability||0)/100),0);document.getElementById('fin-kpi-grid').innerHTML=`<div class="kpi-card"><div class="kpi-label">Churn rate</div><div class="kpi-value neg">${allCustomers.length>0?Math.round(churn/allCustomers.length*1000)/10:0}%</div><div class="kpi-delta neg">${churn} utgångna</div></div><div class="kpi-card"><div class="kpi-label">Avg contract value</div><div class="kpi-value">${active.length>0?Math.round(totArr/active.length).toLocaleString('sv-SE')+' kr':'-'}</div><div class="kpi-delta neu">per kund/år</div></div><div class="kpi-card"><div class="kpi-label">Pipeline värde</div><div class="kpi-value" style="color:var(--accent)">${pipeVal>0?pipeVal.toLocaleString('sv-SE')+' kr':'-'}</div><div class="kpi-delta neu">Viktat: ${pipeWeighted>0?pipeWeighted.toLocaleString('sv-SE')+' kr':'-'}</div></div><div class="kpi-card"><div class="kpi-label">Expansion revenue</div><div class="kpi-value" style="color:var(--blue)">${(totUtb+totCons).toLocaleString('sv-SE')} kr</div><div class="kpi-delta neu">Utb + Consulting</div></div>`;const maxMix=Math.max(totArr,totFast,totUtb,totCons)||1;document.getElementById('mix-total-badge').textContent=fmtKr(total);document.getElementById('mix-rows').innerHTML=[{label:'ARR löpande',val:totArr,color:'#1a7a50'},{label:'Fastpris',val:totFast,color:'#1a4f7a'},{label:'Utbildning',val:totUtb,color:'#b85a00'},{label:'Consulting',val:totCons,color:'#5a1a7a'}].map(r=>`<div class="mix-row"><span style="min-width:90px;font-size:12px;color:var(--text2);">${r.label}</span><div class="mix-bar"><div class="mix-fill" style="width:${Math.round(r.val/maxMix*100)}%;background:${r.color};"></div></div><span style="min-width:70px;text-align:right;font-weight:500;font-size:13px;">${fmtKr(r.val)}</span></div>`).join('');const now=new Date();const mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const forecasts=[];for(let i=1;i<=6;i++){const m=new Date(now.getFullYear(),now.getMonth()+i,1);let v=0;allCustomers.forEach(c=>{const mv=monthlyValue(c,m);v+=mv.arr+mv.fast+mv.utb+mv.cons;});forecasts.push({month:mNames[m.getMonth()],value:Math.round(v)});}const mrr=Math.round(totArr/12);const maxF=Math.max(...forecasts.map(f=>f.value))||1;document.getElementById('forecast-rows').innerHTML=forecasts.map(f=>`<div class="forecast-row"><span style="min-width:28px;color:var(--text3);">${f.month}</span><div style="flex:1;height:5px;background:var(--border);border-radius:3px;"><div style="width:${Math.round(f.value/maxF*100)}%;height:5px;border-radius:3px;background:${f.value>=mrr?'#1a7a50':'#b85a00'};"></div></div><span style="font-weight:500;min-width:60px;text-align:right;font-size:12px;">${f.value.toLocaleString('sv-SE')} kr</span><span class="badge ${f.value>=mrr?'b-green':'b-amber'}" style="font-size:10px;">${f.value>=mrr?'Över MRR':'Under'}</span></div>`).join('');loadCommissions();}
+async function loadCommissions(){try{const r=await apiFetch(`${API}/commissions`);const comms=await r.json();const unpaid=comms.filter(c=>!c.PaidOut);const totalUnpaid=unpaid.reduce((s,c)=>s+(c.Amount||0),0);document.getElementById('comm-badge').textContent=fmtKr(totalUnpaid);document.getElementById('comm-badge').className=`badge ${totalUnpaid>0?'b-amber':'b-green'}`;if(!comms.length){document.getElementById('comm-rows').innerHTML='<div style="padding:12px;font-size:13px;color:var(--text3);">Ingen provision registrerad</div>';return;}document.getElementById('comm-rows').innerHTML=comms.map(c=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px;" class="${c.PaidOut?'comm-paid':''}"><span style="flex:1;">${c.Company}</span><span style="color:var(--text3);font-size:12px;">${c.RevenueType}</span><span style="font-weight:500;">${fmtKr(c.Amount)}</span><span style="color:var(--text3);font-size:12px;">${c.Recipient}</span>${!c.PaidOut?`<button class="btn-sm" onclick="markPaid(${c.Id})">Markera betald</button>`:`<span class="badge b-green">Betald</span>`}</div>`).join('');}catch(e){document.getElementById('comm-rows').innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda provision</div>';}}
+async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadCommissions();}
+
+// ─── PERIODISERING ───────────────────────────────────────
+function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-periodisering .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPeriodisering();}
+function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(perSources.arr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.fast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.utb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.cons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
 // ─── BUDGET ──────────────────────────────────────────────
 async function loadBudgetVersions(){
   try{
@@ -807,7 +834,14 @@ async function loadBudgetVersions(){
 async function loadBudgetVersion(){
   const sel=document.getElementById('budget-version-select');
   currentBudgetVersionId=sel.value;
-  if(!currentBudgetVersionId){document.getElementById('budget-content').innerHTML='<div style="text-align:center;padding:60px;color:var(--text3);font-size:13px;">Välj eller skapa en budgetversion för att börja</div>';document.getElementById('budget-save-btn').style.display='none';document.getElementById('budget-kpi').innerHTML='';return;}
+  if(!currentBudgetVersionId){
+    document.getElementById('budget-content').innerHTML='<div style="text-align:center;padding:60px;color:var(--text3);font-size:13px;">Välj eller skapa en budgetversion för att börja</div>';
+    document.getElementById('budget-save-btn').style.display='none';
+    document.getElementById('btn-rename-budget').style.display='none';
+    document.getElementById('btn-delete-budget').style.display='none';
+    document.getElementById('budget-kpi').innerHTML='';
+    return;
+  }
   try{
     const r=await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`);
     budgetRows=await r.json();
@@ -823,58 +857,240 @@ function renderBudgetTable(){
   const rowMap={};
   budgetRows.forEach(r=>{rowMap[`${r.Category}__${r.SubCategory}`]=r;});
 
-  // Beräkna faktiska intäkter per månad
-  const actualByMonth=MONTHS.map((m,mi)=>{
+  const actualByMonth=MONTHS.map((_,mi)=>{
     const monthDate=new Date(year,mi,1);
     let tot=0;
     allCustomers.forEach(c=>{const mv=monthlyValue(c,monthDate);tot+=mv.arr+mv.fast+mv.utb+mv.cons;});
     return Math.round(tot);
   });
-// Bygg tabellen
+
+  const getVal=(category,sub,mi)=>{
+    const key=`${category}__${sub}`;
+    const saved=rowMap[key]||{};
+    return saved[MONTHS[mi]]||0;
+  };
+
+  const sumSection=(section)=>{
+    const rows=BUDGET_ROWS_DEF.filter(r=>r.section===section);
+    return MONTHS.map((_,mi)=>rows.reduce((s,r)=>s+getVal(r.category,r.subCategory,mi),0));
+  };
+
+  const revMonthly=sumSection('REVENUE');
+  const cogsMonthly=sumSection('COGS');
+  const opexMonthly=sumSection('OPEX');
+  const smMonthly=sumSection('SM');
+
+  const tb1Monthly=revMonthly.map((v,i)=>v-cogsMonthly[i]);
+  const tb2Monthly=tb1Monthly.map((v,i)=>v-opexMonthly[i]);
+  const tb3Monthly=tb2Monthly.map((v,i)=>v-smMonthly[i]);
+
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const revTotal=sum(revMonthly);
+  const cogsTotal=sum(cogsMonthly);
+  const opexTotal=sum(opexMonthly);
+  const smTotal=sum(smMonthly);
+  const tb1Total=sum(tb1Monthly);
+  const tb2Total=sum(tb2Monthly);
+  const tb3Total=sum(tb3Monthly);
+  const utfallTotal=sum(actualByMonth);
+
+  const fmtK=v=>v===0?'-':Math.round(v/1000)+'k';
+  const fmtPct=(num,den)=>den===0?'-':Math.round(num/den*100)+'%';
+  const colorVal=v=>v>=0?'color:#6fcf97':'color:#ff7979';
+
+  const noteKey=(sub,mi)=>`${sub}__${MONTHS[mi]}`;
+  const dotHtml=(category,sub,mi)=>{
+    const key=noteKey(sub,mi);
+    const has=!!budgetNotes[key];
+    const noteText=has?budgetNotes[key].replace(/"/g,'&quot;').replace(/'/g,'&#39;'):'';
+    return `<span class="ndot ${has?'nfilled':'nempty'}" data-key="${key}" data-sub="${sub.replace(/"/g,'&quot;')}" data-mi="${mi}" onclick="openNotePopup(this)" title="${noteText}"></span>`;
+  };
+
+  const inputCell=(category,sub,mi)=>{
+    const val=getVal(category,sub,mi);
+    return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;position:relative;">
+      <input class="budget-input" type="number" data-cat="${category}" data-sub="${sub}" data-month="${MONTHS[mi]}" value="${val||''}" placeholder="0" oninput="updateBudgetTotals()">
+      ${dotHtml(category,sub,mi)}
+    </div></td>`;
+  };
+
+  const thStyle='style="background:#1e2140;color:white;font-weight:500;font-size:11px;padding:5px 8px;"';
+  const tbRow=(label,monthly,total,extra)=>`<tr style="background:#1e2140;">
+    <td ${thStyle}>${label}</td>
+    ${monthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:500;${colorVal(v)}">${fmtK(v)}</td>`).join('')}
+    <td style="text-align:center;font-weight:600;border-left:1px solid #444;background:#1e2140;${colorVal(total)}">${fmtK(total)}</td>
+  </tr>`;
+  const pctRow=(label,numArr,numTotal,denArr,denTotal)=>`<tr style="background:var(--surface2);">
+    <td style="font-size:11px;color:var(--text3);padding-left:10px;">${label}</td>
+    ${numArr.map((v,i)=>`<td style="text-align:center;font-size:11px;color:var(--text3);">${fmtPct(v,denArr[i])}</td>`).join('')}
+    <td style="text-align:center;font-size:11px;color:var(--text3);border-left:1px solid var(--border);">${fmtPct(numTotal,denTotal)}</td>
+  </tr>`;
+  const sumRow=(label,monthly,total,bg)=>`<tr style="background:${bg||'var(--surface2)'};">
+    <td style="font-weight:500;padding-left:10px;">${label}</td>
+    ${monthly.map(v=>`<td style="font-weight:500;text-align:center;font-size:11px;">${fmtK(v)}</td>`).join('')}
+    <td style="font-weight:600;text-align:center;border-left:1px solid var(--border);">${fmtK(total)}</td>
+  </tr>`;
+
   let html=`<div class="budget-table-wrap"><table class="budget-table">
     <thead><tr>
-      <th>Kategori</th><th>Rad</th>
+      <th style="text-align:left;min-width:180px;padding-left:10px;">Row</th>
       ${MONTHS.map(m=>`<th>${m}</th>`).join('')}
-      <th>Totalt</th>
+      <th style="border-left:1px solid var(--border);">Total år</th>
     </tr></thead><tbody>`;
-  const categories=['Intäkter','Kostnader'];
-  const categoryTotals={};
-  categories.forEach(cat=>{
-    const catRows=BUDGET_ROWS_DEF.filter(r=>r.category===cat);
-    html+=`<tr class="cat-header"><td colspan="15">${cat}</td></tr>`;
-    const catMonthTotals=MONTHS.map(()=>0);
-    let catTotal=0;
-    catRows.forEach(rd=>{
-      const key=`${rd.category}__${rd.subCategory}`;
-      const saved=rowMap[key]||{};
-      const vals=MONTHS.map((_,mi)=>saved[MONTHS[mi]]||0);
-      const rowTotal=vals.reduce((a,b)=>a+b,0);
-      catTotal+=rowTotal;
-      vals.forEach((v,i)=>catMonthTotals[i]+=v);
-      html+=`<tr><td></td><td style="color:var(--text2);font-size:12px;">${rd.subCategory}</td>${MONTHS.map((m,mi)=>`<td><input class="budget-input" type="number" data-cat="${rd.category}" data-sub="${rd.subCategory}" data-month="${m}" value="${vals[mi]||''}" placeholder="0" oninput="updateBudgetTotals()"></td>`).join('')}<td style="font-weight:500;font-size:12px;">${rowTotal>0?Math.round(rowTotal/1000)+'k':'-'}</td></tr>`;
-    });
-    html+=`<tr class="total-row"><td></td><td>Summa ${cat}</td>${catMonthTotals.map(t=>`<td style="font-size:11px;">${t>0?Math.round(t/1000)+'k':'-'}</td>`).join('')}<td>${catTotal>0?Math.round(catTotal/1000)+'k':'-'}</td></tr>`;
-    categoryTotals[cat]={monthly:catMonthTotals,total:catTotal};
+
+  // REVENUE
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#7a3a1a;color:white;font-weight:500;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ REVENUE</td></tr>`;
+  BUDGET_ROWS_DEF.filter(r=>r.section==='REVENUE').forEach(rd=>{
+    const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
+    const total=sum(vals);
+    html+=`<tr style="background:#fdf0e8;">
+      <td style="padding-left:10px;font-size:12px;">${rd.subCategory}</td>
+      ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
+      <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:#fae0cc;">${fmtK(total)}</td>
+    </tr>`;
   });
-  const resultMonthly=MONTHS.map((_,i)=>(categoryTotals['Intäkter']?.monthly[i]||0)-(categoryTotals['Kostnader']?.monthly[i]||0));
-  const resultTotal=(categoryTotals['Intäkter']?.total||0)-(categoryTotals['Kostnader']?.total||0);
-  html+=`<tr style="background:#1e2140;color:white;"><td colspan="2" style="font-weight:600;color:white;">Resultat</td>${resultMonthly.map(v=>`<td style="font-weight:500;color:${v>=0?'#6fcf97':'#ff7979'};font-size:11px;">${v!==0?(v>=0?'+':'')+Math.round(v/1000)+'k':'-'}</td>`).join('')}<td style="font-weight:600;color:${resultTotal>=0?'#6fcf97':'#ff7979'};">${resultTotal!==0?(resultTotal>=0?'+':'')+Math.round(resultTotal/1000)+'k':'-'}</td></tr>`;
-  const utfallTotal=actualByMonth.reduce((a,b)=>a+b,0);
-  html+=`<tr style="background:var(--green-bg);"><td colspan="2" style="font-weight:600;color:var(--green);font-size:11px;">Utfall intäkter</td>${actualByMonth.map(v=>`<td style="color:var(--green);font-size:11px;font-weight:500;">${v>0?Math.round(v/1000)+'k':'-'}</td>`).join('')}<td style="font-weight:600;color:var(--green);">${utfallTotal>0?Math.round(utfallTotal/1000)+'k':'-'}</td></tr>`;
-  const intäktBudgetMonthly=categoryTotals['Intäkter']?.monthly||MONTHS.map(()=>0);
-  html+=`<tr style="background:var(--surface2);"><td colspan="2" style="font-weight:600;font-size:11px;color:var(--text3);">Vs budget</td>${actualByMonth.map((v,i)=>{const diff=v-(intäktBudgetMonthly[i]||0);return`<td style="font-size:11px;font-weight:500;" class="${diff>=0?'vs-over':'vs-under'}">${diff!==0?(diff>=0?'+':'')+Math.round(diff/1000)+'k':'-'}</td>`;}).join('')}<td style="font-weight:600;" class="${utfallTotal-(categoryTotals['Intäkter']?.total||0)>=0?'vs-over':'vs-under'}">${((utfallTotal-(categoryTotals['Intäkter']?.total||0))!==0)?(utfallTotal-(categoryTotals['Intäkter']?.total||0)>=0?'+':'')+Math.round((utfallTotal-(categoryTotals['Intäkter']?.total||0))/1000)+'k':'-'}</td></tr>`;
+  html+=sumRow('Total Revenue',revMonthly,revTotal,'#fae0cc');
+
+  // COGS
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1e2140;color:white;font-weight:500;font-size:11px;padding:5px 10px;">▸ DIRECT COSTS (COGS)</td></tr>`;
+  BUDGET_ROWS_DEF.filter(r=>r.section==='COGS').forEach(rd=>{
+    const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
+    const total=sum(vals);
+    html+=`<tr>
+      <td style="padding-left:10px;font-size:12px;">${rd.subCategory}</td>
+      ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
+      <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
+    </tr>`;
+  });
+  html+=sumRow('Total COGS',cogsMonthly,cogsTotal);
+  html+=tbRow('TB1 – Gross Profit',tb1Monthly,tb1Total);
+  html+=pctRow('Gross Margin %',tb1Monthly,tb1Total,revMonthly,revTotal);
+
+  // OPEX
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1e2140;color:white;font-weight:500;font-size:11px;padding:5px 10px;">▸ OPEX &amp; DEVELOPMENT</td></tr>`;
+  const opexCategories=[...new Set(BUDGET_ROWS_DEF.filter(r=>r.section==='OPEX').map(r=>r.category))];
+  opexCategories.forEach(cat=>{
+    const catRows=BUDGET_ROWS_DEF.filter(r=>r.section==='OPEX'&&r.category===cat);
+    const catMonthly=MONTHS.map((_,mi)=>catRows.reduce((s,r)=>s+getVal(r.category,r.subCategory,mi),0));
+    const catTotal=sum(catMonthly);
+    html+=`<tr style="background:var(--surface2);">
+      <td style="font-weight:500;padding-left:10px;">${cat}</td>
+      ${catMonthly.map(v=>`<td style="font-weight:500;text-align:center;font-size:11px;">${fmtK(v)}</td>`).join('')}
+      <td style="font-weight:600;text-align:center;border-left:1px solid var(--border);">${fmtK(catTotal)}</td>
+    </tr>`;
+    catRows.forEach(rd=>{
+      const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
+      const total=sum(vals);
+      html+=`<tr>
+        <td style="padding-left:24px;color:var(--text2);font-size:11px;">${rd.subCategory}</td>
+        ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
+        <td style="font-weight:500;text-align:center;font-size:11px;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
+      </tr>`;
+    });
+  });
+  html+=sumRow('Total OPEX',opexMonthly,opexTotal);
+  html+=tbRow('TB2 – EBITDA / Operating Profit',tb2Monthly,tb2Total);
+  html+=pctRow('OPEX %',opexMonthly,opexTotal,revMonthly,revTotal);
+
+  // S&M
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1e2140;color:white;font-weight:500;font-size:11px;padding:5px 10px;">▸ S&amp;M FEE</td></tr>`;
+  BUDGET_ROWS_DEF.filter(r=>r.section==='SM').forEach(rd=>{
+    const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
+    const total=sum(vals);
+    html+=`<tr>
+      <td style="padding-left:10px;font-size:12px;">${rd.subCategory}</td>
+      ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
+      <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
+    </tr>`;
+  });
+  html+=tbRow('TB3 – Net',tb3Monthly,tb3Total);
+  html+=pctRow('Net Margin %',tb3Monthly,tb3Total,revMonthly,revTotal);
+
+  // UTFALL
+  html+=`<tr style="background:var(--green-bg);">
+    <td style="font-weight:600;color:var(--green);font-size:11px;padding-left:10px;">Utfall intäkter</td>
+    ${actualByMonth.map(v=>`<td style="color:var(--green);font-size:11px;font-weight:500;text-align:center;">${fmtK(v)}</td>`).join('')}
+    <td style="font-weight:600;color:var(--green);text-align:center;border-left:1px solid var(--border);">${fmtK(utfallTotal)}</td>
+  </tr>`;
+  html+=`<tr style="background:var(--surface2);">
+    <td style="font-weight:600;font-size:11px;color:var(--text3);padding-left:10px;">Vs budget</td>
+    ${actualByMonth.map((v,i)=>{const diff=v-(revMonthly[i]||0);return`<td style="font-size:11px;font-weight:500;text-align:center;" class="${diff>=0?'vs-over':'vs-under'}">${diff!==0?(diff>=0?'+':'')+fmtK(diff):'-'}</td>`;}).join('')}
+    <td style="font-weight:600;text-align:center;border-left:1px solid var(--border);" class="${utfallTotal-revTotal>=0?'vs-over':'vs-under'}">${utfallTotal-revTotal!==0?(utfallTotal-revTotal>=0?'+':'')+fmtK(utfallTotal-revTotal):'-'}</td>
+  </tr>`;
+
   html+='</tbody></table></div>';
   document.getElementById('budget-content').innerHTML=html;
-  const budgetedTotal=categoryTotals['Intäkter']?.total||0;
-  const vsAmt=utfallTotal-budgetedTotal;
-  const vsPct=budgetedTotal>0?Math.round(utfallTotal/budgetedTotal*100):0;
+
+  // KPI
+  const vsAmt=utfallTotal-revTotal;
+  const vsPct=revTotal>0?Math.round(utfallTotal/revTotal*100):0;
   document.getElementById('budget-kpi').innerHTML=`
-    <div class="kpi-card"><div class="kpi-label">Budgeterade intäkter</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(budgetedTotal)}</div><div class="kpi-delta neu">Helår ${year}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Utfall intäkter</div><div class="kpi-value" style="color:var(--green)">${fmtKr(utfallTotal)}</div><div class="kpi-delta ${vsAmt>=0?'pos':'neg'}">${vsAmt>=0?'+':''}${fmtKr(vsAmt)} vs budget</div></div>
-    <div class="kpi-card"><div class="kpi-label">Uppnått</div><div class="kpi-value ${vsPct>=100?'pos':vsPct>=80?'neu':'neg'}">${vsPct}%</div><div class="kpi-delta neu">av budgeterat</div></div>
-    <div class="kpi-card"><div class="kpi-label">Budgeterat resultat</div><div class="kpi-value ${resultTotal>=0?'pos':'neg'}">${fmtKr(resultTotal)}</div><div class="kpi-delta neu">Intäkter - Kostnader</div></div>`;
+    <div class="kpi-card"><div class="kpi-label">Budgeterade intäkter</div><div class="kpi-value" style="color:var(--accent)">${fmtKr(revTotal)}</div><div class="kpi-delta neu">Helår ${year}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Gross Profit (TB1)</div><div class="kpi-value" style="color:${tb1Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb1Total)}</div><div class="kpi-delta neu">${fmtPct(tb1Total,revTotal)} gross margin</div></div>
+    <div class="kpi-card"><div class="kpi-label">EBITDA (TB2)</div><div class="kpi-value" style="color:${tb2Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb2Total)}</div><div class="kpi-delta neu">${fmtPct(tb2Total,revTotal)} av intäkter</div></div>
+    <div class="kpi-card"><div class="kpi-label">Net (TB3)</div><div class="kpi-value" style="color:${tb3Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb3Total)}</div><div class="kpi-delta neu">${fmtPct(tb3Total,revTotal)} net margin</div></div>`;
+
+  restoreNoteDots();
 }
+
 function updateBudgetTotals(){}
+
+function restoreNoteDots(){
+  document.querySelectorAll('.ndot').forEach(dot=>{
+    const key=dot.dataset.key;
+    if(budgetNotes[key]){
+      dot.classList.remove('nempty');
+      dot.classList.add('nfilled');
+      dot.title=budgetNotes[key];
+    } else {
+      dot.classList.remove('nfilled');
+      dot.classList.add('nempty');
+      dot.title='';
+    }
+  });
+}
+
+function openNotePopup(dot){
+  document.querySelectorAll('.note-popup').forEach(p=>p.remove());
+  const key=dot.dataset.key;
+  const sub=dot.dataset.sub;
+  const mi=parseInt(dot.dataset.mi);
+  const existing=budgetNotes[key]||'';
+  const popup=document.createElement('div');
+  popup.className='note-popup';
+  popup.style.cssText='position:absolute;right:0;top:22px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;width:220px;box-shadow:var(--shadow-md);z-index:200;';
+  popup.innerHTML=`
+    <div style="font-size:10px;color:var(--text3);margin-bottom:4px;">${sub} – ${MONTHS[mi]}</div>
+    <textarea id="note-input" style="width:100%;border:0.5px solid var(--border);border-radius:5px;font-family:Poppins,sans-serif;font-size:11px;padding:5px;resize:none;height:60px;color:var(--text);background:var(--surface);box-sizing:border-box;">${existing}</textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+      <button onclick="deleteNote('${key}')" style="font-size:10px;color:var(--red);background:none;border:none;cursor:pointer;font-family:Poppins,sans-serif;">Radera</button>
+      <button onclick="saveNote('${key}')" style="padding:3px 10px;border:none;border-radius:5px;background:var(--accent);color:#1e2140;font-family:Poppins,sans-serif;font-size:11px;font-weight:500;cursor:pointer;">Spara</button>
+    </div>`;
+  dot.parentElement.appendChild(popup);
+  popup.querySelector('#note-input').focus();
+  setTimeout(()=>{
+    document.addEventListener('click',function closePopup(e){
+      if(!popup.contains(e.target)&&e.target!==dot){
+        popup.remove();
+        document.removeEventListener('click',closePopup);
+      }
+    });
+  },100);
+}
+
+function saveNote(key){
+  const val=document.getElementById('note-input')?.value?.trim();
+  if(val) budgetNotes[key]=val;
+  else delete budgetNotes[key];
+  document.querySelectorAll('.note-popup').forEach(p=>p.remove());
+  restoreNoteDots();
+}
+
+function deleteNote(key){
+  delete budgetNotes[key];
+  document.querySelectorAll('.note-popup').forEach(p=>p.remove());
+  restoreNoteDots();
+}
 
 async function saveBudget(){
   if(!currentBudgetVersionId)return;
@@ -945,7 +1161,6 @@ async function deleteBudgetVersion(){
   document.getElementById('btn-delete-budget').style.display='none';
   document.getElementById('budget-kpi').innerHTML='';
 }
-
 // ─── MODAL KUND ──────────────────────────────────────────
 function getLicenseType(c){return document.getElementById('edit-type')?.value||c?.LicenseType||'Team';}
 function renderTabs(lt){const tab2=lt==='Enterprise'?'Enterprise':'Team';document.getElementById('modal-tabs').innerHTML=['Översikt',tab2,'Värde','Aktivitet'].map((t,i)=>`<button class="modal-tab ${currentPage===i+1?'active':''}" onclick="goToPage(${i+1})">${i+1}. ${t}</button>`).join('');}
@@ -988,7 +1203,7 @@ function calcCommFromPercent(base){const pct=parseFloat(document.getElementById(
 function showDialog(title,bodyHtml,onSave){const existing=document.getElementById('dialog-overlay');if(existing)existing.remove();const overlay=document.createElement('div');overlay.id='dialog-overlay';overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';overlay.innerHTML=`<div style="background:var(--surface);border-radius:12px;padding:24px;width:360px;box-shadow:var(--shadow-md);"><h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">${title}</h3><div style="display:flex;flex-direction:column;gap:0;">${bodyHtml}</div><div style="display:flex;gap:8px;margin-top:16px;"><button onclick="document.getElementById('dialog-overlay').remove();" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="dialog-save-btn" class="btn-primary" style="flex:1;" onclick="handleDialogSave()">Spara</button></div></div>`;document.body.appendChild(overlay);window._dialogSave=onSave;}
 async function handleDialogSave(){if(window._dialogSave){const ok=await window._dialogSave();if(ok!==false)document.getElementById('dialog-overlay')?.remove();}}
 
-// ─── AKTIVITETER KUND ────────────────────────────────────
+// ─── AKTIVITETER ─────────────────────────────────────────
 async function loadActivities(customerId){const el=document.getElementById('activity-list');if(!el)return;try{const r=await apiFetch(`${API}/activities/customer/${customerId}`);const acts=await r.json();if(!acts.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Inga aktiviteter ännu</div>';return;}el.innerHTML=acts.map(a=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;">${a.Type}</span><span style="font-size:11px;color:var(--text3);">${new Date(a.CreatedAt).toLocaleDateString('sv-SE')}</span></div><div style="font-size:13px;">${a.Note||''}</div></div>`).join('');}catch(e){el.innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda</div>';}}
 async function addActivity(customerId){const type=document.getElementById('new-activity-type').value;const note=document.getElementById('new-activity-note').value;const date=document.getElementById('new-activity-date').value;if(!note.trim())return;await apiFetch(`${API}/activities/customer/${customerId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,note,date,createdBy:''})});document.getElementById('new-activity-note').value='';loadActivities(customerId);}
 
