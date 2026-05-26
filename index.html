@@ -87,6 +87,28 @@
   .ka-rev-item .contract-type { display:inline-flex; align-items:center; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:500; }
   .ka-rev-item .contract-amount { font-weight:500; min-width:90px; }
   .ka-rev-item .contract-dates { color:var(--text3); font-size:11px; flex:1; }
+  .ka-cat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding-top:14px; margin-top:8px; border-top:1px solid var(--border); }
+  .ka-cat-cell { display:flex; align-items:center; gap:9px; padding:8px 10px; background:var(--surface2); border-radius:7px; }
+  .ka-cat-swatch { width:8px; height:30px; border-radius:3px; flex-shrink:0; }
+  .ka-cat-info { display:flex; flex-direction:column; min-width:0; flex:1; }
+  .ka-cat-name { font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:0.06em; line-height:1.2; }
+  .ka-cat-val { font-size:13px; font-weight:500; color:var(--text); line-height:1.2; margin-top:2px; }
+  .ka-cat-pct { font-size:10px; color:var(--text3); line-height:1.2; margin-top:1px; }
+  .ka-contract-card { background:var(--surface); padding:11px 14px; border-top:0.5px solid var(--border); cursor:pointer; transition:background 0.1s; }
+  .ka-contract-card:first-child { border-top:0; }
+  .ka-contract-card:hover { background:var(--surface2); }
+  .ka-contract-head { display:flex; align-items:center; gap:12px; font-size:13px; flex-wrap:wrap; }
+  .ka-contract-head .contract-type { display:inline-flex; align-items:center; padding:3px 9px; border-radius:5px; font-size:11px; font-weight:500; }
+  .ka-contract-head .contract-amount { font-weight:500; min-width:90px; }
+  .ka-contract-head .contract-dates { color:var(--text3); font-size:12px; flex:1; }
+  .ka-contract-desc { font-size:12px; color:var(--text2); margin-top:6px; line-height:1.4; padding-left:2px; }
+  .ka-monthly { margin-top:10px; padding-top:9px; border-top:0.5px dashed var(--border); }
+  .ka-monthly-label { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }
+  .ka-monthly-grid { display:grid; grid-template-columns:repeat(12,1fr); gap:3px; }
+  .ka-mo { display:flex; flex-direction:column; align-items:center; padding:4px 2px; background:var(--surface2); border-radius:4px; min-width:0; }
+  .ka-mo-lbl { font-size:9px; color:var(--text3); font-weight:500; }
+  .ka-mo-val { font-size:10px; color:var(--text3); margin-top:1px; }
+  .ka-mo-val.has { color:var(--text); font-weight:500; }
   .ka-contracts { display:flex; flex-direction:column; }
   .ka-contract { display:flex; align-items:center; gap:12px; padding:10px 14px; border-top:0.5px solid var(--border); font-size:13px; cursor:pointer; }
   .ka-contract:hover { background:var(--surface2); }
@@ -512,10 +534,20 @@
 
 <div class="page" id="page-finansiellt-prognos">
   <div class="main">
+    <div class="date-filter">
+      <span style="font-size:13px;color:var(--text3);">Period:</span>
+      <input type="date" class="date-input" id="per-from" value="2026-01-01" onchange="renderPrognos()">
+      <span style="font-size:13px;color:var(--text3);">–</span>
+      <input type="date" class="date-input" id="per-to" value="2026-12-31" onchange="renderPrognos()">
+      <button class="quick-btn" onclick="setPerQuick('h1',this)">H1</button>
+      <button class="quick-btn" onclick="setPerQuick('h2',this)">H2</button>
+      <button class="quick-btn active" onclick="setPerQuick('year',this)">Helår</button>
+      <button class="btn-primary" style="margin-left:auto;" onclick="renderPrognos()">Uppdatera</button>
+    </div>
     <div class="forecast-card">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
         <div>
-          <div style="font-size:15px;font-weight:600;color:var(--text);">Prognos 2027</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text);" id="forecast-title">Prognos 2027</div>
           <div style="font-size:12px;color:var(--text3);margin-top:2px;">Fyra scenarier baserade på licensförnyelse, historisk churn och pipeline</div>
         </div>
       </div>
@@ -542,25 +574,6 @@
         <div id="forecast-chart"></div>
         <div id="forecast-legend"></div>
       </div>
-    </div>
-    <div class="date-filter">
-      <span style="font-size:13px;color:var(--text3);">Period:</span>
-      <input type="date" class="date-input" id="per-from" value="2026-01-01">
-      <span style="font-size:13px;color:var(--text3);">–</span>
-      <input type="date" class="date-input" id="per-to" value="2026-06-30">
-      <button class="quick-btn" onclick="setPerQuick('h1',this)">H1</button>
-      <button class="quick-btn" onclick="setPerQuick('h2',this)">H2</button>
-      <button class="quick-btn active" onclick="setPerQuick('year',this)">Helår</button>
-      <div class="rev-dropdown" style="margin-left:auto;">
-        <button class="rev-dd-btn" onclick="togglePerDD(event)">Intäktskällor <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
-        <div class="rev-dd-panel" id="per-dd-panel" style="display:none;">
-          <div class="rev-dd-item" onclick="togglePerSource('arr')"><div class="rev-cb on" id="pcb-arr"></div><span class="rev-dot" style="background:#1a7a50;"></span>ARR</div>
-          <div class="rev-dd-item" onclick="togglePerSource('fast')"><div class="rev-cb on" id="pcb-fast"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Fastpris</div>
-          <div class="rev-dd-item" onclick="togglePerSource('utb')"><div class="rev-cb on" id="pcb-utb"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
-          <div class="rev-dd-item" onclick="togglePerSource('cons')"><div class="rev-cb on" id="pcb-cons"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
-        </div>
-      </div>
-      <button class="btn-primary" onclick="renderPeriodisering()">Uppdatera</button>
     </div>
     <div class="kpi-grid" id="per-kpi" style="margin-bottom:16px;"></div>
     <div class="period-table-wrap"><table class="period-table"><thead id="per-thead"></thead><tbody id="per-tbody"></tbody></table></div>
@@ -922,6 +935,8 @@ let kaSelectedCust=null,kaTypes=new Set(['ARR','Fastpris','Consulting','Utbildni
 let kaRevCache={};
 async function kaFetchAll(){const missing=allCustomers.filter(c=>!kaRevCache[c.Id]);await Promise.all(missing.map(c=>apiFetch(`${API}/customers/${c.Id}/revenues`).then(r=>r.json()).then(items=>{kaRevCache[c.Id]=items;}).catch(()=>{kaRevCache[c.Id]=[];})));}
 function kaCalcYear(items,year){if(year===0)return items.filter(i=>kaTypes.has(i.Type)).reduce((s,i)=>s+(i.Amount||0),0);return items.filter(i=>kaTypes.has(i.Type)).reduce((s,i)=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yS=new Date(year,0,1),yE=new Date(year,11,31);if(!from&&!to)return s+(i.Amount||0);if(!from||!to)return s+(i.Amount||0);if(from>yE||to<yS)return s;const td=Math.max(1,Math.round((to-from)/86400000));const oS=from>yS?from:yS,oE=to<yE?to:yE;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);return s+Math.round((i.Amount||0)*od/td);},0);}
+function kaCalcYearAll(items,year){if(year===0)return items.reduce((s,i)=>s+(i.Amount||0),0);return items.reduce((s,i)=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yS=new Date(year,0,1),yE=new Date(year,11,31);if(!from&&!to)return s+(i.Amount||0);if(!from||!to)return s+(i.Amount||0);if(from>yE||to<yS)return s;const td=Math.max(1,Math.round((to-from)/86400000));const oS=from>yS?from:yS,oE=to<yE?to:yE;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);return s+Math.round((i.Amount||0)*od/td);},0);}
+function kaMonthlyDist(item,year){const months=Array(12).fill(0);const from=item.DateFrom?new Date(item.DateFrom):null;const to=item.DateTo?new Date(item.DateTo):null;if(!from&&!to)return months;if(!from||!to){const d=from||to;if(d.getFullYear()===year)months[d.getMonth()]=item.Amount||0;return months;}const yS=new Date(year,0,1),yE=new Date(year,11,31);if(from>yE||to<yS)return months;const td=Math.max(1,Math.round((to-from)/86400000));for(let m=0;m<12;m++){const mS=new Date(year,m,1),mE=new Date(year,m+1,0);if(mE<from||mS>to)continue;const oS=mS>from?mS:from;const oE=mE<to?mE:to;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);months[m]=Math.round((item.Amount||0)*od/td);}return months;}
 function kaToggleDD(panelId,e){e.stopPropagation();document.querySelectorAll('.rev-dd-panel').forEach(p=>{if(p.id!==panelId)p.style.display='none';});const p=document.getElementById(panelId);p.style.display=p.style.display==='none'?'block':'none';}
 function kaToggleType(t){if(kaTypes.has(t))kaTypes.delete(t);else kaTypes.add(t);document.getElementById('ka-cb-'+t).classList.toggle('on',kaTypes.has(t));renderKundanalys();}
 function kaToggleYear(y){if(y===0){kaYearSet=new Set([0]);}else{if(kaYearSet.has(0))kaYearSet.delete(0);if(kaYearSet.has(y))kaYearSet.delete(y);else kaYearSet.add(y);if(kaYearSet.size===0)kaYearSet.add(0);}[0,2023,2024,2025,2026].forEach(yy=>{const cb=document.getElementById('ka-cb-y'+yy);if(cb)cb.classList.toggle('on',kaYearSet.has(yy));});renderKundanalys();}
@@ -999,10 +1014,11 @@ async function renderKundanalys(){
 
 function renderKaAlla(viewCusts){
   const TC={ARR:'#1a7a50',Fastpris:'#1a4f7a',Consulting:'#5a1a7a',Utbildning:'#b85a00'};
-  const types=['ARR','Fastpris','Consulting','Utbildning'].filter(t=>kaTypes.has(t));
+  const allTypes=['ARR','Fastpris','Consulting','Utbildning'];
+  const types=allTypes.filter(t=>kaTypes.has(t));
   const years=kaSelectedYears();
   const kpiYear=kaKpiYear();
-  const donutYear=kaYearSet.has(0)?0:kpiYear;
+  const summaryYear=kaYearSet.has(0)?0:kpiYear;
   const items=viewCusts.flatMap(c=>kaRevCache[c.Id]||[]);
   const totCur=kaCalcYear(items,kpiYear);
   const totPrev=kaCalcYear(items,kpiYear-1);
@@ -1012,7 +1028,7 @@ function renderKaAlla(viewCusts){
   const renewing=allCustomers.filter(c=>c.LicenseEnd&&new Date(c.LicenseEnd)>new Date());
   const prog27=renewing.reduce((s,c)=>s+(c.ARR||0),0);
   const arrItems=items.filter(i=>i.Type==='ARR');
-  const arrCur=kaCalcYear(arrItems,kpiYear),arrPrev=kaCalcYear(arrItems,kpiYear-1);
+  const arrCur=kaCalcYearAll(arrItems,kpiYear),arrPrev=kaCalcYearAll(arrItems,kpiYear-1);
   const arrGrowth=arrPrev>0?Math.round((arrCur-arrPrev)/arrPrev*100):null;
   const arrDiff=arrCur-arrPrev;
   document.getElementById('ka-kpi-grid').innerHTML=[
@@ -1023,20 +1039,29 @@ function renderKaAlla(viewCusts){
     {label:`ARR-tillväxt`,val:arrGrowth!==null?(arrGrowth>=0?'+':'')+arrGrowth+'%':'–',color:arrGrowth!==null&&arrGrowth>=0?'var(--green)':'var(--red)',sub:arrPrev>0?`${arrDiff>=0?'+':''}${Math.round(arrDiff/1000)}k kr (${arrCur.toLocaleString('sv-SE')} vs ${arrPrev.toLocaleString('sv-SE')})`:`ARR: ${arrCur.toLocaleString('sv-SE')} kr`}
   ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-delta">${k.sub}</div></div>`).join('');
 
-  // Chart
-  document.getElementById('ka-chart-title').textContent='Intäktsutveckling per år';
-  kaRenderChart(items,years,types,TC);
+  // Chart + category summary row
+  document.getElementById('ka-chart-title').textContent=`Intäktsutveckling per år${summaryYear===0?'':' ('+summaryYear+')'}`;
+  const catSums={};allTypes.forEach(t=>{catSums[t]=kaCalcYearAll(items.filter(i=>i.Type===t),summaryYear);});
+  const catTotal=Object.values(catSums).reduce((a,b)=>a+b,0)||1;
+  const catRow=`<div class="ka-cat-row">${allTypes.map(t=>`<div class="ka-cat-cell"><div class="ka-cat-swatch" style="background:${TC[t]};"></div><div class="ka-cat-info"><div class="ka-cat-name">${t}</div><div class="ka-cat-val">${catSums[t]>0?catSums[t].toLocaleString('sv-SE')+' kr':'–'}</div><div class="ka-cat-pct">${catTotal>0?Math.round(catSums[t]/catTotal*100):0}%</div></div></div>`).join('')}</div>`;
+  kaRenderChart(items,years,types,TC,catRow);
 
-  // Side: donut (year-aware) + top 5
-  const donutHtml=kaMixDonut(items,donutYear,TC,types);
-  const top5=[...viewCusts].map(c=>({c,v:kaCalcYear(kaRevCache[c.Id]||[],kpiYear)})).sort((a,b)=>b.v-a.v).slice(0,5);
-  const top5Html=top5.map((x,i)=>`<div class="ka-top-row" onclick="openModal(${x.c.Id})"><span class="rank">${i+1}</span><span class="name">${x.c.Company||'-'}${x.c.SubName?` <span style="color:var(--text3);font-size:11px;">${x.c.SubName}</span>`:''}</span><span class="val">${x.v>0?Math.round(x.v/1000)+'k':'–'}</span></div>`).join('')||'<div style="color:var(--text3);font-size:13px;padding:10px;">Ingen data</div>';
-  document.getElementById('ka-side-content').innerHTML=`<div class="ka-side-section"><div class="ka-card-title">Intäktsmix ${donutYear===0?'(alla år)':donutYear}</div>${donutHtml}</div><div class="ka-side-divider"></div><div class="ka-side-section"><div class="ka-card-title">Topp 5 kunder ${kpiYear}</div><div class="ka-top-list">${top5Html}</div></div>`;
-
-  // Table with sortable headers, koncern grouping, expandable rows
-  const avgK=viewCusts.length>0?Math.round(viewCusts.reduce((s,c)=>s+kaCalcYear((kaRevCache[c.Id]||[]),kpiYear),0)/viewCusts.length):0;
+  // Aggregated entries for Top 5 + fastest growing (koncern combined)
   const groups={},solos=[];
   viewCusts.forEach(c=>{if(c.ParentCompany){if(!groups[c.ParentCompany])groups[c.ParentCompany]=[];groups[c.ParentCompany].push(c);}else solos.push(c);});
+  const aggEntries=[];
+  Object.entries(groups).forEach(([name,custs])=>{const ki=custs.flatMap(c=>kaRevCache[c.Id]||[]);aggEntries.push({name,isKoncern:true,custs,cur:kaCalcYear(ki,kpiYear),prev:kaCalcYear(ki,kpiYear-1)});});
+  solos.forEach(c=>{const it=kaRevCache[c.Id]||[];aggEntries.push({name:c.Company||'-',subName:c.SubName,isKoncern:false,custs:[c],cur:kaCalcYear(it,kpiYear),prev:kaCalcYear(it,kpiYear-1)});});
+  const entryClick=e=>e.isKoncern?`onclick="kaOnCustChange('koncern:${e.name.replace(/'/g,"\\'")}')"`:`onclick="openModal(${e.custs[0].Id})"`;
+  const top5=[...aggEntries].sort((a,b)=>b.cur-a.cur).slice(0,5);
+  const maxTop=Math.max(...top5.map(e=>e.cur),1);
+  const top5Html=top5.length&&top5[0].cur>0?top5.map((e,i)=>`<div class="ka-top-row" ${entryClick(e)}><span class="rank">${i+1}</span><div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.name}${e.isKoncern?' <span style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">koncern</span>':(e.subName?` <span style="font-size:10px;color:var(--text3);">${e.subName}</span>`:'')}</span><span class="val">${e.cur>0?Math.round(e.cur/1000)+'k':'–'}</span></div><div style="height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;"><div style="width:${Math.round(e.cur/maxTop*100)}%;height:4px;background:var(--accent);border-radius:2px;"></div></div></div></div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px;">Ingen data</div>';
+  const growing=aggEntries.filter(e=>e.prev>0).map(e=>({...e,growth:Math.round((e.cur-e.prev)/e.prev*100)})).sort((a,b)=>b.growth-a.growth).slice(0,5);
+  const growHtml=growing.length?growing.map((e,i)=>`<div class="ka-top-row" ${entryClick(e)}><span class="rank">${i+1}</span><span class="name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.name}${e.isKoncern?' <span style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">koncern</span>':''}</span><span class="val" style="color:${e.growth>=0?'var(--green)':'var(--red)'};font-weight:600;">${e.growth>=0?'+':''}${e.growth}%</span></div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px;">Ingen data</div>';
+  document.getElementById('ka-side-content').innerHTML=`<div class="ka-side-section"><div class="ka-card-title">Topp 5 – Intäkt ${kpiYear}</div><div class="ka-top-list">${top5Html}</div></div><div class="ka-side-divider"></div><div class="ka-side-section"><div class="ka-card-title">Snabbast växande ${kpiYear-1}→${kpiYear}</div><div class="ka-top-list">${growHtml}</div></div>`;
+
+  // Table — no row caret/expansion, only koncern groups still expandable
+  const avgK=viewCusts.length>0?Math.round(viewCusts.reduce((s,c)=>s+kaCalcYear((kaRevCache[c.Id]||[]),kpiYear),0)/viewCusts.length):0;
   const entries=[];
   Object.entries(groups).forEach(([name,custs])=>{const ki=custs.flatMap(c=>kaRevCache[c.Id]||[]);entries.push({type:'koncern',name,custs,v24:kaCalcYear(ki,2024),v25:kaCalcYear(ki,2025),v26:kaCalcYear(ki,2026)});});
   solos.forEach(c=>{const it=kaRevCache[c.Id]||[];entries.push({type:'solo',c,v24:kaCalcYear(it,2024),v25:kaCalcYear(it,2025),v26:kaCalcYear(it,2026)});});
@@ -1045,22 +1070,7 @@ function renderKaAlla(viewCusts){
     const it=kaRevCache[c.Id]||[];const v24=kaCalcYear(it,2024),v25=kaCalcYear(it,2025),v26=kaCalcYear(it,2026);
     const grow=v25>0?Math.round((v26-v25)/v25*100):null;const vsA=avgK>0?Math.round((v26-avgK)/avgK*100):null;
     const d=c._days;const status=d===null?'–':d<0?'<span class="badge b-red">Utgången</span>':d<=30?`<span class="badge b-amber">${d}d</span>`:'<span class="badge b-green">Aktiv</span>';
-    const exp=kaRowExpanded.has(c.Id);
-    let html=`<tr class="${sub?'ka-sub-row':''}" onclick="openModal(${c.Id})">
-      <td class="ka-td" style="${sub?'padding-left:30px;':''}">
-        <span class="ka-row-caret" onclick="event.stopPropagation();kaToggleRow(${c.Id})" style="transform:rotate(${exp?90:0}deg);">▶</span>
-        <span style="font-weight:500;">${c.Company||'-'}</span>
-        ${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-left:18px;">${c.SubName}</div>`:''}
-      </td>
-      <td class="ka-td">${v24>0?v24.toLocaleString('sv-SE')+' kr':'–'}</td>
-      <td class="ka-td">${v25>0?v25.toLocaleString('sv-SE')+' kr':'–'}</td>
-      <td class="ka-td" style="font-weight:500;">${v26>0?v26.toLocaleString('sv-SE')+' kr':'–'}</td>
-      <td class="ka-td" style="color:${grow===null?'var(--text3)':grow>=0?'var(--green)':'var(--red)'};">${grow!==null?(grow>=0?'+':'')+grow+'%':'–'}</td>
-      <td class="ka-td" style="color:${vsA===null?'var(--text3)':vsA>=0?'var(--green)':'var(--red)'};">${vsA!==null?(vsA>=0?'+':'')+vsA+'%':'–'}</td>
-      <td class="ka-td">${status}</td>
-    </tr>`;
-    if(exp)html+=`<tr class="ka-expand-row"><td colspan="7" class="ka-td" style="padding:0;background:var(--surface2);"><div class="ka-expand-items">${kaRevItemsHtml(it)}</div></td></tr>`;
-    return html;
+    return `<tr class="${sub?'ka-sub-row':''}" onclick="openModal(${c.Id})"><td class="ka-td" style="${sub?'padding-left:30px;':''}"><div style="font-weight:500;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td><td class="ka-td">${v24>0?v24.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td">${v25>0?v25.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td" style="font-weight:500;">${v26>0?v26.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td" style="color:${grow===null?'var(--text3)':grow>=0?'var(--green)':'var(--red)'};">${grow!==null?(grow>=0?'+':'')+grow+'%':'–'}</td><td class="ka-td" style="color:${vsA===null?'var(--text3)':vsA>=0?'var(--green)':'var(--red)'};">${vsA!==null?(vsA>=0?'+':'')+vsA+'%':'–'}</td><td class="ka-td">${status}</td></tr>`;
   };
   let rows='';
   sorted.forEach(e=>{
@@ -1128,13 +1138,25 @@ function renderKaPerKund(viewCusts,isKoncern){
   const sorted=allItems.sort((a,b)=>{const ad=a.DateTo?new Date(a.DateTo):null,bd=b.DateTo?new Date(b.DateTo):null;if(!ad)return 1;if(!bd)return-1;return bd-ad;});
   const tColor={ARR:'#EAF3DE',Fastpris:'#E6F1FB',Utbildning:'#FAEEDA',Consulting:'#EEEDFE'};
   const tText={ARR:'#3B6D11',Fastpris:'#185FA5',Utbildning:'#854F0B',Consulting:'#3C3489'};
-  const contractRows=sorted.length?sorted.map(it=>{const to=it.DateTo?new Date(it.DateTo):null;const isActive=to&&to>=today;const range=it.DateFrom||it.DateTo?`${it.DateFrom?it.DateFrom.substring(0,10):'?'} – ${it.DateTo?it.DateTo.substring(0,10):'?'}`:'';const company=isKoncern?`<span style="color:var(--text3);font-size:11px;margin-left:8px;">${it._cust.Company}${it._cust.SubName?' / '+it._cust.SubName:''}</span>`:'';return `<div class="ka-contract" onclick="openModal(${it._cust.Id})"><span class="contract-type" style="background:${tColor[it.Type]||'var(--surface2)'};color:${tText[it.Type]||'var(--text2)'};">${it.Type}</span><span class="contract-amount">${Math.round(it.Amount).toLocaleString('sv-SE')} kr</span><span class="contract-dates">${range}</span><span class="badge ${isActive?'b-green':'b-amber'}">${isActive?'Aktiv':to&&to<today?'Utgången':'Pågående'}</span>${company}</div>`;}).join(''):'<div style="padding:14px;color:var(--text3);font-size:13px;">Inga intäktsposter</div>';
+  const curYear=new Date().getFullYear();
+  const mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const contractRows=sorted.length?sorted.map(it=>{
+    const to=it.DateTo?new Date(it.DateTo):null;
+    const isActive=to&&to>=today;
+    const range=it.DateFrom||it.DateTo?`${it.DateFrom?it.DateFrom.substring(0,10):'?'} – ${it.DateTo?it.DateTo.substring(0,10):'?'}`:'';
+    const company=isKoncern?`<span style="color:var(--text3);font-size:11px;margin-left:8px;">${it._cust.Company}${it._cust.SubName?' / '+it._cust.SubName:''}</span>`:'';
+    const desc=it.Description?`<div class="ka-contract-desc">${it.Description}</div>`:'';
+    const monthly=kaMonthlyDist(it,curYear);
+    const hasMonthly=monthly.some(v=>v>0);
+    const monthlyHtml=hasMonthly?`<div class="ka-monthly"><div class="ka-monthly-label">Periodisering ${curYear}</div><div class="ka-monthly-grid">${monthly.map((v,m)=>`<div class="ka-mo"><div class="ka-mo-lbl">${mNames[m]}</div><div class="ka-mo-val${v>0?' has':''}">${v>0?Math.round(v/1000)+'k':'–'}</div></div>`).join('')}</div></div>`:'';
+    return `<div class="ka-contract-card" onclick="openModal(${it._cust.Id})"><div class="ka-contract-head"><span class="contract-type" style="background:${tColor[it.Type]||'var(--surface2)'};color:${tText[it.Type]||'var(--text2)'};">${it.Type}</span><span class="contract-amount">${Math.round(it.Amount).toLocaleString('sv-SE')} kr</span><span class="contract-dates">${range}</span><span class="badge ${isActive?'b-green':'b-amber'}">${isActive?'Aktiv':to&&to<today?'Utgången':'Pågående'}</span>${company}</div>${desc}${monthlyHtml}</div>`;
+  }).join(''):'<div style="padding:14px;color:var(--text3);font-size:13px;">Inga intäktsposter</div>';
   document.getElementById('ka-bottom-content').innerHTML=`<div class="ka-table-card"><div class="ka-card-title" style="padding:12px 14px 0;">Aktiva avtal & intäktsposter</div><div class="ka-contracts">${contractRows}</div></div>`;
 }
 
-function kaRenderChart(items,years,types,TC){
-  // Fixed-size chart: viewBox 540x180, max bar height 140, centered single bar
-  const CW=540,CH=180,BH=140,baseY=BH+10;
+function kaRenderChart(items,years,types,TC,extraHtml){
+  // Fixed-size chart: 90px max bar height regardless of bar count
+  const CW=540,CH=130,BH=90,baseY=BH+10;
   const yearTots=years.map(y=>types.reduce((s,t)=>s+kaCalcYear(items.filter(it=>it.Type===t),y),0));
   const maxY=Math.max(...yearTots,1);
   const n=years.length;
@@ -1150,8 +1172,8 @@ function kaRenderChart(items,years,types,TC){
     const vLbl=tot>0?`<text x="${cx}" y="${stackY-5}" text-anchor="middle" font-size="10" fill="var(--text2)" font-weight="500">${Math.round(tot/1000)}k</text>`:'';
     return rects+yLbl+vLbl;
   }).join('');
-  const legend=`<div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;">${types.map(t=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:${TC[t]};"></div>${t}</div>`).join('')}</div>`;
-  document.getElementById('ka-chart-wrap').innerHTML=`<div style="max-width:${CW}px;margin:0 auto;"><svg viewBox="0 0 ${CW} ${CH}" width="100%" style="display:block;overflow:visible;">${bars}</svg></div>${legend}`;
+  const legendHtml=extraHtml?'':`<div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;">${types.map(t=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:${TC[t]};"></div>${t}</div>`).join('')}</div>`;
+  document.getElementById('ka-chart-wrap').innerHTML=`<div style="max-width:${CW}px;margin:0 auto;"><svg viewBox="0 0 ${CW} ${CH}" width="100%" style="display:block;overflow:visible;">${bars}</svg></div>${legendHtml}${extraHtml||''}`;
 }
 // ─── KUNDER ──────────────────────────────────────────────
 async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
@@ -1178,8 +1200,8 @@ async function loadCommissions(){try{const r=await apiFetch(`${API}/commissions`
 async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadCommissions();}
 
 // ─── PERIODISERING ───────────────────────────────────────
-function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPeriodisering();}
-function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(perSources.arr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.fast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.utb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.cons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
+function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPrognos();}
+function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const useArr=typeof fcSources!=='undefined'?fcSources.has('ARR'):perSources.arr;const useFast=typeof fcSources!=='undefined'?fcSources.has('Fastpris'):perSources.fast;const useUtb=typeof fcSources!=='undefined'?fcSources.has('Utbildning'):perSources.utb;const useCons=typeof fcSources!=='undefined'?fcSources.has('Consulting'):perSources.cons;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(useArr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useFast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useUtb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useCons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');const pipeWeighted=(typeof allProspects!=='undefined'?allProspects:[]).filter(p=>p.Stage==='Qualified Lead').reduce((s,p)=>s+Math.round((p.ValueMax||p.Value||0)*(p.Probability||0)/100),0);const pipePerMonth=Math.round(pipeWeighted/12);const pipeCells=months.map(()=>`<td><span style="color:var(--blue);font-size:11px;font-weight:500;">${pipePerMonth>=1000?Math.round(pipePerMonth/1000)+'k':pipePerMonth}</span></td>`).join('');const pipeTot=pipePerMonth*months.length;const pipeRow=pipeWeighted>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeCells}<td><span style="font-weight:600;color:var(--blue);">${pipeTot>=1000?Math.round(pipeTot/1000)+'k':pipeTot} kr</span></td></tr>`:'';document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`+pipeRow;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
 // ─── KUNDER ──────────────────────────────────────────────
 async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
 async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
@@ -1205,8 +1227,8 @@ async function loadCommissions(){try{const r=await apiFetch(`${API}/commissions`
 async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadCommissions();}
 
 // ─── PERIODISERING ───────────────────────────────────────
-function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPeriodisering();}
-function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(perSources.arr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.fast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.utb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.cons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
+function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPrognos();}
+function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const useArr=typeof fcSources!=='undefined'?fcSources.has('ARR'):perSources.arr;const useFast=typeof fcSources!=='undefined'?fcSources.has('Fastpris'):perSources.fast;const useUtb=typeof fcSources!=='undefined'?fcSources.has('Utbildning'):perSources.utb;const useCons=typeof fcSources!=='undefined'?fcSources.has('Consulting'):perSources.cons;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(useArr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useFast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useUtb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useCons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');const pipeWeighted=(typeof allProspects!=='undefined'?allProspects:[]).filter(p=>p.Stage==='Qualified Lead').reduce((s,p)=>s+Math.round((p.ValueMax||p.Value||0)*(p.Probability||0)/100),0);const pipePerMonth=Math.round(pipeWeighted/12);const pipeCells=months.map(()=>`<td><span style="color:var(--blue);font-size:11px;font-weight:500;">${pipePerMonth>=1000?Math.round(pipePerMonth/1000)+'k':pipePerMonth}</span></td>`).join('');const pipeTot=pipePerMonth*months.length;const pipeRow=pipeWeighted>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeCells}<td><span style="font-weight:600;color:var(--blue);">${pipeTot>=1000?Math.round(pipeTot/1000)+'k':pipeTot} kr</span></td></tr>`:'';document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`+pipeRow;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
 // ─── PROGNOS (Forecast scenarios) ────────────────────────
 let fcSources=new Set(['ARR']),fcChurnOverride=null;
 async function renderPrognos(){
@@ -1215,7 +1237,7 @@ async function renderPrognos(){
   renderPeriodisering();
 }
 function fcToggleDD(e){e.stopPropagation();document.querySelectorAll('.rev-dd-panel').forEach(p=>{if(p.id!=='fc-source-panel')p.style.display='none';});const p=document.getElementById('fc-source-panel');p.style.display=p.style.display==='none'?'block':'none';}
-function fcToggleSource(t){if(fcSources.has(t))fcSources.delete(t);else fcSources.add(t);if(fcSources.size===0)fcSources.add(t);document.getElementById('fc-cb-'+t).classList.toggle('on',fcSources.has(t));renderForecastSection();}
+function fcToggleSource(t){if(fcSources.has(t))fcSources.delete(t);else fcSources.add(t);if(fcSources.size===0)fcSources.add(t);document.getElementById('fc-cb-'+t).classList.toggle('on',fcSources.has(t));renderPrognos();}
 function fcOnChurnChange(v){const n=parseFloat(v);fcChurnOverride=isNaN(n)?null:Math.max(0,Math.min(100,n))/100;renderForecastSection();}
 function forecastYearRevenue(year){
   const items=Object.values(kaRevCache).flat().filter(i=>fcSources.has(i.Type));
@@ -1234,13 +1256,18 @@ function forecastYearRevenue(year){
 }
 function renderForecastSection(){
   const today=new Date();
+  const periodToEl=document.getElementById('per-to');
+  const periodEnd=periodToEl&&periodToEl.value?new Date(periodToEl.value):new Date(today.getFullYear(),11,31);
+  const periodYear=periodEnd.getFullYear();
+  const forecastYear=periodYear+1;
+  const endOfPeriodYear=new Date(periodYear,11,31);
   const churnedCusts=allCustomers.filter(c=>c._days!==null&&c._days<0);
   const churnHistoric=allCustomers.length>0?churnedCusts.length/allCustomers.length:0;
   const churnRate=fcChurnOverride!==null?fcChurnOverride:churnHistoric;
   const srcField={ARR:'ARR',Fastpris:'ARR_Fixed',Consulting:'Revenue_Consulting',Utbildning:'Revenue_Training'};
   const custTotal=c=>[...fcSources].reduce((s,t)=>s+(c[srcField[t]]||0),0);
   const activeArr=allCustomers.filter(c=>c._days!==null&&c._days>=0).reduce((s,c)=>s+custTotal(c),0);
-  const renewing=allCustomers.filter(c=>c.LicenseEnd&&new Date(c.LicenseEnd)>today);
+  const renewing=allCustomers.filter(c=>c.LicenseEnd&&new Date(c.LicenseEnd)>endOfPeriodYear);
   const allaFornyas=renewing.reduce((s,c)=>s+custTotal(c),0);
   const medChurn=Math.round(activeArr*(1-churnRate));
   const openProspects=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost');
@@ -1250,58 +1277,70 @@ function renderForecastSection(){
   const realistic=Math.round(allaFornyas*(1-churnRate))+pipeWeighted;
   const optimistic=allaFornyas+pipeFull;
 
+  // Title
+  const titleEl=document.getElementById('forecast-title');
+  if(titleEl)titleEl.textContent=`Prognos ${forecastYear}`;
+
   // Sync churn input + historic display
   const churnEl=document.getElementById('fc-churn');
   if(churnEl&&document.activeElement!==churnEl){churnEl.value=(churnRate*100).toFixed(1);}
   const churnHistEl=document.getElementById('fc-churn-historic');
   if(churnHistEl)churnHistEl.textContent=(churnHistoric*100).toFixed(1);
 
-  // KPI cards (compact, same style as other dashboards)
+  // KPI cards — order: Alla förnyas, Med churn, Realistisk, Optimistisk
   document.getElementById('forecast-kpi-grid').innerHTML=[
-    {label:'Med churn',val:medChurn,color:'var(--amber)',sub:`Baserat på ${(churnRate*100).toFixed(1)}% churn-rate`},
     {label:'Alla förnyas',val:allaFornyas,color:'var(--blue)',sub:`${renewing.length} aktiva licenser`},
+    {label:'Med churn',val:medChurn,color:'var(--amber)',sub:`Baserat på ${(churnRate*100).toFixed(1)}% churn-rate`},
     {label:'Realistisk',val:realistic,color:'var(--green)',sub:`Förnyas − churn + ${pipeWeighted.toLocaleString('sv-SE')} kr viktat pipe`},
-    {label:'Optimistisk',val:optimistic,color:'#34a36b',sub:`+ ${pipeFull.toLocaleString('sv-SE')} kr full pipeline`}
+    {label:'Optimistisk',val:optimistic,color:'#34a36b',sub:`Alla förnyas + ${pipeFull.toLocaleString('sv-SE')} kr full pipeline (ej viktat)`}
   ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val.toLocaleString('sv-SE')} kr</div><div class="kpi-delta neu">${k.sub}</div></div>`).join('');
 
-  // SVG chart (compact 220px height, labels inside, no endpoint labels)
-  const years=[2023,2024,2025,2026];
+  // Chart — H=200, widened W=840 (+80px right for forecast labels)
+  const years=[forecastYear-4,forecastYear-3,forecastYear-2,forecastYear-1];
   const historic=years.map(y=>forecastYearRevenue(y));
   const last=historic[historic.length-1];
   const scenarios=[
-    {label:'Med churn',val:medChurn,color:'#b85a00',dash:true},
-    {label:'Alla förnyas',val:allaFornyas,color:'#1a4f7a',dash:true},
-    {label:'Realistisk',val:realistic,color:'#1a7a50',dash:true},
-    {label:'Optimistisk',val:optimistic,color:'#5eb98f',dash:true}
+    {label:'Alla förnyas',val:allaFornyas,color:'#1a4f7a'},
+    {label:'Med churn',val:medChurn,color:'#b85a00'},
+    {label:'Realistisk',val:realistic,color:'#1a7a50'},
+    {label:'Optimistisk',val:optimistic,color:'#5eb98f'}
   ];
   const allVals=[...historic,...scenarios.map(s=>s.val),last];
   const maxV=Math.max(...allVals,1);
-  const W=760,H=220,PL=48,PR=28,PT=22,PB=30;
-  const xs=[2023,2024,2025,2026,2027];
-  const xFor=y=>PL+((y-2023)/(2027-2023))*(W-PL-PR);
+  const W=840,H=200,PL=46,PR=108,PT=22,PB=28;
+  const xs=[...years,forecastYear];
+  const xFor=y=>PL+((y-years[0])/(forecastYear-years[0]))*(W-PL-PR);
   const yFor=v=>H-PB-(v/maxV)*(H-PT-PB);
   const gridLines=[0,0.25,0.5,0.75,1].map(f=>{const y=H-PB-f*(H-PT-PB);return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="${f===0?'0':'3 3'}"/><text x="${PL-6}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--text3)">${Math.round(maxV*f/1000)}k</text>`;}).join('');
   const xLabels=xs.map(y=>`<text x="${xFor(y)}" y="${H-PB+15}" text-anchor="middle" font-size="11" fill="var(--text3)" font-weight="500">${y}</text>`).join('');
 
-  // Historic line
+  // Historic line + dots + data labels (clamped inside viewBox)
   const histPoints=years.map(y=>`${xFor(y)},${yFor(forecastYearRevenue(y))}`).join(' ');
   const histLine=`<polyline points="${histPoints}" fill="none" stroke="#1a7a50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-  const histDots=years.map(y=>{const v=forecastYearRevenue(y);const lblY=Math.max(yFor(v)-7,12);return `<circle cx="${xFor(y)}" cy="${yFor(v)}" r="4" fill="#1a7a50" stroke="#fff" stroke-width="1.5"/><text x="${xFor(y)}" y="${lblY}" text-anchor="middle" font-size="10" fill="#1a7a50" font-weight="600">${Math.round(v/1000)}k</text>`;}).join('');
+  const histDots=years.map(y=>{const v=forecastYearRevenue(y);const lblY=Math.max(yFor(v)-7,PT+8);return `<circle cx="${xFor(y)}" cy="${yFor(v)}" r="4" fill="#1a7a50" stroke="#fff" stroke-width="1.5"/><text x="${xFor(y)}" y="${lblY}" text-anchor="middle" font-size="10" fill="#1a7a50" font-weight="600">${Math.round(v/1000)}k</text>`;}).join('');
 
   // Shaded area between min and max forecast
   const fcVals=scenarios.map(s=>s.val);
   const minFc=Math.min(...fcVals);
   const maxFc=Math.max(...fcVals);
-  const shade=`<polygon points="${xFor(2026)},${yFor(last)} ${xFor(2027)},${yFor(maxFc)} ${xFor(2027)},${yFor(minFc)}" fill="#1a7a50" fill-opacity="0.08"/>`;
+  const lastYear=years[years.length-1];
+  const shade=`<polygon points="${xFor(lastYear)},${yFor(last)} ${xFor(forecastYear)},${yFor(maxFc)} ${xFor(forecastYear)},${yFor(minFc)}" fill="#1a7a50" fill-opacity="0.08"/>`;
 
-  // Forecast dashed lines + endpoint dots only (no labels here)
-  const fcLines=scenarios.map(s=>`<line x1="${xFor(2026)}" y1="${yFor(last)}" x2="${xFor(2027)}" y2="${yFor(s.val)}" stroke="${s.color}" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="round"/><circle cx="${xFor(2027)}" cy="${yFor(s.val)}" r="3.5" fill="${s.color}"/>`).join('');
+  // Forecast dashed lines + endpoint dots
+  const fcLines=scenarios.map(s=>`<line x1="${xFor(lastYear)}" y1="${yFor(last)}" x2="${xFor(forecastYear)}" y2="${yFor(s.val)}" stroke="${s.color}" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="round"/><circle cx="${xFor(forecastYear)}" cy="${yFor(s.val)}" r="3.5" fill="${s.color}"/>`).join('');
 
-  document.getElementById('forecast-chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;max-height:220px;">${gridLines}${xLabels}${shade}${histLine}${histDots}${fcLines}</svg>`;
+  // Endpoint labels — distributed vertically to avoid overlap, all clamped inside viewBox
+  const labelXBase=xFor(forecastYear)+8;
+  const sortedByY=scenarios.map(s=>({s,y:yFor(s.val)})).sort((a,b)=>a.y-b.y);
+  for(let i=1;i<sortedByY.length;i++){if(sortedByY[i].y-sortedByY[i-1].y<13)sortedByY[i].y=sortedByY[i-1].y+13;}
+  sortedByY.forEach(o=>{o.y=Math.max(PT+8,Math.min(H-PB-2,o.y));});
+  const fcLabels=sortedByY.map(o=>`<text x="${labelXBase}" y="${o.y+3}" font-size="10" fill="${o.s.color}" font-weight="600">${Math.round(o.s.val/1000)}k</text>`).join('');
+
+  document.getElementById('forecast-chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;max-height:200px;">${gridLines}${xLabels}${shade}${histLine}${histDots}${fcLines}${fcLabels}</svg>`;
 
   // Legend with scenario values below chart
   const fmt=v=>Math.round(v/1000)+'k';
-  document.getElementById('forecast-legend').innerHTML=`<div class="fc-legend-item"><span class="line" style="color:#1a7a50;"></span>Faktisk: <span class="val">${fmt(last)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#b85a00;"></span>Med churn: <span class="val">${fmt(medChurn)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#1a4f7a;"></span>Alla förnyas: <span class="val">${fmt(allaFornyas)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#1a7a50;"></span>Realistisk: <span class="val">${fmt(realistic)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#5eb98f;"></span>Optimistisk: <span class="val">${fmt(optimistic)}</span></div><div class="fc-legend-divider"></div><div class="fc-legend-stat"><span class="lbl">Utgångna:</span> ${churnedCusts.length} st</div><div class="fc-legend-stat"><span class="lbl">Viktat pipe:</span> ${pipeWeighted.toLocaleString('sv-SE')} kr</div>`;
+  document.getElementById('forecast-legend').innerHTML=`<div class="fc-legend-item"><span class="line" style="color:#1a7a50;"></span>Faktisk: <span class="val">${fmt(last)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#1a4f7a;"></span>Alla förnyas: <span class="val">${fmt(allaFornyas)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#b85a00;"></span>Med churn: <span class="val">${fmt(medChurn)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#1a7a50;"></span>Realistisk: <span class="val">${fmt(realistic)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#5eb98f;"></span>Optimistisk: <span class="val">${fmt(optimistic)}</span></div><div class="fc-legend-divider"></div><div class="fc-legend-stat"><span class="lbl">Utgångna:</span> ${churnedCusts.length} st</div><div class="fc-legend-stat"><span class="lbl">Viktat pipe:</span> ${pipeWeighted.toLocaleString('sv-SE')} kr</div>`;
 }
 
 // ─── BUDGET ──────────────────────────────────────────────
