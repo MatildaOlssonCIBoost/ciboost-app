@@ -34,14 +34,57 @@
   .sub-tabs-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; }
   .sub-tab { padding: 10px 16px; border: none; border-bottom: 2px solid transparent; background: none; font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 500; color: var(--text3); cursor: pointer; }
   .sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .ka-mode-btn,.ka-type-btn,.ka-year-btn { padding:5px 12px;border:0.5px solid var(--border);border-radius:6px;background:none;font-family:'Poppins',sans-serif;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer; }
-  .ka-mode-btn.active,.ka-year-btn.active { background:#1e2140;color:#fff;border-color:#1e2140; }
-  .ka-type-btn.active { background:var(--surface2);color:var(--text1);border-color:var(--border); }
-  .ka-type-btn:not(.active) { opacity:0.45; }
-  .ka-th { padding:10px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);white-space:nowrap; }
-  .ka-td { padding:9px 12px;border-top:0.5px solid var(--border);font-size:13px;vertical-align:middle; }
-  .ka-koncern-row { background:var(--surface2);font-weight:600; }
+  .ka-filters { display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  .ka-content-grid { display:grid; grid-template-columns:3fr 2fr; gap:14px; margin-bottom:14px; }
+  @media (max-width:980px){ .ka-content-grid { grid-template-columns:1fr; } }
+  .ka-chart-card, .ka-side-card, .ka-table-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px; box-shadow:var(--shadow); }
+  .ka-table-card { padding:0; overflow:hidden; }
+  .ka-card-title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--text3); margin-bottom:12px; }
+  .ka-side-section { padding:4px 0; }
+  .ka-side-divider { height:1px; background:var(--border); margin:14px 0; }
+  .ka-mix-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text2); }
+  .ka-mix-row .dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+  .ka-mix-row .lbl { flex:1; }
+  .ka-mix-row .val { font-weight:500; color:var(--text); }
+  .ka-top-list { display:flex; flex-direction:column; gap:1px; }
+  .ka-top-row { display:flex; align-items:center; gap:10px; padding:7px 4px; border-radius:5px; cursor:pointer; font-size:13px; }
+  .ka-top-row:hover { background:var(--surface2); }
+  .ka-top-row .rank { width:18px; height:18px; border-radius:50%; background:var(--accent-bg); color:var(--accent); font-size:10px; font-weight:600; display:flex; align-items:center; justify-content:center; }
+  .ka-top-row .name { flex:1; }
+  .ka-top-row .val { font-weight:500; color:var(--green); }
+  .ka-cmp-row { display:flex; align-items:center; gap:10px; font-size:12px; }
+  .ka-cmp-row .lbl { min-width:130px; color:var(--text2); }
+  .ka-cmp-row .val { min-width:90px; text-align:right; font-weight:500; color:var(--text); font-size:12px; }
+  .ka-cmp-row .cmp-bar { flex:1; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+  .ka-cmp-row .cmp-fill { height:8px; border-radius:4px; }
+  .ka-yr-list { display:flex; flex-direction:column; gap:3px; }
+  .ka-yr-row { display:flex; align-items:center; gap:10px; padding:5px 0; font-size:13px; border-bottom:0.5px solid var(--border); }
+  .ka-yr-row:last-child { border-bottom:none; }
+  .ka-yr-row .yr { color:var(--text3); font-size:11px; font-weight:600; min-width:32px; }
+  .ka-yr-row .val { flex:1; font-weight:500; }
+  .ka-yr-row .chg { font-size:11px; font-weight:600; min-width:50px; text-align:right; }
+  .ka-table { width:100%; border-collapse:collapse; }
+  .ka-th { padding:10px 14px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--text3); background:var(--surface2); border-bottom:1px solid var(--border); white-space:nowrap; }
+  .ka-td { padding:11px 14px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
+  .ka-table tbody tr { cursor:pointer; transition:background 0.1s; }
+  .ka-table tbody tr:hover { background:var(--surface2); }
+  .ka-koncern-row { background:var(--surface2); font-weight:600; }
   .ka-sub-row { background:var(--surface); }
+  .ka-caret { display:inline-block; margin-right:8px; font-size:9px; color:var(--text3); transition:transform 0.15s; }
+  .ka-contracts { display:flex; flex-direction:column; }
+  .ka-contract { display:flex; align-items:center; gap:12px; padding:10px 14px; border-top:0.5px solid var(--border); font-size:13px; cursor:pointer; }
+  .ka-contract:hover { background:var(--surface2); }
+  .ka-contract .contract-type { display:inline-flex; align-items:center; padding:3px 9px; border-radius:5px; font-size:11px; font-weight:500; }
+  .ka-contract .contract-amount { font-weight:500; min-width:90px; }
+  .ka-contract .contract-dates { color:var(--text3); font-size:12px; flex:1; }
+  .forecast-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-bottom:18px; box-shadow:var(--shadow); }
+  .forecast-chart-wrap { background:var(--surface2); border-radius:10px; padding:16px 18px; }
+  #forecast-legend { margin-top:14px; padding-top:12px; border-top:1px solid var(--border); display:flex; gap:18px; flex-wrap:wrap; font-size:11px; color:var(--text2); align-items:center; }
+  .forecast-legend-item { display:flex; align-items:center; gap:6px; }
+  .forecast-legend-item .dot { width:10px; height:10px; border-radius:2px; }
+  .forecast-legend-divider { width:1px; height:14px; background:var(--border); }
+  .forecast-legend-stat { display:flex; gap:4px; }
+  .forecast-legend-stat .lbl { color:var(--text3); }
   .page { display: none; }
   .page.active { display: block; }
   .main { padding: 20px 24px; max-width: 1400px; }
@@ -325,7 +368,7 @@
 </div>
 <div class="sub-tabs-bar" id="subtabs-finansiellt" style="display:none;">
   <button class="sub-tab active" onclick="switchSub('finansiellt','dashboard',this)">Dashboard</button>
-  <button class="sub-tab" onclick="switchSub('finansiellt','periodisering',this)">Periodisering</button>
+  <button class="sub-tab" onclick="switchSub('finansiellt','prognos',this)">Prognos</button>
   <button class="sub-tab" onclick="switchSub('finansiellt','budget',this)">Budget</button>
 </div>
 
@@ -380,38 +423,42 @@
 
 <div class="page" id="page-kunder-kundanalys">
   <div class="main">
-    <div id="ka-controls" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
-      <div style="display:flex;gap:4px;" id="ka-mode-btns">
-        <button class="ka-mode-btn active" onclick="kaSetMode('alla',this)">Alla kunder</button>
-        <button class="ka-mode-btn" onclick="kaSetMode('per',this)">Per kund</button>
-        <button class="ka-mode-btn" onclick="kaSetMode('koncern',this)">Koncern</button>
+    <div class="ka-filters">
+      <select id="ka-cust-select" onchange="kaOnCustChange(this.value)" style="min-width:240px;"></select>
+      <div class="rev-dropdown">
+        <button class="rev-dd-btn" onclick="kaToggleDD('ka-types-panel',event)">Intäktstyper <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="rev-dd-panel" id="ka-types-panel" style="display:none;">
+          <div class="rev-dd-item" onclick="kaToggleType('ARR')"><div class="rev-cb on" id="ka-cb-ARR"></div><span class="rev-dot" style="background:#1a7a50;"></span>ARR</div>
+          <div class="rev-dd-item" onclick="kaToggleType('Fastpris')"><div class="rev-cb on" id="ka-cb-Fastpris"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Fastpris</div>
+          <div class="rev-dd-item" onclick="kaToggleType('Consulting')"><div class="rev-cb on" id="ka-cb-Consulting"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
+          <div class="rev-dd-item" onclick="kaToggleType('Utbildning')"><div class="rev-cb on" id="ka-cb-Utbildning"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
+        </div>
       </div>
-      <div style="display:flex;gap:4px;margin-left:12px;" id="ka-type-btns">
-        <button class="ka-type-btn active" data-type="ARR" onclick="kaToggleType('ARR',this)">ARR</button>
-        <button class="ka-type-btn active" data-type="Fastpris" onclick="kaToggleType('Fastpris',this)">Fastpris</button>
-        <button class="ka-type-btn active" data-type="Consulting" onclick="kaToggleType('Consulting',this)">Consulting</button>
-        <button class="ka-type-btn active" data-type="Utbildning" onclick="kaToggleType('Utbildning',this)">Utbildning</button>
+      <div class="rev-dropdown">
+        <button class="rev-dd-btn" onclick="kaToggleDD('ka-years-panel',event)">År <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="rev-dd-panel" id="ka-years-panel" style="display:none;">
+          <div class="rev-dd-item" onclick="kaToggleYear(0)"><div class="rev-cb on" id="ka-cb-y0"></div>Alla år</div>
+          <div class="rev-dd-item" onclick="kaToggleYear(2023)"><div class="rev-cb" id="ka-cb-y2023"></div>2023</div>
+          <div class="rev-dd-item" onclick="kaToggleYear(2024)"><div class="rev-cb" id="ka-cb-y2024"></div>2024</div>
+          <div class="rev-dd-item" onclick="kaToggleYear(2025)"><div class="rev-cb" id="ka-cb-y2025"></div>2025</div>
+          <div class="rev-dd-item" onclick="kaToggleYear(2026)"><div class="rev-cb" id="ka-cb-y2026"></div>2026</div>
+        </div>
       </div>
-      <div style="display:flex;gap:4px;margin-left:12px;" id="ka-year-btns">
-        <button class="ka-year-btn active" onclick="kaSetYear(0,this)">Alla år</button>
-        <button class="ka-year-btn" onclick="kaSetYear(2023,this)">2023</button>
-        <button class="ka-year-btn" onclick="kaSetYear(2024,this)">2024</button>
-        <button class="ka-year-btn" onclick="kaSetYear(2025,this)">2025</button>
-        <button class="ka-year-btn" onclick="kaSetYear(2026,this)">2026</button>
+      <select id="ka-owner-select" onchange="kaOwnerChange(this.value)">
+        <option value="">Alla kundansvariga</option>
+        <option>Matilda Olsson</option>
+        <option>Alexandra Henningson</option>
+      </select>
+    </div>
+    <div class="kpi-grid" id="ka-kpi-grid"></div>
+    <div class="ka-content-grid">
+      <div class="ka-chart-card">
+        <div class="ka-card-title" id="ka-chart-title">Intäktsutveckling per år</div>
+        <div id="ka-chart-wrap"></div>
       </div>
+      <div class="ka-side-card" id="ka-side-content"></div>
     </div>
-    <div id="ka-cust-wrap" style="display:none;margin-bottom:12px;"></div>
-    <div id="ka-kpi-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;"></div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">
-      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:12px;">Intäktsutveckling per år</div>
-      <div id="ka-chart-wrap" style="overflow-x:auto;"></div>
-    </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
-      <table style="width:100%;border-collapse:collapse;font-size:13px;">
-        <thead><tr style="background:var(--surface2);" id="ka-thead"></tr></thead>
-        <tbody id="ka-tbody"></tbody>
-      </table>
-    </div>
+    <div id="ka-bottom-content"></div>
   </div>
 </div>
 
@@ -438,8 +485,22 @@
   </div>
 </div>
 
-<div class="page" id="page-finansiellt-periodisering">
+<div class="page" id="page-finansiellt-prognos">
   <div class="main">
+    <div class="forecast-card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-size:15px;font-weight:600;color:var(--text);">Prognos 2027</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;">Fyra scenarier baserade på licensförnyelse, historisk churn och pipeline</div>
+        </div>
+      </div>
+      <div class="kpi-grid" id="forecast-kpi-grid" style="margin-bottom:18px;"></div>
+      <div class="forecast-chart-wrap">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:10px;">Intäktsutveckling och prognos</div>
+        <div id="forecast-chart"></div>
+        <div id="forecast-legend"></div>
+      </div>
+    </div>
     <div class="date-filter">
       <span style="font-size:13px;color:var(--text3);">Period:</span>
       <input type="date" class="date-input" id="per-from" value="2026-01-01">
@@ -618,6 +679,7 @@ function switchMain(tab,el){
   if(tab==='kunder'){showPage(`kunder-${currentSub.kunder}`);}
   if(tab==='finansiellt'){showPage(`finansiellt-${currentSub.finansiellt}`);
     if(currentSub.finansiellt==='dashboard')renderFinDashboard();
+    if(currentSub.finansiellt==='prognos')renderPrognos();
     if(currentSub.finansiellt==='budget')loadBudgetVersions();
   }
 }
@@ -629,7 +691,7 @@ function switchSub(main,sub,el){
   if(main==='kunder'&&sub==='licenstidslinje')renderLicenstidslinje();
   if(main==='kunder'&&sub==='kundanalys')renderKundanalys();
   if(main==='finansiellt'&&sub==='dashboard')renderFinDashboard();
-  if(main==='finansiellt'&&sub==='periodisering')renderPeriodisering();
+  if(main==='finansiellt'&&sub==='prognos')renderPrognos();
   if(main==='finansiellt'&&sub==='budget')loadBudgetVersions();
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(`page-${id}`)?.classList.add('active');}
@@ -813,102 +875,175 @@ async function deleteProspect(){if(!currentProspectId)return;if(!confirm('Ta bor
 function convertToCustomer(prospectId){const p=allProspects.find(x=>x.Id===prospectId);if(!p)return;closeProspectModalDirect();isNewCustomer=true;currentModalId=null;currentPage=1;document.getElementById('modal-title').textContent='Ny kund från prospect';document.getElementById('modal-subtitle').textContent=p.Company||'';document.getElementById('btn-delete').style.display='none';renderTabs('Team');const c={Company:p.Company,Contact:p.Contact,ContactRole:p.Role,ContactEmail:p.Email,_owner:p.Owner,LicenseType:'Team',Risk:'Low'};renderModalPage(c,[],[]);document.getElementById('modal-overlay').classList.add('open');}
 function closeProspectModal(e){if(e.target===document.getElementById('prospect-overlay'))closeProspectModalDirect();}
 function closeProspectModalDirect(){document.getElementById('prospect-overlay').classList.remove('open');}
-// ─── KUNDANALYS ──────────────────────────────────────────
-let kaMode='alla',kaYear=0,kaTypes=new Set(['ARR','Fastpris','Consulting','Utbildning']),kaSelectedCust=null;
+// ─── KUNDANALYS (rebuild) ────────────────────────────────
+let kaSelectedCust=null,kaTypes=new Set(['ARR','Fastpris','Consulting','Utbildning']),kaYearSet=new Set([0]),kaOwner='',kaExpanded=new Set();
 let kaRevCache={};
 async function kaFetchAll(){const missing=allCustomers.filter(c=>!kaRevCache[c.Id]);await Promise.all(missing.map(c=>apiFetch(`${API}/customers/${c.Id}/revenues`).then(r=>r.json()).then(items=>{kaRevCache[c.Id]=items;}).catch(()=>{kaRevCache[c.Id]=[];})));}
 function kaCalcYear(items,year){if(year===0)return items.filter(i=>kaTypes.has(i.Type)).reduce((s,i)=>s+(i.Amount||0),0);return items.filter(i=>kaTypes.has(i.Type)).reduce((s,i)=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yS=new Date(year,0,1),yE=new Date(year,11,31);if(!from&&!to)return s+(i.Amount||0);if(!from||!to)return s+(i.Amount||0);if(from>yE||to<yS)return s;const td=Math.max(1,Math.round((to-from)/86400000));const oS=from>yS?from:yS,oE=to<yE?to:yE;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);return s+Math.round((i.Amount||0)*od/td);},0);}
-function kaSetMode(mode,el){kaMode=mode;kaSelectedCust=null;document.querySelectorAll('.ka-mode-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderKundanalys();}
-function kaSetYear(y,el){kaYear=y;document.querySelectorAll('.ka-year-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderKundanalys();}
-function kaToggleType(t,el){if(kaTypes.has(t))kaTypes.delete(t);else kaTypes.add(t);el.classList.toggle('active',kaTypes.has(t));renderKundanalys();}
-function kaToggleGroup(key){if(!window._kaExpanded)window._kaExpanded=new Set();if(window._kaExpanded.has(key))window._kaExpanded.delete(key);else window._kaExpanded.add(key);renderKundanalys();}
-function kaSelectCust(id){kaSelectedCust=id||null;renderKundanalys();}
+function kaToggleDD(panelId,e){e.stopPropagation();document.querySelectorAll('.rev-dd-panel').forEach(p=>{if(p.id!==panelId)p.style.display='none';});const p=document.getElementById(panelId);p.style.display=p.style.display==='none'?'block':'none';}
+function kaToggleType(t){if(kaTypes.has(t))kaTypes.delete(t);else kaTypes.add(t);document.getElementById('ka-cb-'+t).classList.toggle('on',kaTypes.has(t));renderKundanalys();}
+function kaToggleYear(y){if(y===0){kaYearSet=new Set([0]);}else{if(kaYearSet.has(0))kaYearSet.delete(0);if(kaYearSet.has(y))kaYearSet.delete(y);else kaYearSet.add(y);if(kaYearSet.size===0)kaYearSet.add(0);}[0,2023,2024,2025,2026].forEach(yy=>{const cb=document.getElementById('ka-cb-y'+yy);if(cb)cb.classList.toggle('on',kaYearSet.has(yy));});renderKundanalys();}
+function kaOnCustChange(val){kaSelectedCust=val||null;renderKundanalys();}
+function kaOwnerChange(val){kaOwner=val||'';renderKundanalys();}
+function kaToggleGroup(key){if(kaExpanded.has(key))kaExpanded.delete(key);else kaExpanded.add(key);renderKundanalys();}
+function kaBuildCustOptions(){
+  const groups={},solos=[];
+  allCustomers.forEach(c=>{if(c.ParentCompany){if(!groups[c.ParentCompany])groups[c.ParentCompany]=[];groups[c.ParentCompany].push(c);}else solos.push(c);});
+  let html=`<option value="">— Alla kunder —</option>`;
+  Object.entries(groups).forEach(([name,custs])=>{
+    html+=`<optgroup label="${name}">`;
+    html+=`<option value="koncern:${name}">${name} (hela koncernen)</option>`;
+    custs.forEach(c=>{html+=`<option value="${c.Id}">${name} – ${c.SubName||c.Company||'–'}</option>`;});
+    html+=`</optgroup>`;
+  });
+  if(solos.length){html+=`<optgroup label="Övriga kunder">`;solos.sort((a,b)=>(a.Company||'').localeCompare(b.Company||'')).forEach(c=>{html+=`<option value="${c.Id}">${c.Company||'–'}</option>`;});html+=`</optgroup>`;}
+  return html;
+}
+function kaSelectedYears(){return kaYearSet.has(0)?[2023,2024,2025,2026]:[...kaYearSet].sort();}
+function kaKpiYear(){return kaYearSet.has(0)?2026:Math.max(...kaYearSet);}
+
 async function renderKundanalys(){
   await kaFetchAll();
-  const YEARS=[2023,2024,2025,2026];
+  const custSel=document.getElementById('ka-cust-select');
+  if(custSel.options.length<=1)custSel.innerHTML=kaBuildCustOptions();
+  if(custSel.value!==(kaSelectedCust||''))custSel.value=kaSelectedCust||'';
+
+  // Resolve view customers
+  let viewCusts;let isKoncern=false;
+  if(!kaSelectedCust){viewCusts=allCustomers.slice();}
+  else if(kaSelectedCust.startsWith&&kaSelectedCust.startsWith('koncern:')){const n=kaSelectedCust.slice(8);viewCusts=allCustomers.filter(c=>c.ParentCompany===n);isKoncern=true;}
+  else{const id=parseInt(kaSelectedCust);const c=allCustomers.find(x=>x.Id===id);viewCusts=c?[c]:[];}
+  if(kaOwner)viewCusts=viewCusts.filter(c=>c._owner===kaOwner);
+
+  const isAlla=!kaSelectedCust;
+  if(isAlla)renderKaAlla(viewCusts);
+  else renderKaPerKund(viewCusts,isKoncern);
+}
+
+function renderKaAlla(viewCusts){
   const TC={ARR:'#1a7a50',Fastpris:'#1a4f7a',Consulting:'#5a1a7a',Utbildning:'#b85a00'};
-  const allItems=Object.values(kaRevCache).flat();
-  const kpiYear=kaYear>0?kaYear:2026;
-
-  // Per kund dropdown
-  const custWrap=document.getElementById('ka-cust-wrap');
-  if(kaMode==='per'){
-    custWrap.style.display='block';
-    const opts=allCustomers.map(c=>`<option value="${c.Id}"${kaSelectedCust===c.Id?' selected':''}>${c.Company||'–'}</option>`).join('');
-    custWrap.innerHTML=`<select onchange="kaSelectCust(parseInt(this.value)||null)" style="padding:6px 12px;border:0.5px solid var(--border);border-radius:6px;background:var(--surface2);font-family:'Poppins',sans-serif;font-size:13px;color:var(--text1);"><option value="">– Välj kund –</option>${opts}</select>`;
-  } else {
-    custWrap.style.display='none';
-    custWrap.innerHTML='';
-  }
-
-  // Base items for chart (filtered if per-kund with selection)
-  const baseItems=kaMode==='per'&&kaSelectedCust?(kaRevCache[kaSelectedCust]||[]):allItems;
-
-  // KPI
-  const totCur=kaCalcYear(baseItems,kpiYear);const totPrev=kaCalcYear(baseItems,kpiYear-1);
+  const types=['ARR','Fastpris','Consulting','Utbildning'].filter(t=>kaTypes.has(t));
+  const years=kaSelectedYears();
+  const kpiYear=kaKpiYear();
+  const items=viewCusts.flatMap(c=>kaRevCache[c.Id]||[]);
+  const totCur=kaCalcYear(items,kpiYear);
+  const totPrev=kaCalcYear(items,kpiYear-1);
   const growth=totPrev>0?Math.round((totCur-totPrev)/totPrev*100):null;
-  const activeCusts=allCustomers.filter(c=>c._days!==null&&c._days>=0).length;
-  const avgPerCust=activeCusts>0?Math.round(kaCalcYear(allItems,kpiYear)/activeCusts):0;
-  const prog27Custs=allCustomers.filter(c=>{const le=c.LicenseEnd?new Date(c.LicenseEnd):null;return le&&le>new Date('2026-12-31');});
-  const prog27=prog27Custs.reduce((s,c)=>s+(c.ARR||0),0);
+  const activeCusts=viewCusts.filter(c=>c._days!==null&&c._days>=0).length;
+  const avgPerCust=activeCusts>0?Math.round(totCur/activeCusts):0;
+  const renewing=allCustomers.filter(c=>c.LicenseEnd&&new Date(c.LicenseEnd)>new Date());
+  const prog27=renewing.reduce((s,c)=>s+(c.ARR||0),0);
   document.getElementById('ka-kpi-grid').innerHTML=[
-    {label:'Total intäkt',val:totCur>0?totCur.toLocaleString('sv-SE')+' kr':'–',color:'var(--accent)',sub:growth!==null?`<span style="color:${growth>=0?'var(--green)':'var(--red)'};">${growth>=0?'+':''}${growth}% vs ${kpiYear-1}</span>`:''},
+    {label:`Total intäkt ${kpiYear}`,val:totCur>0?totCur.toLocaleString('sv-SE')+' kr':'–',color:'var(--accent)',sub:growth!==null?`<span style="color:${growth>=0?'var(--green)':'var(--red)'};">${growth>=0?'+':''}${growth}% vs ${kpiYear-1}</span>`:'–'},
     {label:'Snitt per kund',val:avgPerCust>0?avgPerCust.toLocaleString('sv-SE')+' kr':'–',color:'var(--green)',sub:`${activeCusts} aktiva kunder`},
-    {label:'Prognos 2027',val:prog27>0?prog27.toLocaleString('sv-SE')+' kr':'–',color:'var(--blue)',sub:`${prog27Custs.length} kunder kvar`},
+    {label:'Prognos 2027',val:prog27>0?prog27.toLocaleString('sv-SE')+' kr':'–',color:'var(--blue)',sub:`${renewing.length} kunder förnyar`},
     {label:'Tillväxt YoY',val:growth!==null?(growth>=0?'+':'')+growth+'%':'–',color:growth!==null&&growth>=0?'var(--green)':'var(--red)',sub:'vs föregående år'}
-  ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-delta">${k.sub||''}</div></div>`).join('');
+  ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-delta">${k.sub}</div></div>`).join('');
 
   // Chart
-  const types=['ARR','Fastpris','Consulting','Utbildning'].filter(t=>kaTypes.has(t));
-  const H=120,BW=54,GAP=16;
-  const legend=`<div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;">${types.map(t=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:${TC[t]};"></div>${t}</div>`).join('')}</div>`;
-  if(kaYear>0){
-    // Single selected year — one wide bar
-    const tot=kaCalcYear(baseItems,kaYear);const maxV=Math.max(tot,1);
-    const barW=80;let stackY=H;
-    const rects=types.map(t=>{const v=kaCalcYear(baseItems.filter(i=>i.Type===t),kaYear);if(!v)return'';const bh=Math.max(1,Math.round(v/maxV*(H-10)));stackY-=bh;return`<rect x="${GAP}" y="${stackY}" width="${barW}" height="${bh}" rx="2" fill="${TC[t]}"/>`;}).join('');
-    const vLbl=tot>0?`<text x="${GAP+barW/2}" y="${stackY-6}" text-anchor="middle" font-size="11" font-weight="500" fill="var(--text2)">${tot.toLocaleString('sv-SE')} kr</text>`:'';
-    document.getElementById('ka-chart-wrap').innerHTML=`<svg viewBox="0 0 ${barW+GAP*2} ${H+20}" width="180" style="overflow:visible;">${rects}${vLbl}</svg>${legend}`;
-  } else {
-    // All years: 2023–2026 + 2027 prognos
-    const chartYears=[...YEARS,2027];
-    const yearTots=chartYears.map((y,i)=>i===4?prog27:types.reduce((s,t)=>s+kaCalcYear(baseItems.filter(it=>it.Type===t),y),0));
-    const maxY=Math.max(...yearTots,1);
-    const W=(BW+GAP)*chartYears.length+GAP;
-    const bars=chartYears.map((y,xi)=>{
-      const x=GAP+xi*(BW+GAP);const is27=y===2027;const tot=yearTots[xi];
-      let stackY=H;
-      const rects=types.map(t=>{const v=is27?(t==='ARR'?prog27:0):kaCalcYear(baseItems.filter(it=>it.Type===t),y);if(!v)return'';const bh=Math.max(1,Math.round(v/maxY*(H-10)));stackY-=bh;return`<rect x="${x}" y="${stackY}" width="${BW}" height="${bh}" fill="${is27?'none':TC[t]}" rx="${is27?0:2}" ${is27?`stroke="${TC[t]}" stroke-width="1.5" stroke-dasharray="4 2"`:''}/>`;}).join('');
-      const lbl=`<text x="${x+BW/2}" y="${H+14}" text-anchor="middle" font-size="11" fill="var(--text3)">${y}</text>`;
-      const vLbl=tot>0?`<text x="${x+BW/2}" y="${H-Math.round(tot/maxY*(H-10))-5}" text-anchor="middle" font-size="10" fill="${is27?TC.ARR:'var(--text2)'}">${Math.round(tot/1000)}k</text>`:'';
-      const pLbl=is27?`<text x="${x+BW/2}" y="${H+25}" text-anchor="middle" font-size="9" fill="${TC.ARR}" font-style="italic">prognos</text>`:'';
-      return rects+lbl+vLbl+pLbl;
-    }).join('');
-    document.getElementById('ka-chart-wrap').innerHTML=`<svg viewBox="0 0 ${W} ${H+36}" width="100%" style="overflow:visible;min-width:320px;">${bars}</svg>${legend}`;
-  }
+  document.getElementById('ka-chart-title').textContent='Intäktsutveckling per år';
+  kaRenderChart(items,years,types,TC,prog27,true);
 
-  // Table
-  document.getElementById('ka-thead').innerHTML=`<th class="ka-th">Kund</th><th class="ka-th">2024</th><th class="ka-th">2025</th><th class="ka-th">2026</th><th class="ka-th">Tillväxt</th><th class="ka-th">vs snitt</th><th class="ka-th">Status</th>`;
-  const avg26=allCustomers.length>0?Math.round(allCustomers.reduce((s,c)=>s+kaCalcYear((kaRevCache[c.Id]||[]),2026),0)/allCustomers.length):0;
-  function custRow(c,sub){const items=kaRevCache[c.Id]||[];const v24=kaCalcYear(items,2024),v25=kaCalcYear(items,2025),v26=kaCalcYear(items,2026);const grow=v25>0?Math.round((v26-v25)/v25*100):null;const vsA=avg26>0?Math.round((v26-avg26)/avg26*100):null;const days=c._days;const status=days===null?'–':days<0?`<span class="badge b-red">Utgången</span>`:days<=30?`<span class="badge b-amber">${days}d</span>`:`<span class="badge b-green">Aktiv</span>`;return`<tr class="${sub?'ka-sub-row':''}" onclick="openModal(${c.Id})" style="cursor:pointer;"><td class="ka-td" style="${sub?'padding-left:24px;':''}"><div style="font-weight:500;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td><td class="ka-td">${v24>0?v24.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td">${v25>0?v25.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td" style="font-weight:500;">${v26>0?v26.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td" style="color:${grow===null?'var(--text3)':grow>=0?'var(--green)':'var(--red)'}">${grow!==null?(grow>=0?'+':'')+grow+'%':'–'}</td><td class="ka-td" style="color:${vsA===null?'var(--text3)':vsA>=0?'var(--green)':'var(--red)'}">${vsA!==null?(vsA>=0?'+':'')+vsA+'%':'–'}</td><td class="ka-td">${status}</td></tr>`;}
+  // Side: donut + top 5
+  const sums={};types.forEach(t=>{sums[t]=kaCalcYear(items.filter(i=>i.Type===t),0);});
+  const totMix=Object.values(sums).reduce((a,b)=>a+b,0)||1;
+  let donut='<svg viewBox="0 0 110 110" width="120" height="120">';
+  const cx=55,cy=55,r=44;let acc=0;
+  types.forEach(t=>{const v=sums[t];if(!v)return;const frac=v/totMix;const a1=acc*2*Math.PI-Math.PI/2;const a2=(acc+frac)*2*Math.PI-Math.PI/2;const x1=cx+Math.cos(a1)*r,y1=cy+Math.sin(a1)*r,x2=cx+Math.cos(a2)*r,y2=cy+Math.sin(a2)*r;const large=frac>0.5?1:0;donut+=`<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z" fill="${TC[t]}"/>`;acc+=frac;});
+  donut+=`<circle cx="${cx}" cy="${cy}" r="26" fill="var(--surface)"/><text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="10" fill="var(--text3)">Totalt</text><text x="${cx}" y="${cy+12}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text)">${Math.round(totMix/1000)}k</text></svg>`;
+  const donutLegend=types.map(t=>`<div class="ka-mix-row"><span class="dot" style="background:${TC[t]};"></span><span class="lbl">${t}</span><span class="val">${Math.round((sums[t]/totMix)*100)}%</span></div>`).join('');
+  const top5=[...viewCusts].map(c=>({c,v:kaCalcYear(kaRevCache[c.Id]||[],kpiYear)})).sort((a,b)=>b.v-a.v).slice(0,5);
+  const top5Html=top5.map((x,i)=>`<div class="ka-top-row" onclick="openModal(${x.c.Id})"><span class="rank">${i+1}</span><span class="name">${x.c.Company||'-'}${x.c.SubName?` <span style="color:var(--text3);font-size:11px;">${x.c.SubName}</span>`:''}</span><span class="val">${x.v>0?Math.round(x.v/1000)+'k':'–'}</span></div>`).join('')||'<div style="color:var(--text3);font-size:13px;padding:10px;">Ingen data</div>';
+  document.getElementById('ka-side-content').innerHTML=`<div class="ka-side-section"><div class="ka-card-title">Intäktsmix</div><div style="display:flex;gap:14px;align-items:center;">${donut}<div style="flex:1;display:flex;flex-direction:column;gap:5px;">${donutLegend}</div></div></div><div class="ka-side-divider"></div><div class="ka-side-section"><div class="ka-card-title">Topp 5 kunder ${kpiYear}</div><div class="ka-top-list">${top5Html}</div></div>`;
+
+  // Table: koncern grouping
+  const avgK=viewCusts.length>0?Math.round(viewCusts.reduce((s,c)=>s+kaCalcYear((kaRevCache[c.Id]||[]),kpiYear),0)/viewCusts.length):0;
+  const groups={},solos=[];
+  viewCusts.forEach(c=>{if(c.ParentCompany){if(!groups[c.ParentCompany])groups[c.ParentCompany]=[];groups[c.ParentCompany].push(c);}else solos.push(c);});
   let rows='';
-  if(kaMode==='koncern'){
-    const groups={};allCustomers.forEach(c=>{const key=c.ParentCompany||('__solo__'+c.Id);if(!groups[key])groups[key]=[];groups[key].push(c);});
-    const expanded=window._kaExpanded||new Set();window._kaExpanded=expanded;
-    Object.entries(groups).forEach(([key,custs])=>{
-      if(key.startsWith('__solo__')){rows+=custRow(custs[0],false);return;}
-      const kItems=custs.flatMap(c=>kaRevCache[c.Id]||[]);const k24=kaCalcYear(kItems,2024),k25=kaCalcYear(kItems,2025),k26=kaCalcYear(kItems,2026);const grow=k25>0?Math.round((k26-k25)/k25*100):null;const vsA=avg26>0?Math.round((k26/custs.length-avg26)/avg26*100):null;const exp=expanded.has(key);
-      rows+=`<tr class="ka-koncern-row" onclick="kaToggleGroup('${key}')" style="cursor:pointer;"><td class="ka-td"><span style="display:inline-block;margin-right:6px;font-size:10px;transition:transform .15s;transform:rotate(${exp?90:0}deg);">▶</span><strong>${key}</strong> <span style="font-size:11px;font-weight:400;color:var(--text3);">(${custs.length} enheter)</span></td><td class="ka-td">${k24>0?k24.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td">${k25>0?k25.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td">${k26>0?k26.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td" style="color:${grow===null?'var(--text3)':grow>=0?'var(--green)':'var(--red)'}">${grow!==null?(grow>=0?'+':'')+grow+'%':'–'}</td><td class="ka-td" style="color:${vsA===null?'var(--text3)':vsA>=0?'var(--green)':'var(--red)'}">${vsA!==null?(vsA>=0?'+':'')+vsA+'%':'–'}</td><td class="ka-td">–</td></tr>`;
-      if(exp)custs.forEach(c=>{rows+=custRow(c,true);});
-    });
-  } else if(kaMode==='per'){
-    if(kaSelectedCust){const c=allCustomers.find(x=>x.Id===kaSelectedCust);if(c)rows=custRow(c,false);}
-    else[...allCustomers].sort((a,b)=>kaCalcYear((kaRevCache[b.Id]||[]),2026)-kaCalcYear((kaRevCache[a.Id]||[]),2026)).forEach(c=>{rows+=custRow(c,false);});
-  } else {
-    const v24=kaCalcYear(allItems,2024),v25=kaCalcYear(allItems,2025),v26=kaCalcYear(allItems,2026);const grow=v25>0?Math.round((v26-v25)/v25*100):null;
-    rows=`<tr><td class="ka-td" style="font-weight:600;">Alla kunder</td><td class="ka-td">${v24>0?v24.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td">${v25>0?v25.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td" style="font-weight:600;">${v26>0?v26.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td" style="color:${grow===null?'var(--text3)':grow>=0?'var(--green)':'var(--red)'}">${grow!==null?(grow>=0?'+':'')+grow+'%':'–'}</td><td class="ka-td">–</td><td class="ka-td">–</td></tr>`;
-  }
-  document.getElementById('ka-tbody').innerHTML=rows||`<tr><td class="ka-td" colspan="7" style="color:var(--text3);text-align:center;">Ingen data</td></tr>`;
+  const renderRow=(c,sub)=>{const it=kaRevCache[c.Id]||[];const v24=kaCalcYear(it,2024),v25=kaCalcYear(it,2025),v26=kaCalcYear(it,2026);const grow=v25>0?Math.round((v26-v25)/v25*100):null;const vsA=avgK>0?Math.round((v26-avgK)/avgK*100):null;const d=c._days;const status=d===null?'–':d<0?'<span class="badge b-red">Utgången</span>':d<=30?`<span class="badge b-amber">${d}d</span>`:'<span class="badge b-green">Aktiv</span>';return `<tr class="${sub?'ka-sub-row':''}" onclick="openModal(${c.Id})"><td class="ka-td" style="${sub?'padding-left:30px;':''}"><div style="font-weight:500;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td><td class="ka-td">${v24>0?v24.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td">${v25>0?v25.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td" style="font-weight:500;">${v26>0?v26.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td" style="color:${grow===null?'var(--text3)':grow>=0?'var(--green)':'var(--red)'};">${grow!==null?(grow>=0?'+':'')+grow+'%':'–'}</td><td class="ka-td" style="color:${vsA===null?'var(--text3)':vsA>=0?'var(--green)':'var(--red)'};">${vsA!==null?(vsA>=0?'+':'')+vsA+'%':'–'}</td><td class="ka-td">${status}</td></tr>`;};
+  Object.entries(groups).forEach(([name,custs])=>{
+    const ki=custs.flatMap(c=>kaRevCache[c.Id]||[]);const k24=kaCalcYear(ki,2024),k25=kaCalcYear(ki,2025),k26=kaCalcYear(ki,2026);const grow=k25>0?Math.round((k26-k25)/k25*100):null;const exp=kaExpanded.has(name);
+    rows+=`<tr class="ka-koncern-row" onclick="kaToggleGroup('${name.replace(/'/g,"\\'")}')"><td class="ka-td"><span class="ka-caret" style="transform:rotate(${exp?90:0}deg);">▶</span><strong>${name}</strong> <span style="font-size:11px;font-weight:400;color:var(--text3);">(${custs.length} enheter)</span></td><td class="ka-td">${k24>0?k24.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td">${k25>0?k25.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td">${k26>0?k26.toLocaleString('sv-SE')+' kr':'–'}</td><td class="ka-td" style="color:${grow===null?'var(--text3)':grow>=0?'var(--green)':'var(--red)'};">${grow!==null?(grow>=0?'+':'')+grow+'%':'–'}</td><td class="ka-td">–</td><td class="ka-td">–</td></tr>`;
+    if(exp)custs.forEach(c=>{rows+=renderRow(c,true);});
+  });
+  [...solos].sort((a,b)=>kaCalcYear(kaRevCache[b.Id]||[],kpiYear)-kaCalcYear(kaRevCache[a.Id]||[],kpiYear)).forEach(c=>{rows+=renderRow(c,false);});
+  document.getElementById('ka-bottom-content').innerHTML=`<div class="ka-table-card"><table class="ka-table"><thead><tr><th class="ka-th">Kund</th><th class="ka-th">2024</th><th class="ka-th">2025</th><th class="ka-th">2026</th><th class="ka-th">Tillväxt</th><th class="ka-th">vs snitt</th><th class="ka-th">Status</th></tr></thead><tbody>${rows||'<tr><td class="ka-td" colspan="7" style="color:var(--text3);text-align:center;">Ingen data</td></tr>'}</tbody></table></div>`;
+}
+
+function renderKaPerKund(viewCusts,isKoncern){
+  const TC={ARR:'#1a7a50',Fastpris:'#1a4f7a',Consulting:'#5a1a7a',Utbildning:'#b85a00'};
+  const types=['ARR','Fastpris','Consulting','Utbildning'].filter(t=>kaTypes.has(t));
+  const years=kaSelectedYears();
+  const kpiYear=kaKpiYear();
+  const items=viewCusts.flatMap(c=>kaRevCache[c.Id]||[]);
+  const totalAll=Object.values(kaRevCache).flat();
+
+  // KPI
+  const tot=kaCalcYear(items,kpiYear);
+  const totalPortfolio=kaCalcYear(totalAll,kpiYear);
+  const sharePct=totalPortfolio>0?Math.round(tot/totalPortfolio*100):0;
+  const avgCust=allCustomers.length>0?Math.round(totalPortfolio/allCustomers.length):0;
+  const vsAvg=avgCust>0?Math.round((tot/Math.max(viewCusts.length,1)-avgCust)/avgCust*100):null;
+  const sinceDates=viewCusts.map(c=>c.CustomerSince).filter(Boolean).map(d=>new Date(d));
+  const earliest=sinceDates.length?new Date(Math.min(...sinceDates.map(d=>d.getTime()))):null;
+  const yrs=earliest?((new Date()-earliest)/(365.25*86400000)).toFixed(1):null;
+  const lifeTot=kaCalcYear(items,0);
+  document.getElementById('ka-kpi-grid').innerHTML=[
+    {label:`Intäkt ${kpiYear}`,val:tot>0?tot.toLocaleString('sv-SE')+' kr':'–',color:'var(--accent)',sub:`${viewCusts.length} ${isKoncern?'enheter':'kund'}`},
+    {label:'Andel av total',val:`${sharePct}%`,color:'var(--green)',sub:`av ${totalPortfolio.toLocaleString('sv-SE')} kr`},
+    {label:'vs portföljsnitt',val:vsAvg!==null?(vsAvg>=0?'+':'')+vsAvg+'%':'–',color:vsAvg!==null&&vsAvg>=0?'var(--green)':'var(--red)',sub:`Snitt: ${avgCust.toLocaleString('sv-SE')} kr`},
+    {label:'Kund sedan',val:yrs?`${yrs} år`:'–',color:'var(--blue)',sub:lifeTot>0?`Total: ${lifeTot.toLocaleString('sv-SE')} kr`:'–'}
+  ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-delta">${k.sub}</div></div>`).join('');
+
+  // Chart
+  const title=isKoncern?kaSelectedCust.slice(8)+' (koncern)':(viewCusts[0]?.Company||'–');
+  document.getElementById('ka-chart-title').textContent=`Intäktsutveckling – ${title}`;
+  kaRenderChart(items,years,types,TC,(viewCusts.find(c=>c.LicenseEnd&&new Date(c.LicenseEnd)>new Date())?viewCusts.reduce((s,c)=>s+(c.LicenseEnd&&new Date(c.LicenseEnd)>new Date()?(c.ARR||0):0),0):0),false);
+
+  // Side: comparison + year table
+  const yearTable=[2024,2025,2026].map((y,i,arr)=>{
+    const v=kaCalcYear(items,y);
+    const prev=i>0?kaCalcYear(items,arr[i-1]):null;
+    const g=prev&&prev>0?Math.round((v-prev)/prev*100):null;
+    return {y,v,g};
+  });
+  // Comparison bars: customer vs portfolio avg
+  const custVal=kaCalcYear(items,kpiYear);
+  const portAvg=allCustomers.length>0?Math.round(kaCalcYear(totalAll,kpiYear)/allCustomers.length):0;
+  const maxCmp=Math.max(custVal,portAvg,1);
+  const cmpHtml=`<div class="ka-cmp-row"><span class="lbl">Den här ${isKoncern?'koncernen':'kunden'}</span><div class="cmp-bar"><div class="cmp-fill" style="width:${Math.round(custVal/maxCmp*100)}%;background:var(--green);"></div></div><span class="val">${custVal.toLocaleString('sv-SE')} kr</span></div><div class="ka-cmp-row"><span class="lbl">Portföljsnitt</span><div class="cmp-bar"><div class="cmp-fill" style="width:${Math.round(portAvg/maxCmp*100)}%;background:var(--text3);"></div></div><span class="val">${portAvg.toLocaleString('sv-SE')} kr</span></div>`;
+  const yearTblHtml=yearTable.map((r,i)=>`<div class="ka-yr-row"><span class="yr">${r.y}</span><span class="val">${r.v>0?r.v.toLocaleString('sv-SE')+' kr':'–'}</span><span class="chg" style="color:${r.g===null?'var(--text3)':r.g>=0?'var(--green)':'var(--red)'};">${r.g!==null?(r.g>=0?'+':'')+r.g+'%':''}</span></div>`).join('');
+  document.getElementById('ka-side-content').innerHTML=`<div class="ka-side-section"><div class="ka-card-title">Jämförelse med portföljsnitt (${kpiYear})</div><div style="display:flex;flex-direction:column;gap:8px;">${cmpHtml}</div></div><div class="ka-side-divider"></div><div class="ka-side-section"><div class="ka-card-title">År för år</div><div class="ka-yr-list">${yearTblHtml}</div></div>`;
+
+  // Active contracts list
+  const allItems=viewCusts.flatMap(c=>(kaRevCache[c.Id]||[]).map(it=>({...it,_cust:c})));
+  const today=new Date();
+  const sorted=allItems.sort((a,b)=>{const ad=a.DateTo?new Date(a.DateTo):null,bd=b.DateTo?new Date(b.DateTo):null;if(!ad)return 1;if(!bd)return-1;return bd-ad;});
+  const tColor={ARR:'#EAF3DE',Fastpris:'#E6F1FB',Utbildning:'#FAEEDA',Consulting:'#EEEDFE'};
+  const tText={ARR:'#3B6D11',Fastpris:'#185FA5',Utbildning:'#854F0B',Consulting:'#3C3489'};
+  const contractRows=sorted.length?sorted.map(it=>{const to=it.DateTo?new Date(it.DateTo):null;const isActive=to&&to>=today;const range=it.DateFrom||it.DateTo?`${it.DateFrom?it.DateFrom.substring(0,10):'?'} – ${it.DateTo?it.DateTo.substring(0,10):'?'}`:'';const company=isKoncern?`<span style="color:var(--text3);font-size:11px;margin-left:8px;">${it._cust.Company}${it._cust.SubName?' / '+it._cust.SubName:''}</span>`:'';return `<div class="ka-contract" onclick="openModal(${it._cust.Id})"><span class="contract-type" style="background:${tColor[it.Type]||'var(--surface2)'};color:${tText[it.Type]||'var(--text2)'};">${it.Type}</span><span class="contract-amount">${Math.round(it.Amount).toLocaleString('sv-SE')} kr</span><span class="contract-dates">${range}</span><span class="badge ${isActive?'b-green':'b-amber'}">${isActive?'Aktiv':to&&to<today?'Utgången':'Pågående'}</span>${company}</div>`;}).join(''):'<div style="padding:14px;color:var(--text3);font-size:13px;">Inga intäktsposter</div>';
+  document.getElementById('ka-bottom-content').innerHTML=`<div class="ka-table-card"><div class="ka-card-title" style="padding:12px 14px 0;">Aktiva avtal & intäktsposter</div><div class="ka-contracts">${contractRows}</div></div>`;
+}
+
+function kaRenderChart(items,years,types,TC,prog27,showProg){
+  const H=130,BW=54,GAP=18;
+  const includeProg=showProg&&kaYearSet.has(0);
+  const chartYears=includeProg?[...years,2027]:years;
+  const yearTots=chartYears.map((y,i)=>{if(includeProg&&i===chartYears.length-1)return prog27;return types.reduce((s,t)=>s+kaCalcYear(items.filter(it=>it.Type===t),y),0);});
+  const maxY=Math.max(...yearTots,1);
+  const W=Math.max((BW+GAP)*chartYears.length+GAP,200);
+  const bars=chartYears.map((y,xi)=>{
+    const x=GAP+xi*(BW+GAP);const is27=includeProg&&xi===chartYears.length-1;const tot=yearTots[xi];
+    let stackY=H;
+    const rects=types.map(t=>{const v=is27?(t==='ARR'?prog27:0):kaCalcYear(items.filter(it=>it.Type===t),y);if(!v)return'';const bh=Math.max(1,Math.round(v/maxY*(H-12)));stackY-=bh;return`<rect x="${x}" y="${stackY}" width="${BW}" height="${bh}" fill="${is27?'none':TC[t]}" rx="${is27?0:2}" ${is27?`stroke="${TC[t]}" stroke-width="1.5" stroke-dasharray="4 2"`:''}/>`;}).join('');
+    const lbl=`<text x="${x+BW/2}" y="${H+14}" text-anchor="middle" font-size="11" fill="var(--text3)">${y}</text>`;
+    const vLbl=tot>0?`<text x="${x+BW/2}" y="${H-Math.round(tot/maxY*(H-12))-5}" text-anchor="middle" font-size="10" fill="${is27?TC.ARR:'var(--text2)'}" font-weight="500">${Math.round(tot/1000)}k</text>`:'';
+    const pLbl=is27?`<text x="${x+BW/2}" y="${H+26}" text-anchor="middle" font-size="9" fill="${TC.ARR}" font-style="italic">prognos</text>`:'';
+    return rects+lbl+vLbl+pLbl;
+  }).join('');
+  const legend=`<div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;">${types.map(t=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:${TC[t]};"></div>${t}</div>`).join('')}</div>`;
+  document.getElementById('ka-chart-wrap').innerHTML=`<svg viewBox="0 0 ${W} ${H+36}" width="100%" style="overflow:visible;min-width:200px;">${bars}</svg>${legend}`;
 }
 // ─── KUNDER ──────────────────────────────────────────────
 async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
@@ -935,7 +1070,7 @@ async function loadCommissions(){try{const r=await apiFetch(`${API}/commissions`
 async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadCommissions();}
 
 // ─── PERIODISERING ───────────────────────────────────────
-function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-periodisering .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPeriodisering();}
+function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPeriodisering();}
 function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(perSources.arr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.fast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.utb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.cons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
 // ─── KUNDER ──────────────────────────────────────────────
 async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
@@ -962,8 +1097,96 @@ async function loadCommissions(){try{const r=await apiFetch(`${API}/commissions`
 async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadCommissions();}
 
 // ─── PERIODISERING ───────────────────────────────────────
-function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-periodisering .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPeriodisering();}
+function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPeriodisering();}
 function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(perSources.arr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.fast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.utb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.cons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
+// ─── PROGNOS (Forecast scenarios) ────────────────────────
+async function renderPrognos(){
+  await kaFetchAll();
+  renderForecastSection();
+  renderPeriodisering();
+}
+function forecastYearRevenue(year){
+  const allItems=Object.values(kaRevCache).flat();
+  return allItems.reduce((s,i)=>{
+    const from=i.DateFrom?new Date(i.DateFrom):null;
+    const to=i.DateTo?new Date(i.DateTo):null;
+    const yS=new Date(year,0,1),yE=new Date(year,11,31);
+    if(!from&&!to)return s+(i.Amount||0);
+    if(!from||!to)return s+(i.Amount||0);
+    if(from>yE||to<yS)return s;
+    const td=Math.max(1,Math.round((to-from)/86400000));
+    const oS=from>yS?from:yS,oE=to<yE?to:yE;
+    const od=Math.max(0,Math.round((oE-oS)/86400000)+1);
+    return s+Math.round((i.Amount||0)*od/td);
+  },0);
+}
+function renderForecastSection(){
+  const today=new Date();
+  const churnedCusts=allCustomers.filter(c=>c._days!==null&&c._days<0);
+  const churnRate=allCustomers.length>0?churnedCusts.length/allCustomers.length:0;
+  const activeArr=allCustomers.filter(c=>c._days!==null&&c._days>=0).reduce((s,c)=>s+(c.ARR||0),0);
+  const renewing=allCustomers.filter(c=>c.LicenseEnd&&new Date(c.LicenseEnd)>today);
+  const allaFornyas=renewing.reduce((s,c)=>s+(c.ARR||0),0);
+  const medChurn=Math.round(activeArr*(1-churnRate));
+  const openProspects=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost');
+  const qualifiedLeads=openProspects.filter(p=>p.Stage==='Qualified Lead');
+  const pipeWeighted=qualifiedLeads.reduce((s,p)=>s+Math.round((p.ValueMax||p.Value||0)*(p.Probability||0)/100),0);
+  const pipeFull=openProspects.reduce((s,p)=>s+(p.ValueMax||p.Value||0),0);
+  const realistic=Math.round(allaFornyas*(1-churnRate))+pipeWeighted;
+  const optimistic=allaFornyas+pipeFull;
+
+  // KPI cards
+  document.getElementById('forecast-kpi-grid').innerHTML=[
+    {label:'Med churn',val:medChurn,color:'var(--amber)',sub:`${(churnRate*100).toFixed(1)}% historisk churn-rate`},
+    {label:'Alla förnyas',val:allaFornyas,color:'var(--blue)',sub:`${renewing.length} kunder förnyar`},
+    {label:'Realistisk',val:realistic,color:'var(--green)',sub:`+ ${pipeWeighted.toLocaleString('sv-SE')} kr viktat pipeline`},
+    {label:'Optimistisk',val:optimistic,color:'#34a36b',sub:`+ ${pipeFull.toLocaleString('sv-SE')} kr full pipeline`}
+  ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val.toLocaleString('sv-SE')} kr</div><div class="kpi-delta neu">${k.sub}</div></div>`).join('');
+
+  // SVG chart
+  const years=[2023,2024,2025,2026];
+  const historic=years.map(y=>forecastYearRevenue(y));
+  const last=historic[historic.length-1];
+  const scenarios=[
+    {label:'Med churn',val:medChurn,color:'#b85a00'},
+    {label:'Alla förnyas',val:allaFornyas,color:'#1a4f7a'},
+    {label:'Realistisk',val:realistic,color:'#1a7a50'},
+    {label:'Optimistisk',val:optimistic,color:'#5eb98f'}
+  ];
+  const allVals=[...historic,...scenarios.map(s=>s.val),last];
+  const maxV=Math.max(...allVals,1);
+  const W=720,H=240,PL=50,PR=20,PT=18,PB=40;
+  const xs=[2023,2024,2025,2026,2027];
+  const xFor=y=>PL+((y-2023)/(2027-2023))*(W-PL-PR);
+  const yFor=v=>H-PB-(v/maxV)*(H-PT-PB);
+  const gridLines=[0,0.25,0.5,0.75,1].map(f=>{const y=H-PB-f*(H-PT-PB);return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="${f===0?'0':'3 3'}"/><text x="${PL-6}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--text3)">${Math.round(maxV*f/1000)}k</text>`;}).join('');
+  const xLabels=xs.map(y=>`<text x="${xFor(y)}" y="${H-PB+16}" text-anchor="middle" font-size="11" fill="var(--text3)" font-weight="500">${y}</text>`).join('');
+
+  // Historic line
+  const histPoints=years.map(y=>`${xFor(y)},${yFor(forecastYearRevenue(y))}`).join(' ');
+  const histLine=`<polyline points="${histPoints}" fill="none" stroke="#1a7a50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const histDots=years.map(y=>{const v=forecastYearRevenue(y);return `<circle cx="${xFor(y)}" cy="${yFor(v)}" r="4" fill="#1a7a50" stroke="#fff" stroke-width="1.5"/><text x="${xFor(y)}" y="${yFor(v)-9}" text-anchor="middle" font-size="10" fill="#1a7a50" font-weight="600">${Math.round(v/1000)}k</text>`;}).join('');
+
+  // Shaded area between min and max forecast
+  const fcVals=scenarios.map(s=>s.val);
+  const minFc=Math.min(...fcVals);
+  const maxFc=Math.max(...fcVals);
+  const shade=`<polygon points="${xFor(2026)},${yFor(last)} ${xFor(2027)},${yFor(maxFc)} ${xFor(2027)},${yFor(minFc)}" fill="#1a7a50" fill-opacity="0.08"/>`;
+
+  // Forecast dashed lines + endpoint labels
+  const fcLines=scenarios.map(s=>{
+    return `<line x1="${xFor(2026)}" y1="${yFor(last)}" x2="${xFor(2027)}" y2="${yFor(s.val)}" stroke="${s.color}" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="round"/><circle cx="${xFor(2027)}" cy="${yFor(s.val)}" r="3.5" fill="${s.color}"/>`;
+  }).join('');
+  // Endpoint labels (offset to avoid overlap)
+  const sortedScenarios=[...scenarios].map((s,i)=>({...s,idx:i})).sort((a,b)=>b.val-a.val);
+  const fcLabels=sortedScenarios.map((s,i)=>{const x=xFor(2027)+8;const y=yFor(s.val)+3;return `<text x="${x}" y="${y}" font-size="10" fill="${s.color}" font-weight="600">${s.label}: ${Math.round(s.val/1000)}k</text>`;}).join('');
+
+  document.getElementById('forecast-chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="overflow:visible;max-width:100%;">${gridLines}${xLabels}${shade}${histLine}${histDots}${fcLines}${fcLabels}</svg>`;
+
+  // Legend / explanation
+  document.getElementById('forecast-legend').innerHTML=`<div class="forecast-legend-item"><span class="dot" style="background:#1a7a50;"></span>Faktisk intäkt</div><div class="forecast-legend-item"><span class="dot" style="background:#b85a00;"></span>Med churn</div><div class="forecast-legend-item"><span class="dot" style="background:#1a4f7a;"></span>Alla förnyas</div><div class="forecast-legend-item"><span class="dot" style="background:#1a7a50;border:1.5px dashed #1a7a50;background:transparent;"></span>Realistisk</div><div class="forecast-legend-item"><span class="dot" style="background:#5eb98f;"></span>Optimistisk</div><div class="forecast-legend-divider"></div><div class="forecast-legend-stat"><span class="lbl">Churn:</span> ${(churnRate*100).toFixed(1)}%</div><div class="forecast-legend-stat"><span class="lbl">Utgångna:</span> ${churnedCusts.length} st</div><div class="forecast-legend-stat"><span class="lbl">Viktat pipeline:</span> ${pipeWeighted.toLocaleString('sv-SE')} kr</div>`;
+}
+
 // ─── BUDGET ──────────────────────────────────────────────
 async function loadBudgetVersions(){
   try{
@@ -1372,7 +1595,7 @@ function closeModal(e){if(e.target===document.getElementById('modal-overlay'))cl
 function closeModalDirect(){document.getElementById('modal-overlay').classList.remove('open');renderTable();renderRevSummary();updateStats();}
 
 document.addEventListener('click',e=>{
-  if(!e.target.closest('.rev-dropdown')){const p=document.getElementById('rev-dd-panel');if(p)p.style.display='none';const pp=document.getElementById('per-dd-panel');if(pp)pp.style.display='none';}
+  if(!e.target.closest('.rev-dropdown')){document.querySelectorAll('.rev-dd-panel').forEach(p=>{p.style.display='none';});}
 });
 document.getElementById('search')?.addEventListener('input',()=>renderTable());
 document.getElementById('filter-owner')?.addEventListener('change',()=>renderTable());
