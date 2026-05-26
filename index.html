@@ -71,9 +71,18 @@
   .ka-koncern-row { background:var(--surface2); font-weight:600; }
   .ka-sub-row { background:var(--surface); }
   .ka-caret { display:inline-block; margin-right:8px; font-size:9px; color:var(--text3); transition:transform 0.15s; }
-  #ka-kpi-grid { grid-template-columns:repeat(5,minmax(0,1fr)); }
-  @media (max-width:1200px) { #ka-kpi-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  #ka-kpi-grid { grid-template-columns:repeat(6,minmax(0,1fr)); }
+  @media (max-width:1300px) { #ka-kpi-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
   @media (max-width:760px) { #ka-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  .ka-mix-wrap { margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+  .ka-mix-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .ka-mix-table th, .ka-mix-table td { padding:5px 8px; text-align:right; color:var(--text2); }
+  .ka-mix-table thead th { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.05em; font-weight:500; padding-bottom:6px; }
+  .ka-mix-table tbody td:first-child, .ka-mix-table thead th:first-child { text-align:left; }
+  .ka-mix-table tbody td:first-child { color:var(--text); font-weight:500; }
+  .ka-mix-table .swatch { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:7px; vertical-align:middle; }
+  .ka-mix-table .sel { color:var(--accent); font-weight:600; }
+  .ka-mix-table thead th.sel { color:var(--accent); }
   .ka-th-sort { cursor:pointer; user-select:none; }
   .ka-th-sort:hover { color:var(--text); }
   .ka-arrow { display:inline-block; min-width:10px; margin-left:3px; color:var(--text3); font-size:10px; opacity:0.4; }
@@ -946,6 +955,39 @@ function kaToggleGroup(key){if(kaExpanded.has(key))kaExpanded.delete(key);else k
 function kaBuildCustOptions(){
   const groups={},solos=[];
   allCustomers.forEach(c=>{if(c.ParentCompany){if(!groups[c.ParentCompany])groups[c.ParentCompany]=[];groups[c.ParentCompany].push(c);}else solos.push(c);});
+  // True koncerns must have at least 2 customer cards
+  const koncerns=Object.entries(groups).filter(([,custs])=>custs.length>=2).sort(([a],[b])=>a.localeCompare(b));
+  const singleKoncernCusts=Object.entries(groups).filter(([,custs])=>custs.length<2).flatMap(([,custs])=>custs);
+  let html=`<option value="">— Alla kunder —</option>`;
+  if(koncerns.length){
+    html+=`<optgroup label="Koncerner">`;
+    koncerns.forEach(([name])=>{html+=`<option value="koncern:${name}">${name} (hela koncernen)</option>`;});
+    html+=`</optgroup>`;
+  }
+  const customerEntries=[];
+  solos.forEach(c=>customerEntries.push({c,parent:null}));
+  singleKoncernCusts.forEach(c=>customerEntries.push({c,parent:null}));
+  koncerns.forEach(([name,custs])=>custs.forEach(c=>customerEntries.push({c,parent:name})));
+  customerEntries.sort((a,b)=>{const nA=(a.parent||a.c.Company||'').toLowerCase();const nB=(b.parent||b.c.Company||'').toLowerCase();const cmp=nA.localeCompare(nB);if(cmp!==0)return cmp;return (a.c.SubName||a.c.Company||'').localeCompare(b.c.SubName||b.c.Company||'');});
+  html+=`<optgroup label="Kunder">`;
+  customerEntries.forEach(({c,parent})=>{html+=parent?`<option value="${c.Id}">↳ ${parent} – ${c.SubName||c.Company||'–'}</option>`:`<option value="${c.Id}">${c.Company||'–'}</option>`;});
+  html+=`</optgroup>`;
+  return html;
+}
+function kaNewCustsInYear(year){
+  if(year===0){const orgs=new Set();allCustomers.forEach(c=>{orgs.add(c.ParentCompany||('__solo__'+c.Id));});return{count:orgs.size,custs:allCustomers.slice()};}
+  const custs=allCustomers.filter(c=>{if(!c.CustomerSince)return false;if(new Date(c.CustomerSince).getFullYear()!==year)return false;const org=c.ParentCompany||('__solo__'+c.Id);return !allCustomers.some(o=>{if(o.Id===c.Id)return false;const oOrg=o.ParentCompany||('__solo__'+o.Id);if(oOrg!==org)return false;return o.CustomerSince&&new Date(o.CustomerSince).getFullYear()<year;});});
+  const orgs=new Set();custs.forEach(c=>orgs.add(c.ParentCompany||('__solo__'+c.Id)));
+  return{count:orgs.size,custs};
+}
+function kaExpansionCustsInYear(year){
+  if(year===0){return allCustomers.filter(c=>{if(!c.ParentCompany)return false;return allCustomers.some(o=>{if(o.Id===c.Id)return false;if(o.ParentCompany!==c.ParentCompany)return false;const oSince=o.CustomerSince?new Date(o.CustomerSince):null;const cSince=c.CustomerSince?new Date(c.CustomerSince):null;if(!oSince)return false;if(!cSince)return true;return oSince<cSince;});});}
+  return allCustomers.filter(c=>{if(!c.CustomerSince||!c.ParentCompany)return false;if(new Date(c.CustomerSince).getFullYear()!==year)return false;return allCustomers.some(o=>{if(o.Id===c.Id)return false;if(o.ParentCompany!==c.ParentCompany)return false;return o.CustomerSince&&new Date(o.CustomerSince).getFullYear()<year;});});
+}
+function _DEAD_kaBuildCustOptions_OLD_REMOVE(){return; // dead — see kaBuildCustOptions above
+  /*
+  const groups={},solos=[];
+  allCustomers.forEach(c=>{if(c.ParentCompany){if(!groups[c.ParentCompany])groups[c.ParentCompany]=[];groups[c.ParentCompany].push(c);}else solos.push(c);});
   let html=`<option value="">— Alla kunder —</option>`;
   Object.entries(groups).sort(([a],[b])=>a.localeCompare(b)).forEach(([name,custs])=>{
     html+=`<option value="koncern:${name}">${name} (hela koncernen)</option>`;
@@ -953,6 +995,7 @@ function kaBuildCustOptions(){
   });
   solos.sort((a,b)=>(a.Company||'').localeCompare(b.Company||'')).forEach(c=>{html+=`<option value="${c.Id}">${c.Company||'–'}</option>`;});
   return html;
+  */
 }
 function kaToggleSort(col){if(kaTableSort.col===col)kaTableSort.asc=!kaTableSort.asc;else{kaTableSort.col=col;kaTableSort.asc=col==='company';}renderKundanalys();}
 function kaToggleRow(id){if(kaRowExpanded.has(id))kaRowExpanded.delete(id);else kaRowExpanded.add(id);renderKundanalys();}
@@ -1025,26 +1068,35 @@ function renderKaAlla(viewCusts){
   const growth=totPrev>0?Math.round((totCur-totPrev)/totPrev*100):null;
   const activeCusts=viewCusts.filter(c=>c._days!==null&&c._days>=0).length;
   const avgPerCust=activeCusts>0?Math.round(totCur/activeCusts):0;
-  const renewing=allCustomers.filter(c=>c.LicenseEnd&&new Date(c.LicenseEnd)>new Date());
-  const prog27=renewing.reduce((s,c)=>s+(c.ARR||0),0);
-  const arrItems=items.filter(i=>i.Type==='ARR');
-  const arrCur=kaCalcYearAll(arrItems,kpiYear),arrPrev=kaCalcYearAll(arrItems,kpiYear-1);
-  const arrGrowth=arrPrev>0?Math.round((arrCur-arrPrev)/arrPrev*100):null;
-  const arrDiff=arrCur-arrPrev;
+  // Primary type for typ-tillväxt KPI: prefer ARR, fall back to first selected type
+  const primaryType=kaTypes.has('ARR')?'ARR':allTypes.find(t=>kaTypes.has(t));
+  const primaryItems=primaryType?items.filter(i=>i.Type===primaryType):[];
+  const primaryCur=primaryType?kaCalcYearAll(primaryItems,kpiYear):0;
+  const primaryPrev=primaryType?kaCalcYearAll(primaryItems,kpiYear-1):0;
+  const primaryGrowth=primaryPrev>0?Math.round((primaryCur-primaryPrev)/primaryPrev*100):null;
+  const primaryDiff=primaryCur-primaryPrev;
+  // Nya kunder + Expansion revenue
+  const kpiKpiYear=kaYearSet.has(0)?0:kpiYear;
+  const yearLabel=kaYearSet.has(0)?'alla år':kpiYear;
+  const newCustData=kaNewCustsInYear(kpiKpiYear);
+  const expansionCusts=kaExpansionCustsInYear(kpiKpiYear);
+  const expansionRev=expansionCusts.reduce((s,c)=>s+kaCalcYear(kaRevCache[c.Id]||[],kpiKpiYear),0);
   document.getElementById('ka-kpi-grid').innerHTML=[
     {label:`Total intäkt ${kpiYear}`,val:totCur>0?totCur.toLocaleString('sv-SE')+' kr':'–',color:'var(--accent)',sub:growth!==null?`<span style="color:${growth>=0?'var(--green)':'var(--red)'};">${growth>=0?'+':''}${growth}% vs ${kpiYear-1}</span>`:'–'},
     {label:'Snitt per kund',val:avgPerCust>0?avgPerCust.toLocaleString('sv-SE')+' kr':'–',color:'var(--green)',sub:`${activeCusts} aktiva kunder`},
-    {label:'Prognos 2027',val:prog27>0?prog27.toLocaleString('sv-SE')+' kr':'–',color:'var(--blue)',sub:`${renewing.length} kunder förnyar`},
+    {label:`Nya kunder ${yearLabel}`,val:String(newCustData.count),color:'var(--blue)',sub:'unika organisationer'},
+    {label:`Expansion revenue ${yearLabel}`,val:expansionRev>0?expansionRev.toLocaleString('sv-SE')+' kr':'–',color:'var(--purple)',sub:expansionRev>0?'ny enhet i befintlig koncern':'–'},
     {label:'Tillväxt YoY',val:growth!==null?(growth>=0?'+':'')+growth+'%':'–',color:growth!==null&&growth>=0?'var(--green)':'var(--red)',sub:'vs föregående år'},
-    {label:`ARR-tillväxt`,val:arrGrowth!==null?(arrGrowth>=0?'+':'')+arrGrowth+'%':'–',color:arrGrowth!==null&&arrGrowth>=0?'var(--green)':'var(--red)',sub:arrPrev>0?`${arrDiff>=0?'+':''}${Math.round(arrDiff/1000)}k kr (${arrCur.toLocaleString('sv-SE')} vs ${arrPrev.toLocaleString('sv-SE')})`:`ARR: ${arrCur.toLocaleString('sv-SE')} kr`}
+    {label:primaryType?`${primaryType}-tillväxt`:'Tillväxt',val:primaryGrowth!==null?(primaryGrowth>=0?'+':'')+primaryGrowth+'%':'–',color:primaryGrowth!==null&&primaryGrowth>=0?'var(--green)':'var(--red)',sub:primaryType&&primaryPrev>0?`${primaryDiff>=0?'+':''}${Math.round(primaryDiff/1000)}k kr vs ${kpiYear-1}`:primaryType?`${primaryType}: ${primaryCur.toLocaleString('sv-SE')} kr`:'–'}
   ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-delta">${k.sub}</div></div>`).join('');
 
-  // Chart + category summary row
+  // Chart + intäktsmix-tabell per år (no bg, just border-top)
   document.getElementById('ka-chart-title').textContent=`Intäktsutveckling per år${summaryYear===0?'':' ('+summaryYear+')'}`;
-  const catSums={};allTypes.forEach(t=>{catSums[t]=kaCalcYearAll(items.filter(i=>i.Type===t),summaryYear);});
-  const catTotal=Object.values(catSums).reduce((a,b)=>a+b,0)||1;
-  const catRow=`<div class="ka-cat-row">${allTypes.map(t=>`<div class="ka-cat-cell"><div class="ka-cat-swatch" style="background:${TC[t]};"></div><div class="ka-cat-info"><div class="ka-cat-name">${t}</div><div class="ka-cat-val">${catSums[t]>0?catSums[t].toLocaleString('sv-SE')+' kr':'–'}</div><div class="ka-cat-pct">${catTotal>0?Math.round(catSums[t]/catTotal*100):0}%</div></div></div>`).join('')}</div>`;
-  kaRenderChart(items,years,types,TC,catRow);
+  const mixYears=[2023,2024,2025,2026];
+  const boldYear=kaYearSet.has(0)?null:kpiYear;
+  const mixRows=allTypes.filter(t=>kaTypes.has(t));
+  const mixTable=`<div class="ka-mix-wrap"><table class="ka-mix-table"><thead><tr><th></th>${mixYears.map(y=>`<th class="${y===boldYear?'sel':''}">${y}</th>`).join('')}</tr></thead><tbody>${(mixRows.length?mixRows:allTypes).map(t=>`<tr><td><span class="swatch" style="background:${TC[t]};"></span>${t}</td>${mixYears.map(y=>{const v=kaCalcYearAll(items.filter(i=>i.Type===t),y);return `<td class="${y===boldYear?'sel':''}">${v>0?Math.round(v/1000)+'k':'–'}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
+  kaRenderChart(items,years,types,TC,mixTable);
 
   // Aggregated entries for Top 5 + fastest growing (koncern combined)
   const groups={},solos=[];
