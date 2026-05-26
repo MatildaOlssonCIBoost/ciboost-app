@@ -94,13 +94,22 @@
   .ka-contract .contract-amount { font-weight:500; min-width:90px; }
   .ka-contract .contract-dates { color:var(--text3); font-size:12px; flex:1; }
   .forecast-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-bottom:18px; box-shadow:var(--shadow); }
-  .forecast-chart-wrap { background:var(--surface2); border-radius:10px; padding:16px 18px; }
-  #forecast-legend { margin-top:14px; padding-top:12px; border-top:1px solid var(--border); display:flex; gap:18px; flex-wrap:wrap; font-size:11px; color:var(--text2); align-items:center; }
-  .forecast-legend-item { display:flex; align-items:center; gap:6px; }
-  .forecast-legend-item .dot { width:10px; height:10px; border-radius:2px; }
-  .forecast-legend-divider { width:1px; height:14px; background:var(--border); }
-  .forecast-legend-stat { display:flex; gap:4px; }
-  .forecast-legend-stat .lbl { color:var(--text3); }
+  .forecast-chart-wrap { background:var(--surface2); border-radius:10px; padding:14px 16px; }
+  .forecast-filters { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .fc-churn-control { display:flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); font-size:12px; }
+  .fc-churn-control .fc-churn-label { color:var(--text2); }
+  .fc-churn-control input { width:66px; padding:4px 8px; border:1px solid var(--border); border-radius:5px; font-family:'Poppins',sans-serif; font-size:13px; text-align:right; outline:none; }
+  .fc-churn-control input:focus { border-color:var(--accent); }
+  .fc-churn-control .fc-churn-suffix { color:var(--text3); margin-left:-2px; }
+  .fc-churn-control .fc-churn-hist { color:var(--text3); margin-left:8px; padding-left:10px; border-left:1px solid var(--border); font-size:11px; }
+  #forecast-legend { margin-top:12px; padding-top:10px; border-top:1px solid var(--border); display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--text2); align-items:center; }
+  .fc-legend-item { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text2); }
+  .fc-legend-item .line { display:inline-block; width:22px; height:0; border-top-width:2px; border-top-style:solid; }
+  .fc-legend-item .line.dashed { border-top-style:dashed; }
+  .fc-legend-item .val { font-weight:600; color:var(--text); }
+  .fc-legend-divider { width:1px; height:14px; background:var(--border); }
+  .fc-legend-stat { display:flex; gap:4px; font-size:11px; }
+  .fc-legend-stat .lbl { color:var(--text3); }
   .page { display: none; }
   .page.active { display: block; }
   .main { padding: 20px 24px; max-width: 1400px; }
@@ -510,7 +519,24 @@
           <div style="font-size:12px;color:var(--text3);margin-top:2px;">Fyra scenarier baserade på licensförnyelse, historisk churn och pipeline</div>
         </div>
       </div>
-      <div class="kpi-grid" id="forecast-kpi-grid" style="margin-bottom:18px;"></div>
+      <div class="forecast-filters">
+        <div class="rev-dropdown">
+          <button class="rev-dd-btn" onclick="fcToggleDD(event)">Intäktskällor <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="rev-dd-panel" id="fc-source-panel" style="display:none;">
+            <div class="rev-dd-item" onclick="fcToggleSource('ARR')"><div class="rev-cb on" id="fc-cb-ARR"></div><span class="rev-dot" style="background:#1a7a50;"></span>ARR</div>
+            <div class="rev-dd-item" onclick="fcToggleSource('Fastpris')"><div class="rev-cb" id="fc-cb-Fastpris"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Fastpris</div>
+            <div class="rev-dd-item" onclick="fcToggleSource('Consulting')"><div class="rev-cb" id="fc-cb-Consulting"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
+            <div class="rev-dd-item" onclick="fcToggleSource('Utbildning')"><div class="rev-cb" id="fc-cb-Utbildning"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
+          </div>
+        </div>
+        <div class="fc-churn-control">
+          <span class="fc-churn-label">Churn-rate:</span>
+          <input type="number" id="fc-churn" step="0.1" min="0" max="100" oninput="fcOnChurnChange(this.value)">
+          <span class="fc-churn-suffix">%</span>
+          <span class="fc-churn-hist">Historisk: <span id="fc-churn-historic">–</span>%</span>
+        </div>
+      </div>
+      <div class="kpi-grid" id="forecast-kpi-grid"></div>
       <div class="forecast-chart-wrap">
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:10px;">Intäktsutveckling och prognos</div>
         <div id="forecast-chart"></div>
@@ -1182,14 +1208,18 @@ async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'P
 function setPerQuick(p,el){document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');const y=new Date().getFullYear();if(p==='h1'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-06-30`;}if(p==='h2'){document.getElementById('per-from').value=`${y}-07-01`;document.getElementById('per-to').value=`${y}-12-31`;}if(p==='year'){document.getElementById('per-from').value=`${y}-01-01`;document.getElementById('per-to').value=`${y}-12-31`;}renderPeriodisering();}
 function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(perSources.arr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.fast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.utb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(perSources.cons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
 // ─── PROGNOS (Forecast scenarios) ────────────────────────
+let fcSources=new Set(['ARR']),fcChurnOverride=null;
 async function renderPrognos(){
   await kaFetchAll();
   renderForecastSection();
   renderPeriodisering();
 }
+function fcToggleDD(e){e.stopPropagation();document.querySelectorAll('.rev-dd-panel').forEach(p=>{if(p.id!=='fc-source-panel')p.style.display='none';});const p=document.getElementById('fc-source-panel');p.style.display=p.style.display==='none'?'block':'none';}
+function fcToggleSource(t){if(fcSources.has(t))fcSources.delete(t);else fcSources.add(t);if(fcSources.size===0)fcSources.add(t);document.getElementById('fc-cb-'+t).classList.toggle('on',fcSources.has(t));renderForecastSection();}
+function fcOnChurnChange(v){const n=parseFloat(v);fcChurnOverride=isNaN(n)?null:Math.max(0,Math.min(100,n))/100;renderForecastSection();}
 function forecastYearRevenue(year){
-  const allItems=Object.values(kaRevCache).flat();
-  return allItems.reduce((s,i)=>{
+  const items=Object.values(kaRevCache).flat().filter(i=>fcSources.has(i.Type));
+  return items.reduce((s,i)=>{
     const from=i.DateFrom?new Date(i.DateFrom):null;
     const to=i.DateTo?new Date(i.DateTo):null;
     const yS=new Date(year,0,1),yE=new Date(year,11,31);
@@ -1205,10 +1235,13 @@ function forecastYearRevenue(year){
 function renderForecastSection(){
   const today=new Date();
   const churnedCusts=allCustomers.filter(c=>c._days!==null&&c._days<0);
-  const churnRate=allCustomers.length>0?churnedCusts.length/allCustomers.length:0;
-  const activeArr=allCustomers.filter(c=>c._days!==null&&c._days>=0).reduce((s,c)=>s+(c.ARR||0),0);
+  const churnHistoric=allCustomers.length>0?churnedCusts.length/allCustomers.length:0;
+  const churnRate=fcChurnOverride!==null?fcChurnOverride:churnHistoric;
+  const srcField={ARR:'ARR',Fastpris:'ARR_Fixed',Consulting:'Revenue_Consulting',Utbildning:'Revenue_Training'};
+  const custTotal=c=>[...fcSources].reduce((s,t)=>s+(c[srcField[t]]||0),0);
+  const activeArr=allCustomers.filter(c=>c._days!==null&&c._days>=0).reduce((s,c)=>s+custTotal(c),0);
   const renewing=allCustomers.filter(c=>c.LicenseEnd&&new Date(c.LicenseEnd)>today);
-  const allaFornyas=renewing.reduce((s,c)=>s+(c.ARR||0),0);
+  const allaFornyas=renewing.reduce((s,c)=>s+custTotal(c),0);
   const medChurn=Math.round(activeArr*(1-churnRate));
   const openProspects=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost');
   const qualifiedLeads=openProspects.filter(p=>p.Stage==='Qualified Lead');
@@ -1217,37 +1250,43 @@ function renderForecastSection(){
   const realistic=Math.round(allaFornyas*(1-churnRate))+pipeWeighted;
   const optimistic=allaFornyas+pipeFull;
 
-  // KPI cards
+  // Sync churn input + historic display
+  const churnEl=document.getElementById('fc-churn');
+  if(churnEl&&document.activeElement!==churnEl){churnEl.value=(churnRate*100).toFixed(1);}
+  const churnHistEl=document.getElementById('fc-churn-historic');
+  if(churnHistEl)churnHistEl.textContent=(churnHistoric*100).toFixed(1);
+
+  // KPI cards (compact, same style as other dashboards)
   document.getElementById('forecast-kpi-grid').innerHTML=[
-    {label:'Med churn',val:medChurn,color:'var(--amber)',sub:`${(churnRate*100).toFixed(1)}% historisk churn-rate`},
-    {label:'Alla förnyas',val:allaFornyas,color:'var(--blue)',sub:`${renewing.length} kunder förnyar`},
-    {label:'Realistisk',val:realistic,color:'var(--green)',sub:`+ ${pipeWeighted.toLocaleString('sv-SE')} kr viktat pipeline`},
+    {label:'Med churn',val:medChurn,color:'var(--amber)',sub:`Baserat på ${(churnRate*100).toFixed(1)}% churn-rate`},
+    {label:'Alla förnyas',val:allaFornyas,color:'var(--blue)',sub:`${renewing.length} aktiva licenser`},
+    {label:'Realistisk',val:realistic,color:'var(--green)',sub:`Förnyas − churn + ${pipeWeighted.toLocaleString('sv-SE')} kr viktat pipe`},
     {label:'Optimistisk',val:optimistic,color:'#34a36b',sub:`+ ${pipeFull.toLocaleString('sv-SE')} kr full pipeline`}
   ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val.toLocaleString('sv-SE')} kr</div><div class="kpi-delta neu">${k.sub}</div></div>`).join('');
 
-  // SVG chart
+  // SVG chart (compact 220px height, labels inside, no endpoint labels)
   const years=[2023,2024,2025,2026];
   const historic=years.map(y=>forecastYearRevenue(y));
   const last=historic[historic.length-1];
   const scenarios=[
-    {label:'Med churn',val:medChurn,color:'#b85a00'},
-    {label:'Alla förnyas',val:allaFornyas,color:'#1a4f7a'},
-    {label:'Realistisk',val:realistic,color:'#1a7a50'},
-    {label:'Optimistisk',val:optimistic,color:'#5eb98f'}
+    {label:'Med churn',val:medChurn,color:'#b85a00',dash:true},
+    {label:'Alla förnyas',val:allaFornyas,color:'#1a4f7a',dash:true},
+    {label:'Realistisk',val:realistic,color:'#1a7a50',dash:true},
+    {label:'Optimistisk',val:optimistic,color:'#5eb98f',dash:true}
   ];
   const allVals=[...historic,...scenarios.map(s=>s.val),last];
   const maxV=Math.max(...allVals,1);
-  const W=720,H=240,PL=50,PR=20,PT=18,PB=40;
+  const W=760,H=220,PL=48,PR=28,PT=22,PB=30;
   const xs=[2023,2024,2025,2026,2027];
   const xFor=y=>PL+((y-2023)/(2027-2023))*(W-PL-PR);
   const yFor=v=>H-PB-(v/maxV)*(H-PT-PB);
   const gridLines=[0,0.25,0.5,0.75,1].map(f=>{const y=H-PB-f*(H-PT-PB);return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="${f===0?'0':'3 3'}"/><text x="${PL-6}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--text3)">${Math.round(maxV*f/1000)}k</text>`;}).join('');
-  const xLabels=xs.map(y=>`<text x="${xFor(y)}" y="${H-PB+16}" text-anchor="middle" font-size="11" fill="var(--text3)" font-weight="500">${y}</text>`).join('');
+  const xLabels=xs.map(y=>`<text x="${xFor(y)}" y="${H-PB+15}" text-anchor="middle" font-size="11" fill="var(--text3)" font-weight="500">${y}</text>`).join('');
 
   // Historic line
   const histPoints=years.map(y=>`${xFor(y)},${yFor(forecastYearRevenue(y))}`).join(' ');
   const histLine=`<polyline points="${histPoints}" fill="none" stroke="#1a7a50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-  const histDots=years.map(y=>{const v=forecastYearRevenue(y);return `<circle cx="${xFor(y)}" cy="${yFor(v)}" r="4" fill="#1a7a50" stroke="#fff" stroke-width="1.5"/><text x="${xFor(y)}" y="${yFor(v)-9}" text-anchor="middle" font-size="10" fill="#1a7a50" font-weight="600">${Math.round(v/1000)}k</text>`;}).join('');
+  const histDots=years.map(y=>{const v=forecastYearRevenue(y);const lblY=Math.max(yFor(v)-7,12);return `<circle cx="${xFor(y)}" cy="${yFor(v)}" r="4" fill="#1a7a50" stroke="#fff" stroke-width="1.5"/><text x="${xFor(y)}" y="${lblY}" text-anchor="middle" font-size="10" fill="#1a7a50" font-weight="600">${Math.round(v/1000)}k</text>`;}).join('');
 
   // Shaded area between min and max forecast
   const fcVals=scenarios.map(s=>s.val);
@@ -1255,18 +1294,14 @@ function renderForecastSection(){
   const maxFc=Math.max(...fcVals);
   const shade=`<polygon points="${xFor(2026)},${yFor(last)} ${xFor(2027)},${yFor(maxFc)} ${xFor(2027)},${yFor(minFc)}" fill="#1a7a50" fill-opacity="0.08"/>`;
 
-  // Forecast dashed lines + endpoint labels
-  const fcLines=scenarios.map(s=>{
-    return `<line x1="${xFor(2026)}" y1="${yFor(last)}" x2="${xFor(2027)}" y2="${yFor(s.val)}" stroke="${s.color}" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="round"/><circle cx="${xFor(2027)}" cy="${yFor(s.val)}" r="3.5" fill="${s.color}"/>`;
-  }).join('');
-  // Endpoint labels (offset to avoid overlap)
-  const sortedScenarios=[...scenarios].map((s,i)=>({...s,idx:i})).sort((a,b)=>b.val-a.val);
-  const fcLabels=sortedScenarios.map((s,i)=>{const x=xFor(2027)+8;const y=yFor(s.val)+3;return `<text x="${x}" y="${y}" font-size="10" fill="${s.color}" font-weight="600">${s.label}: ${Math.round(s.val/1000)}k</text>`;}).join('');
+  // Forecast dashed lines + endpoint dots only (no labels here)
+  const fcLines=scenarios.map(s=>`<line x1="${xFor(2026)}" y1="${yFor(last)}" x2="${xFor(2027)}" y2="${yFor(s.val)}" stroke="${s.color}" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="round"/><circle cx="${xFor(2027)}" cy="${yFor(s.val)}" r="3.5" fill="${s.color}"/>`).join('');
 
-  document.getElementById('forecast-chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="overflow:visible;max-width:100%;">${gridLines}${xLabels}${shade}${histLine}${histDots}${fcLines}${fcLabels}</svg>`;
+  document.getElementById('forecast-chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;max-height:220px;">${gridLines}${xLabels}${shade}${histLine}${histDots}${fcLines}</svg>`;
 
-  // Legend / explanation
-  document.getElementById('forecast-legend').innerHTML=`<div class="forecast-legend-item"><span class="dot" style="background:#1a7a50;"></span>Faktisk intäkt</div><div class="forecast-legend-item"><span class="dot" style="background:#b85a00;"></span>Med churn</div><div class="forecast-legend-item"><span class="dot" style="background:#1a4f7a;"></span>Alla förnyas</div><div class="forecast-legend-item"><span class="dot" style="background:#1a7a50;border:1.5px dashed #1a7a50;background:transparent;"></span>Realistisk</div><div class="forecast-legend-item"><span class="dot" style="background:#5eb98f;"></span>Optimistisk</div><div class="forecast-legend-divider"></div><div class="forecast-legend-stat"><span class="lbl">Churn:</span> ${(churnRate*100).toFixed(1)}%</div><div class="forecast-legend-stat"><span class="lbl">Utgångna:</span> ${churnedCusts.length} st</div><div class="forecast-legend-stat"><span class="lbl">Viktat pipeline:</span> ${pipeWeighted.toLocaleString('sv-SE')} kr</div>`;
+  // Legend with scenario values below chart
+  const fmt=v=>Math.round(v/1000)+'k';
+  document.getElementById('forecast-legend').innerHTML=`<div class="fc-legend-item"><span class="line" style="color:#1a7a50;"></span>Faktisk: <span class="val">${fmt(last)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#b85a00;"></span>Med churn: <span class="val">${fmt(medChurn)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#1a4f7a;"></span>Alla förnyas: <span class="val">${fmt(allaFornyas)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#1a7a50;"></span>Realistisk: <span class="val">${fmt(realistic)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#5eb98f;"></span>Optimistisk: <span class="val">${fmt(optimistic)}</span></div><div class="fc-legend-divider"></div><div class="fc-legend-stat"><span class="lbl">Utgångna:</span> ${churnedCusts.length} st</div><div class="fc-legend-stat"><span class="lbl">Viktat pipe:</span> ${pipeWeighted.toLocaleString('sv-SE')} kr</div>`;
 }
 
 // ─── BUDGET ──────────────────────────────────────────────
