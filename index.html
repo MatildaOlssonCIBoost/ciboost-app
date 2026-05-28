@@ -354,31 +354,47 @@
   .tp-subtabs { display:flex; gap:4px; margin-bottom:14px; border-bottom:1px solid var(--border); }
   .tp-subtab { padding:8px 14px; border:none; background:none; font-family:'Poppins',sans-serif; font-size:13px; font-weight:500; color:var(--text3); cursor:pointer; border-bottom:2px solid transparent; }
   .tp-subtab.active { color:var(--accent); border-bottom-color:var(--accent); }
-  .tp-list { display:flex; flex-direction:column; gap:10px; }
-  .tp-card { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--green); border-radius:10px; padding:14px 16px; box-shadow:var(--shadow); cursor:pointer; transition:box-shadow 0.15s; }
+  #tp-kpi-grid { grid-template-columns:repeat(5,minmax(0,1fr)); }
+  @media (max-width:1200px){ #tp-kpi-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  @media (max-width:760px){ #tp-kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  .tp-list { display:flex; flex-direction:column; gap:12px; }
+  .tp-card { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--green); border-radius:10px; padding:14px 18px; box-shadow:var(--shadow); transition:box-shadow 0.15s; }
   .tp-card:hover { box-shadow:var(--shadow-md); }
   .tp-card.urg-red { border-left-color:var(--red); }
   .tp-card.urg-amber { border-left-color:var(--amber); }
   .tp-card.urg-green { border-left-color:var(--green); }
-  .tp-card-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .tp-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:6px; flex-wrap:wrap; }
+  .tp-card-head-left { display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; }
   .tp-card-name { font-weight:600; font-size:15px; color:var(--text); }
-  .tp-card-sub { font-size:12px; color:var(--text3); margin-bottom:10px; }
-  .tp-card-action { font-size:12px; font-weight:500; color:var(--accent); background:var(--accent-bg); padding:4px 10px; border-radius:6px; display:inline-block; margin-bottom:10px; }
-  .tp-steps { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
-  .tp-step { width:26px; height:26px; border-radius:50%; border:2px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:var(--text3); cursor:pointer; transition:all 0.15s; flex-shrink:0; }
-  .tp-step:hover { border-color:var(--accent); }
-  .tp-step.done { background:var(--green); border-color:var(--green); color:#fff; }
-  .tp-step.active { border-color:var(--accent); color:var(--accent); }
-  .tp-step.blocked { background:var(--surface2); color:var(--text3); cursor:not-allowed; opacity:0.6; }
-  .tp-step-tip { font-size:11px; color:var(--text2); margin-left:6px; }
-  .tp-detail { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); display:none; cursor:default; }
-  .tp-card.expanded .tp-detail { display:block; }
-  .tp-detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px; }
-  .tp-detail-field label { font-size:11px; color:var(--text3); display:block; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em; font-weight:600; }
-  .tp-detail-field input, .tp-detail-field textarea { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:7px; font-family:'Poppins',sans-serif; font-size:13px; color:var(--text); background:var(--surface); outline:none; }
-  .tp-detail-field textarea { resize:vertical; min-height:60px; }
+  .tp-card-sub { font-size:12px; color:var(--text3); margin-bottom:6px; }
+  .tp-card-owner { font-size:11px; color:var(--text3); }
+  .tp-action-r { font-size:13px; font-weight:600; white-space:nowrap; }
+  .tp-action-r.sev-red { color:var(--red); }
+  .tp-action-r.sev-amber { color:var(--amber); }
+  .tp-action-r.sev-green { color:var(--green); }
+  .tp-tprog { display:grid; grid-template-columns:repeat(6,1fr); position:relative; margin:16px 0 6px; gap:0; }
+  .tp-tprog-step { display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; cursor:pointer; padding:2px 0; }
+  .tp-tprog-step .circle { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--surface); border:2px solid var(--border); color:var(--text3); font-size:12px; font-weight:600; z-index:2; position:relative; transition:all 0.15s; }
+  .tp-tprog-step:hover .circle { border-color:var(--accent); }
+  .tp-tprog-step .label { font-size:10px; color:var(--text3); text-align:center; line-height:1.2; max-width:80px; }
+  .tp-tprog-step.done .circle { background:var(--green); border-color:var(--green); color:#fff; }
+  .tp-tprog-step.active .circle { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .tp-tprog-step.done .label, .tp-tprog-step.active .label { color:var(--text2); font-weight:500; }
+  .tp-tprog-step::after { content:''; position:absolute; top:16px; left:50%; width:100%; height:2px; background:var(--border); z-index:1; }
+  .tp-tprog-step:last-child::after { display:none; }
+  .tp-tprog-step.done::after { background:var(--green); }
+  .tp-details { display:grid; grid-template-columns:repeat(3,1fr); gap:12px 24px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+  @media (max-width:900px){ .tp-details { grid-template-columns:1fr; } }
+  .tp-detail-section-label { font-size:10px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px; }
+  .tp-chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .tp-chip { font-size:11px; padding:3px 9px; border-radius:11px; background:var(--surface2); color:var(--text2); }
+  .tp-activity { font-size:12px; color:var(--text2); line-height:1.6; }
+  .tp-activity strong { color:var(--text); font-weight:500; }
   .tp-timeline { height:8px; background:var(--surface2); border-radius:4px; position:relative; margin-top:6px; overflow:hidden; }
   .tp-timeline-fill { position:absolute; top:0; left:0; height:8px; border-radius:4px; background:var(--accent); }
+  .tp-timeline.urg-red .tp-timeline-fill { background:var(--red); }
+  .tp-timeline.urg-amber .tp-timeline-fill { background:var(--amber); }
+  .tp-timeline.urg-green .tp-timeline-fill { background:var(--green); }
   .tp-timeline-labels { display:flex; justify-content:space-between; font-size:11px; color:var(--text3); margin-top:4px; }
   .tp-days-red { background:var(--red-bg); color:var(--red); }
   .tp-days-amber { background:var(--amber-bg); color:var(--amber); }
@@ -750,22 +766,22 @@ let currentProspectId=null, isNewProspect=false, currentProspectTab=1;
 let revSources={arr:true,fast:true,utb:false,cons:false};
 let perSources={arr:true,fast:true,utb:true,cons:true};
 let currentMain='pipeline', currentSub={kunder:'oversikt',finansiellt:'dashboard',trialpilot:'trials'};
-let expandedTpCard=null;
 let budgetVersions=[], currentBudgetVersionId=null, budgetRows=[];
 let budgetNotes={};
 const TP_STEPS=['Loggat in','Valt moduler','Bjudit in medlemmar','Genomfört 1 session','Genomfört flera sessioner','Förflyttning i dashboard'];
+const TP_STEPS_SHORT=['Loggat in','Valt moduler','Bjudit in','1 session','Fler sessioner','Dashboard'];
 const TP_SOURCES=['Wow','Hemsida demo','30-dagars','Traditionell','Partners','Event','Utbildningsprogram'];
 const mockTrials=[
-  {Id:1001,Company:'Volvo Cars AB',Contact:'Anna Lind',Role:'HR-chef',Email:'anna.lind@volvocars.se',Owner:'Matilda Olsson',Source:'Wow',StartDate:'2026-05-01',EndDate:'2026-06-12',Progress:[true,true,true,true,false,false],Sessions:'2026-05-10, 2026-05-17',Notes:'Bra engagemang från ledningen.'},
-  {Id:1002,Company:'IKEA Retail',Contact:'Mats Svensson',Role:'Säljchef',Email:'mats@ikea.se',Owner:'Alexandra Henningson',Source:'Hemsida demo',StartDate:'2026-05-15',EndDate:'2026-06-15',Progress:[true,true,false,false,false,false],Sessions:'',Notes:''},
-  {Id:1003,Company:'Spotify AB',Contact:'Erik Olsson',Role:'L&D Manager',Email:'erik@spotify.com',Owner:'Matilda Olsson',Source:'Event',StartDate:'2026-05-25',EndDate:'2026-06-02',Progress:[true,false,false,false,false,false],Sessions:'',Notes:'Måste höra av oss snart.'},
-  {Id:1004,Company:'H&M Group',Contact:'Sara Berg',Role:'COO',Email:'sara.berg@hm.com',Owner:'Matilda Olsson',Source:'Partners',StartDate:'2026-04-20',EndDate:'2026-06-20',Progress:[true,true,true,true,true,true],Sessions:'2026-05-02, 2026-05-09, 2026-05-16, 2026-05-23',Notes:'Redo att gå live!'}
+  {Id:1001,Company:'Volvo Cars AB',Contact:'Anna Lind',Role:'HR-chef',Email:'anna.lind@volvocars.se',Owner:'Matilda Olsson',Source:'Wow',StartDate:'2026-05-01',EndDate:'2026-06-12',Progress:[true,true,true,true,false,false],Sessions:'2026-05-10, 2026-05-17',Notes:'Bra engagemang från ledningen.',LastActive:'2026-05-22',InvitedCount:12},
+  {Id:1002,Company:'IKEA Retail',Contact:'Mats Svensson',Role:'Säljchef',Email:'mats@ikea.se',Owner:'Alexandra Henningson',Source:'Hemsida demo',StartDate:'2026-05-15',EndDate:'2026-06-15',Progress:[true,true,false,false,false,false],Sessions:'',Notes:'',LastActive:'2026-05-18',InvitedCount:3},
+  {Id:1003,Company:'Spotify AB',Contact:'Erik Olsson',Role:'L&D Manager',Email:'erik@spotify.com',Owner:'Matilda Olsson',Source:'Event',StartDate:'2026-05-25',EndDate:'2026-06-02',Progress:[true,false,false,false,false,false],Sessions:'',Notes:'Måste höra av oss snart.',LastActive:'2026-05-25',InvitedCount:0},
+  {Id:1004,Company:'H&M Group',Contact:'Sara Berg',Role:'COO',Email:'sara.berg@hm.com',Owner:'Matilda Olsson',Source:'Partners',StartDate:'2026-04-20',EndDate:'2026-06-20',Progress:[true,true,true,true,true,true],Sessions:'2026-05-02, 2026-05-09, 2026-05-16, 2026-05-23',Notes:'Redo att gå live!',LastActive:'2026-05-27',InvitedCount:18}
 ];
 const mockPilots=[
-  {Id:2001,Company:'Skanska Sverige',Contact:'Lars Petersson',Role:'Projektchef',Email:'lars@skanska.se',Owner:'Matilda Olsson',Source:'Wow',StartDate:'2026-04-01',EndDate:'2026-07-01',DecisionDate:'2026-07-15',Participants:25,ExpectedARR:240000,Progress:[true,true,true,true,true,false],Sessions:'5 genomförda',Notes:'Mycket positiv feedback från deltagarna.'},
-  {Id:2002,Company:'Telia Company',Contact:'Maria Holm',Role:'Kommunikationschef',Email:'maria@telia.se',Owner:'Alexandra Henningson',Source:'Traditionell',StartDate:'2026-05-01',EndDate:'2026-08-01',DecisionDate:'2026-08-20',Participants:15,ExpectedARR:180000,Progress:[true,true,true,false,false,false],Sessions:'',Notes:''},
-  {Id:2003,Company:'SEB Group',Contact:'Johan Lindström',Role:'Head of People',Email:'johan@seb.se',Owner:'Matilda Olsson',Source:'Utbildningsprogram',StartDate:'2026-03-15',EndDate:'2026-06-08',DecisionDate:'2026-06-30',Participants:40,ExpectedARR:420000,Progress:[true,true,true,true,true,true],Sessions:'8 genomförda',Notes:'Kontrakt på väg, fakturaadress klar.'},
-  {Id:2004,Company:'Klarna Bank',Contact:'Sofia Bergman',Role:'CHRO',Email:'sofia@klarna.com',Owner:'Alexandra Henningson',Source:'Partners',StartDate:'2026-05-10',EndDate:'2026-07-10',DecisionDate:'2026-07-25',Participants:30,ExpectedARR:320000,Progress:[true,true,false,false,false,false],Sessions:'',Notes:''}
+  {Id:2001,Company:'Skanska Sverige',Contact:'Lars Petersson',Role:'Projektchef',Email:'lars@skanska.se',Owner:'Matilda Olsson',Source:'Wow',StartDate:'2026-04-01',EndDate:'2026-07-01',DecisionDate:'2026-07-15',Participants:25,ExpectedARR:240000,Progress:[true,true,true,true,true,false],Sessions:'2026-04-10, 2026-04-24, 2026-05-08, 2026-05-15, 2026-05-22',Notes:'Mycket positiv feedback från deltagarna.',LastActive:'2026-05-26',InvitedCount:25},
+  {Id:2002,Company:'Telia Company',Contact:'Maria Holm',Role:'Kommunikationschef',Email:'maria@telia.se',Owner:'Alexandra Henningson',Source:'Traditionell',StartDate:'2026-05-01',EndDate:'2026-08-01',DecisionDate:'2026-08-20',Participants:15,ExpectedARR:180000,Progress:[true,true,true,false,false,false],Sessions:'',Notes:'',LastActive:'2026-05-20',InvitedCount:11},
+  {Id:2003,Company:'SEB Group',Contact:'Johan Lindström',Role:'Head of People',Email:'johan@seb.se',Owner:'Matilda Olsson',Source:'Utbildningsprogram',StartDate:'2026-03-15',EndDate:'2026-06-08',DecisionDate:'2026-06-30',Participants:40,ExpectedARR:420000,Progress:[true,true,true,true,true,true],Sessions:'2026-03-25, 2026-04-05, 2026-04-19, 2026-05-02, 2026-05-09, 2026-05-16, 2026-05-22, 2026-05-26',Notes:'Kontrakt på väg, fakturaadress klar.',LastActive:'2026-05-27',InvitedCount:40},
+  {Id:2004,Company:'Klarna Bank',Contact:'Sofia Bergman',Role:'CHRO',Email:'sofia@klarna.com',Owner:'Alexandra Henningson',Source:'Partners',StartDate:'2026-05-10',EndDate:'2026-07-10',DecisionDate:'2026-07-25',Participants:30,ExpectedARR:320000,Progress:[true,true,false,false,false,false],Sessions:'',Notes:'',LastActive:'2026-05-19',InvitedCount:8}
 ];
 
 function daysLeft(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
@@ -1907,32 +1923,41 @@ function tpDaysBadge(days){if(days===null||days===undefined)return'<span class="
 function tpRecommendedAction(item){
   const p=item.Progress||[false,false,false,false,false,false];
   const days=item.EndDate?daysLeft(item.EndDate):null;
-  if(!p[0]&&days!==null&&days<3)return'Kontakta – har inte loggat in!';
-  if(!p[2]&&days!==null&&days<14)return'Följ upp – har inte bjudit in teamet';
-  if(!p[3]&&days!==null&&days<10)return'Boka demo/genomgång';
-  if(p[4]&&days!==null&&days<7)return'Boka avslutsmöte';
-  if(p[4]&&!p[5])return'Visa dashboard-värdet';
-  if(p.every(x=>x))return'Redo för konvertering →';
-  return'';
+  if(!p[0]&&days!==null&&days<3)return{text:'Kontakta – har inte loggat in! →',sev:'red'};
+  if(!p[2]&&days!==null&&days<14)return{text:'Följ upp – har inte bjudit in teamet →',sev:'amber'};
+  if(!p[3]&&days!==null&&days<10)return{text:'Boka demo/genomgång →',sev:'amber'};
+  if(p[4]&&days!==null&&days<7)return{text:'Boka avslutsmöte →',sev:'red'};
+  if(p[4]&&!p[5])return{text:'Visa dashboard-värdet →',sev:'amber'};
+  if(p.every(x=>x))return{text:'Redo för konvertering →',sev:'green'};
+  return null;
 }
 function switchTpTab(tab,el){
   currentSub.trialpilot=tab;
   document.querySelectorAll('.tp-subtab').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('tp-new-btn-label').textContent=tab==='trials'?'Ny trial':'Ny pilot';
-  expandedTpCard=null;
-  renderTpList();
+  renderTrialPilot();
 }
 function renderTrialPilot(){renderTpKpi();renderTpList();}
 function renderTpKpi(){
   const today=new Date();today.setHours(0,0,0,0);
   const activeTrials=allTrials.filter(t=>!t.EndDate||new Date(t.EndDate)>=today).length;
   const activePilots=allPilots.filter(p=>!p.EndDate||new Date(p.EndDate)>=today).length;
+  const tab=currentSub.trialpilot||'trials';
+  const items=tab==='trials'?allTrials:allPilots;
+  let avgIdx=0;
+  if(items.length){
+    const total=items.reduce((s,it)=>{const p=it.Progress||[];let i=0;while(i<6&&p[i])i++;return s+i;},0);
+    avgIdx=Math.round(total/items.length);
+  }
+  const avgDisplay=items.length?(avgIdx>=6?'6/6':`Steg ${avgIdx+1}/6`):'–';
+  const avgLabel=items.length?(avgIdx>=6?'Alla klara':TP_STEPS_SHORT[avgIdx]):'Inga poster';
   document.getElementById('tp-kpi-grid').innerHTML=[
     {label:'Aktiva trials',val:activeTrials,color:'var(--accent)',sub:`${allTrials.length} totalt`},
     {label:'Aktiva piloter',val:activePilots,color:'var(--blue)',sub:`${allPilots.length} totalt`},
     {label:'Konverteringsgrad',val:'34%',color:'var(--green)',sub:'Senaste 12 mån'},
-    {label:'Bästa källa',val:'Wow',color:'var(--purple)',sub:'Högst konvertering'}
+    {label:'Bästa källa',val:'Wow',color:'var(--purple)',sub:'Högst konvertering'},
+    {label:`Snitt progress (${tab==='trials'?'trials':'piloter'})`,val:avgDisplay,color:'var(--text)',sub:avgLabel}
   ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-delta neu">${k.sub}</div></div>`).join('');
 }
 function renderTpList(){
@@ -1948,44 +1973,57 @@ function tpCardHtml(item,type){
   const progress=item.Progress||[false,false,false,false,false,false];
   const action=tpRecommendedAction(item);
   const srcColor=SOURCE_COLORS[item.Source]||'#8b90b0';
-  const expanded=expandedTpCard===`${type}-${item.Id}`;
-  const stepsHtml=TP_STEPS.map((label,i)=>{
+  const firstUndone=(()=>{for(let i=0;i<6;i++)if(!progress[i])return i;return -1;})();
+  const stepsHtml=TP_STEPS_SHORT.map((short,i)=>{
     const done=progress[i];
-    const prevDone=i===0||progress[i-1];
-    const cls=done?'done':prevDone?'active':'blocked';
-    return`<div class="tp-step ${cls}" title="${i+1}. ${label}" onclick="event.stopPropagation();toggleTpStep('${type}',${item.Id},${i})">${done?'✓':i+1}</div>`;
+    const active=!done&&i===firstUndone;
+    const cls=done?'done':active?'active':'';
+    const inner=done?'✓':(i+1);
+    return`<div class="tp-tprog-step ${cls}" title="${TP_STEPS[i]}" onclick="toggleTpStep('${type}',${item.Id},${i})"><div class="circle">${inner}</div><div class="label">${short}</div></div>`;
   }).join('');
   let metaHtml='';
   if(type==='trial'){metaHtml=tpDaysBadge(days);}
   else{const dd=item.DecisionDate?new Date(item.DecisionDate).toLocaleDateString('sv-SE'):'–';metaHtml=`<span class="badge b-blue">Beslut ${dd}</span>`;}
-  const pilotExtras=type==='pilot'?`<span class="tp-card-sub" style="margin-bottom:0;">· ${item.Participants||0} deltagare · ${item.ExpectedARR?fmtKr(item.ExpectedARR):'–'} förv. ARR</span>`:'';
-  const timeline=tpTimelineHtml(item);
-  return`<div class="tp-card urg-${urg} ${expanded?'expanded':''}" id="tp-card-${type}-${item.Id}" onclick="toggleTpExpand('${type}',${item.Id})">
+  const pilotExtras=type==='pilot'?` · ${item.Participants||0} deltagare · ${item.ExpectedARR?fmtKr(item.ExpectedARR)+' förv. ARR':'–'}`:'';
+  const sessionsArr=(item.Sessions||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const sessionsHtml=sessionsArr.length?sessionsArr.map(s=>`<span class="tp-chip">${s}</span>`).join(''):'<span style="font-size:11px;color:var(--text3);">Inga ännu</span>';
+  const lastActive=item.LastActive?new Date(item.LastActive).toLocaleDateString('sv-SE'):'–';
+  const invited=item.InvitedCount!=null?item.InvitedCount:'–';
+  return`<div class="tp-card urg-${urg}" id="tp-card-${type}-${item.Id}">
     <div class="tp-card-head">
-      <span class="tp-card-name">${item.Company||'–'}</span>
-      ${metaHtml}
-      <span class="badge" style="background:${srcColor}22;color:${srcColor};">${item.Source||'–'}</span>
-      <span style="margin-left:auto;font-size:11px;color:var(--text3);">${item.Owner||'–'}</span>
+      <div class="tp-card-head-left">
+        <span class="tp-card-name">${item.Company||'–'}</span>
+        ${metaHtml}
+        <span class="badge" style="background:${srcColor}22;color:${srcColor};">${item.Source||'–'}</span>
+        <span class="tp-card-owner">${item.Owner||'–'}</span>
+      </div>
+      ${action?`<div class="tp-action-r sev-${action.sev}">${action.text}</div>`:''}
     </div>
     <div class="tp-card-sub">${item.Contact||'–'}${item.Role?` · ${item.Role}`:''}${pilotExtras}</div>
-    ${action?`<div class="tp-card-action">${action}</div>`:''}
-    <div class="tp-steps">${stepsHtml}<span class="tp-step-tip">${progress.filter(x=>x).length}/6 steg</span></div>
-    <div class="tp-detail" onclick="event.stopPropagation()">
-      <div class="tp-detail-grid">
-        <div class="tp-detail-field"><label>Körda sessioner (kommaseparerad)</label><input id="tp-sess-${type}-${item.Id}" value="${(item.Sessions||'').replace(/"/g,'&quot;')}" placeholder="t.ex. 2026-05-10, 2026-05-17"></div>
-        <div class="tp-detail-field"><label>Anteckningar</label><textarea id="tp-notes-${type}-${item.Id}">${item.Notes||''}</textarea></div>
+    <div class="tp-tprog">${stepsHtml}</div>
+    <div class="tp-details">
+      <div>
+        <div class="tp-detail-section-label">Körda sessioner</div>
+        <div class="tp-chips">${sessionsHtml}</div>
       </div>
-      <div class="tp-detail-field" style="margin-bottom:10px;"><label>Licenstidslinje (${item.StartDate||'–'} → ${item.EndDate||'–'})</label>${timeline}</div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;"><button class="btn-sm" onclick="event.stopPropagation();saveTpDetail('${type}',${item.Id})">Spara</button></div>
+      <div>
+        <div class="tp-detail-section-label">Aktivitet</div>
+        <div class="tp-activity">Senast aktiv: <strong>${lastActive}</strong><br>${invited} <strong>inbjudna</strong></div>
+      </div>
+      <div>
+        <div class="tp-detail-section-label">Licenstidslinje</div>
+        ${tpTimelineHtml(item,urg)}
+      </div>
     </div>
   </div>`;
 }
-function tpTimelineHtml(item){
-  if(!item.StartDate||!item.EndDate)return'<div class="tp-timeline"></div><div class="tp-timeline-labels"><span>–</span><span>–</span></div>';
+function tpTimelineHtml(item,urg){
+  const cls=urg?`urg-${urg}`:'';
+  if(!item.StartDate||!item.EndDate)return`<div class="tp-timeline ${cls}"></div><div class="tp-timeline-labels"><span>–</span><span>–</span></div>`;
   const s=new Date(item.StartDate),e=new Date(item.EndDate),now=new Date();
   const total=Math.max(1,e-s);const elapsed=Math.max(0,Math.min(total,now-s));
   const pct=Math.round(elapsed/total*100);
-  return`<div class="tp-timeline"><div class="tp-timeline-fill" style="width:${pct}%;"></div></div><div class="tp-timeline-labels"><span>${item.StartDate}</span><span>${pct}% förflutet</span><span>${item.EndDate}</span></div>`;
+  return`<div class="tp-timeline ${cls}"><div class="tp-timeline-fill" style="width:${pct}%;"></div></div><div class="tp-timeline-labels"><span>${item.StartDate}</span><span>${pct}%</span><span>${item.EndDate}</span></div>`;
 }
 async function toggleTpStep(type,id,idx){
   const arr=type==='trial'?allTrials:allPilots;
@@ -1996,20 +2034,7 @@ async function toggleTpStep(type,id,idx){
   item.Progress[idx]=!item.Progress[idx];
   if(type==='trial')saveTrialProgress(id,idx,item.Progress[idx]);
   else savePilotProgress(id,idx,item.Progress[idx]);
-  renderTpKpi();renderTpList();
-}
-function toggleTpExpand(type,id){
-  const key=`${type}-${id}`;
-  expandedTpCard=expandedTpCard===key?null:key;
-  renderTpList();
-}
-async function saveTpDetail(type,id){
-  const arr=type==='trial'?allTrials:allPilots;
-  const item=arr.find(x=>x.Id===id);if(!item)return;
-  item.Sessions=document.getElementById(`tp-sess-${type}-${id}`)?.value||'';
-  item.Notes=document.getElementById(`tp-notes-${type}-${id}`)?.value||'';
-  const ep=type==='trial'?'trials':'pilots';
-  try{await apiFetch(`${API}/${ep}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(item)});}catch(e){}
+  renderTrialPilot();
 }
 function openNewTrialPilot(){
   const defType=currentSub.trialpilot==='piloter'?'Pilot':'Trial';
