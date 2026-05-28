@@ -350,6 +350,39 @@
   .ndot.nempty { background:transparent; border:1.5px dashed var(--border); }
   .ndot.nempty:hover { border-color:var(--accent); background:var(--accent-bg); }
   .ndot.nfilled { background:var(--accent); border:none; }
+  /* ─── Trial & Pilot ─── */
+  .tp-subtabs { display:flex; gap:4px; margin-bottom:14px; border-bottom:1px solid var(--border); }
+  .tp-subtab { padding:8px 14px; border:none; background:none; font-family:'Poppins',sans-serif; font-size:13px; font-weight:500; color:var(--text3); cursor:pointer; border-bottom:2px solid transparent; }
+  .tp-subtab.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tp-list { display:flex; flex-direction:column; gap:10px; }
+  .tp-card { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--green); border-radius:10px; padding:14px 16px; box-shadow:var(--shadow); cursor:pointer; transition:box-shadow 0.15s; }
+  .tp-card:hover { box-shadow:var(--shadow-md); }
+  .tp-card.urg-red { border-left-color:var(--red); }
+  .tp-card.urg-amber { border-left-color:var(--amber); }
+  .tp-card.urg-green { border-left-color:var(--green); }
+  .tp-card-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .tp-card-name { font-weight:600; font-size:15px; color:var(--text); }
+  .tp-card-sub { font-size:12px; color:var(--text3); margin-bottom:10px; }
+  .tp-card-action { font-size:12px; font-weight:500; color:var(--accent); background:var(--accent-bg); padding:4px 10px; border-radius:6px; display:inline-block; margin-bottom:10px; }
+  .tp-steps { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .tp-step { width:26px; height:26px; border-radius:50%; border:2px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:var(--text3); cursor:pointer; transition:all 0.15s; flex-shrink:0; }
+  .tp-step:hover { border-color:var(--accent); }
+  .tp-step.done { background:var(--green); border-color:var(--green); color:#fff; }
+  .tp-step.active { border-color:var(--accent); color:var(--accent); }
+  .tp-step.blocked { background:var(--surface2); color:var(--text3); cursor:not-allowed; opacity:0.6; }
+  .tp-step-tip { font-size:11px; color:var(--text2); margin-left:6px; }
+  .tp-detail { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); display:none; cursor:default; }
+  .tp-card.expanded .tp-detail { display:block; }
+  .tp-detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px; }
+  .tp-detail-field label { font-size:11px; color:var(--text3); display:block; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em; font-weight:600; }
+  .tp-detail-field input, .tp-detail-field textarea { width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:7px; font-family:'Poppins',sans-serif; font-size:13px; color:var(--text); background:var(--surface); outline:none; }
+  .tp-detail-field textarea { resize:vertical; min-height:60px; }
+  .tp-timeline { height:8px; background:var(--surface2); border-radius:4px; position:relative; margin-top:6px; overflow:hidden; }
+  .tp-timeline-fill { position:absolute; top:0; left:0; height:8px; border-radius:4px; background:var(--accent); }
+  .tp-timeline-labels { display:flex; justify-content:space-between; font-size:11px; color:var(--text3); margin-top:4px; }
+  .tp-days-red { background:var(--red-bg); color:var(--red); }
+  .tp-days-amber { background:var(--amber-bg); color:var(--amber); }
+  .tp-days-green { background:var(--green-bg); color:var(--green); }
 </style>
 </head><body>
 <nav class="topnav">
@@ -358,7 +391,7 @@
   </div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchMain('pipeline',this)">Pipeline <span class="count" id="pipe-count">-</span></button>
-    <button class="nav-tab">Trial &amp; Pilot</button>
+    <button class="nav-tab" onclick="switchMain('trialpilot',this)">Trial &amp; Pilot <span class="count" id="tp-nav-count">-</span></button>
     <button class="nav-tab" onclick="switchMain('kunder',this)">Kunder <span class="count" id="tab-count">-</span></button>
     <button class="nav-tab" onclick="switchMain('finansiellt',this)">Finansiellt</button>
     <button class="nav-tab">Arkiv</button>
@@ -612,6 +645,21 @@
   </div>
 </div>
 
+<div class="page" id="page-trialpilot">
+  <div class="main">
+    <div class="kpi-grid" id="tp-kpi-grid"></div>
+    <div class="tp-subtabs">
+      <button class="tp-subtab active" id="tp-subtab-trials" onclick="switchTpTab('trials',this)">Trials</button>
+      <button class="tp-subtab" id="tp-subtab-piloter" onclick="switchTpTab('piloter',this)">Piloter</button>
+      <button class="btn-primary" id="tp-new-btn" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;" onclick="openNewTrialPilot()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        <span id="tp-new-btn-label">Ny trial</span>
+      </button>
+    </div>
+    <div class="tp-list" id="tp-list"><div class="loading"><div class="spinner"></div> Laddar...</div></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal">
     <div class="modal-header">
@@ -695,14 +743,30 @@ const BUDGET_ROWS_DEF = [
 ];
 const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 let allCustomers=[], allProspects=[], allRecipients=[...DEFAULT_RECIPIENTS];
+let allTrials=[], allPilots=[];
 let sortCol='days', sortAsc=true;
 let currentModalId=null, currentPage=1, isNewCustomer=false;
 let currentProspectId=null, isNewProspect=false, currentProspectTab=1;
 let revSources={arr:true,fast:true,utb:false,cons:false};
 let perSources={arr:true,fast:true,utb:true,cons:true};
-let currentMain='pipeline', currentSub={kunder:'oversikt',finansiellt:'dashboard'};
+let currentMain='pipeline', currentSub={kunder:'oversikt',finansiellt:'dashboard',trialpilot:'trials'};
+let expandedTpCard=null;
 let budgetVersions=[], currentBudgetVersionId=null, budgetRows=[];
 let budgetNotes={};
+const TP_STEPS=['Loggat in','Valt moduler','Bjudit in medlemmar','Genomfört 1 session','Genomfört flera sessioner','Förflyttning i dashboard'];
+const TP_SOURCES=['Wow','Hemsida demo','30-dagars','Traditionell','Partners','Event','Utbildningsprogram'];
+const mockTrials=[
+  {Id:1001,Company:'Volvo Cars AB',Contact:'Anna Lind',Role:'HR-chef',Email:'anna.lind@volvocars.se',Owner:'Matilda Olsson',Source:'Wow',StartDate:'2026-05-01',EndDate:'2026-06-12',Progress:[true,true,true,true,false,false],Sessions:'2026-05-10, 2026-05-17',Notes:'Bra engagemang från ledningen.'},
+  {Id:1002,Company:'IKEA Retail',Contact:'Mats Svensson',Role:'Säljchef',Email:'mats@ikea.se',Owner:'Alexandra Henningson',Source:'Hemsida demo',StartDate:'2026-05-15',EndDate:'2026-06-15',Progress:[true,true,false,false,false,false],Sessions:'',Notes:''},
+  {Id:1003,Company:'Spotify AB',Contact:'Erik Olsson',Role:'L&D Manager',Email:'erik@spotify.com',Owner:'Matilda Olsson',Source:'Event',StartDate:'2026-05-25',EndDate:'2026-06-02',Progress:[true,false,false,false,false,false],Sessions:'',Notes:'Måste höra av oss snart.'},
+  {Id:1004,Company:'H&M Group',Contact:'Sara Berg',Role:'COO',Email:'sara.berg@hm.com',Owner:'Matilda Olsson',Source:'Partners',StartDate:'2026-04-20',EndDate:'2026-06-20',Progress:[true,true,true,true,true,true],Sessions:'2026-05-02, 2026-05-09, 2026-05-16, 2026-05-23',Notes:'Redo att gå live!'}
+];
+const mockPilots=[
+  {Id:2001,Company:'Skanska Sverige',Contact:'Lars Petersson',Role:'Projektchef',Email:'lars@skanska.se',Owner:'Matilda Olsson',Source:'Wow',StartDate:'2026-04-01',EndDate:'2026-07-01',DecisionDate:'2026-07-15',Participants:25,ExpectedARR:240000,Progress:[true,true,true,true,true,false],Sessions:'5 genomförda',Notes:'Mycket positiv feedback från deltagarna.'},
+  {Id:2002,Company:'Telia Company',Contact:'Maria Holm',Role:'Kommunikationschef',Email:'maria@telia.se',Owner:'Alexandra Henningson',Source:'Traditionell',StartDate:'2026-05-01',EndDate:'2026-08-01',DecisionDate:'2026-08-20',Participants:15,ExpectedARR:180000,Progress:[true,true,true,false,false,false],Sessions:'',Notes:''},
+  {Id:2003,Company:'SEB Group',Contact:'Johan Lindström',Role:'Head of People',Email:'johan@seb.se',Owner:'Matilda Olsson',Source:'Utbildningsprogram',StartDate:'2026-03-15',EndDate:'2026-06-08',DecisionDate:'2026-06-30',Participants:40,ExpectedARR:420000,Progress:[true,true,true,true,true,true],Sessions:'8 genomförda',Notes:'Kontrakt på väg, fakturaadress klar.'},
+  {Id:2004,Company:'Klarna Bank',Contact:'Sofia Bergman',Role:'CHRO',Email:'sofia@klarna.com',Owner:'Alexandra Henningson',Source:'Partners',StartDate:'2026-05-10',EndDate:'2026-07-10',DecisionDate:'2026-07-25',Participants:30,ExpectedARR:320000,Progress:[true,true,false,false,false,false],Sessions:'',Notes:''}
+];
 
 function daysLeft(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
 function formatDate(d){return d?new Date(d).toLocaleDateString('sv-SE'):'-';}
@@ -746,6 +810,7 @@ function switchMain(tab,el){
     if(currentSub.finansiellt==='prognos')renderPrognos();
     if(currentSub.finansiellt==='budget')loadBudgetVersions();
   }
+  if(tab==='trialpilot'){document.getElementById('page-trialpilot').classList.add('active');renderTrialPilot();}
 }
 function switchSub(main,sub,el){
   currentSub[main]=sub;
@@ -1811,9 +1876,196 @@ document.getElementById('filter-owner')?.addEventListener('change',()=>renderTab
 document.getElementById('filter-license')?.addEventListener('change',()=>renderTable());
 document.getElementById('filter-risk')?.addEventListener('change',()=>renderTable());
 
+// ─── TRIAL & PILOT ───────────────────────────────────────
+async function loadTrials(){
+  try{const r=await apiFetch(`${API}/trials`);if(!r.ok)throw new Error();const data=await r.json();allTrials=Array.isArray(data)&&data.length?data:mockTrials;}
+  catch(e){allTrials=mockTrials;}
+  updateTpNavCount();if(currentMain==='trialpilot')renderTrialPilot();
+}
+async function loadPilots(){
+  try{const r=await apiFetch(`${API}/pilots`);if(!r.ok)throw new Error();const data=await r.json();allPilots=Array.isArray(data)&&data.length?data:mockPilots;}
+  catch(e){allPilots=mockPilots;}
+  updateTpNavCount();if(currentMain==='trialpilot')renderTrialPilot();
+}
+async function saveTrialProgress(id,stepIndex,value){
+  const t=allTrials.find(x=>x.Id===id);if(!t)return;
+  t.Progress=t.Progress||[false,false,false,false,false,false];t.Progress[stepIndex]=value;
+  try{await apiFetch(`${API}/trials/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(t)});}catch(e){}
+}
+async function savePilotProgress(id,stepIndex,value){
+  const p=allPilots.find(x=>x.Id===id);if(!p)return;
+  p.Progress=p.Progress||[false,false,false,false,false,false];p.Progress[stepIndex]=value;
+  try{await apiFetch(`${API}/pilots/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});}catch(e){}
+}
+function updateTpNavCount(){
+  const today=new Date();today.setHours(0,0,0,0);
+  const active=allTrials.filter(t=>!t.EndDate||new Date(t.EndDate)>=today).length+allPilots.filter(p=>!p.EndDate||new Date(p.EndDate)>=today).length;
+  const el=document.getElementById('tp-nav-count');if(el)el.textContent=active||'-';
+}
+function tpUrgency(days){if(days===null||days===undefined)return'green';if(days<7)return'red';if(days<20)return'amber';return'green';}
+function tpDaysBadge(days){if(days===null||days===undefined)return'<span class="badge b-gray">–</span>';if(days<0)return`<span class="badge tp-days-red">Utgången</span>`;const cls=days<7?'tp-days-red':days<20?'tp-days-amber':'tp-days-green';return`<span class="badge ${cls}">${days}d kvar</span>`;}
+function tpRecommendedAction(item){
+  const p=item.Progress||[false,false,false,false,false,false];
+  const days=item.EndDate?daysLeft(item.EndDate):null;
+  if(!p[0]&&days!==null&&days<3)return'Kontakta – har inte loggat in!';
+  if(!p[2]&&days!==null&&days<14)return'Följ upp – har inte bjudit in teamet';
+  if(!p[3]&&days!==null&&days<10)return'Boka demo/genomgång';
+  if(p[4]&&days!==null&&days<7)return'Boka avslutsmöte';
+  if(p[4]&&!p[5])return'Visa dashboard-värdet';
+  if(p.every(x=>x))return'Redo för konvertering →';
+  return'';
+}
+function switchTpTab(tab,el){
+  currentSub.trialpilot=tab;
+  document.querySelectorAll('.tp-subtab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tp-new-btn-label').textContent=tab==='trials'?'Ny trial':'Ny pilot';
+  expandedTpCard=null;
+  renderTpList();
+}
+function renderTrialPilot(){renderTpKpi();renderTpList();}
+function renderTpKpi(){
+  const today=new Date();today.setHours(0,0,0,0);
+  const activeTrials=allTrials.filter(t=>!t.EndDate||new Date(t.EndDate)>=today).length;
+  const activePilots=allPilots.filter(p=>!p.EndDate||new Date(p.EndDate)>=today).length;
+  document.getElementById('tp-kpi-grid').innerHTML=[
+    {label:'Aktiva trials',val:activeTrials,color:'var(--accent)',sub:`${allTrials.length} totalt`},
+    {label:'Aktiva piloter',val:activePilots,color:'var(--blue)',sub:`${allPilots.length} totalt`},
+    {label:'Konverteringsgrad',val:'34%',color:'var(--green)',sub:'Senaste 12 mån'},
+    {label:'Bästa källa',val:'Wow',color:'var(--purple)',sub:'Högst konvertering'}
+  ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-delta neu">${k.sub}</div></div>`).join('');
+}
+function renderTpList(){
+  const tab=currentSub.trialpilot||'trials';
+  const items=tab==='trials'?allTrials:allPilots;
+  const el=document.getElementById('tp-list');
+  if(!items.length){el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--text3);font-size:13px;">Inga ${tab==='trials'?'trials':'piloter'} ännu</div>`;return;}
+  el.innerHTML=items.map(it=>tpCardHtml(it,tab==='trials'?'trial':'pilot')).join('');
+}
+function tpCardHtml(item,type){
+  const days=item.EndDate?daysLeft(item.EndDate):null;
+  const urg=tpUrgency(days);
+  const progress=item.Progress||[false,false,false,false,false,false];
+  const action=tpRecommendedAction(item);
+  const srcColor=SOURCE_COLORS[item.Source]||'#8b90b0';
+  const expanded=expandedTpCard===`${type}-${item.Id}`;
+  const stepsHtml=TP_STEPS.map((label,i)=>{
+    const done=progress[i];
+    const prevDone=i===0||progress[i-1];
+    const cls=done?'done':prevDone?'active':'blocked';
+    return`<div class="tp-step ${cls}" title="${i+1}. ${label}" onclick="event.stopPropagation();toggleTpStep('${type}',${item.Id},${i})">${done?'✓':i+1}</div>`;
+  }).join('');
+  let metaHtml='';
+  if(type==='trial'){metaHtml=tpDaysBadge(days);}
+  else{const dd=item.DecisionDate?new Date(item.DecisionDate).toLocaleDateString('sv-SE'):'–';metaHtml=`<span class="badge b-blue">Beslut ${dd}</span>`;}
+  const pilotExtras=type==='pilot'?`<span class="tp-card-sub" style="margin-bottom:0;">· ${item.Participants||0} deltagare · ${item.ExpectedARR?fmtKr(item.ExpectedARR):'–'} förv. ARR</span>`:'';
+  const timeline=tpTimelineHtml(item);
+  return`<div class="tp-card urg-${urg} ${expanded?'expanded':''}" id="tp-card-${type}-${item.Id}" onclick="toggleTpExpand('${type}',${item.Id})">
+    <div class="tp-card-head">
+      <span class="tp-card-name">${item.Company||'–'}</span>
+      ${metaHtml}
+      <span class="badge" style="background:${srcColor}22;color:${srcColor};">${item.Source||'–'}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text3);">${item.Owner||'–'}</span>
+    </div>
+    <div class="tp-card-sub">${item.Contact||'–'}${item.Role?` · ${item.Role}`:''}${pilotExtras}</div>
+    ${action?`<div class="tp-card-action">${action}</div>`:''}
+    <div class="tp-steps">${stepsHtml}<span class="tp-step-tip">${progress.filter(x=>x).length}/6 steg</span></div>
+    <div class="tp-detail" onclick="event.stopPropagation()">
+      <div class="tp-detail-grid">
+        <div class="tp-detail-field"><label>Körda sessioner (kommaseparerad)</label><input id="tp-sess-${type}-${item.Id}" value="${(item.Sessions||'').replace(/"/g,'&quot;')}" placeholder="t.ex. 2026-05-10, 2026-05-17"></div>
+        <div class="tp-detail-field"><label>Anteckningar</label><textarea id="tp-notes-${type}-${item.Id}">${item.Notes||''}</textarea></div>
+      </div>
+      <div class="tp-detail-field" style="margin-bottom:10px;"><label>Licenstidslinje (${item.StartDate||'–'} → ${item.EndDate||'–'})</label>${timeline}</div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;"><button class="btn-sm" onclick="event.stopPropagation();saveTpDetail('${type}',${item.Id})">Spara</button></div>
+    </div>
+  </div>`;
+}
+function tpTimelineHtml(item){
+  if(!item.StartDate||!item.EndDate)return'<div class="tp-timeline"></div><div class="tp-timeline-labels"><span>–</span><span>–</span></div>';
+  const s=new Date(item.StartDate),e=new Date(item.EndDate),now=new Date();
+  const total=Math.max(1,e-s);const elapsed=Math.max(0,Math.min(total,now-s));
+  const pct=Math.round(elapsed/total*100);
+  return`<div class="tp-timeline"><div class="tp-timeline-fill" style="width:${pct}%;"></div></div><div class="tp-timeline-labels"><span>${item.StartDate}</span><span>${pct}% förflutet</span><span>${item.EndDate}</span></div>`;
+}
+async function toggleTpStep(type,id,idx){
+  const arr=type==='trial'?allTrials:allPilots;
+  const item=arr.find(x=>x.Id===id);if(!item)return;
+  item.Progress=item.Progress||[false,false,false,false,false,false];
+  const prevDone=idx===0||item.Progress[idx-1];
+  if(!prevDone&&!item.Progress[idx])return;
+  item.Progress[idx]=!item.Progress[idx];
+  if(type==='trial')saveTrialProgress(id,idx,item.Progress[idx]);
+  else savePilotProgress(id,idx,item.Progress[idx]);
+  renderTpKpi();renderTpList();
+}
+function toggleTpExpand(type,id){
+  const key=`${type}-${id}`;
+  expandedTpCard=expandedTpCard===key?null:key;
+  renderTpList();
+}
+async function saveTpDetail(type,id){
+  const arr=type==='trial'?allTrials:allPilots;
+  const item=arr.find(x=>x.Id===id);if(!item)return;
+  item.Sessions=document.getElementById(`tp-sess-${type}-${id}`)?.value||'';
+  item.Notes=document.getElementById(`tp-notes-${type}-${id}`)?.value||'';
+  const ep=type==='trial'?'trials':'pilots';
+  try{await apiFetch(`${API}/${ep}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(item)});}catch(e){}
+}
+function openNewTrialPilot(){
+  const defType=currentSub.trialpilot==='piloter'?'Pilot':'Trial';
+  const today=new Date().toISOString().substring(0,10);
+  const ownerOpts=OWNERS.map(o=>`<option>${o}</option>`).join('');
+  const srcOpts=TP_SOURCES.map(s=>`<option>${s}</option>`).join('');
+  showDialog('Ny trial eller pilot',
+    `<div class="modal-field"><label>Typ</label><select id="ntp-type" class="edit-input" onchange="document.getElementById('ntp-pilot-extras').style.display=this.value==='Pilot'?'block':'none';"><option ${defType==='Trial'?'selected':''}>Trial</option><option ${defType==='Pilot'?'selected':''}>Pilot</option></select></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Företag</label><input id="ntp-company" class="edit-input"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <div class="modal-field"><label>Kontaktperson</label><input id="ntp-contact" class="edit-input"></div>
+      <div class="modal-field"><label>Roll</label><input id="ntp-role" class="edit-input"></div>
+    </div>
+    <div class="modal-field" style="margin-top:8px;"><label>E-post</label><input id="ntp-email" type="email" class="edit-input"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <div class="modal-field"><label>Kundansvarig</label><select id="ntp-owner" class="edit-input">${ownerOpts}</select></div>
+      <div class="modal-field"><label>Källa</label><select id="ntp-source" class="edit-input">${srcOpts}</select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <div class="modal-field"><label>Startdatum</label><input id="ntp-start" type="date" class="edit-input" value="${today}"></div>
+      <div class="modal-field"><label>Slutdatum</label><input id="ntp-end" type="date" class="edit-input"></div>
+    </div>
+    <div id="ntp-pilot-extras" style="display:${defType==='Pilot'?'block':'none'};margin-top:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="modal-field"><label>Antal deltagare</label><input id="ntp-participants" type="number" class="edit-input"></div>
+        <div class="modal-field"><label>Förväntad ARR</label><input id="ntp-arr" type="number" class="edit-input"></div>
+      </div>
+      <div class="modal-field" style="margin-top:8px;"><label>Beslutsdatum</label><input id="ntp-decision" type="date" class="edit-input"></div>
+    </div>`,
+    async()=>{
+      const type=document.getElementById('ntp-type').value;
+      const company=document.getElementById('ntp-company').value.trim();
+      if(!company)return false;
+      const body={company,contact:document.getElementById('ntp-contact').value,role:document.getElementById('ntp-role').value,email:document.getElementById('ntp-email').value,owner:document.getElementById('ntp-owner').value,source:document.getElementById('ntp-source').value,startDate:document.getElementById('ntp-start').value||null,endDate:document.getElementById('ntp-end').value||null,progress:[false,false,false,false,false,false]};
+      if(type==='Pilot'){body.participants=parseInt(document.getElementById('ntp-participants').value)||0;body.expectedARR=parseInt(document.getElementById('ntp-arr').value)||0;body.decisionDate=document.getElementById('ntp-decision').value||null;}
+      const ep=type==='Pilot'?'pilots':'trials';
+      try{const r=await apiFetch(`${API}/${ep}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();}
+      catch(e){
+        const newId=Date.now();
+        const localItem={Id:newId,Company:company,Contact:body.contact,Role:body.role,Email:body.email,Owner:body.owner,Source:body.source,StartDate:body.startDate,EndDate:body.endDate,Progress:[false,false,false,false,false,false]};
+        if(type==='Pilot'){localItem.Participants=body.participants;localItem.ExpectedARR=body.expectedARR;localItem.DecisionDate=body.decisionDate;allPilots.push(localItem);}
+        else{allTrials.push(localItem);}
+      }
+      if(type==='Pilot'){await loadPilots();currentSub.trialpilot='piloter';document.querySelectorAll('.tp-subtab').forEach(b=>b.classList.toggle('active',b.id==='tp-subtab-piloter'));document.getElementById('tp-new-btn-label').textContent='Ny pilot';}
+      else{await loadTrials();currentSub.trialpilot='trials';document.querySelectorAll('.tp-subtab').forEach(b=>b.classList.toggle('active',b.id==='tp-subtab-trials'));document.getElementById('tp-new-btn-label').textContent='Ny trial';}
+      renderTrialPilot();
+      return true;
+    }
+  );
+}
+
 loadCustomers();
 loadProspects();
 loadRecipients();
+loadTrials();
+loadPilots();
 </script>
 </body>
 </html>
