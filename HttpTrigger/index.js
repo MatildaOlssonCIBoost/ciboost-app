@@ -1,3 +1,9 @@
+// Required schema changes for the new Employees / Industry / Phone fields:
+//   ALTER TABLE Customers ADD Employees INT NULL, Industry NVARCHAR(100) NULL;
+//   ALTER TABLE Prospects ADD Phone NVARCHAR(50) NULL, Employees INT NULL, Industry NVARCHAR(100) NULL;
+// Until those columns exist the corresponding PUT/POST below will fail with
+// "Invalid column name" — run the ALTER TABLE statements first.
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -41,9 +47,11 @@ module.exports = async function (context, req) {
         const p = req.body;
         await db.request()
           .input('Company', sql.NVarChar, p.company)
-          .input('Industry', sql.NVarChar, p.industry)
+          .input('Industry', sql.NVarChar, p.industry || null)
           .input('Contact', sql.NVarChar, p.contact)
           .input('Role', sql.NVarChar, p.role)
+          .input('Phone', sql.NVarChar, p.phone || null)
+          .input('Employees', sql.Int, p.employees || null)
           .input('Source', sql.NVarChar, p.source)
           .input('Owner', sql.NVarChar, p.owner)
           .input('Stage', sql.NVarChar, p.stage)
@@ -53,8 +61,8 @@ module.exports = async function (context, req) {
           .input('LastContact', sql.Date, p.lastContact || null)
           .input('NextMeeting', sql.Date, p.nextMeeting || null)
           .input('Notes', sql.NVarChar, p.notes)
-          .query(`INSERT INTO Prospects (Company,Industry,Contact,Role,Source,Owner,Stage,Score,Value,Probability,LastContact,NextMeeting,Notes)
-                  VALUES (@Company,@Industry,@Contact,@Role,@Source,@Owner,@Stage,@Score,@Value,@Probability,@LastContact,@NextMeeting,@Notes)`);
+          .query(`INSERT INTO Prospects (Company,Industry,Contact,Role,Phone,Employees,Source,Owner,Stage,Score,Value,Probability,LastContact,NextMeeting,Notes)
+                  VALUES (@Company,@Industry,@Contact,@Role,@Phone,@Employees,@Source,@Owner,@Stage,@Score,@Value,@Probability,@LastContact,@NextMeeting,@Notes)`);
         return respond(context, 201, { message: 'Skapad' });
       }
     }
@@ -66,9 +74,11 @@ module.exports = async function (context, req) {
         await db.request()
           .input('Id', sql.Int, id)
           .input('Company', sql.NVarChar, p.company)
-          .input('Industry', sql.NVarChar, p.industry)
+          .input('Industry', sql.NVarChar, p.industry || null)
           .input('Contact', sql.NVarChar, p.contact)
           .input('Role', sql.NVarChar, p.role)
+          .input('Phone', sql.NVarChar, p.phone || null)
+          .input('Employees', sql.Int, p.employees || null)
           .input('Source', sql.NVarChar, p.source)
           .input('Owner', sql.NVarChar, p.owner)
           .input('Stage', sql.NVarChar, p.stage)
@@ -79,6 +89,7 @@ module.exports = async function (context, req) {
           .input('NextMeeting', sql.Date, p.nextMeeting || null)
           .input('Notes', sql.NVarChar, p.notes)
           .query(`UPDATE Prospects SET Company=@Company,Industry=@Industry,Contact=@Contact,Role=@Role,
+                  Phone=@Phone,Employees=@Employees,
                   Source=@Source,Owner=@Owner,Stage=@Stage,Score=@Score,Value=@Value,Probability=@Probability,
                   LastContact=@LastContact,NextMeeting=@NextMeeting,Notes=@Notes,UpdatedAt=GETDATE() WHERE Id=@Id`);
         return respond(context, 200, { message: 'Uppdaterad' });
@@ -108,8 +119,10 @@ module.exports = async function (context, req) {
           .input('Risk', sql.NVarChar, c.risk)
           .input('Notes', sql.NVarChar, c.notes)
           .input('ParentCompany', sql.NVarChar, c.parentCompany || null)
-          .query(`INSERT INTO Customers (Company,Contact,Source,LicenseType,LicenseStart,LicenseEnd,ARR,Risk,Notes,ParentCompany)
-                  VALUES (@Company,@Contact,@Source,@LicenseType,@LicenseStart,@LicenseEnd,@ARR,@Risk,@Notes,@ParentCompany)`);
+          .input('Employees', sql.Int, c.employees || null)
+          .input('Industry', sql.NVarChar, c.industry || null)
+          .query(`INSERT INTO Customers (Company,Contact,Source,LicenseType,LicenseStart,LicenseEnd,ARR,Risk,Notes,ParentCompany,Employees,Industry)
+                  VALUES (@Company,@Contact,@Source,@LicenseType,@LicenseStart,@LicenseEnd,@ARR,@Risk,@Notes,@ParentCompany,@Employees,@Industry)`);
         return respond(context, 201, { message: 'Kund skapad' });
       }
     }
@@ -141,6 +154,8 @@ module.exports = async function (context, req) {
           .input('Risk', sql.NVarChar, c.risk)
           .input('Notes', sql.NVarChar, c.notes || null)
           .input('ParentCompany', sql.NVarChar, c.parentCompany || null)
+          .input('Employees', sql.Int, c.employees || null)
+          .input('Industry', sql.NVarChar, c.industry || null)
           .query(`UPDATE Customers SET
             Company=@Company, SubName=@SubName, Contact=@Contact, ContactRole=@ContactRole,
             ContactEmail=@ContactEmail, ContactPhone=@ContactPhone, CustomerSince=@CustomerSince,
@@ -148,7 +163,7 @@ module.exports = async function (context, req) {
             ARR=@ARR, ARR_Fixed=@ARR_Fixed, Revenue_Training=@Revenue_Training,
             Revenue_Training_Date=@Revenue_Training_Date, Revenue_Consulting=@Revenue_Consulting,
             Revenue_Consulting_Date=@Revenue_Consulting_Date, Risk=@Risk, Notes=@Notes,
-            ParentCompany=@ParentCompany
+            ParentCompany=@ParentCompany, Employees=@Employees, Industry=@Industry
             WHERE Id=@Id`);
         return respond(context, 200, { message: 'Uppdaterad' });
       }

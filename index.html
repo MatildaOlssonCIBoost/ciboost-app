@@ -438,6 +438,7 @@
     <option value="">Alla kundansvariga</option>
     <option>Matilda Olsson</option><option>Alexandra Henningson</option>
   </select>
+  <select id="filter-pipe-industry" onchange="renderKanban()" style="font-size:12px;"><option value="">Alla branscher</option></select>
   <button class="btn-primary" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;" onclick="openNewProspect()">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
     Ny prospect
@@ -488,6 +489,7 @@
       <select id="filter-owner"><option value="">Alla kundansvariga</option><option>Matilda Olsson</option><option>Alexandra Henningson</option></select>
       <select id="filter-license"><option value="">Alla licenstyper</option><option>Enterprise</option><option>Team</option><option>Pilot</option></select>
       <select id="filter-risk"><option value="">Alla risknivåer</option><option>Low</option><option>Medium</option><option>High</option></select>
+      <select id="filter-industry"><option value="">Alla branscher</option></select>
       <div class="rev-dropdown">
         <button class="rev-dd-btn" onclick="toggleRevDD(event)">Intäktskällor <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="rev-dd-panel" id="rev-dd-panel" style="display:none;">
@@ -672,6 +674,15 @@
         <span id="tp-new-btn-label">Ny trial</span>
       </button>
     </div>
+    <div class="filters" style="margin-bottom:12px;">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input class="search-input" type="text" id="filter-tp-search" placeholder="Sök företag..." oninput="renderTpList()">
+      </div>
+      <select id="filter-tp-owner" onchange="renderTpList()"><option value="">Alla kundansvariga</option><option>Matilda Olsson</option><option>Alexandra Henningson</option></select>
+      <select id="filter-tp-source" onchange="renderTpList()"><option value="">Alla källor</option><option>Wow</option><option>Hemsida demo</option><option>30-dagars</option><option>Traditionell</option><option>Partners</option><option>Event</option><option>Utbildningsprogram</option></select>
+      <select id="filter-tp-industry" onchange="renderTpList()"><option value="">Alla branscher</option></select>
+    </div>
     <div class="tp-list" id="tp-list"><div class="loading"><div class="spinner"></div> Laddar...</div></div>
   </div>
 </div>
@@ -689,6 +700,22 @@
       <div class="modal-tabs" id="modal-tabs"></div>
     </div>
     <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tp-overlay" onclick="closeTpModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-top">
+        <div><div class="modal-title" id="tp-modal-title"></div><div class="modal-subtitle" id="tp-modal-subtitle"></div></div>
+        <div class="modal-header-actions">
+          <button class="btn-delete" onclick="deleteTpFromModal()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>Ta bort</button>
+          <button class="modal-close" onclick="closeTpModalDirect()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+      </div>
+      <div class="modal-tabs" id="tp-modal-tabs"></div>
+    </div>
+    <div class="modal-body" id="tp-modal-body"></div>
   </div>
 </div>
 
@@ -766,11 +793,13 @@ let currentProspectId=null, isNewProspect=false, currentProspectTab=1;
 let revSources={arr:true,fast:true,utb:false,cons:false};
 let perSources={arr:true,fast:true,utb:true,cons:true};
 let currentMain='pipeline', currentSub={kunder:'oversikt',finansiellt:'dashboard',trialpilot:'trials'};
+let currentTpId=null, currentTpType=null, currentTpModalTab=1;
 let budgetVersions=[], currentBudgetVersionId=null, budgetRows=[];
 let budgetNotes={};
-const TP_STEPS=['Loggat in','Valt moduler','Bjudit in medlemmar','Genomfört 1 session','Genomfört flera sessioner','Förflyttning i dashboard'];
-const TP_STEPS_SHORT=['Loggat in','Valt moduler','Bjudit in','1 session','Fler sessioner','Dashboard'];
+const TP_STEPS=['Loggat in','Valt moduler','Bjudit in medlemmar','Genomfört 1 session','Genomfört fler sessioner','Genomfört pulsmätning'];
+const TP_STEPS_SHORT=['Loggat in','Valt moduler','Bjudit in','1 session','Fler sessioner','Pulsmätning'];
 const TP_SOURCES=['Wow','Hemsida demo','30-dagars','Traditionell','Partners','Event','Utbildningsprogram'];
+const INDUSTRIES=['Bank & Finans','Detaljhandel','Energi & Utilities','Fastighet & Bygg','Försäkring','Hälsa & Life Science','Industri & Tillverkning','IT & Tech','Konsult & Professionella tjänster','Media & Kommunikation','Offentlig sektor','Transport & Logistik','Utbildning','Övrigt'];
 const mockTrials=[
   {Id:1001,Company:'Volvo Cars AB',Contact:'Anna Lind',Role:'HR-chef',Email:'anna.lind@volvocars.se',Owner:'Matilda Olsson',Source:'Wow',StartDate:'2026-05-01',EndDate:'2026-06-12',Progress:[true,true,true,true,false,false],Sessions:'2026-05-10, 2026-05-17',Notes:'Bra engagemang från ledningen.',LastActive:'2026-05-22',InvitedCount:12},
   {Id:1002,Company:'IKEA Retail',Contact:'Mats Svensson',Role:'Säljchef',Email:'mats@ikea.se',Owner:'Alexandra Henningson',Source:'Hemsida demo',StartDate:'2026-05-15',EndDate:'2026-06-15',Progress:[true,true,false,false,false,false],Sessions:'',Notes:'',LastActive:'2026-05-18',InvitedCount:3},
@@ -864,7 +893,8 @@ function updatePipeKpi(){
 function renderKanban(){
   const srcFilter=document.getElementById('filter-source')?.value||'';
   const ownerFilter=document.getElementById('filter-pipe-owner')?.value||'';
-  const filtered=allProspects.filter(p=>(!srcFilter||p.Source===srcFilter)&&(!ownerFilter||p.Owner===ownerFilter));
+  const indFilter=document.getElementById('filter-pipe-industry')?.value||'';
+  const filtered=allProspects.filter(p=>(!srcFilter||p.Source===srcFilter)&&(!ownerFilter||p.Owner===ownerFilter)&&(!indFilter||p.Industry===indFilter));
   const today=new Date();today.setHours(0,0,0,0);
   const board=document.getElementById('kanban-board');
   board.innerHTML=STAGES.map(stage=>{
@@ -942,8 +972,9 @@ function renderProspectBody(p,acts){
             <div class="modal-field"><label>Kontaktperson</label><input ${is} id="p-contact" value="${p?.Contact||''}"></div>
             <div class="modal-field"><label>Roll</label><input ${is} id="p-role" value="${p?.Role||''}"></div>
             <div class="modal-field"><label>E-post</label><input ${is} id="p-email" type="email" value="${p?.Email||''}"></div>
+            <div class="modal-field"><label>Telefon</label><input ${is} id="p-phone" value="${p?.Phone||''}"></div>
             <div class="modal-field"><label>Antal anställda</label><input ${is} id="p-employees" type="number" value="${p?.Employees||''}"></div>
-            <div class="modal-field"><label>Bransch</label><input ${is} id="p-industry" value="${p?.Industry||''}"></div>
+            <div class="modal-field"><label>Bransch</label><select ${is} id="p-industry"><option value="">–</option>${INDUSTRIES.map(i=>`<option ${p?.Industry===i?'selected':''}>${i}</option>`).join('')}</select></div>
           </div>
         </div></div>
       <div class="modal-section"><div class="modal-section-label">Pipeline</div>
@@ -1011,7 +1042,7 @@ function onStageChange(){
   document.getElementById('lost-section').style.display=showLost?'flex':'none';
 }
 function getProspectBody(p){
-  return{company:document.getElementById('p-company')?.value||'',contact:document.getElementById('p-contact')?.value||'',role:document.getElementById('p-role')?.value||'',email:document.getElementById('p-email')?.value||'',employees:parseInt(document.getElementById('p-employees')?.value)||null,industry:document.getElementById('p-industry')?.value||'',source:document.getElementById('p-source')?.value||'',owner:document.getElementById('p-owner')?.value||'Matilda Olsson',stage:document.getElementById('p-stage')?.value||'Prospect Identified',score:parseInt(document.getElementById('p-score')?.value)||0,nextActionType:document.getElementById('p-action-type')?.value||null,nextActionDate:document.getElementById('p-action-date')?.value||null,valueMin:parseInt(document.getElementById('p-valmin')?.value)||null,valueMax:parseInt(document.getElementById('p-valmax')?.value)||null,value:parseInt(document.getElementById('p-valmax')?.value)||parseInt(document.getElementById('p-valmin')?.value)||0,probability:parseInt(document.getElementById('p-prob')?.value)||null,lostReason:document.getElementById('p-lostreason')?.value||null,notes:document.getElementById('p-notes')?.value||''};
+  return{company:document.getElementById('p-company')?.value||'',contact:document.getElementById('p-contact')?.value||'',role:document.getElementById('p-role')?.value||'',email:document.getElementById('p-email')?.value||'',phone:document.getElementById('p-phone')?.value||'',employees:parseInt(document.getElementById('p-employees')?.value)||null,industry:document.getElementById('p-industry')?.value||'',source:document.getElementById('p-source')?.value||'',owner:document.getElementById('p-owner')?.value||'Matilda Olsson',stage:document.getElementById('p-stage')?.value||'Prospect Identified',score:parseInt(document.getElementById('p-score')?.value)||0,nextActionType:document.getElementById('p-action-type')?.value||null,nextActionDate:document.getElementById('p-action-date')?.value||null,valueMin:parseInt(document.getElementById('p-valmin')?.value)||null,valueMax:parseInt(document.getElementById('p-valmax')?.value)||null,value:parseInt(document.getElementById('p-valmax')?.value)||parseInt(document.getElementById('p-valmin')?.value)||0,probability:parseInt(document.getElementById('p-prob')?.value)||null,lostReason:document.getElementById('p-lostreason')?.value||null,notes:document.getElementById('p-notes')?.value||''};
 }
 async function createProspect(){const body=getProspectBody(null);try{const r=await apiFetch(`${API}/prospects`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte skapa prospect.');}}
 async function saveProspect(id){const body=getProspectBody(allProspects.find(x=>x.Id===id));try{const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte spara.');}}
@@ -1313,7 +1344,7 @@ async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);
 async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
 function updateStats(){const active=allCustomers.filter(c=>c._days!==null&&c._days>=0);document.getElementById('stat-total').textContent=active.length;document.getElementById('tab-count').textContent=allCustomers.length;document.getElementById('stat-enterprise').textContent=allCustomers.filter(c=>c.LicenseType==='Enterprise').length;document.getElementById('stat-team').textContent=allCustomers.filter(c=>c.LicenseType==='Team').length;document.getElementById('stat-expiring').textContent=allCustomers.filter(c=>c._days!==null&&c._days>=0&&c._days<=30).length;document.getElementById('stat-risk').textContent=allCustomers.filter(c=>c.Risk==='High').length;document.getElementById('stat-expired').textContent=allCustomers.filter(c=>c._days!==null&&c._days<0).length;const totalVal=allCustomers.reduce((s,c)=>s+customerValue(c),0);document.getElementById('stat-total-val').textContent=totalVal>0?totalVal.toLocaleString('sv-SE')+' kr':'-';const labels=[revSources.arr?'ARR':'',revSources.fast?'Fast':'',revSources.utb?'Utb':'',revSources.cons?'Cons':''].filter(Boolean);document.getElementById('stat-total-val-label').textContent=labels.length?labels.join('+'):'Värde';}
 function renderRevSummary(){const totArr=allCustomers.reduce((s,c)=>s+(c.ARR||0),0);const totFast=allCustomers.reduce((s,c)=>s+(c.ARR_Fixed||0),0);const totUtb=allCustomers.reduce((s,c)=>s+(c.Revenue_Training||0),0);const totCons=allCustomers.reduce((s,c)=>s+(c.Revenue_Consulting||0),0);document.getElementById('rev-summary').innerHTML=`<div class="kpi-card"><div class="kpi-label">ARR totalt</div><div class="kpi-value" style="color:var(--green)">${fmtKr(totArr)}</div></div><div class="kpi-card"><div class="kpi-label">Fastpris</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(totFast)}</div></div><div class="kpi-card"><div class="kpi-label">Utbildning</div><div class="kpi-value" style="color:var(--amber)">${fmtKr(totUtb)}</div></div><div class="kpi-card"><div class="kpi-label">Consulting</div><div class="kpi-value" style="color:var(--purple)">${fmtKr(totCons)}</div></div>`;}
-function getFiltered(){const q=(document.getElementById('search')?.value||'').toLowerCase();const owner=document.getElementById('filter-owner')?.value||'';const license=document.getElementById('filter-license')?.value||'';const risk=document.getElementById('filter-risk')?.value||'';return allCustomers.filter(c=>{const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk);});}
+function getFiltered(){const q=(document.getElementById('search')?.value||'').toLowerCase();const owner=document.getElementById('filter-owner')?.value||'';const license=document.getElementById('filter-license')?.value||'';const risk=document.getElementById('filter-risk')?.value||'';const industry=document.getElementById('filter-industry')?.value||'';return allCustomers.filter(c=>{const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk)&&(!industry||c.Industry===industry);});}
 function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderTable();}
 function sortData(data){return [...data].sort((a,b)=>{let va=sortCol==='days'?(a._days??99999):(sortCol==='ARR'?customerValue(a):(a[sortCol]||''));let vb=sortCol==='days'?(b._days??99999):(sortCol==='ARR'?customerValue(b):(b[sortCol]||''));if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;});}
 function renderTable(){const data=sortData(getFiltered());document.getElementById('filter-count').textContent=`${data.length} kund${data.length!==1?'er':''}`;if(!data.length){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Inga kunder matchar</div></td></tr>`;return;}document.getElementById('table-body').innerHTML=data.map(c=>{const arr=c.ARR||0,fast=c.ARR_Fixed||0,utb=c.Revenue_Training||0,cons=c.Revenue_Consulting||0;const tot=arr+fast+utb+cons||1;const val=customerValue(c);const bars=[arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;"></div>`:'',fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;"></div>`:'',utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;"></div>`:'',cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;"></div>`:''].filter(Boolean).join('');return`<tr onclick="openModal(${c.Id})"><td><div class="company-name">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td><td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td><td><span class="owner-tag">${c._owner}</span></td><td><span class="license-type lt-${c.LicenseType}">${c.LicenseType||'-'}</span></td><td style="font-weight:500;font-size:13px;">${val>0?val.toLocaleString('sv-SE')+' kr':'-'}</td><td><div style="display:flex;gap:2px;align-items:center;">${bars}</div></td><td style="font-size:13px;color:var(--text2);">${formatDate(c.LicenseEnd)}</td><td>${daysPill(c._days)}</td><td><span class="risk-dot risk-${c.Risk}">${c.Risk||'-'}</span></td></tr>`;}).join('');}
@@ -1340,7 +1371,7 @@ async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);
 async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
 function updateStats(){const active=allCustomers.filter(c=>c._days!==null&&c._days>=0);document.getElementById('stat-total').textContent=active.length;document.getElementById('tab-count').textContent=allCustomers.length;document.getElementById('stat-enterprise').textContent=allCustomers.filter(c=>c.LicenseType==='Enterprise').length;document.getElementById('stat-team').textContent=allCustomers.filter(c=>c.LicenseType==='Team').length;document.getElementById('stat-expiring').textContent=allCustomers.filter(c=>c._days!==null&&c._days>=0&&c._days<=30).length;document.getElementById('stat-risk').textContent=allCustomers.filter(c=>c.Risk==='High').length;document.getElementById('stat-expired').textContent=allCustomers.filter(c=>c._days!==null&&c._days<0).length;const totalVal=allCustomers.reduce((s,c)=>s+customerValue(c),0);document.getElementById('stat-total-val').textContent=totalVal>0?totalVal.toLocaleString('sv-SE')+' kr':'-';const labels=[revSources.arr?'ARR':'',revSources.fast?'Fast':'',revSources.utb?'Utb':'',revSources.cons?'Cons':''].filter(Boolean);document.getElementById('stat-total-val-label').textContent=labels.length?labels.join('+'):'Värde';}
 function renderRevSummary(){const totArr=allCustomers.reduce((s,c)=>s+(c.ARR||0),0);const totFast=allCustomers.reduce((s,c)=>s+(c.ARR_Fixed||0),0);const totUtb=allCustomers.reduce((s,c)=>s+(c.Revenue_Training||0),0);const totCons=allCustomers.reduce((s,c)=>s+(c.Revenue_Consulting||0),0);document.getElementById('rev-summary').innerHTML=`<div class="kpi-card"><div class="kpi-label">ARR totalt</div><div class="kpi-value" style="color:var(--green)">${fmtKr(totArr)}</div></div><div class="kpi-card"><div class="kpi-label">Fastpris</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(totFast)}</div></div><div class="kpi-card"><div class="kpi-label">Utbildning</div><div class="kpi-value" style="color:var(--amber)">${fmtKr(totUtb)}</div></div><div class="kpi-card"><div class="kpi-label">Consulting</div><div class="kpi-value" style="color:var(--purple)">${fmtKr(totCons)}</div></div>`;}
-function getFiltered(){const q=(document.getElementById('search')?.value||'').toLowerCase();const owner=document.getElementById('filter-owner')?.value||'';const license=document.getElementById('filter-license')?.value||'';const risk=document.getElementById('filter-risk')?.value||'';return allCustomers.filter(c=>{const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk);});}
+function getFiltered(){const q=(document.getElementById('search')?.value||'').toLowerCase();const owner=document.getElementById('filter-owner')?.value||'';const license=document.getElementById('filter-license')?.value||'';const risk=document.getElementById('filter-risk')?.value||'';const industry=document.getElementById('filter-industry')?.value||'';return allCustomers.filter(c=>{const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk)&&(!industry||c.Industry===industry);});}
 function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderTable();}
 function sortData(data){return [...data].sort((a,b)=>{let va=sortCol==='days'?(a._days??99999):(sortCol==='ARR'?customerValue(a):(a[sortCol]||''));let vb=sortCol==='days'?(b._days??99999):(sortCol==='ARR'?customerValue(b):(b[sortCol]||''));if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;});}
 function renderTable(){const data=sortData(getFiltered());document.getElementById('filter-count').textContent=`${data.length} kund${data.length!==1?'er':''}`;if(!data.length){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Inga kunder matchar</div></td></tr>`;return;}document.getElementById('table-body').innerHTML=data.map(c=>{const arr=c.ARR||0,fast=c.ARR_Fixed||0,utb=c.Revenue_Training||0,cons=c.Revenue_Consulting||0;const tot=arr+fast+utb+cons||1;const val=customerValue(c);const bars=[arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;"></div>`:'',fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;"></div>`:'',utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;"></div>`:'',cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;"></div>`:''].filter(Boolean).join('');return`<tr onclick="openModal(${c.Id})"><td><div class="company-name">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td><td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td><td><span class="owner-tag">${c._owner}</span></td><td><span class="license-type lt-${c.LicenseType}">${c.LicenseType||'-'}</span></td><td style="font-weight:500;font-size:13px;">${val>0?val.toLocaleString('sv-SE')+' kr':'-'}</td><td><div style="display:flex;gap:2px;align-items:center;">${bars}</div></td><td style="font-size:13px;color:var(--text2);">${formatDate(c.LicenseEnd)}</td><td>${daysPill(c._days)}</td><td><span class="risk-dot risk-${c.Risk}">${c.Risk||'-'}</span></td></tr>`;}).join('');}
@@ -1828,7 +1859,7 @@ function renderModalPage(c,teams,admins){
   const is='class="edit-input"';let html='';
   if(currentPage===1){const oo=OWNERS.map(o=>`<option ${(c?._owner||'Matilda Olsson')===o?'selected':''}>${o}</option>`).join('');html=`${c?`<div class="modal-section"><div class="modal-section-label">Status</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span class="license-type lt-${c.LicenseType}">${c.LicenseType}</span>${daysPill(c._days)}<span class="risk-dot risk-${c.Risk}">${c.Risk} risk</span></div></div>`:''}
     <div class="modal-section"><div class="modal-section-label">Kundansvarig</div><div class="modal-card"><div class="modal-field"><label>Kundansvarig</label><select id="edit-owner" ${is}>${oo}</select></div></div></div>
-    <div class="modal-section"><div class="modal-section-label">Organisation</div><div class="modal-card" style="display:flex;flex-direction:column;gap:10px;"><div class="modal-field"><label>Företagsnamn</label><input ${is} id="edit-company" value="${c?.Company||''}"></div><div class="modal-field"><label>Team / Avdelning</label><input ${is} id="edit-subname" value="${c?.SubName||''}"></div><div class="modal-field"><label>Koncern</label><input ${is} id="edit-parent-company" value="${c?.ParentCompany||''}"></div></div></div>
+    <div class="modal-section"><div class="modal-section-label">Organisation</div><div class="modal-card" style="display:flex;flex-direction:column;gap:10px;"><div class="modal-field"><label>Företagsnamn</label><input ${is} id="edit-company" value="${c?.Company||''}"></div><div class="modal-field"><label>Team / Avdelning</label><input ${is} id="edit-subname" value="${c?.SubName||''}"></div><div class="modal-field"><label>Koncern</label><input ${is} id="edit-parent-company" value="${c?.ParentCompany||''}"></div><div class="modal-grid"><div class="modal-field"><label>Antal anställda</label><input ${is} id="edit-employees" type="number" value="${c?.Employees||''}"></div><div class="modal-field"><label>Bransch</label><select ${is} id="edit-industry"><option value="">–</option>${INDUSTRIES.map(i=>`<option ${c?.Industry===i?'selected':''}>${i}</option>`).join('')}</select></div></div></div></div>
     <div class="modal-section"><div class="modal-section-label">Kontaktperson</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input ${is} id="edit-contact" value="${c?.Contact||''}"></div><div class="modal-field"><label>Roll</label><input ${is} id="edit-contact-role" value="${c?.ContactRole||''}"></div><div class="modal-field"><label>E-post</label><input ${is} id="edit-contact-email" type="email" value="${c?.ContactEmail||''}"></div><div class="modal-field"><label>Telefon</label><input ${is} id="edit-contact-phone" value="${c?.ContactPhone||''}"></div></div></div></div>
     <div class="modal-section"><div class="modal-section-label">Licens</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Kund sedan</label><input ${is} id="edit-customer-since" type="date" value="${c?.CustomerSince?c.CustomerSince.substring(0,10):''}"></div><div class="modal-field"><label>Typ</label><select id="edit-type" ${is} onchange="onLicTypeChange()"><option ${(c?.LicenseType||'Team')==='Team'?'selected':''}>Team</option><option ${c?.LicenseType==='Enterprise'?'selected':''}>Enterprise</option><option ${c?.LicenseType==='Pilot'?'selected':''}>Pilot</option></select></div><div class="modal-field"><label>Start</label><input ${is} id="edit-start" type="date" value="${c?.LicenseStart?c.LicenseStart.substring(0,10):''}"></div><div class="modal-field"><label>Slut</label><input ${is} id="edit-end" type="date" value="${c?.LicenseEnd?c.LicenseEnd.substring(0,10):''}"></div><div class="modal-field"><label>Risk</label><select id="edit-risk" ${is}><option ${(c?.Risk||'Low')==='Low'?'selected':''}>Low</option><option ${c?.Risk==='Medium'?'selected':''}>Medium</option><option ${c?.Risk==='High'?'selected':''}>High</option></select></div></div></div></div>
     <div class="modal-section"><div class="modal-section-label">Anteckningar</div><div class="modal-card"><textarea id="edit-notes" ${is} style="height:80px;resize:vertical;">${c?.Notes||''}</textarea></div></div>`;}
@@ -1870,11 +1901,11 @@ function setupAutoSave(id){document.getElementById('modal-body').querySelectorAl
 function showSaveIndicator(msg,color){let el=document.getElementById('save-indicator');if(!el){el=document.createElement('div');el.id='save-indicator';el.style.cssText='position:fixed;bottom:20px;right:500px;padding:6px 12px;border-radius:6px;font-size:12px;font-family:Poppins,sans-serif;z-index:300;transition:opacity 0.3s;';document.body.appendChild(el);}el.textContent=msg;el.style.background=color||'#1e2140';el.style.color='white';el.style.opacity='1';if(msg==='✓ Sparat'||msg==='✓ Budget sparad')setTimeout(()=>{el.style.opacity='0';},2000);}
 
 async function silentSave(id){if(isNewCustomer||!id)return;const c=allCustomers.find(x=>x.Id===id);if(!c)return;const lt=document.getElementById('edit-type')?.value||c.LicenseType;const gv=elId=>document.getElementById(elId)?.value??null;
-const merged={company:gv('edit-company')||c.Company,contact:gv('edit-contact')||c.Contact,contactRole:document.getElementById('edit-contact-role')?(gv('edit-contact-role')??''):(c.ContactRole??''),contactEmail:document.getElementById('edit-contact-email')?(gv('edit-contact-email')??''):(c.ContactEmail??''),contactPhone:document.getElementById('edit-contact-phone')?(gv('edit-contact-phone')??''):(c.ContactPhone??''),customerSince:document.getElementById('edit-customer-since')?(gv('edit-customer-since')||null):(c.CustomerSince||null),owner:gv('edit-owner')||c._owner,licenseStart:gv('edit-start')||c.LicenseStart,licenseEnd:gv('edit-end')||c.LicenseEnd,licenseType:lt,arr:document.getElementById('edit-arr')?(parseInt(document.getElementById('edit-arr').value)||0):c.ARR,arrFixed:c.ARR_Fixed,revenueTraining:c.Revenue_Training,revenueTrainingDate:c.Revenue_Training_Date,revenueConsulting:c.Revenue_Consulting,revenueConsultingDate:c.Revenue_Consulting_Date,risk:gv('edit-risk')||c.Risk,subName:document.getElementById('edit-subname')?(gv('edit-subname')??''):(c.SubName??''),parentCompany:document.getElementById('edit-parent-company')?(gv('edit-parent-company')??''):(c.ParentCompany??''),notes:document.getElementById('edit-notes')?document.getElementById('edit-notes').value:(c.Notes??''),teamName:c.TeamName,meetingLeader1:c.MeetingLeader1,meetingLeader1Email:c.MeetingLeader1Email,meetingLeader1Phone:c.MeetingLeader1Phone,meetingLeader2:c.MeetingLeader2,meetingLeader2Email:c.MeetingLeader2Email,meetingLeader2Phone:c.MeetingLeader2Phone,commissionSalesperson:c.CommissionSalesperson,commissionPercent:c.CommissionPercent,commissionAmount:c.CommissionAmount};
+const merged={company:gv('edit-company')||c.Company,contact:gv('edit-contact')||c.Contact,contactRole:document.getElementById('edit-contact-role')?(gv('edit-contact-role')??''):(c.ContactRole??''),contactEmail:document.getElementById('edit-contact-email')?(gv('edit-contact-email')??''):(c.ContactEmail??''),contactPhone:document.getElementById('edit-contact-phone')?(gv('edit-contact-phone')??''):(c.ContactPhone??''),customerSince:document.getElementById('edit-customer-since')?(gv('edit-customer-since')||null):(c.CustomerSince||null),owner:gv('edit-owner')||c._owner,licenseStart:gv('edit-start')||c.LicenseStart,licenseEnd:gv('edit-end')||c.LicenseEnd,licenseType:lt,arr:document.getElementById('edit-arr')?(parseInt(document.getElementById('edit-arr').value)||0):c.ARR,arrFixed:c.ARR_Fixed,revenueTraining:c.Revenue_Training,revenueTrainingDate:c.Revenue_Training_Date,revenueConsulting:c.Revenue_Consulting,revenueConsultingDate:c.Revenue_Consulting_Date,risk:gv('edit-risk')||c.Risk,subName:document.getElementById('edit-subname')?(gv('edit-subname')??''):(c.SubName??''),parentCompany:document.getElementById('edit-parent-company')?(gv('edit-parent-company')??''):(c.ParentCompany??''),employees:document.getElementById('edit-employees')?(parseInt(document.getElementById('edit-employees').value)||null):(c.Employees??null),industry:document.getElementById('edit-industry')?(gv('edit-industry')??''):(c.Industry??''),notes:document.getElementById('edit-notes')?document.getElementById('edit-notes').value:(c.Notes??''),teamName:c.TeamName,meetingLeader1:c.MeetingLeader1,meetingLeader1Email:c.MeetingLeader1Email,meetingLeader1Phone:c.MeetingLeader1Phone,meetingLeader2:c.MeetingLeader2,meetingLeader2Email:c.MeetingLeader2Email,meetingLeader2Phone:c.MeetingLeader2Phone,commissionSalesperson:c.CommissionSalesperson,commissionPercent:c.CommissionPercent,commissionAmount:c.CommissionAmount};
 console.log('[silentSave] ParentCompany field:',document.getElementById('edit-parent-company')?.value,'→ merged.parentCompany:',merged.parentCompany,'| cached c.ParentCompany:',c.ParentCompany,'| merged:',merged);
-try{const r=await apiFetch(`${API}/customers/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged)});console.log('[silentSave] PUT /customers/'+id+' → status',r.status,r.ok?'OK':'FAIL');if(!r.ok){const t=await r.clone().text().catch(()=>'<no body>');console.error('[silentSave] error body:',t);}if(r.ok){const idx=allCustomers.findIndex(x=>x.Id===id);if(idx!==-1)allCustomers[idx]={...allCustomers[idx],Company:merged.company,Contact:merged.contact,ContactRole:merged.contactRole,ContactEmail:merged.contactEmail,ContactPhone:merged.contactPhone,CustomerSince:merged.customerSince,LicenseType:merged.licenseType,LicenseStart:merged.licenseStart,LicenseEnd:merged.licenseEnd,ARR:merged.arr,ARR_Fixed:merged.arrFixed,Risk:merged.risk,SubName:merged.subName,ParentCompany:merged.parentCompany,Notes:merged.notes,_owner:merged.owner,_days:daysLeft(merged.licenseEnd)};showSaveIndicator('✓ Sparat','#1a7a50');if(lt==='Team'&&document.getElementById('edit-team-count')){await apiFetch(`${API}/customers/${id}/teams`,{method:'DELETE',headers:{'Content-Type':'application/json'}});const count=parseInt(document.getElementById('edit-team-count')?.value)||0;for(let i=0;i<count;i++)await apiFetch(`${API}/customers/${id}/teams`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({teamName:document.getElementById(`team-name-${i}`)?.value||'',meetingLeader1:document.getElementById(`team-ml1-${i}`)?.value||'',meetingLeader1Email:document.getElementById(`team-ml1-email-${i}`)?.value||'',meetingLeader2:document.getElementById(`team-ml2-${i}`)?.value||'',meetingLeader2Email:document.getElementById(`team-ml2-email-${i}`)?.value||''})});}if(lt==='Enterprise'&&document.getElementById('edit-admin-count')){await apiFetch(`${API}/customers/${id}/admins`,{method:'DELETE',headers:{'Content-Type':'application/json'}});const count=parseInt(document.getElementById('edit-admin-count')?.value)||0;for(let i=0;i<count;i++)await apiFetch(`${API}/customers/${id}/admins`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById(`admin-name-${i}`)?.value||'',email:document.getElementById(`admin-email-${i}`)?.value||'',phone:document.getElementById(`admin-phone-${i}`)?.value||''})});}}else{showSaveIndicator('⚠ Fel','#a32d2d');}}catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}}
+try{const r=await apiFetch(`${API}/customers/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged)});console.log('[silentSave] PUT /customers/'+id+' → status',r.status,r.ok?'OK':'FAIL');if(!r.ok){const t=await r.clone().text().catch(()=>'<no body>');console.error('[silentSave] error body:',t);}if(r.ok){const idx=allCustomers.findIndex(x=>x.Id===id);if(idx!==-1)allCustomers[idx]={...allCustomers[idx],Company:merged.company,Contact:merged.contact,ContactRole:merged.contactRole,ContactEmail:merged.contactEmail,ContactPhone:merged.contactPhone,CustomerSince:merged.customerSince,LicenseType:merged.licenseType,LicenseStart:merged.licenseStart,LicenseEnd:merged.licenseEnd,ARR:merged.arr,ARR_Fixed:merged.arrFixed,Risk:merged.risk,SubName:merged.subName,ParentCompany:merged.parentCompany,Employees:merged.employees,Industry:merged.industry,Notes:merged.notes,_owner:merged.owner,_days:daysLeft(merged.licenseEnd)};showSaveIndicator('✓ Sparat','#1a7a50');if(lt==='Team'&&document.getElementById('edit-team-count')){await apiFetch(`${API}/customers/${id}/teams`,{method:'DELETE',headers:{'Content-Type':'application/json'}});const count=parseInt(document.getElementById('edit-team-count')?.value)||0;for(let i=0;i<count;i++)await apiFetch(`${API}/customers/${id}/teams`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({teamName:document.getElementById(`team-name-${i}`)?.value||'',meetingLeader1:document.getElementById(`team-ml1-${i}`)?.value||'',meetingLeader1Email:document.getElementById(`team-ml1-email-${i}`)?.value||'',meetingLeader2:document.getElementById(`team-ml2-${i}`)?.value||'',meetingLeader2Email:document.getElementById(`team-ml2-email-${i}`)?.value||''})});}if(lt==='Enterprise'&&document.getElementById('edit-admin-count')){await apiFetch(`${API}/customers/${id}/admins`,{method:'DELETE',headers:{'Content-Type':'application/json'}});const count=parseInt(document.getElementById('edit-admin-count')?.value)||0;for(let i=0;i<count;i++)await apiFetch(`${API}/customers/${id}/admins`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById(`admin-name-${i}`)?.value||'',email:document.getElementById(`admin-email-${i}`)?.value||'',phone:document.getElementById(`admin-phone-${i}`)?.value||''})});}}else{showSaveIndicator('⚠ Fel','#a32d2d');}}catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}}
 
-async function createCustomer(){const body={company:document.getElementById('edit-company')?.value||'Ny kund',contact:document.getElementById('edit-contact')?.value||'',contactRole:document.getElementById('edit-contact-role')?.value||'',contactEmail:document.getElementById('edit-contact-email')?.value||'',contactPhone:document.getElementById('edit-contact-phone')?.value||'',customerSince:document.getElementById('edit-customer-since')?.value||null,owner:document.getElementById('edit-owner')?.value||'Matilda Olsson',licenseStart:document.getElementById('edit-start')?.value||null,licenseEnd:document.getElementById('edit-end')?.value||null,licenseType:document.getElementById('edit-type')?.value||'Team',arr:null,arrFixed:null,revenueTraining:null,revenueConsulting:null,risk:document.getElementById('edit-risk')?.value||'Low',subName:document.getElementById('edit-subname')?.value||null,parentCompany:document.getElementById('edit-parent-company')?.value||null,notes:document.getElementById('edit-notes')?.value||null};try{const r=await apiFetch(`${API}/customers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeModalDirect();await loadCustomers();}catch(e){alert('Kunde inte skapa kund.');}}
+async function createCustomer(){const body={company:document.getElementById('edit-company')?.value||'Ny kund',contact:document.getElementById('edit-contact')?.value||'',contactRole:document.getElementById('edit-contact-role')?.value||'',contactEmail:document.getElementById('edit-contact-email')?.value||'',contactPhone:document.getElementById('edit-contact-phone')?.value||'',customerSince:document.getElementById('edit-customer-since')?.value||null,owner:document.getElementById('edit-owner')?.value||'Matilda Olsson',licenseStart:document.getElementById('edit-start')?.value||null,licenseEnd:document.getElementById('edit-end')?.value||null,licenseType:document.getElementById('edit-type')?.value||'Team',arr:null,arrFixed:null,revenueTraining:null,revenueConsulting:null,risk:document.getElementById('edit-risk')?.value||'Low',subName:document.getElementById('edit-subname')?.value||null,parentCompany:document.getElementById('edit-parent-company')?.value||null,employees:parseInt(document.getElementById('edit-employees')?.value)||null,industry:document.getElementById('edit-industry')?.value||null,notes:document.getElementById('edit-notes')?.value||null};try{const r=await apiFetch(`${API}/customers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeModalDirect();await loadCustomers();}catch(e){alert('Kunde inte skapa kund.');}}
 function updateTeamBlocks(count,et){const n=Math.max(1,Math.min(20,parseInt(count)||1));let h='';for(let i=0;i<n;i++){const t=et[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input class="edit-input" id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input class="edit-input" id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input class="edit-input" id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input class="edit-input" id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input class="edit-input" id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`;}document.getElementById('team-blocks').innerHTML=h;}
 function updateAdminBlocks(count,ea){const n=Math.max(1,Math.min(20,parseInt(count)||1));let h='';for(let i=0;i<n;i++){const a=ea[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input class="edit-input" id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input class="edit-input" id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input class="edit-input" id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`;}document.getElementById('admin-blocks').innerHTML=h;}
 
@@ -1891,6 +1922,7 @@ document.getElementById('search')?.addEventListener('input',()=>renderTable());
 document.getElementById('filter-owner')?.addEventListener('change',()=>renderTable());
 document.getElementById('filter-license')?.addEventListener('change',()=>renderTable());
 document.getElementById('filter-risk')?.addEventListener('change',()=>renderTable());
+document.getElementById('filter-industry')?.addEventListener('change',()=>renderTable());
 
 // ─── TRIAL & PILOT ───────────────────────────────────────
 async function loadTrials(){
@@ -1923,12 +1955,14 @@ function tpDaysBadge(days){if(days===null||days===undefined)return'<span class="
 function tpRecommendedAction(item){
   const p=item.Progress||[false,false,false,false,false,false];
   const days=item.EndDate?daysLeft(item.EndDate):null;
-  if(!p[0]&&days!==null&&days<3)return{text:'Kontakta – har inte loggat in! →',sev:'red'};
-  if(!p[2]&&days!==null&&days<14)return{text:'Följ upp – har inte bjudit in teamet →',sev:'amber'};
-  if(!p[3]&&days!==null&&days<10)return{text:'Boka demo/genomgång →',sev:'amber'};
-  if(p[4]&&days!==null&&days<7)return{text:'Boka avslutsmöte →',sev:'red'};
-  if(p[4]&&!p[5])return{text:'Visa dashboard-värdet →',sev:'amber'};
-  if(p.every(x=>x))return{text:'Redo för konvertering →',sev:'green'};
+  if(p[4])return{text:'Redo för konvertering →',sev:'green'};
+  if(p[3])return{text:'Ganska redo →',sev:'amber'};
+  for(let i=0;i<6;i++){
+    if(!p[i]){
+      const sev=(days!==null&&days<7)?'red':'amber';
+      return{text:`Saknar: ${TP_STEPS_SHORT[i]} →`,sev};
+    }
+  }
   return null;
 }
 function switchTpTab(tab,el){
@@ -1962,34 +1996,33 @@ function renderTpKpi(){
 }
 function renderTpList(){
   const tab=currentSub.trialpilot||'trials';
-  const items=tab==='trials'?allTrials:allPilots;
+  const all=tab==='trials'?allTrials:allPilots;
+  const q=(document.getElementById('filter-tp-search')?.value||'').toLowerCase();
+  const ownerF=document.getElementById('filter-tp-owner')?.value||'';
+  const srcF=document.getElementById('filter-tp-source')?.value||'';
+  const indF=document.getElementById('filter-tp-industry')?.value||'';
+  const items=all.filter(it=>(!q||(it.Company||'').toLowerCase().includes(q))&&(!ownerF||it.Owner===ownerF)&&(!srcF||it.Source===srcF)&&(!indF||it.Industry===indF));
   const el=document.getElementById('tp-list');
-  if(!items.length){el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--text3);font-size:13px;">Inga ${tab==='trials'?'trials':'piloter'} ännu</div>`;return;}
+  if(!items.length){el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--text3);font-size:13px;">Inga ${tab==='trials'?'trials':'piloter'} matchar</div>`;return;}
   el.innerHTML=items.map(it=>tpCardHtml(it,tab==='trials'?'trial':'pilot')).join('');
 }
 function tpCardHtml(item,type){
   const days=item.EndDate?daysLeft(item.EndDate):null;
+  const elapsed=item.StartDate?Math.max(0,Math.round((new Date()-new Date(item.StartDate))/86400000)):null;
   const urg=tpUrgency(days);
   const progress=item.Progress||[false,false,false,false,false,false];
   const action=tpRecommendedAction(item);
   const srcColor=SOURCE_COLORS[item.Source]||'#8b90b0';
-  const firstUndone=(()=>{for(let i=0;i<6;i++)if(!progress[i])return i;return -1;})();
   const stepsHtml=TP_STEPS_SHORT.map((short,i)=>{
     const done=progress[i];
-    const active=!done&&i===firstUndone;
-    const cls=done?'done':active?'active':'';
-    const inner=done?'✓':(i+1);
-    return`<div class="tp-tprog-step ${cls}" title="${TP_STEPS[i]}" onclick="toggleTpStep('${type}',${item.Id},${i})"><div class="circle">${inner}</div><div class="label">${short}</div></div>`;
+    return`<div class="tp-tprog-step ${done?'done':''}" title="${TP_STEPS[i]}" onclick="event.stopPropagation();toggleTpStep('${type}',${item.Id},${i})"><div class="circle">${done?'✓':(i+1)}</div><div class="label">${short}</div></div>`;
   }).join('');
   let metaHtml='';
   if(type==='trial'){metaHtml=tpDaysBadge(days);}
   else{const dd=item.DecisionDate?new Date(item.DecisionDate).toLocaleDateString('sv-SE'):'–';metaHtml=`<span class="badge b-blue">Beslut ${dd}</span>`;}
   const pilotExtras=type==='pilot'?` · ${item.Participants||0} deltagare · ${item.ExpectedARR?fmtKr(item.ExpectedARR)+' förv. ARR':'–'}`:'';
-  const sessionsArr=(item.Sessions||'').split(',').map(s=>s.trim()).filter(Boolean);
-  const sessionsHtml=sessionsArr.length?sessionsArr.map(s=>`<span class="tp-chip">${s}</span>`).join(''):'<span style="font-size:11px;color:var(--text3);">Inga ännu</span>';
-  const lastActive=item.LastActive?new Date(item.LastActive).toLocaleDateString('sv-SE'):'–';
-  const invited=item.InvitedCount!=null?item.InvitedCount:'–';
-  return`<div class="tp-card urg-${urg}" id="tp-card-${type}-${item.Id}">
+  const periodLine=`Igång: <strong>${elapsed??'–'} dagar</strong> · Kvar: <strong>${days??'–'} dagar</strong>`;
+  return`<div class="tp-card urg-${urg}" id="tp-card-${type}-${item.Id}" style="cursor:pointer;" onclick="openTpModal('${type}',${item.Id})">
     <div class="tp-card-head">
       <div class="tp-card-head-left">
         <span class="tp-card-name">${item.Company||'–'}</span>
@@ -2000,21 +2033,8 @@ function tpCardHtml(item,type){
       ${action?`<div class="tp-action-r sev-${action.sev}">${action.text}</div>`:''}
     </div>
     <div class="tp-card-sub">${item.Contact||'–'}${item.Role?` · ${item.Role}`:''}${pilotExtras}</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">${periodLine}</div>
     <div class="tp-tprog">${stepsHtml}</div>
-    <div class="tp-details">
-      <div>
-        <div class="tp-detail-section-label">Körda sessioner</div>
-        <div class="tp-chips">${sessionsHtml}</div>
-      </div>
-      <div>
-        <div class="tp-detail-section-label">Aktivitet</div>
-        <div class="tp-activity">Senast aktiv: <strong>${lastActive}</strong><br>${invited} <strong>inbjudna</strong></div>
-      </div>
-      <div>
-        <div class="tp-detail-section-label">Licenstidslinje</div>
-        ${tpTimelineHtml(item,urg)}
-      </div>
-    </div>
   </div>`;
 }
 function tpTimelineHtml(item,urg){
@@ -2029,26 +2049,167 @@ async function toggleTpStep(type,id,idx){
   const arr=type==='trial'?allTrials:allPilots;
   const item=arr.find(x=>x.Id===id);if(!item)return;
   item.Progress=item.Progress||[false,false,false,false,false,false];
-  const prevDone=idx===0||item.Progress[idx-1];
-  if(!prevDone&&!item.Progress[idx])return;
   item.Progress[idx]=!item.Progress[idx];
   if(type==='trial')saveTrialProgress(id,idx,item.Progress[idx]);
   else savePilotProgress(id,idx,item.Progress[idx]);
   renderTrialPilot();
+  if(document.getElementById('tp-overlay')?.classList.contains('open')&&currentTpId===id&&currentTpType===type)renderTpModalBody();
+}
+function openTpModal(type,id){
+  currentTpType=type;currentTpId=id;currentTpModalTab=1;
+  const arr=type==='trial'?allTrials:allPilots;
+  const item=arr.find(x=>x.Id===id);if(!item)return;
+  document.getElementById('tp-modal-title').textContent=item.Company||'–';
+  document.getElementById('tp-modal-subtitle').textContent=`${type==='trial'?'Trial':'Pilot'} · ${item.Owner||'–'}`;
+  renderTpModalTabs();renderTpModalBody();
+  document.getElementById('tp-overlay').classList.add('open');
+}
+function renderTpModalTabs(){
+  document.getElementById('tp-modal-tabs').innerHTML=['Översikt','Aktivering'].map((t,i)=>`<button class="modal-tab ${currentTpModalTab===i+1?'active':''}" onclick="goToTpModalTab(${i+1})">${i+1}. ${t}</button>`).join('');
+}
+function goToTpModalTab(n){saveTpFromModal();currentTpModalTab=n;renderTpModalTabs();renderTpModalBody();}
+function closeTpModal(e){if(e.target===document.getElementById('tp-overlay'))closeTpModalDirect();}
+function closeTpModalDirect(){
+  saveTpFromModal();
+  document.getElementById('tp-overlay').classList.remove('open');
+  currentTpId=null;currentTpType=null;
+  renderTrialPilot();
+}
+function renderTpModalBody(){
+  if(!currentTpId)return;
+  const arr=currentTpType==='trial'?allTrials:allPilots;
+  const item=arr.find(x=>x.Id===currentTpId);if(!item)return;
+  const is='class="edit-input"';
+  const body=document.getElementById('tp-modal-body');
+  if(currentTpModalTab===1){
+    const ownerOpts=OWNERS.map(o=>`<option ${item.Owner===o?'selected':''}>${o}</option>`).join('');
+    const srcOpts=TP_SOURCES.map(s=>`<option ${item.Source===s?'selected':''}>${s}</option>`).join('');
+    const indOpts=`<option value="">–</option>`+INDUSTRIES.map(i=>`<option ${item.Industry===i?'selected':''}>${i}</option>`).join('');
+    const curTypeLabel=currentTpType==='pilot'?'Pilot':'Trial';
+    const typeOpts=['Trial','Pilot'].map(t=>`<option ${curTypeLabel===t?'selected':''}>${t}</option>`).join('');
+    body.innerHTML=`
+      <div class="modal-section"><div class="modal-section-label">Kundansvarig</div>
+        <div class="modal-card"><div class="modal-field"><label>Kundansvarig</label><select id="tpm-owner" ${is}>${ownerOpts}</select></div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Organisation</div>
+        <div class="modal-card" style="display:flex;flex-direction:column;gap:10px;">
+          <div class="modal-field"><label>Företag</label><input ${is} id="tpm-company" value="${item.Company||''}"></div>
+          <div class="modal-grid">
+            <div class="modal-field"><label>Kontaktperson</label><input ${is} id="tpm-contact" value="${item.Contact||''}"></div>
+            <div class="modal-field"><label>Roll</label><input ${is} id="tpm-role" value="${item.Role||''}"></div>
+            <div class="modal-field"><label>E-post</label><input ${is} id="tpm-email" type="email" value="${item.Email||''}"></div>
+            <div class="modal-field"><label>Telefon</label><input ${is} id="tpm-phone" value="${item.Phone||''}"></div>
+            <div class="modal-field"><label>Antal anställda</label><input ${is} id="tpm-employees" type="number" value="${item.Employees||''}"></div>
+            <div class="modal-field"><label>Bransch</label><select ${is} id="tpm-industry">${indOpts}</select></div>
+            <div class="modal-field"><label>Källa</label><select ${is} id="tpm-source">${srcOpts}</select></div>
+          </div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Licens</div>
+        <div class="modal-card"><div class="modal-grid">
+          <div class="modal-field"><label>Startdatum</label><input ${is} id="tpm-start" type="date" value="${item.StartDate?item.StartDate.substring(0,10):''}"></div>
+          <div class="modal-field"><label>Slutdatum</label><input ${is} id="tpm-end" type="date" value="${item.EndDate?item.EndDate.substring(0,10):''}"></div>
+          <div class="modal-field"><label>Typ</label><select ${is} id="tpm-type" onchange="document.getElementById('tpm-pilot-section').style.display=this.value==='Pilot'?'flex':'none';">${typeOpts}</select></div>
+        </div></div></div>
+      <div id="tpm-pilot-section" style="display:${currentTpType==='pilot'?'flex':'none'};flex-direction:column;gap:8px;">
+        <div class="modal-section-label">Pilot-detaljer</div>
+        <div class="modal-card"><div class="modal-grid">
+          <div class="modal-field"><label>Antal deltagare</label><input ${is} id="tpm-participants" type="number" value="${item.Participants||''}"></div>
+          <div class="modal-field"><label>Förväntad ARR</label><input ${is} id="tpm-arr" type="number" value="${item.ExpectedARR||''}"></div>
+          <div class="modal-field"><label>Beslutsdatum</label><input ${is} id="tpm-decision" type="date" value="${item.DecisionDate?item.DecisionDate.substring(0,10):''}"></div>
+        </div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Anteckningar</div>
+        <div class="modal-card"><textarea ${is} id="tpm-notes" style="height:80px;resize:vertical;">${item.Notes||''}</textarea></div></div>
+      <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);"><button class="btn-primary" onclick="saveTpFromModal();showSaveIndicator('✓ Sparat','#1a7a50');">Spara</button></div>`;
+  } else {
+    const progress=item.Progress||[false,false,false,false,false,false];
+    const stepsHtml=TP_STEPS_SHORT.map((short,i)=>{
+      const done=progress[i];
+      return`<div class="tp-tprog-step ${done?'done':''}" title="${TP_STEPS[i]}" onclick="toggleTpStep('${currentTpType}',${item.Id},${i})"><div class="circle">${done?'✓':(i+1)}</div><div class="label">${short}</div></div>`;
+    }).join('');
+    const urg=tpUrgency(item.EndDate?daysLeft(item.EndDate):null);
+    body.innerHTML=`
+      <div class="modal-section"><div class="modal-section-label">Aktiveringssteg</div>
+        <div class="modal-card"><div class="tp-tprog" style="margin:8px 0;">${stepsHtml}</div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Körda sessioner</div>
+        <div class="modal-card"><div class="modal-field"><label>Datum (kommaseparerad eller en per rad)</label><textarea ${is} id="tpm-sessions" style="height:90px;resize:vertical;">${item.Sessions||''}</textarea></div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Aktivitet</div>
+        <div class="modal-card"><div class="modal-grid">
+          <div class="modal-field"><label>Senast aktiv</label><input ${is} id="tpm-lastactive" type="date" value="${item.LastActive?item.LastActive.substring(0,10):''}"></div>
+          <div class="modal-field"><label>Antal inbjudna</label><input ${is} id="tpm-invited" type="number" value="${item.InvitedCount??''}"></div>
+        </div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Licenstidslinje</div>
+        <div class="modal-card">${tpTimelineHtml(item,urg)}</div></div>
+      <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);"><button class="btn-primary" onclick="saveTpFromModal();showSaveIndicator('✓ Sparat','#1a7a50');">Spara</button></div>`;
+  }
+}
+async function saveTpFromModal(){
+  if(!currentTpId)return;
+  const arr=currentTpType==='trial'?allTrials:allPilots;
+  const item=arr.find(x=>x.Id===currentTpId);if(!item)return;
+  const v=id=>document.getElementById(id)?.value;
+  if(document.getElementById('tpm-company')){
+    item.Company=v('tpm-company')||item.Company;
+    item.Contact=v('tpm-contact')??item.Contact;
+    item.Role=v('tpm-role')??item.Role;
+    item.Email=v('tpm-email')??item.Email;
+    item.Phone=v('tpm-phone')??item.Phone;
+    item.Employees=parseInt(v('tpm-employees'))||null;
+    item.Industry=v('tpm-industry')??item.Industry;
+    item.Source=v('tpm-source')??item.Source;
+    item.Owner=v('tpm-owner')??item.Owner;
+    item.StartDate=v('tpm-start')||item.StartDate;
+    item.EndDate=v('tpm-end')||item.EndDate;
+    item.Notes=v('tpm-notes')??item.Notes;
+    if(document.getElementById('tpm-participants'))item.Participants=parseInt(v('tpm-participants'))||0;
+    if(document.getElementById('tpm-arr'))item.ExpectedARR=parseInt(v('tpm-arr'))||0;
+    if(document.getElementById('tpm-decision'))item.DecisionDate=v('tpm-decision')||null;
+    const newType=(v('tpm-type')||'').toLowerCase()==='pilot'?'pilot':'trial';
+    if(newType!==currentTpType){
+      const oldArr=currentTpType==='trial'?allTrials:allPilots;
+      const newArr=newType==='trial'?allTrials:allPilots;
+      const idx=oldArr.findIndex(x=>x.Id===currentTpId);if(idx>=0)oldArr.splice(idx,1);
+      newArr.push(item);currentTpType=newType;
+    }
+  }
+  if(document.getElementById('tpm-sessions')){
+    item.Sessions=v('tpm-sessions')??item.Sessions;
+    item.LastActive=v('tpm-lastactive')||null;
+    const inv=parseInt(v('tpm-invited'));item.InvitedCount=isNaN(inv)?null:inv;
+  }
+  const ep=currentTpType==='trial'?'trials':'pilots';
+  try{await apiFetch(`${API}/${ep}/${currentTpId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(item)});}catch(e){}
+}
+function deleteTpFromModal(){
+  if(!currentTpId)return;
+  if(!confirm('Ta bort denna trial/pilot permanent?'))return;
+  const id=currentTpId,type=currentTpType;
+  document.getElementById('tp-overlay').classList.remove('open');
+  currentTpId=null;currentTpType=null;
+  if(type==='trial')deleteTrialById(id);else deletePilotById(id);
+}
+async function deleteTrialById(id){
+  try{await apiFetch(`${API}/trials/${id}`,{method:'DELETE'});}catch(e){}
+  allTrials=allTrials.filter(t=>t.Id!==id);renderTrialPilot();
+}
+async function deletePilotById(id){
+  try{await apiFetch(`${API}/pilots/${id}`,{method:'DELETE'});}catch(e){}
+  allPilots=allPilots.filter(p=>p.Id!==id);renderTrialPilot();
 }
 function openNewTrialPilot(){
   const defType=currentSub.trialpilot==='piloter'?'Pilot':'Trial';
   const today=new Date().toISOString().substring(0,10);
   const ownerOpts=OWNERS.map(o=>`<option>${o}</option>`).join('');
   const srcOpts=TP_SOURCES.map(s=>`<option>${s}</option>`).join('');
+  const indOpts=`<option value="">–</option>`+INDUSTRIES.map(i=>`<option>${i}</option>`).join('');
   showDialog('Ny trial eller pilot',
     `<div class="modal-field"><label>Typ</label><select id="ntp-type" class="edit-input" onchange="document.getElementById('ntp-pilot-extras').style.display=this.value==='Pilot'?'block':'none';"><option ${defType==='Trial'?'selected':''}>Trial</option><option ${defType==='Pilot'?'selected':''}>Pilot</option></select></div>
     <div class="modal-field" style="margin-top:8px;"><label>Företag</label><input id="ntp-company" class="edit-input"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
       <div class="modal-field"><label>Kontaktperson</label><input id="ntp-contact" class="edit-input"></div>
       <div class="modal-field"><label>Roll</label><input id="ntp-role" class="edit-input"></div>
+      <div class="modal-field"><label>E-post</label><input id="ntp-email" type="email" class="edit-input"></div>
+      <div class="modal-field"><label>Telefon</label><input id="ntp-phone" class="edit-input"></div>
+      <div class="modal-field"><label>Antal anställda</label><input id="ntp-employees" type="number" class="edit-input"></div>
+      <div class="modal-field"><label>Bransch</label><select id="ntp-industry" class="edit-input">${indOpts}</select></div>
     </div>
-    <div class="modal-field" style="margin-top:8px;"><label>E-post</label><input id="ntp-email" type="email" class="edit-input"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
       <div class="modal-field"><label>Kundansvarig</label><select id="ntp-owner" class="edit-input">${ownerOpts}</select></div>
       <div class="modal-field"><label>Källa</label><select id="ntp-source" class="edit-input">${srcOpts}</select></div>
@@ -2068,24 +2229,34 @@ function openNewTrialPilot(){
       const type=document.getElementById('ntp-type').value;
       const company=document.getElementById('ntp-company').value.trim();
       if(!company)return false;
-      const body={company,contact:document.getElementById('ntp-contact').value,role:document.getElementById('ntp-role').value,email:document.getElementById('ntp-email').value,owner:document.getElementById('ntp-owner').value,source:document.getElementById('ntp-source').value,startDate:document.getElementById('ntp-start').value||null,endDate:document.getElementById('ntp-end').value||null,progress:[false,false,false,false,false,false]};
+      const body={company,contact:document.getElementById('ntp-contact').value,role:document.getElementById('ntp-role').value,email:document.getElementById('ntp-email').value,phone:document.getElementById('ntp-phone').value,employees:parseInt(document.getElementById('ntp-employees').value)||null,industry:document.getElementById('ntp-industry').value||null,owner:document.getElementById('ntp-owner').value,source:document.getElementById('ntp-source').value,startDate:document.getElementById('ntp-start').value||null,endDate:document.getElementById('ntp-end').value||null,progress:[false,false,false,false,false,false]};
       if(type==='Pilot'){body.participants=parseInt(document.getElementById('ntp-participants').value)||0;body.expectedARR=parseInt(document.getElementById('ntp-arr').value)||0;body.decisionDate=document.getElementById('ntp-decision').value||null;}
       const ep=type==='Pilot'?'pilots':'trials';
-      try{const r=await apiFetch(`${API}/${ep}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();}
-      catch(e){
+      let saved=false;
+      try{const r=await apiFetch(`${API}/${ep}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(r.ok)saved=true;}catch(e){}
+      if(!saved){
         const newId=Date.now();
-        const localItem={Id:newId,Company:company,Contact:body.contact,Role:body.role,Email:body.email,Owner:body.owner,Source:body.source,StartDate:body.startDate,EndDate:body.endDate,Progress:[false,false,false,false,false,false]};
+        const localItem={Id:newId,Company:company,Contact:body.contact,Role:body.role,Email:body.email,Phone:body.phone,Employees:body.employees,Industry:body.industry,Owner:body.owner,Source:body.source,StartDate:body.startDate,EndDate:body.endDate,Progress:[false,false,false,false,false,false]};
         if(type==='Pilot'){localItem.Participants=body.participants;localItem.ExpectedARR=body.expectedARR;localItem.DecisionDate=body.decisionDate;allPilots.push(localItem);}
-        else{allTrials.push(localItem);}
+        else allTrials.push(localItem);
+      } else {
+        if(type==='Pilot')await loadPilots();else await loadTrials();
       }
-      if(type==='Pilot'){await loadPilots();currentSub.trialpilot='piloter';document.querySelectorAll('.tp-subtab').forEach(b=>b.classList.toggle('active',b.id==='tp-subtab-piloter'));document.getElementById('tp-new-btn-label').textContent='Ny pilot';}
-      else{await loadTrials();currentSub.trialpilot='trials';document.querySelectorAll('.tp-subtab').forEach(b=>b.classList.toggle('active',b.id==='tp-subtab-trials'));document.getElementById('tp-new-btn-label').textContent='Ny trial';}
+      if(type==='Pilot'){currentSub.trialpilot='piloter';document.querySelectorAll('.tp-subtab').forEach(b=>b.classList.toggle('active',b.id==='tp-subtab-piloter'));document.getElementById('tp-new-btn-label').textContent='Ny pilot';}
+      else{currentSub.trialpilot='trials';document.querySelectorAll('.tp-subtab').forEach(b=>b.classList.toggle('active',b.id==='tp-subtab-trials'));document.getElementById('tp-new-btn-label').textContent='Ny trial';}
       renderTrialPilot();
       return true;
     }
   );
 }
 
+function populateIndustryDropdowns(){
+  const opts=INDUSTRIES.map(i=>`<option>${i}</option>`).join('');
+  ['filter-industry','filter-pipe-industry','filter-tp-industry'].forEach(id=>{
+    const sel=document.getElementById(id);if(sel)sel.insertAdjacentHTML('beforeend',opts);
+  });
+}
+populateIndustryDropdowns();
 loadCustomers();
 loadProspects();
 loadRecipients();
