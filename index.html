@@ -850,6 +850,12 @@
       <div class="ark-section-title">Mailmallar</div>
       <div id="ark-tpl-list" style="display:flex;flex-direction:column;gap:10px;"></div>
     </div>
+    <div class="ark-section" style="margin-top:24px;">
+      <div class="ark-section-title" style="display:flex;align-items:center;gap:10px;">Standardmail
+        <button class="btn-sm" onclick="openNewMailTemplateModal()" style="margin-left:auto;display:flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Ny mall</button>
+      </div>
+      <div id="ark-std-mail-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
   </div>
 </div>
 
@@ -2350,13 +2356,13 @@ function closeTpModalDirect(){
   currentTpId=null;currentTpType=null;
   renderTrialPilot();
 }
-let mailTemplates=[
-  {subject:'Välkommen till CIBoost!',desc:'Välkomstmail med tips för att komma igång.',body:`Hej {namn},\n\nVälkommen till CIBoost – vi är glada att ha {företag} ombord!\n\nNågra tips för att komma igång snabbt:\n• Bjud in ditt team så de kan börja köra sessioner\n• Kika igenom modulerna i översikten\n• Boka en kort genomgång om något känns oklart\n\nHör av dig om du behöver hjälp.\n\nHälsningar,\nCIBoost-teamet`},
-  {subject:'Bra start – nu är du redo att köra!',desc:'Uppmuntran efter modulval, peka mot nästa steg.',body:`Hej {namn},\n\nVad kul att ni har valt era moduler – {företag} är nu redo att börja köra på riktigt!\n\nNästa steg är att bjuda in teamet och boka in första sessionen. Säg till om ni vill ha hjälp med upplägget.\n\nHälsningar,\nCIBoost-teamet`},
-  {subject:'Dags att bjuda in ditt team',desc:'Guide för att bjuda in medlemmar.',body:`Hej {namn},\n\nFör att få ut det mesta av CIBoost rekommenderar vi att ni bjuder in hela teamet på {företag} så snart som möjligt.\n\nDet går snabbt:\n1. Logga in på admin-panelen\n2. Klicka på "Bjud in medlemmar"\n3. Lägg in e-postadresser eller importera en CSV-fil\n\nSäg till om du behöver hjälp.\n\nHälsningar,\nCIBoost-teamet`},
-  {subject:'Grattis till första sessionen!',desc:'Uppmuntran efter första sessionen, peka mot fler.',body:`Hej {namn},\n\nGrattis till {företag}s första session på CIBoost! Hur upplevde teamet det?\n\nNästa steg är att göra det till en vana – vi rekommenderar minst två sessioner i veckan för bästa effekt.\n\nVilken funktion vill ni testa härnäst?\n\nHälsningar,\nCIBoost-teamet`},
-  {subject:'Ni kör bra – dags att ta nästa steg',desc:'Konverteringserbjudande inför avslut.',body:`Hej {namn},\n\nVi har sett att {företag} kör flera sessioner – riktigt bra jobbat!\n\nNu när ni har sett värdet av plattformen, vill du höra mer om vägen till full licens? Vi har just nu ett kampanjpris för team som tar steget under testperioden.\n\nKan vi boka 15 minuter för att gå igenom?\n\nHälsningar,\nCIBoost-teamet`},
-  {subject:'Hur har det gått? Dags att summera',desc:'Offert / avslutsmöte efter pulsmätning.',body:`Hej {namn},\n\nTestperioden närmar sig sitt slut – och baserat på er pulsmätning ser det riktigt bra ut för {företag}!\n\nJag vill gärna boka ett avslutande möte för att:\n• Summera resultaten\n• Visa dashboard-värdet\n• Presentera offert för full licens\n\nVilken dag passar nästa vecka?\n\nHälsningar,\nCIBoost-teamet`}
+let allMailTemplates=[
+  {id:'step1',step:1,editable:false,title:'Steg 1 – Välkommen till CIBoost!',desc:'Välkomstmail med tips för att komma igång.',subject:'Välkommen till CIBoost!',body:`Hej {namn},\n\nVälkommen till CIBoost – vi är glada att ha {företag} ombord!\n\nNågra tips för att komma igång snabbt:\n• Bjud in ditt team så de kan börja köra sessioner\n• Kika igenom modulerna i översikten\n• Boka en kort genomgång om något känns oklart\n\nHör av dig om du behöver hjälp.\n\nHälsningar,\nCIBoost-teamet`},
+  {id:'step2',step:2,editable:false,title:'Steg 2 – Bra start, redo att köra',desc:'Uppmuntran efter modulval, peka mot nästa steg.',subject:'Bra start – nu är du redo att köra!',body:`Hej {namn},\n\nVad kul att ni har valt era moduler – {företag} är nu redo att börja köra på riktigt!\n\nNästa steg är att bjuda in teamet och boka in första sessionen. Säg till om ni vill ha hjälp med upplägget.\n\nHälsningar,\nCIBoost-teamet`},
+  {id:'step3',step:3,editable:false,title:'Steg 3 – Bjud in teamet',desc:'Guide för att bjuda in medlemmar.',subject:'Dags att bjuda in ditt team',body:`Hej {namn},\n\nFör att få ut det mesta av CIBoost rekommenderar vi att ni bjuder in hela teamet på {företag} så snart som möjligt.\n\nDet går snabbt:\n1. Logga in på admin-panelen\n2. Klicka på "Bjud in medlemmar"\n3. Lägg in e-postadresser eller importera en CSV-fil\n\nSäg till om du behöver hjälp.\n\nHälsningar,\nCIBoost-teamet`},
+  {id:'step4',step:4,editable:false,title:'Steg 4 – Grattis till första sessionen!',desc:'Uppmuntran efter första sessionen, peka mot fler.',subject:'Grattis till första sessionen!',body:`Hej {namn},\n\nGrattis till {företag}s första session på CIBoost! Hur upplevde teamet det?\n\nNästa steg är att göra det till en vana – vi rekommenderar minst två sessioner i veckan för bästa effekt.\n\nVilken funktion vill ni testa härnäst?\n\nHälsningar,\nCIBoost-teamet`},
+  {id:'step5',step:5,editable:false,title:'Steg 5 – Dags för nästa steg',desc:'Konverteringserbjudande inför avslut.',subject:'Ni kör bra – dags att ta nästa steg',body:`Hej {namn},\n\nVi har sett att {företag} kör flera sessioner – riktigt bra jobbat!\n\nNu när ni har sett värdet av plattformen, vill du höra mer om vägen till full licens? Vi har just nu ett kampanjpris för team som tar steget under testperioden.\n\nKan vi boka 15 minuter för att gå igenom?\n\nHälsningar,\nCIBoost-teamet`},
+  {id:'step6',step:6,editable:false,title:'Steg 6 – Dags att summera',desc:'Offert / avslutsmöte efter pulsmätning.',subject:'Hur har det gått? Dags att summera',body:`Hej {namn},\n\nTestperioden närmar sig sitt slut – och baserat på er pulsmätning ser det riktigt bra ut för {företag}!\n\nJag vill gärna boka ett avslutande möte för att:\n• Summera resultaten\n• Visa dashboard-värdet\n• Presentera offert för full licens\n\nVilken dag passar nästa vecka?\n\nHälsningar,\nCIBoost-teamet`}
 ];
 function tpFirstUndoneStep(item){
   const p=item.Progress||[false,false,false,false,false,false];
@@ -2367,12 +2373,18 @@ function tpFillMail(text,item){
   const namn=(item.Contact||'').split(' ')[0]||'där';
   return (text||'').replace(/\{namn\}/g,namn).replace(/\{företag\}/g,item.Company||'er');
 }
-function toggleTpMailPanel(){
-  const head=document.getElementById('tp-mail-head');
-  const panel=document.getElementById('tp-mail-panel');
-  if(!panel)return;
-  const open=panel.classList.toggle('open');
-  if(head)head.classList.toggle('open',open);
+function getCurrentMailTemplate(){
+  const id=document.getElementById('tp-mail-select')?.value;
+  return allMailTemplates.find(t=>t.id===id);
+}
+function onTpMailSelectChange(){
+  const arr=currentTpType==='trial'?allTrials:allPilots;
+  const item=arr.find(x=>x.Id===currentTpId);if(!item)return;
+  const tpl=getCurrentMailTemplate();if(!tpl)return;
+  document.getElementById('tp-mail-subject').value=tpFillMail(tpl.subject,item);
+  document.getElementById('tp-mail-body').value=tpFillMail(tpl.body,item);
+  const desc=document.getElementById('tp-mail-desc');if(desc)desc.textContent=tpl.desc||'';
+  const edit=document.getElementById('tp-mail-edit');if(edit)edit.style.display='none';
 }
 function tpMailOpenOutlook(){
   const to=document.getElementById('tp-mail-to')?.value||'';
@@ -2387,23 +2399,22 @@ function tpMailCopy(){
   const txt=`Till: ${to}\nÄmne: ${subject}\n\n${body}`;
   if(navigator.clipboard)navigator.clipboard.writeText(txt).then(()=>showSaveIndicator('✓ Kopierat','#1a7a50'));
 }
-function tpMailToggleEditTemplate(stepIdx){
+function tpMailToggleEditTemplate(){
+  const tpl=getCurrentMailTemplate();if(!tpl)return;
   const edit=document.getElementById('tp-mail-edit');if(!edit)return;
   if(edit.style.display!=='none'){edit.style.display='none';return;}
-  const t=mailTemplates[stepIdx];
-  document.getElementById('tp-mail-tpl-subject').value=t.subject;
-  document.getElementById('tp-mail-tpl-body').value=t.body;
+  document.getElementById('tp-mail-tpl-subject').value=tpl.subject;
+  document.getElementById('tp-mail-tpl-body').value=tpl.body;
   edit.style.display='block';
 }
-function tpMailSaveTemplate(stepIdx){
-  mailTemplates[stepIdx].subject=document.getElementById('tp-mail-tpl-subject').value;
-  mailTemplates[stepIdx].body=document.getElementById('tp-mail-tpl-body').value;
+function tpMailSaveTemplate(){
+  const tpl=getCurrentMailTemplate();if(!tpl)return;
+  tpl.subject=document.getElementById('tp-mail-tpl-subject').value;
+  tpl.body=document.getElementById('tp-mail-tpl-body').value;
   const arr=currentTpType==='trial'?allTrials:allPilots;
   const item=arr.find(x=>x.Id===currentTpId);if(!item)return;
-  document.getElementById('tp-mail-subject').value=tpFillMail(mailTemplates[stepIdx].subject,item);
-  document.getElementById('tp-mail-body').value=tpFillMail(mailTemplates[stepIdx].body,item);
-  document.getElementById('tp-mail-head').querySelector('.title').textContent=mailTemplates[stepIdx].subject;
-  document.getElementById('tp-mail-head').querySelector('.desc').textContent=mailTemplates[stepIdx].desc;
+  document.getElementById('tp-mail-subject').value=tpFillMail(tpl.subject,item);
+  document.getElementById('tp-mail-body').value=tpFillMail(tpl.body,item);
   document.getElementById('tp-mail-edit').style.display='none';
   showSaveIndicator('✓ Mall sparad','#1a7a50');
 }
@@ -2461,34 +2472,31 @@ function renderTpModalBody(){
       return`<div class="tp-tprog-step ${done?'done':''}" title="${TP_STEPS[i]}" onclick="toggleTpStep('${currentTpType}',${item.Id},${i})"><div class="circle">${done?'✓':(i+1)}</div><div class="label">${short}</div></div>`;
     }).join('');
     const stepIdx=tpFirstUndoneStep(item);
-    const tpl=mailTemplates[stepIdx];
-    const subjectFilled=tpFillMail(tpl.subject,item);
-    const bodyFilled=tpFillMail(tpl.body,item);
+    const defaultTpl=allMailTemplates.find(t=>t.step===stepIdx+1)||allMailTemplates[0];
+    const subjectFilled=tpFillMail(defaultTpl.subject,item);
+    const bodyFilled=tpFillMail(defaultTpl.body,item);
+    const tplOpts=allMailTemplates.map(t=>`<option value="${t.id}" ${t.id===defaultTpl.id?'selected':''}>${t.title}</option>`).join('');
     body.innerHTML=`
       <div class="modal-section"><div class="modal-section-label">Aktiveringssteg</div>
         <div class="modal-card"><div class="tp-tprog" style="margin:8px 0;">${stepsHtml}</div></div></div>
       <div class="modal-section"><div class="modal-section-label">Föreslagen kommunikation</div>
-        <div class="tp-mail-suggest" id="tp-mail-head" onclick="toggleTpMailPanel()">
-          <div class="icon">✉️</div>
-          <div>
-            <div class="title">${tpl.subject}</div>
-            <div class="desc">Steg ${stepIdx+1}: ${tpl.desc}</div>
-          </div>
-          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
-        </div>
-        <div class="tp-mail-panel" id="tp-mail-panel">
-          <div class="field"><label>Till</label><input id="tp-mail-to" value="${item.Email||''}"></div>
-          <div class="field"><label>Ämne</label><input id="tp-mail-subject" value="${subjectFilled.replace(/"/g,'&quot;')}"></div>
-          <div class="field"><label>Brödtext</label><textarea id="tp-mail-body">${bodyFilled}</textarea></div>
-          <div class="tp-mail-actions">
-            <button class="btn-sm" onclick="tpMailOpenOutlook()">Öppna i Outlook</button>
-            <button class="btn-sm" onclick="tpMailCopy()">Kopiera</button>
-            <button class="btn-sm" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);" onclick="tpMailToggleEditTemplate(${stepIdx})">Redigera mall</button>
-          </div>
-          <div id="tp-mail-edit" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
-            <div class="field"><label>Ämne (mall)</label><input id="tp-mail-tpl-subject" value=""></div>
-            <div class="field"><label>Brödtext (mall – använd {namn} och {företag})</label><textarea id="tp-mail-tpl-body"></textarea></div>
-            <button class="btn-sm" onclick="tpMailSaveTemplate(${stepIdx})">Spara mall</button>
+        <div class="modal-card" style="background:#E6F1FB;border-color:#c5dbef;">
+          <div class="modal-field"><label>Välj kommunikation</label><select id="tp-mail-select" ${is} onchange="onTpMailSelectChange()">${tplOpts}</select></div>
+          <div id="tp-mail-desc" style="font-size:12px;color:#185FA5;font-style:italic;margin-top:6px;margin-bottom:12px;">${defaultTpl.desc||''}</div>
+          <div class="tp-mail-panel open" id="tp-mail-panel">
+            <div class="field"><label>Till</label><input id="tp-mail-to" value="${item.Email||''}"></div>
+            <div class="field"><label>Ämne</label><input id="tp-mail-subject" value="${subjectFilled.replace(/"/g,'&quot;')}"></div>
+            <div class="field"><label>Brödtext</label><textarea id="tp-mail-body">${bodyFilled}</textarea></div>
+            <div class="tp-mail-actions">
+              <button class="btn-sm" onclick="tpMailOpenOutlook()">Öppna i Outlook</button>
+              <button class="btn-sm" onclick="tpMailCopy()">Kopiera</button>
+              <button class="btn-sm" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);" onclick="tpMailToggleEditTemplate()">Redigera mall</button>
+            </div>
+            <div id="tp-mail-edit" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+              <div class="field"><label>Ämne (mall)</label><input id="tp-mail-tpl-subject" value=""></div>
+              <div class="field"><label>Brödtext (mall – använd {namn} och {företag})</label><textarea id="tp-mail-tpl-body"></textarea></div>
+              <button class="btn-sm" onclick="tpMailSaveTemplate()">Spara mall</button>
+            </div>
           </div>
         </div>
       </div>
@@ -2783,6 +2791,60 @@ function reactivateDormant(id){
   renderArkivCurrent();updateArkivStatsBar();updatePipeKpi();
   showSaveIndicator(`✓ ${d.Company} reaktiverad`,'#1a7a50');
 }
+function arkStdMailCardHtml(t){
+  return`<div class="ark-tpl-card" id="std-card-${t.id}">
+    <div class="title">${t.title}</div>
+    <div class="desc">${t.desc||''}</div>
+    <div class="actions">
+      <button class="btn-sm" onclick="copyStandardMail('${t.id}')">Kopiera</button>
+      <button class="btn-sm" style="background:var(--surface2);color:var(--text);" onclick="editStandardMail('${t.id}')">Redigera</button>
+      ${t.editable?`<button class="btn-sm" style="background:var(--red);color:white;" onclick="deleteStandardMail('${t.id}')">Ta bort</button>`:''}
+    </div>
+    <div class="std-edit" id="std-edit-${t.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+      <div class="modal-field"><label>Ämne</label><input id="std-subj-${t.id}" class="edit-input" value="${(t.subject||'').replace(/"/g,'&quot;')}"></div>
+      <div class="modal-field" style="margin-top:8px;"><label>Brödtext (använd {namn} och {företag})</label><textarea id="std-body-${t.id}" class="edit-input" style="height:160px;resize:vertical;font-family:'Courier New',monospace;font-size:12px;">${t.body||''}</textarea></div>
+      <button class="btn-sm" style="margin-top:8px;" onclick="saveStandardMail('${t.id}')">Spara</button>
+    </div>
+  </div>`;
+}
+function editStandardMail(id){
+  const edit=document.getElementById(`std-edit-${id}`);if(!edit)return;
+  edit.style.display=edit.style.display==='none'?'block':'none';
+}
+function saveStandardMail(id){
+  const t=allMailTemplates.find(x=>x.id===id);if(!t)return;
+  t.subject=document.getElementById(`std-subj-${id}`).value;
+  t.body=document.getElementById(`std-body-${id}`).value;
+  document.getElementById(`std-edit-${id}`).style.display='none';
+  showSaveIndicator('✓ Mall sparad','#1a7a50');
+  if(currentTpId&&document.getElementById('tp-mail-select')?.value===id)onTpMailSelectChange();
+}
+function copyStandardMail(id){
+  const t=allMailTemplates.find(x=>x.id===id);if(!t)return;
+  const txt=`Ämne: ${t.subject}\n\n${t.body}`;
+  if(navigator.clipboard)navigator.clipboard.writeText(txt).then(()=>showSaveIndicator('✓ Kopierat','#1a7a50'));
+}
+function deleteStandardMail(id){
+  if(!confirm('Ta bort denna mall?'))return;
+  allMailTemplates=allMailTemplates.filter(t=>t.id!==id);
+  renderArkivCurrent();
+  if(currentTpId&&currentTpModalTab===2)renderTpModalBody();
+}
+function openNewMailTemplateModal(){
+  showDialog('Ny mall',
+    `<div class="modal-field"><label>Titel</label><input id="new-tpl-title" class="edit-input" placeholder="t.ex. Påminnelse om bokat möte"></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Beskrivning</label><input id="new-tpl-desc" class="edit-input"></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Ämne</label><input id="new-tpl-subject" class="edit-input"></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Brödtext (använd {namn} och {företag})</label><textarea id="new-tpl-body" class="edit-input" style="height:180px;resize:vertical;font-family:'Courier New',monospace;font-size:12px;"></textarea></div>`,
+    async()=>{
+      const title=document.getElementById('new-tpl-title').value.trim();if(!title)return false;
+      allMailTemplates.push({id:'custom-'+Date.now(),title,desc:document.getElementById('new-tpl-desc').value,subject:document.getElementById('new-tpl-subject').value,body:document.getElementById('new-tpl-body').value,editable:true});
+      renderArkivCurrent();
+      if(currentTpId&&currentTpModalTab===2)renderTpModalBody();
+      return true;
+    }
+  );
+}
 function renderArkivDokument(){
   const docEl=document.getElementById('ark-doc-list');
   if(docEl){docEl.innerHTML=allDocs.length?allDocs.map(d=>`<span class="ark-doc-chip">📄 ${d.Name} <span style="color:var(--text3);font-size:11px;">· ${d.Date}</span> <span class="x" onclick="removeDoc(${d.Id})">×</span></span>`).join(''):'<span style="font-size:12px;color:var(--text3);">Inga dokument uppladdade ännu.</span>';}
@@ -2795,6 +2857,8 @@ function renderArkivDokument(){
       <button class="btn-sm" style="background:var(--surface2);color:var(--text);" onclick="editTemplate(${t.Id})">Redigera</button>
     </div>
   </div>`).join('');
+  const stdEl=document.getElementById('ark-std-mail-list');
+  if(stdEl)stdEl.innerHTML=allMailTemplates.map(t=>arkStdMailCardHtml(t)).join('');
 }
 function onArkivDocUpload(e){
   const file=e.target.files[0];if(!file)return;
