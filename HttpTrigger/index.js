@@ -1,6 +1,8 @@
 // Required schema changes for the new Employees / Industry / Phone fields:
 //   ALTER TABLE Customers ADD Employees INT NULL, Industry NVARCHAR(100) NULL;
 //   ALTER TABLE Prospects ADD Phone NVARCHAR(50) NULL, Employees INT NULL, Industry NVARCHAR(100) NULL;
+// Required schema for the new RevenueCategory / ExpectedStartMonth fields:
+//   ALTER TABLE Prospects ADD RevenueCategory NVARCHAR(50) NULL, ExpectedStartMonth DATE NULL;
 // Until those columns exist the corresponding PUT/POST below will fail with
 // "Invalid column name" — run the ALTER TABLE statements first.
 
@@ -61,8 +63,10 @@ module.exports = async function (context, req) {
           .input('LastContact', sql.Date, p.lastContact || null)
           .input('NextMeeting', sql.Date, p.nextMeeting || null)
           .input('Notes', sql.NVarChar, p.notes)
-          .query(`INSERT INTO Prospects (Company,Industry,Contact,Role,Phone,Employees,Source,Owner,Stage,Score,Value,Probability,LastContact,NextMeeting,Notes)
-                  VALUES (@Company,@Industry,@Contact,@Role,@Phone,@Employees,@Source,@Owner,@Stage,@Score,@Value,@Probability,@LastContact,@NextMeeting,@Notes)`);
+          .input('RevenueCategory', sql.NVarChar, p.revenueCategory || null)
+          .input('ExpectedStartMonth', sql.Date, p.expectedStartMonth || null)
+          .query(`INSERT INTO Prospects (Company,Industry,Contact,Role,Phone,Employees,Source,Owner,Stage,Score,Value,Probability,LastContact,NextMeeting,Notes,RevenueCategory,ExpectedStartMonth)
+                  VALUES (@Company,@Industry,@Contact,@Role,@Phone,@Employees,@Source,@Owner,@Stage,@Score,@Value,@Probability,@LastContact,@NextMeeting,@Notes,@RevenueCategory,@ExpectedStartMonth)`);
         return respond(context, 201, { message: 'Skapad' });
       }
     }
@@ -88,10 +92,14 @@ module.exports = async function (context, req) {
           .input('LastContact', sql.Date, p.lastContact || null)
           .input('NextMeeting', sql.Date, p.nextMeeting || null)
           .input('Notes', sql.NVarChar, p.notes)
+          .input('RevenueCategory', sql.NVarChar, p.revenueCategory || null)
+          .input('ExpectedStartMonth', sql.Date, p.expectedStartMonth || null)
           .query(`UPDATE Prospects SET Company=@Company,Industry=@Industry,Contact=@Contact,Role=@Role,
                   Phone=@Phone,Employees=@Employees,
                   Source=@Source,Owner=@Owner,Stage=@Stage,Score=@Score,Value=@Value,Probability=@Probability,
-                  LastContact=@LastContact,NextMeeting=@NextMeeting,Notes=@Notes,UpdatedAt=GETDATE() WHERE Id=@Id`);
+                  LastContact=@LastContact,NextMeeting=@NextMeeting,Notes=@Notes,
+                  RevenueCategory=@RevenueCategory,ExpectedStartMonth=@ExpectedStartMonth,
+                  UpdatedAt=GETDATE() WHERE Id=@Id`);
         return respond(context, 200, { message: 'Uppdaterad' });
       }
       if (method === 'DELETE') {
