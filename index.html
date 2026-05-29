@@ -399,6 +399,26 @@
   .tp-days-red { background:var(--red-bg); color:var(--red); }
   .tp-days-amber { background:var(--amber-bg); color:var(--amber); }
   .tp-days-green { background:var(--green-bg); color:var(--green); }
+  /* ─── Arkiv ─── */
+  .ark-section { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 20px; box-shadow:var(--shadow); }
+  .ark-section-title { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--text3); margin-bottom:12px; }
+  .ark-doc-chip { display:inline-flex; align-items:center; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:6px 12px; font-size:12px; color:var(--text2); }
+  .ark-doc-chip .x { color:var(--text3); cursor:pointer; font-weight:600; }
+  .ark-doc-chip .x:hover { color:var(--red); }
+  .ark-tpl-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 14px; }
+  .ark-tpl-card .title { font-size:13px; font-weight:600; color:var(--text); }
+  .ark-tpl-card .desc { font-size:12px; color:var(--text3); margin-top:2px; }
+  .ark-tpl-card .actions { display:flex; gap:8px; margin-top:8px; }
+  .ark-blk-item { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--gray); border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; }
+  .ark-blk-item.urg-red { border-left-color:var(--red); }
+  .ark-blk-item.urg-amber { border-left-color:var(--amber); }
+  .ark-blk-item .main { flex:1; }
+  .ark-blk-item .name { font-weight:600; font-size:14px; }
+  .ark-blk-item .meta { font-size:11px; color:var(--text3); margin-top:2px; }
+  .ark-blk-item .comment { font-size:12px; color:var(--text2); margin-top:4px; font-style:italic; }
+  .ark-expand-btn { background:none; border:none; cursor:pointer; padding:4px; color:var(--text3); }
+  .ark-expand-row { background:var(--surface2); }
+  .ark-expand-row td { padding:10px 16px; font-size:12px; color:var(--text2); }
 </style>
 </head><body>
 <nav class="topnav">
@@ -410,45 +430,55 @@
     <button class="nav-tab" onclick="switchMain('trialpilot',this)">Trial &amp; Pilot <span class="count" id="tp-nav-count">-</span></button>
     <button class="nav-tab" onclick="switchMain('kunder',this)">Kunder <span class="count" id="tab-count">-</span></button>
     <button class="nav-tab" onclick="switchMain('finansiellt',this)">Finansiellt</button>
-    <button class="nav-tab">Arkiv</button>
+    <button class="nav-tab" onclick="switchMain('arkiv',this)">Arkiv <span class="count" id="ark-nav-count">-</span></button>
   </div>
 </nav>
 
-<div id="pipe-kpi-bar" class="pipe-kpi">
-  <div><div class="pipe-stat-val" style="color:var(--accent)" id="pk-total">-</div><div class="pipe-stat-label">Aktiva i pipeline</div></div>
-  <div class="pipe-divider"></div>
-  <div><div class="pipe-stat-val" style="color:var(--purple)" id="pk-weighted">-</div><div class="pipe-stat-label">Viktat värde</div></div>
-  <div class="pipe-divider"></div>
-  <div><div class="pipe-stat-val" style="color:var(--green)" id="pk-won">-</div><div class="pipe-stat-label">Closed won</div></div>
-  <div class="pipe-divider"></div>
-  <div><div class="pipe-stat-val" style="color:var(--red)" id="pk-lost">-</div><div class="pipe-stat-label">Closed lost</div></div>
-  <div class="pipe-divider"></div>
-  <div><div class="pipe-stat-val" style="color:var(--blue)" id="pk-qualified">-</div><div class="pipe-stat-label">Qualified leads</div></div>
-  <div class="pipe-divider"></div>
-  <div><div class="pipe-stat-val" id="pk-overdue">-</div><div class="pipe-stat-label">Passerade åtgärder</div></div>
+<div class="stats-bar" id="stats-pipeline">
+  <div class="stat"><div class="stat-val" style="color:var(--accent)" id="pk-total">-</div><div class="stat-label">Aktiva i pipeline</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--purple)" id="pk-weighted">-</div><div class="stat-label">Viktat värde</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--green)" id="pk-won">-</div><div class="stat-label">Closed won</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--red)" id="pk-lost">-</div><div class="stat-label">Closed lost</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--blue)" id="pk-qualified">-</div><div class="stat-label">Qualified leads</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" id="pk-overdue">-</div><div class="stat-label">Passerade åtgärder</div></div>
 </div>
 
-<div class="pipe-filters" id="pipe-filters-bar">
-  <select id="filter-source" onchange="renderKanban()" style="font-size:12px;">
-    <option value="">Alla källor</option>
-    <option>Wow</option><option>Hemsida demo</option><option>30-dagars</option>
-    <option>Traditionell</option><option>Partners</option><option>Event</option>
-  </select>
-  <select id="filter-pipe-owner" onchange="renderKanban()" style="font-size:12px;">
-    <option value="">Alla kundansvariga</option>
-    <option>Matilda Olsson</option><option>Alexandra Henningson</option>
-  </select>
-  <select id="filter-pipe-industry" onchange="renderKanban()" style="font-size:12px;"><option value="">Alla branscher</option></select>
-  <button class="btn-primary" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;" onclick="openNewProspect()">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-    Ny prospect
-  </button>
+<div class="sub-tabs-bar" id="subtabs-pipeline">
+  <button class="sub-tab active" onclick="switchSub('pipeline','oversikt',this)">Översikt</button>
+  <button class="sub-tab" onclick="switchSub('pipeline','analys',this)">Pipelineanalys</button>
 </div>
 
-<div class="page active" id="page-pipeline">
-  <div class="kanban" id="kanban-board">
-    <div class="loading"><div class="spinner"></div> Laddar pipeline</div>
+<div class="page active" id="page-pipeline-oversikt">
+  <div class="main">
+    <div class="filters" id="pipe-filters-bar" style="margin-bottom:12px;">
+      <select id="filter-source" onchange="renderKanban()" style="font-size:12px;">
+        <option value="">Alla källor</option>
+        <option>Wow</option><option>Hemsida demo</option><option>30-dagars</option>
+        <option>Traditionell</option><option>Partners</option><option>Event</option>
+      </select>
+      <select id="filter-pipe-owner" onchange="renderKanban()" style="font-size:12px;">
+        <option value="">Alla kundansvariga</option>
+        <option>Matilda Olsson</option><option>Alexandra Henningson</option>
+      </select>
+      <select id="filter-pipe-industry" onchange="renderKanban()" style="font-size:12px;"><option value="">Alla branscher</option></select>
+      <button class="btn-primary" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;" onclick="openNewProspect()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Ny prospect
+      </button>
+    </div>
+    <div class="kanban" id="kanban-board">
+      <div class="loading"><div class="spinner"></div> Laddar pipeline</div>
+    </div>
   </div>
+</div>
+
+<div class="page" id="page-pipeline-analys">
+  <div class="main" id="pipeline-analys-content"><div class="loading"><div class="spinner"></div> Laddar...</div></div>
 </div>
 
 <div class="stats-bar" id="stats-bar" style="display:none;">
@@ -467,15 +497,67 @@
   <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-total-val">-</div><div class="stat-label" id="stat-total-val-label">Total ARR</div></div>
 </div>
 
+<div class="stats-bar" id="stats-trialpilot" style="display:none;">
+  <div class="stat"><div class="stat-val" style="color:var(--accent)" id="tps-trials">-</div><div class="stat-label">Aktiva trials</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--blue)" id="tps-pilots">-</div><div class="stat-label">Aktiva piloter</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--green)">34%</div><div class="stat-label">Konverteringsgrad</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--purple);font-size:15px;line-height:1.2;">Wow</div><div class="stat-label">Bästa källa</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" id="tps-avg">-</div><div class="stat-label" id="tps-avg-label">Snitt progress</div></div>
+</div>
+
+<div class="stats-bar" id="stats-finansiellt" style="display:none;">
+  <div class="stat"><div class="stat-val" style="color:var(--accent)" id="fs-arr">-</div><div class="stat-label">Total ARR</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--green)" id="fs-mrr">-</div><div class="stat-label">MRR</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" id="fs-yoy">-</div><div class="stat-label">Tillväxt YoY</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--purple)" id="fs-forecast">-</div><div class="stat-label">Prognos</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--blue)" id="fs-licenses">-</div><div class="stat-label">Aktiva licenser</div></div>
+</div>
+
+<div class="stats-bar" id="stats-arkiv" style="display:none;">
+  <div class="stat"><div class="stat-val" style="color:var(--gray)" id="ark-stat-customers">-</div><div class="stat-label">Arkiverade kunder</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--red)" id="ark-stat-tests">-</div><div class="stat-label">Avslutade tester</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--amber)" id="ark-stat-dormant">-</div><div class="stat-label">Sovande orgs</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--blue)" id="ark-stat-docs">-</div><div class="stat-label">Dokument</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--red)" id="ark-stat-blocked">-</div><div class="stat-label">Spärrade</div></div>
+</div>
+
 <div class="sub-tabs-bar" id="subtabs-kunder" style="display:none;">
   <button class="sub-tab active" onclick="switchSub('kunder','oversikt',this)">Översikt</button>
   <button class="sub-tab" onclick="switchSub('kunder','licenstidslinje',this)">Licenstidslinje</button>
   <button class="sub-tab" onclick="switchSub('kunder','kundanalys',this)">Kundanalys</button>
 </div>
 <div class="sub-tabs-bar" id="subtabs-finansiellt" style="display:none;">
-  <button class="sub-tab active" onclick="switchSub('finansiellt','dashboard',this)">Dashboard</button>
-  <button class="sub-tab" onclick="switchSub('finansiellt','prognos',this)">Prognos</button>
+  <button class="sub-tab active" onclick="switchSub('finansiellt','prognos',this)">Prognos</button>
   <button class="sub-tab" onclick="switchSub('finansiellt','budget',this)">Budget</button>
+  <button class="sub-tab" onclick="switchSub('finansiellt','dashboard',this)">Finansiell analys</button>
+</div>
+<div class="sub-tabs-bar" id="subtabs-trialpilot" style="display:none;">
+  <button class="sub-tab active" id="tp-subtab-trials" onclick="switchSub('trialpilot','trials',this)">Trials</button>
+  <button class="sub-tab" id="tp-subtab-piloter" onclick="switchSub('trialpilot','piloter',this)">Piloter</button>
+  <button class="sub-tab" id="tp-subtab-konvertering" onclick="switchSub('trialpilot','konvertering',this)">Konverteringsanalys</button>
+  <button class="btn-primary" id="tp-new-btn" style="margin-left:auto;align-self:center;display:flex;align-items:center;gap:6px;font-size:12px;height:30px;margin-top:6px;" onclick="openNewTrialPilot()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+    <span id="tp-new-btn-label">Ny trial</span>
+  </button>
+</div>
+<div class="sub-tabs-bar" id="subtabs-arkiv" style="display:none;">
+  <button class="sub-tab active" onclick="switchSub('arkiv','tidigare',this)">Tidigare kunder</button>
+  <button class="sub-tab" onclick="switchSub('arkiv','tester',this)">Avslutade tester</button>
+  <button class="sub-tab" onclick="switchSub('arkiv','sovande',this)">Sovande</button>
+  <button class="sub-tab" onclick="switchSub('arkiv','dokument',this)">Dokument &amp; mallar</button>
+  <button class="sub-tab" onclick="switchSub('arkiv','sparrlista',this)">Spärrlista</button>
 </div>
 
 <div class="page" id="page-kunder-oversikt">
@@ -665,25 +747,113 @@
 
 <div class="page" id="page-trialpilot">
   <div class="main">
-    <div class="kpi-grid" id="tp-kpi-grid"></div>
-    <div class="tp-subtabs">
-      <button class="tp-subtab active" id="tp-subtab-trials" onclick="switchTpTab('trials',this)">Trials</button>
-      <button class="tp-subtab" id="tp-subtab-piloter" onclick="switchTpTab('piloter',this)">Piloter</button>
-      <button class="btn-primary" id="tp-new-btn" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;" onclick="openNewTrialPilot()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-        <span id="tp-new-btn-label">Ny trial</span>
-      </button>
+    <div id="tp-section-list">
+      <div class="filters" style="margin-bottom:12px;">
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input class="search-input" type="text" id="filter-tp-search" placeholder="Sök företag..." oninput="renderTpList()">
+        </div>
+        <select id="filter-tp-owner" onchange="renderTpList()"><option value="">Alla kundansvariga</option><option>Matilda Olsson</option><option>Alexandra Henningson</option></select>
+        <select id="filter-tp-source" onchange="renderTpList()"><option value="">Alla källor</option><option>Wow</option><option>Hemsida demo</option><option>30-dagars</option><option>Traditionell</option><option>Partners</option><option>Event</option><option>Utbildningsprogram</option></select>
+        <select id="filter-tp-industry" onchange="renderTpList()"><option value="">Alla branscher</option></select>
+      </div>
+      <div class="tp-list" id="tp-list"><div class="loading"><div class="spinner"></div> Laddar...</div></div>
+    </div>
+    <div id="tp-section-konvertering" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="page" id="page-arkiv-tidigare">
+  <div class="main">
+    <div class="filters" style="margin-bottom:12px;">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input class="search-input" type="text" id="ark-tid-search" placeholder="Sök kund..." oninput="renderArkivTidigare()">
+      </div>
+      <select id="ark-tid-owner" onchange="renderArkivTidigare()"><option value="">Alla kundansvariga</option><option>Matilda Olsson</option><option>Alexandra Henningson</option></select>
+      <select id="ark-tid-industry" onchange="renderArkivTidigare()"><option value="">Alla branscher</option></select>
+      <select id="ark-tid-reason" onchange="renderArkivTidigare()"><option value="">Alla orsaker</option><option>Ej förnyat</option><option>Konkurrent</option><option>Budget</option><option>Behov förändrat</option></select>
+      <select id="ark-tid-year" onchange="renderArkivTidigare()"><option value="">Alla år</option></select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Företag</th><th>Bransch / Kundansvarig</th><th>Utgick</th><th>Orsak</th><th>ARR</th><th></th></tr></thead>
+        <tbody id="ark-tid-body"><tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-arkiv-tester">
+  <div class="main">
+    <div class="filters" style="margin-bottom:12px;">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input class="search-input" type="text" id="ark-test-search" placeholder="Sök..." oninput="renderArkivTester()">
+      </div>
+      <select id="ark-test-type" onchange="renderArkivTester()"><option value="">Alla</option><option>Trial</option><option>Pilot</option></select>
+      <select id="ark-test-industry" onchange="renderArkivTester()"><option value="">Alla branscher</option></select>
+      <select id="ark-test-reason" onchange="renderArkivTester()"><option value="">Alla orsaker</option><option>Konverterad</option><option>Förlorad</option><option>Avbruten</option></select>
+      <select id="ark-test-owner" onchange="renderArkivTester()"><option value="">Alla kundansvariga</option><option>Matilda Olsson</option><option>Alexandra Henningson</option></select>
+    </div>
+    <div class="kpi-grid" id="ark-test-kpi" style="grid-template-columns:repeat(3,1fr);"></div>
+    <div class="table-wrap" style="margin-top:12px;">
+      <table>
+        <thead><tr><th>Företag / Typ</th><th>Avslutad</th><th>Orsak</th><th>Nådde steg</th><th></th></tr></thead>
+        <tbody id="ark-test-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-arkiv-sovande">
+  <div class="main">
+    <div class="filters" style="margin-bottom:12px;">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input class="search-input" type="text" id="ark-dorm-search" placeholder="Sök..." oninput="renderArkivSovande()">
+      </div>
+      <select id="ark-dorm-industry" onchange="renderArkivSovande()"><option value="">Alla branscher</option></select>
+      <select id="ark-dorm-reason" onchange="renderArkivSovande()"><option value="">Alla orsaker</option><option>För dyrt</option><option>Inte rätt tid</option><option>Ej beslut</option><option>Ingen respons</option></select>
+      <select id="ark-dorm-rem" onchange="renderArkivSovande()"><option value="">Alla påminnelser</option><option value="past">Passerade</option><option value="month">Denna månad</option><option value="quarter">Nästa kvartal</option></select>
+      <button class="btn-primary" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;" onclick="openDormantModal()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Lägg till sovande</button>
+    </div>
+    <div id="ark-dorm-list" class="tp-list"></div>
+  </div>
+</div>
+
+<div class="page" id="page-arkiv-dokument">
+  <div class="main">
+    <div class="ark-section">
+      <div class="ark-section-title">Dokument</div>
+      <input type="file" id="ark-doc-input" style="display:none;" onchange="onArkivDocUpload(event)">
+      <button class="btn-primary" style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:12px;" onclick="document.getElementById('ark-doc-input').click()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Ladda upp</button>
+      <div id="ark-doc-list" class="tp-chips" style="gap:8px;"></div>
+    </div>
+    <div class="ark-section" style="margin-top:24px;">
+      <div class="ark-section-title">Mailmallar</div>
+      <div id="ark-tpl-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-arkiv-sparrlista">
+  <div class="main">
+    <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span style="font-size:13px;color:var(--amber);font-weight:500;">Kontrollera alltid spärrlistan innan ni kontaktar en ny lead</span>
     </div>
     <div class="filters" style="margin-bottom:12px;">
       <div class="search-wrap">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input class="search-input" type="text" id="filter-tp-search" placeholder="Sök företag..." oninput="renderTpList()">
+        <input class="search-input" type="text" id="ark-blk-search" placeholder="Sök..." oninput="renderArkivSparrlista()">
       </div>
-      <select id="filter-tp-owner" onchange="renderTpList()"><option value="">Alla kundansvariga</option><option>Matilda Olsson</option><option>Alexandra Henningson</option></select>
-      <select id="filter-tp-source" onchange="renderTpList()"><option value="">Alla källor</option><option>Wow</option><option>Hemsida demo</option><option>30-dagars</option><option>Traditionell</option><option>Partners</option><option>Event</option><option>Utbildningsprogram</option></select>
-      <select id="filter-tp-industry" onchange="renderTpList()"><option value="">Alla branscher</option></select>
+      <select id="ark-blk-type" onchange="renderArkivSparrlista()"><option value="">Alla typer</option><option>Person</option><option>Organisation</option><option>Domän</option></select>
+      <select id="ark-blk-reason" onchange="renderArkivSparrlista()"><option value="">Alla orsaker</option><option>GDPR</option><option>Explicit önskan</option><option>Konkurrent</option></select>
+      <button class="btn-primary" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;" onclick="openBlockedModal()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Lägg till spärr</button>
     </div>
-    <div class="tp-list" id="tp-list"><div class="loading"><div class="spinner"></div> Laddar...</div></div>
+    <div id="ark-blk-list" class="tp-list"></div>
+    <div style="margin-top:14px;font-size:12px;color:var(--text3);font-style:italic;">GDPR-begäranden bör dokumenteras och sparas i minst 3 år.</div>
   </div>
 </div>
 
@@ -792,7 +962,7 @@ let currentModalId=null, currentPage=1, isNewCustomer=false;
 let currentProspectId=null, isNewProspect=false, currentProspectTab=1;
 let revSources={arr:true,fast:true,utb:false,cons:false};
 let perSources={arr:true,fast:true,utb:true,cons:true};
-let currentMain='pipeline', currentSub={kunder:'oversikt',finansiellt:'dashboard',trialpilot:'trials'};
+let currentMain='pipeline', currentSub={pipeline:'oversikt',kunder:'oversikt',finansiellt:'prognos',trialpilot:'trials',arkiv:'tidigare'};
 let currentTpId=null, currentTpType=null, currentTpModalTab=1;
 let budgetVersions=[], currentBudgetVersionId=null, budgetRows=[];
 let budgetNotes={};
@@ -804,14 +974,36 @@ const mockTrials=[
   {Id:1001,Company:'Volvo Cars AB',Contact:'Anna Lind',Role:'HR-chef',Email:'anna.lind@volvocars.se',Owner:'Matilda Olsson',Source:'Wow',StartDate:'2026-05-01',EndDate:'2026-06-12',Progress:[true,true,true,true,false,false],Sessions:'2026-05-10, 2026-05-17',Notes:'Bra engagemang från ledningen.',LastActive:'2026-05-22',InvitedCount:12},
   {Id:1002,Company:'IKEA Retail',Contact:'Mats Svensson',Role:'Säljchef',Email:'mats@ikea.se',Owner:'Alexandra Henningson',Source:'Hemsida demo',StartDate:'2026-05-15',EndDate:'2026-06-15',Progress:[true,true,false,false,false,false],Sessions:'',Notes:'',LastActive:'2026-05-18',InvitedCount:3},
   {Id:1003,Company:'Spotify AB',Contact:'Erik Olsson',Role:'L&D Manager',Email:'erik@spotify.com',Owner:'Matilda Olsson',Source:'Event',StartDate:'2026-05-25',EndDate:'2026-06-02',Progress:[true,false,false,false,false,false],Sessions:'',Notes:'Måste höra av oss snart.',LastActive:'2026-05-25',InvitedCount:0},
-  {Id:1004,Company:'H&M Group',Contact:'Sara Berg',Role:'COO',Email:'sara.berg@hm.com',Owner:'Matilda Olsson',Source:'Partners',StartDate:'2026-04-20',EndDate:'2026-06-20',Progress:[true,true,true,true,true,true],Sessions:'2026-05-02, 2026-05-09, 2026-05-16, 2026-05-23',Notes:'Redo att gå live!',LastActive:'2026-05-27',InvitedCount:18}
+  {Id:1004,Company:'H&M Group',Contact:'Sara Berg',Role:'COO',Email:'sara.berg@hm.com',Owner:'Matilda Olsson',Source:'Partners',StartDate:'2026-04-20',EndDate:'2026-06-20',Progress:[true,true,true,true,true,true],Sessions:'2026-05-02, 2026-05-09, 2026-05-16, 2026-05-23',Notes:'Redo att gå live!',LastActive:'2026-05-27',InvitedCount:18},
+  {Id:1005,Company:'Telenor Sverige',Contact:'Mikael Berg',Role:'CHRO',Email:'mikael@telenor.se',Owner:'Alexandra Henningson',Source:'Hemsida demo',Industry:'Media & Kommunikation',StartDate:'2026-01-15',EndDate:'2026-02-15',Progress:[true,true,true,false,false,false],Status:'avslutad',LostReason:'Avbruten',LastActive:'2026-02-12',InvitedCount:6},
+  {Id:1006,Company:'Atea AB',Contact:'Karin Sundberg',Role:'L&D',Email:'karin@atea.se',Owner:'Matilda Olsson',Source:'Wow',Industry:'IT & Tech',StartDate:'2026-02-01',EndDate:'2026-03-01',Progress:[true,true,true,true,true,true],Status:'avslutad',LostReason:'Konverterad',LastActive:'2026-02-28',InvitedCount:14}
 ];
 const mockPilots=[
   {Id:2001,Company:'Skanska Sverige',Contact:'Lars Petersson',Role:'Projektchef',Email:'lars@skanska.se',Owner:'Matilda Olsson',Source:'Wow',StartDate:'2026-04-01',EndDate:'2026-07-01',DecisionDate:'2026-07-15',Participants:25,ExpectedARR:240000,Progress:[true,true,true,true,true,false],Sessions:'2026-04-10, 2026-04-24, 2026-05-08, 2026-05-15, 2026-05-22',Notes:'Mycket positiv feedback från deltagarna.',LastActive:'2026-05-26',InvitedCount:25},
   {Id:2002,Company:'Telia Company',Contact:'Maria Holm',Role:'Kommunikationschef',Email:'maria@telia.se',Owner:'Alexandra Henningson',Source:'Traditionell',StartDate:'2026-05-01',EndDate:'2026-08-01',DecisionDate:'2026-08-20',Participants:15,ExpectedARR:180000,Progress:[true,true,true,false,false,false],Sessions:'',Notes:'',LastActive:'2026-05-20',InvitedCount:11},
   {Id:2003,Company:'SEB Group',Contact:'Johan Lindström',Role:'Head of People',Email:'johan@seb.se',Owner:'Matilda Olsson',Source:'Utbildningsprogram',StartDate:'2026-03-15',EndDate:'2026-06-08',DecisionDate:'2026-06-30',Participants:40,ExpectedARR:420000,Progress:[true,true,true,true,true,true],Sessions:'2026-03-25, 2026-04-05, 2026-04-19, 2026-05-02, 2026-05-09, 2026-05-16, 2026-05-22, 2026-05-26',Notes:'Kontrakt på väg, fakturaadress klar.',LastActive:'2026-05-27',InvitedCount:40},
-  {Id:2004,Company:'Klarna Bank',Contact:'Sofia Bergman',Role:'CHRO',Email:'sofia@klarna.com',Owner:'Alexandra Henningson',Source:'Partners',StartDate:'2026-05-10',EndDate:'2026-07-10',DecisionDate:'2026-07-25',Participants:30,ExpectedARR:320000,Progress:[true,true,false,false,false,false],Sessions:'',Notes:'',LastActive:'2026-05-19',InvitedCount:8}
+  {Id:2004,Company:'Klarna Bank',Contact:'Sofia Bergman',Role:'CHRO',Email:'sofia@klarna.com',Owner:'Alexandra Henningson',Source:'Partners',StartDate:'2026-05-10',EndDate:'2026-07-10',DecisionDate:'2026-07-25',Participants:30,ExpectedARR:320000,Progress:[true,true,false,false,false,false],Sessions:'',Notes:'',LastActive:'2026-05-19',InvitedCount:8},
+  {Id:2005,Company:'Coop Sverige',Contact:'Henrik Lund',Role:'HR-direktör',Email:'henrik@coop.se',Owner:'Matilda Olsson',Source:'Event',Industry:'Detaljhandel',StartDate:'2026-01-10',EndDate:'2026-04-10',DecisionDate:'2026-04-25',Participants:50,ExpectedARR:480000,Progress:[true,true,true,true,true,true],Status:'avslutad',LostReason:'Konverterad',LastActive:'2026-04-08',InvitedCount:48},
+  {Id:2006,Company:'Norrbotten Energi',Contact:'Eva Persson',Role:'VD',Email:'eva@nbenergi.se',Owner:'Alexandra Henningson',Source:'Traditionell',Industry:'Energi & Utilities',StartDate:'2026-02-15',EndDate:'2026-05-15',DecisionDate:'2026-05-30',Participants:20,ExpectedARR:220000,Progress:[true,true,false,false,false,false],Status:'avslutad',LostReason:'Förlorad',LastActive:'2026-04-20',InvitedCount:5}
 ];
+let allDormant=[
+  {Id:1,Company:'Spotify Stockholm',Contact:'Eva Lindberg',Industry:'IT & Tech',LastActive:'2025-09-15',ReminderDate:'2026-06-15',Reason:'Inte rätt tid',Notes:'Återkom efter sommaren.'},
+  {Id:2,Company:'Vasakronan',Contact:'Per Andersson',Industry:'Fastighet & Bygg',LastActive:'2025-11-20',ReminderDate:'2026-05-15',Reason:'För dyrt',Notes:'Bad om återkomst när vi har volymrabatt.'},
+  {Id:3,Company:'Region Skåne',Contact:'Anna Holm',Industry:'Offentlig sektor',LastActive:'2025-08-01',ReminderDate:'2026-09-01',Reason:'Ej beslut',Notes:'Väntar på upphandlingsbeslut.'}
+];
+let allBlocked=[
+  {Id:1,Name:'Konkurrent AB',Email:'',Org:'Konkurrent AB',Type:'Organisation',Reason:'Konkurrent',BlockedDate:'2025-03-12',BlockedBy:'Matilda Olsson',Comment:'Direkt konkurrent, kontakta ej.'},
+  {Id:2,Name:'Anders Svensson',Email:'anders@example.com',Org:'',Type:'Person',Reason:'GDPR',BlockedDate:'2025-06-21',BlockedBy:'Alexandra Henningson',Comment:'Begärt rätt att glömmas enligt GDPR.'},
+  {Id:3,Name:'no-thanks.com',Email:'',Org:'',Type:'Domän',Reason:'Explicit önskan',BlockedDate:'2024-11-08',BlockedBy:'Matilda Olsson',Comment:'Hela domänen bad om att inte kontaktas.'}
+];
+const allTemplates=[
+  {Id:1,Title:'Uppföljning efter trial',Description:'Standardmail efter avslutad trial för att fånga upp nästa steg.',Body:`Hej {namn},\n\nTack för att ni testat CIBoost de senaste veckorna! Jag hoppas att teamet har fått ut värde av plattformen.\n\nJag skulle gärna boka ett kort uppföljningsmöte:\n• Hur upplevde ni verktyget?\n• Vad fungerade och vad saknades?\n• Är pilot eller full licens aktuellt?\n\nBoka tid: [länk]\n\nHälsningar,\n{ditt namn}`},
+  {Id:2,Title:'Återaktivering – sovande kund',Description:'För att kontakta en sovande prospect eller tidigare kund.',Body:`Hej {namn},\n\nDet var ett tag sedan vi pratades vid. Jag tänkte höra om något har förändrats sedan sist?\n\nSedan dess har vi lanserat flera nya funktioner som kan vara intressanta:\n• [funktion 1]\n• [funktion 2]\n\nTid för 15 minuter nästa vecka?\n\nHälsningar,\n{ditt namn}`},
+  {Id:3,Title:'Offertmall – Enterprise',Description:'Strukturerad offertmall för Enterprise-affärer.',Body:`Offert – CIBoost Enterprise\nKund: {kund}\nGiltig till: {datum}\n\n1. Omfattning\n   • Användare: {antal}\n   • Moduler: {moduler}\n\n2. Pris\n   • Årslicens: {pris} kr\n   • Onboarding: {onboarding} kr\n   • Support: ingår\n\n3. Villkor\n   • Avtalstid: 12 månader\n   • Betalning: faktura 30 dagar netto\n\nReturnera signerad offert till {email}.`}
+];
+const ARK_DOCS_KEY='ciboost-ark-docs';
+let allDocs=JSON.parse(localStorage.getItem(ARK_DOCS_KEY)||'[]');
+let editingDormantId=null;
 
 function daysLeft(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
 function formatDate(d){return d?new Date(d).toLocaleDateString('sv-SE'):'-';}
@@ -842,31 +1034,69 @@ function switchMain(tab,el){
   currentMain=tab;
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('pipe-kpi-bar').style.display=tab==='pipeline'?'flex':'none';
-  document.getElementById('pipe-filters-bar').style.display=tab==='pipeline'?'flex':'none';
-  document.getElementById('stats-bar').style.display=tab==='kunder'?'flex':'none';
-  document.getElementById('subtabs-kunder').style.display=tab==='kunder'?'flex':'none';
-  document.getElementById('subtabs-finansiellt').style.display=tab==='finansiellt'?'flex':'none';
+  ['stats-pipeline','stats-bar','stats-trialpilot','stats-finansiellt','stats-arkiv'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+  ['subtabs-pipeline','subtabs-kunder','subtabs-finansiellt','subtabs-trialpilot','subtabs-arkiv'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+  const sMap={pipeline:'stats-pipeline',kunder:'stats-bar',trialpilot:'stats-trialpilot',finansiellt:'stats-finansiellt',arkiv:'stats-arkiv'};
+  const tMap={pipeline:'subtabs-pipeline',kunder:'subtabs-kunder',trialpilot:'subtabs-trialpilot',finansiellt:'subtabs-finansiellt',arkiv:'subtabs-arkiv'};
+  const sEl=document.getElementById(sMap[tab]);if(sEl)sEl.style.display='flex';
+  const tEl=document.getElementById(tMap[tab]);if(tEl)tEl.style.display='flex';
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  if(tab==='pipeline'){document.getElementById('page-pipeline').classList.add('active');renderKanban();}
-  if(tab==='kunder'){showPage(`kunder-${currentSub.kunder}`);}
-  if(tab==='finansiellt'){showPage(`finansiellt-${currentSub.finansiellt}`);
+  if(tab==='pipeline'){updatePipeKpi();const sub=currentSub.pipeline||'oversikt';showPage(`pipeline-${sub}`);if(sub==='oversikt')renderKanban();else renderPipelineAnalys();}
+  else if(tab==='kunder'){updateStats();showPage(`kunder-${currentSub.kunder}`);}
+  else if(tab==='finansiellt'){updateFinStatsBar();showPage(`finansiellt-${currentSub.finansiellt}`);
     if(currentSub.finansiellt==='dashboard')renderFinDashboard();
     if(currentSub.finansiellt==='prognos')renderPrognos();
     if(currentSub.finansiellt==='budget')loadBudgetVersions();
   }
-  if(tab==='trialpilot'){document.getElementById('page-trialpilot').classList.add('active');renderTrialPilot();}
+  else if(tab==='trialpilot'){document.getElementById('page-trialpilot').classList.add('active');renderTrialPilot();}
+  else if(tab==='arkiv'){updateArkivStatsBar();const sub=currentSub.arkiv||'tidigare';showPage(`arkiv-${sub}`);renderArkivCurrent();}
 }
 function switchSub(main,sub,el){
   currentSub[main]=sub;
   document.getElementById(`subtabs-${main}`).querySelectorAll('.sub-tab').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
+  if(main==='trialpilot'){renderTrialPilot();return;}
   showPage(`${main}-${sub}`);
+  if(main==='pipeline'&&sub==='oversikt')renderKanban();
+  if(main==='pipeline'&&sub==='analys')renderPipelineAnalys();
   if(main==='kunder'&&sub==='licenstidslinje')renderLicenstidslinje();
   if(main==='kunder'&&sub==='kundanalys')renderKundanalys();
   if(main==='finansiellt'&&sub==='dashboard')renderFinDashboard();
   if(main==='finansiellt'&&sub==='prognos')renderPrognos();
   if(main==='finansiellt'&&sub==='budget')loadBudgetVersions();
+  if(main==='arkiv')renderArkivCurrent();
+}
+function updateFinStatsBar(){
+  const arrTotal=allCustomers.reduce((s,c)=>s+(c.ARR||0)+(c.ARR_Fixed||0),0);
+  const mrr=Math.round(arrTotal/12);
+  const active=allCustomers.filter(c=>c._days===null||c._days>=0).length;
+  const setV=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  setV('fs-arr',fmtKr(arrTotal));setV('fs-mrr',fmtKr(mrr));setV('fs-yoy','+12%');setV('fs-forecast',fmtKr(Math.round(arrTotal*1.15)));setV('fs-licenses',active);
+}
+function renderPipelineAnalys(){
+  const el=document.getElementById('pipeline-analys-content');if(!el)return;
+  const sources={};
+  allProspects.forEach(p=>{const s=p.Source||'Okänd';if(!sources[s])sources[s]={total:0,won:0,lost:0};sources[s].total++;if(p.Stage==='Closed Won')sources[s].won++;if(p.Stage==='Closed Lost')sources[s].lost++;});
+  const sourceRows=Object.entries(sources).map(([s,v])=>{const pct=v.total?Math.round(v.won/v.total*100):0;return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span class="src-dot" style="background:${SOURCE_COLORS[s]||'#888'};width:8px;height:8px;border-radius:50%;display:inline-block;"></span><span style="flex:1;">${s}</span><span style="color:var(--text3);">${v.total} prospects</span><span style="font-weight:500;color:var(--green);min-width:50px;text-align:right;">${pct}%</span></div>`;}).join('')||'<div style="color:var(--text3);font-size:13px;">Inga prospects.</div>';
+  const stages={};STAGES.forEach(s=>stages[s]={count:0,days:0});
+  allProspects.forEach(p=>{const s=p.Stage;if(!stages[s])return;stages[s].count++;const start=new Date(p.UpdatedAt||p.CreatedAt||new Date());const days=Math.max(0,Math.round((new Date()-start)/86400000));stages[s].days+=days;});
+  const stageRows=STAGES.map(s=>{const v=stages[s];const avg=v.count?Math.round(v.days/v.count):0;return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="flex:1;">${s}</span><span style="color:var(--text3);">${v.count} prospects</span><span style="font-weight:500;min-width:70px;text-align:right;">${avg}d snitt</span></div>`;}).join('');
+  const won=allProspects.filter(p=>p.Stage==='Closed Won').length;
+  const lost=allProspects.filter(p=>p.Stage==='Closed Lost').length;
+  const winPct=(won+lost)?Math.round(won/(won+lost)*100):0;
+  const lostReasons={};allProspects.filter(p=>p.Stage==='Closed Lost'&&p.LostReason).forEach(p=>{lostReasons[p.LostReason]=(lostReasons[p.LostReason]||0)+1;});
+  const lossRows=Object.entries(lostReasons).sort((a,b)=>b[1]-a[1]).map(([r,n])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid var(--border);"><span>${r}</span><span style="font-weight:500;color:var(--red);">${n}</span></div>`).join('')||'<div style="color:var(--text3);font-size:13px;">Inga förlorade prospects ännu.</div>';
+  el.innerHTML=`<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
+    <div class="kpi-card"><div class="kpi-label">Win rate</div><div class="kpi-value" style="color:var(--green);">${winPct}%</div><div class="kpi-delta neu">${won} won / ${lost} lost</div></div>
+    <div class="kpi-card"><div class="kpi-label">Aktiva prospects</div><div class="kpi-value" style="color:var(--accent);">${allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost').length}</div><div class="kpi-delta neu">i pipeline</div></div>
+    <div class="kpi-card"><div class="kpi-label">Antal källor</div><div class="kpi-value" style="color:var(--blue);">${Object.keys(sources).length}</div><div class="kpi-delta neu">aktiva</div></div>
+    <div class="kpi-card"><div class="kpi-label">Stages</div><div class="kpi-value" style="color:var(--purple);">${STAGES.length}</div><div class="kpi-delta neu">i flödet</div></div>
+  </div>
+  <div class="fin-grid">
+    <div class="fin-card"><div class="fin-card-title">Konvertering per källa</div>${sourceRows}</div>
+    <div class="fin-card"><div class="fin-card-title">Tid per stage</div>${stageRows}</div>
+  </div>
+  <div class="fin-card" style="margin-top:14px;"><div class="fin-card-title">Win / Loss – orsaksfördelning</div>${lossRows}</div>`;
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(`page-${id}`)?.classList.add('active');}
 
@@ -1965,34 +2195,63 @@ function tpRecommendedAction(item){
   }
   return null;
 }
-function switchTpTab(tab,el){
-  currentSub.trialpilot=tab;
-  document.querySelectorAll('.tp-subtab').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('tp-new-btn-label').textContent=tab==='trials'?'Ny trial':'Ny pilot';
-  renderTrialPilot();
+function renderTrialPilot(){
+  updateTpStatsBar();
+  const sub=currentSub.trialpilot||'trials';
+  const listEl=document.getElementById('tp-section-list');
+  const konvEl=document.getElementById('tp-section-konvertering');
+  const newBtn=document.getElementById('tp-new-btn');
+  if(sub==='konvertering'){
+    if(listEl)listEl.style.display='none';
+    if(konvEl)konvEl.style.display='block';
+    if(newBtn)newBtn.style.display='none';
+    renderTpKonvertering();
+  } else {
+    if(listEl)listEl.style.display='block';
+    if(konvEl)konvEl.style.display='none';
+    if(newBtn){newBtn.style.display='flex';document.getElementById('tp-new-btn-label').textContent=sub==='piloter'?'Ny pilot':'Ny trial';}
+    renderTpList();
+  }
 }
-function renderTrialPilot(){renderTpKpi();renderTpList();}
-function renderTpKpi(){
+function updateTpStatsBar(){
   const today=new Date();today.setHours(0,0,0,0);
-  const activeTrials=allTrials.filter(t=>!t.EndDate||new Date(t.EndDate)>=today).length;
-  const activePilots=allPilots.filter(p=>!p.EndDate||new Date(p.EndDate)>=today).length;
-  const tab=currentSub.trialpilot||'trials';
-  const items=tab==='trials'?allTrials:allPilots;
+  const activeTrials=allTrials.filter(t=>t.Status!=='avslutad'&&(!t.EndDate||new Date(t.EndDate)>=today)).length;
+  const activePilots=allPilots.filter(p=>p.Status!=='avslutad'&&(!p.EndDate||new Date(p.EndDate)>=today)).length;
+  const tpsTrials=document.getElementById('tps-trials');if(tpsTrials)tpsTrials.textContent=activeTrials;
+  const tpsPilots=document.getElementById('tps-pilots');if(tpsPilots)tpsPilots.textContent=activePilots;
+  const sub=currentSub.trialpilot||'trials';
+  const items=sub==='piloter'?allPilots.filter(p=>p.Status!=='avslutad'):allTrials.filter(t=>t.Status!=='avslutad');
   let avgIdx=0;
   if(items.length){
     const total=items.reduce((s,it)=>{const p=it.Progress||[];let i=0;while(i<6&&p[i])i++;return s+i;},0);
     avgIdx=Math.round(total/items.length);
   }
-  const avgDisplay=items.length?(avgIdx>=6?'6/6':`Steg ${avgIdx+1}/6`):'–';
-  const avgLabel=items.length?(avgIdx>=6?'Alla klara':TP_STEPS_SHORT[avgIdx]):'Inga poster';
-  document.getElementById('tp-kpi-grid').innerHTML=[
-    {label:'Aktiva trials',val:activeTrials,color:'var(--accent)',sub:`${allTrials.length} totalt`},
-    {label:'Aktiva piloter',val:activePilots,color:'var(--blue)',sub:`${allPilots.length} totalt`},
-    {label:'Konverteringsgrad',val:'34%',color:'var(--green)',sub:'Senaste 12 mån'},
-    {label:'Bästa källa',val:'Wow',color:'var(--purple)',sub:'Högst konvertering'},
-    {label:`Snitt progress (${tab==='trials'?'trials':'piloter'})`,val:avgDisplay,color:'var(--text)',sub:avgLabel}
-  ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-delta neu">${k.sub}</div></div>`).join('');
+  const avgEl=document.getElementById('tps-avg');if(avgEl)avgEl.textContent=items.length?(avgIdx>=6?'6/6':`Steg ${avgIdx+1}/6`):'–';
+  const avgLab=document.getElementById('tps-avg-label');if(avgLab)avgLab.textContent=`Snitt progress (${sub==='piloter'?'piloter':sub==='konvertering'?'aktiva':'trials'})`;
+  const navCount=document.getElementById('tp-nav-count');if(navCount)navCount.textContent=(activeTrials+activePilots)||'-';
+}
+// kept for back-compat with onclick attributes that may still exist
+function switchTpTab(tab,el){switchSub('trialpilot',tab,el);}
+function renderTpKonvertering(){
+  const el=document.getElementById('tp-section-konvertering');
+  const all=[...allTrials,...allPilots];
+  const sources={};
+  all.forEach(it=>{const s=it.Source||'Okänd';if(!sources[s])sources[s]={total:0,konv:0};sources[s].total++;if(it.LostReason==='Konverterad'||it.Status==='konverterad')sources[s].konv++;});
+  const sourceRows=Object.entries(sources).map(([s,v])=>{const pct=v.total?Math.round(v.konv/v.total*100):0;return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span class="src-dot" style="background:${SOURCE_COLORS[s]||'#888'};width:8px;height:8px;border-radius:50%;display:inline-block;"></span><span style="flex:1;">${s}</span><span style="color:var(--text3);">${v.total} st</span><span style="font-weight:500;color:var(--green);min-width:50px;text-align:right;">${pct}%</span></div>`;}).join('')||'<div style="color:var(--text3);font-size:13px;">Ingen data.</div>';
+  const stuck=[0,0,0,0,0,0];
+  all.forEach(it=>{const p=it.Progress||[];let last=-1;for(let i=0;i<6;i++)if(p[i])last=i;if(last<5)stuck[last+1]++;});
+  const stageRows=TP_STEPS_SHORT.map((s,i)=>{const v=stuck[i];const pct=all.length?Math.round(v/all.length*100):0;return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="flex:1;">${i+1}. ${s}</span><span style="color:var(--text3);">${v} fastnar</span><span style="font-weight:500;min-width:50px;text-align:right;">${pct}%</span></div>`;}).join('');
+  const converted=all.filter(it=>it.LostReason==='Konverterad'||it.Status==='konverterad');
+  const avgDays=converted.length?Math.round(converted.reduce((s,it)=>{if(!it.StartDate)return s;const start=new Date(it.StartDate);const end=new Date(it.EndDate||new Date());return s+Math.max(0,(end-start)/86400000);},0)/converted.length):0;
+  el.innerHTML=`<div class="kpi-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px;">
+    <div class="kpi-card"><div class="kpi-label">Total konvertering</div><div class="kpi-value" style="color:var(--green);">${all.length?Math.round(converted.length/all.length*100):0}%</div><div class="kpi-delta neu">${converted.length}/${all.length}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Tid till konvertering</div><div class="kpi-value" style="color:var(--accent);">${avgDays} d</div><div class="kpi-delta neu">snitt</div></div>
+    <div class="kpi-card"><div class="kpi-label">Aktiva nu</div><div class="kpi-value" style="color:var(--blue);">${all.filter(it=>it.Status!=='avslutad'&&it.Status!=='konverterad').length}</div><div class="kpi-delta neu">pågående</div></div>
+  </div>
+  <div class="fin-grid">
+    <div class="fin-card"><div class="fin-card-title">Konvertering per källa</div>${sourceRows}</div>
+    <div class="fin-card"><div class="fin-card-title">Var fastnar folk?</div>${stageRows}</div>
+  </div>`;
 }
 function renderTpList(){
   const tab=currentSub.trialpilot||'trials';
@@ -2250,13 +2509,257 @@ function openNewTrialPilot(){
   );
 }
 
+// ─── ARKIV ───────────────────────────────────────────────
+function arkivedCustomers(){return allCustomers.filter(c=>c._days!==null&&c._days<-30);}
+function endedTests(){return [...allTrials.filter(t=>t.Status==='avslutad').map(t=>({...t,_type:'Trial'})),...allPilots.filter(p=>p.Status==='avslutad').map(p=>({...p,_type:'Pilot'}))];}
+function updateArkivStatsBar(){
+  const setV=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  setV('ark-stat-customers',arkivedCustomers().length);
+  setV('ark-stat-tests',endedTests().length);
+  setV('ark-stat-dormant',allDormant.length);
+  setV('ark-stat-docs',allDocs.length);
+  setV('ark-stat-blocked',allBlocked.length);
+  const tot=arkivedCustomers().length+endedTests().length+allDormant.length;
+  setV('ark-nav-count',tot||'-');
+}
+function renderArkivCurrent(){
+  const sub=currentSub.arkiv||'tidigare';
+  if(sub==='tidigare')renderArkivTidigare();
+  else if(sub==='tester')renderArkivTester();
+  else if(sub==='sovande')renderArkivSovande();
+  else if(sub==='dokument')renderArkivDokument();
+  else if(sub==='sparrlista')renderArkivSparrlista();
+}
+function renderArkivTidigare(){
+  const q=(document.getElementById('ark-tid-search')?.value||'').toLowerCase();
+  const owner=document.getElementById('ark-tid-owner')?.value||'';
+  const ind=document.getElementById('ark-tid-industry')?.value||'';
+  const reason=document.getElementById('ark-tid-reason')?.value||'';
+  const year=document.getElementById('ark-tid-year')?.value||'';
+  const yearSel=document.getElementById('ark-tid-year');
+  if(yearSel&&yearSel.options.length===1){
+    const years=[...new Set(arkivedCustomers().map(c=>c.LicenseEnd?new Date(c.LicenseEnd).getFullYear():null).filter(Boolean))].sort();
+    years.forEach(y=>yearSel.insertAdjacentHTML('beforeend',`<option>${y}</option>`));
+  }
+  const reasonOf=c=>c.LostReason||'Ej förnyat';
+  const items=arkivedCustomers().filter(c=>(!q||(c.Company||'').toLowerCase().includes(q))&&(!owner||c._owner===owner)&&(!ind||c.Industry===ind)&&(!reason||reasonOf(c)===reason)&&(!year||(c.LicenseEnd&&new Date(c.LicenseEnd).getFullYear()==year)));
+  const tbody=document.getElementById('ark-tid-body');if(!tbody)return;
+  if(!items.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text3);font-size:13px;">Inga arkiverade kunder matchar.</td></tr>';return;}
+  tbody.innerHTML=items.map(c=>{
+    const r=reasonOf(c);
+    const arr=customerValue(c);
+    return`<tr id="ark-tid-row-${c.Id}">
+      <td><strong>${c.Company||'–'}</strong>${c.Contact?`<div style="font-size:11px;color:var(--text3);">${c.Contact}</div>`:''}</td>
+      <td>${c.Industry||'–'}<div style="font-size:11px;color:var(--text3);">${c._owner||'–'}</div></td>
+      <td>${c.LicenseEnd?new Date(c.LicenseEnd).toLocaleDateString('sv-SE'):'–'}</td>
+      <td><span class="badge b-gray">${r}</span></td>
+      <td>${arr?fmtKr(arr):'–'}</td>
+      <td style="white-space:nowrap;">
+        <button class="ark-expand-btn" onclick="toggleArkivTidigareExpand(${c.Id})" title="Historik">📜</button>
+        <button class="btn-sm" onclick="reactivateAsProspect(${c.Id})" title="Återaktivera">↻</button>
+        <button class="btn-sm" style="background:var(--red);color:white;" onclick="addCustomerToBlocklist(${c.Id})" title="Spärrlista">⛔</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function toggleArkivTidigareExpand(id){
+  const row=document.getElementById(`ark-tid-row-${id}`);
+  const existing=document.getElementById(`ark-tid-exp-${id}`);
+  if(existing){existing.remove();return;}
+  const c=allCustomers.find(x=>x.Id===id);if(!c||!row)return;
+  row.insertAdjacentHTML('afterend',`<tr id="ark-tid-exp-${id}" class="ark-expand-row"><td colspan="6">Kund sedan: <strong>${c.CustomerSince?new Date(c.CustomerSince).toLocaleDateString('sv-SE'):'–'}</strong> · Licens slutade: <strong>${c.LicenseEnd?new Date(c.LicenseEnd).toLocaleDateString('sv-SE'):'–'}</strong>${c.Notes?`<br>Anteckning: ${c.Notes}`:''}</td></tr>`);
+}
+function reactivateAsProspect(custId){
+  const c=allCustomers.find(x=>x.Id===custId);if(!c)return;
+  allProspects.push({Id:Date.now(),Company:c.Company,Contact:c.Contact,Role:c.ContactRole,Email:c.ContactEmail,Phone:c.ContactPhone,Industry:c.Industry,Employees:c.Employees,Owner:c._owner,Source:'Wow',Stage:'Contacted',Score:50,Notes:`Återaktiverad från arkiv – tidigare kund (slut ${c.LicenseEnd?new Date(c.LicenseEnd).toLocaleDateString('sv-SE'):'okänt'}).`,CreatedAt:new Date().toISOString()});
+  updatePipeKpi();showSaveIndicator(`✓ ${c.Company} återaktiverad`,'#1a7a50');
+}
+function addCustomerToBlocklist(custId){
+  const c=allCustomers.find(x=>x.Id===custId);if(!c)return;
+  openBlockedModal({Name:c.Company,Org:c.Company,Type:'Organisation',Reason:'Explicit önskan'});
+}
+function renderArkivTester(){
+  const q=(document.getElementById('ark-test-search')?.value||'').toLowerCase();
+  const type=document.getElementById('ark-test-type')?.value||'';
+  const ind=document.getElementById('ark-test-industry')?.value||'';
+  const reason=document.getElementById('ark-test-reason')?.value||'';
+  const owner=document.getElementById('ark-test-owner')?.value||'';
+  const all=endedTests();
+  const items=all.filter(it=>(!q||(it.Company||'').toLowerCase().includes(q))&&(!type||it._type===type)&&(!ind||it.Industry===ind)&&(!reason||it.LostReason===reason)&&(!owner||it.Owner===owner));
+  const converted=all.filter(it=>it.LostReason==='Konverterad').length;
+  const convPct=all.length?Math.round(converted/all.length*100):0;
+  const reasonCounts={};all.forEach(it=>{if(it.LostReason)reasonCounts[it.LostReason]=(reasonCounts[it.LostReason]||0)+1;});
+  const topReason=Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||'–';
+  const srcCounts={};all.filter(it=>it.LostReason==='Konverterad').forEach(it=>{if(it.Source)srcCounts[it.Source]=(srcCounts[it.Source]||0)+1;});
+  const topSrc=Object.entries(srcCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||'–';
+  const kpi=document.getElementById('ark-test-kpi');if(kpi)kpi.innerHTML=[
+    {label:'Konverterade',val:convPct+'%',color:'var(--green)',sub:`${converted}/${all.length}`},
+    {label:'Vanligaste orsak',val:topReason,color:'var(--red)',sub:'avslutsorsak'},
+    {label:'Bästa kanal',val:topSrc,color:'var(--purple)',sub:'mest konverterade'}
+  ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color};font-size:16px;">${k.val}</div><div class="kpi-delta neu">${k.sub}</div></div>`).join('');
+  const tbody=document.getElementById('ark-test-body');if(!tbody)return;
+  if(!items.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text3);font-size:13px;">Inga avslutade tester matchar.</td></tr>';return;}
+  tbody.innerHTML=items.map(it=>{const stepsDone=(it.Progress||[]).filter(x=>x).length;return`<tr>
+    <td><strong>${it.Company||'–'}</strong> <span class="badge ${it._type==='Pilot'?'b-blue':'b-amber'}">${it._type}</span></td>
+    <td>${it.EndDate?new Date(it.EndDate).toLocaleDateString('sv-SE'):'–'}</td>
+    <td><span class="badge ${it.LostReason==='Konverterad'?'b-green':'b-gray'}">${it.LostReason||'Ej angiven'}</span></td>
+    <td>${stepsDone}/6</td>
+    <td><button class="btn-sm" onclick="reactivateTest('${it._type.toLowerCase()}',${it.Id})">↻ Återaktivera</button></td>
+  </tr>`;}).join('');
+}
+function reactivateTest(type,id){
+  const arr=type==='pilot'?allPilots:allTrials;
+  const item=arr.find(x=>x.Id===id);if(!item)return;
+  item.Status='aktiv';item.LostReason=null;
+  renderArkivCurrent();updateArkivStatsBar();updateTpStatsBar();
+  showSaveIndicator('✓ Återaktiverad','#1a7a50');
+}
+function renderArkivSovande(){
+  const q=(document.getElementById('ark-dorm-search')?.value||'').toLowerCase();
+  const ind=document.getElementById('ark-dorm-industry')?.value||'';
+  const reason=document.getElementById('ark-dorm-reason')?.value||'';
+  const rem=document.getElementById('ark-dorm-rem')?.value||'';
+  const today=new Date();today.setHours(0,0,0,0);
+  const monthEnd=new Date(today.getFullYear(),today.getMonth()+1,0);
+  const quarterEnd=new Date(today.getFullYear(),today.getMonth()+3,0);
+  const items=allDormant.filter(d=>(!q||(d.Company||'').toLowerCase().includes(q))&&(!ind||d.Industry===ind)&&(!reason||d.Reason===reason)&&(!rem||(rem==='past'&&d.ReminderDate&&new Date(d.ReminderDate)<today)||(rem==='month'&&d.ReminderDate&&new Date(d.ReminderDate)>=today&&new Date(d.ReminderDate)<=monthEnd)||(rem==='quarter'&&d.ReminderDate&&new Date(d.ReminderDate)>monthEnd&&new Date(d.ReminderDate)<=quarterEnd)));
+  const el=document.getElementById('ark-dorm-list');if(!el)return;
+  if(!items.length){el.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:30px;text-align:center;color:var(--text3);font-size:13px;">Inga sovande organisationer matchar.</div>';return;}
+  el.innerHTML=items.map(d=>{
+    const remDate=d.ReminderDate?new Date(d.ReminderDate):null;
+    const urg=!remDate?'green':remDate<today?'red':remDate<=monthEnd?'amber':'green';
+    return`<div class="tp-card urg-${urg}">
+      <div class="tp-card-head">
+        <div class="tp-card-head-left">
+          <span class="tp-card-name">${d.Company||'–'}</span>
+          ${d.Industry?`<span class="badge b-blue">${d.Industry}</span>`:''}
+          <span class="badge b-gray">${d.Reason||'–'}</span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-sm" onclick="reactivateDormant(${d.Id})">↻ Reaktivera</button>
+          <button class="btn-sm" style="background:var(--surface2);color:var(--text);" onclick="openDormantModal(${d.Id})">✎</button>
+          <button class="btn-sm" style="background:var(--red);color:white;" onclick="deleteDormant(${d.Id})">×</button>
+        </div>
+      </div>
+      <div class="tp-card-sub">${d.Contact||'–'}</div>
+      <div style="font-size:12px;color:var(--text2);">Senast aktiv: <strong>${d.LastActive?new Date(d.LastActive).toLocaleDateString('sv-SE'):'–'}</strong> · Påminnelse: <strong>${remDate?remDate.toLocaleDateString('sv-SE'):'–'}</strong></div>
+      ${d.Notes?`<div style="font-size:12px;color:var(--text3);margin-top:4px;font-style:italic;">${d.Notes}</div>`:''}
+    </div>`;
+  }).join('');
+}
+function openDormantModal(id){
+  editingDormantId=id||null;
+  const d=id?allDormant.find(x=>x.Id===id):{};
+  if(id&&!d)return;
+  const indOpts=`<option value="">–</option>`+INDUSTRIES.map(i=>`<option ${d.Industry===i?'selected':''}>${i}</option>`).join('');
+  const reasonOpts=['För dyrt','Inte rätt tid','Ej beslut','Ingen respons'].map(r=>`<option ${d.Reason===r?'selected':''}>${r}</option>`).join('');
+  showDialog(id?'Redigera sovande':'Ny sovande',
+    `<div class="modal-field"><label>Företag</label><input id="dorm-company" class="edit-input" value="${d.Company||''}"></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Kontaktperson</label><input id="dorm-contact" class="edit-input" value="${d.Contact||''}"></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Bransch</label><select id="dorm-industry" class="edit-input">${indOpts}</select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <div class="modal-field"><label>Senast aktiv</label><input id="dorm-last" type="date" class="edit-input" value="${d.LastActive||''}"></div>
+      <div class="modal-field"><label>Påminnelsedatum</label><input id="dorm-rem" type="date" class="edit-input" value="${d.ReminderDate||''}"></div>
+    </div>
+    <div class="modal-field" style="margin-top:8px;"><label>Orsak</label><select id="dorm-reason" class="edit-input"><option value="">–</option>${reasonOpts}</select></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Anteckningar</label><textarea id="dorm-notes" class="edit-input" style="height:60px;resize:vertical;">${d.Notes||''}</textarea></div>`,
+    async()=>{
+      const company=document.getElementById('dorm-company').value.trim();if(!company)return false;
+      const item={Company:company,Contact:document.getElementById('dorm-contact').value,Industry:document.getElementById('dorm-industry').value,LastActive:document.getElementById('dorm-last').value||null,ReminderDate:document.getElementById('dorm-rem').value||null,Reason:document.getElementById('dorm-reason').value,Notes:document.getElementById('dorm-notes').value};
+      if(editingDormantId){const idx=allDormant.findIndex(x=>x.Id===editingDormantId);if(idx>=0)allDormant[idx]={...allDormant[idx],...item};}
+      else allDormant.push({Id:Date.now(),...item});
+      editingDormantId=null;renderArkivCurrent();updateArkivStatsBar();return true;
+    }
+  );
+}
+function deleteDormant(id){if(!confirm('Ta bort denna sovande?'))return;allDormant=allDormant.filter(d=>d.Id!==id);renderArkivCurrent();updateArkivStatsBar();}
+function reactivateDormant(id){
+  const d=allDormant.find(x=>x.Id===id);if(!d)return;
+  allProspects.push({Id:Date.now(),Company:d.Company,Contact:d.Contact,Industry:d.Industry,Owner:'Matilda Olsson',Stage:'Contacted',Source:'Wow',Score:50,Notes:`Återaktiverad från sovande (tidigare orsak: ${d.Reason||'–'}).`,CreatedAt:new Date().toISOString()});
+  allDormant=allDormant.filter(x=>x.Id!==id);
+  renderArkivCurrent();updateArkivStatsBar();updatePipeKpi();
+  showSaveIndicator(`✓ ${d.Company} reaktiverad`,'#1a7a50');
+}
+function renderArkivDokument(){
+  const docEl=document.getElementById('ark-doc-list');
+  if(docEl){docEl.innerHTML=allDocs.length?allDocs.map(d=>`<span class="ark-doc-chip">📄 ${d.Name} <span style="color:var(--text3);font-size:11px;">· ${d.Date}</span> <span class="x" onclick="removeDoc(${d.Id})">×</span></span>`).join(''):'<span style="font-size:12px;color:var(--text3);">Inga dokument uppladdade ännu.</span>';}
+  const tplEl=document.getElementById('ark-tpl-list');
+  if(tplEl)tplEl.innerHTML=allTemplates.map(t=>`<div class="ark-tpl-card">
+    <div class="title">${t.Title}</div>
+    <div class="desc">${t.Description}</div>
+    <div class="actions">
+      <button class="btn-sm" onclick="copyTemplate(${t.Id})">Kopiera</button>
+      <button class="btn-sm" style="background:var(--surface2);color:var(--text);" onclick="editTemplate(${t.Id})">Redigera</button>
+    </div>
+  </div>`).join('');
+}
+function onArkivDocUpload(e){
+  const file=e.target.files[0];if(!file)return;
+  allDocs.push({Id:Date.now(),Name:file.name,Type:file.type||'okänd',Date:new Date().toLocaleDateString('sv-SE')});
+  localStorage.setItem(ARK_DOCS_KEY,JSON.stringify(allDocs));
+  e.target.value='';renderArkivCurrent();updateArkivStatsBar();
+}
+function removeDoc(id){allDocs=allDocs.filter(d=>d.Id!==id);localStorage.setItem(ARK_DOCS_KEY,JSON.stringify(allDocs));renderArkivCurrent();updateArkivStatsBar();}
+function copyTemplate(id){const t=allTemplates.find(x=>x.Id===id);if(!t)return;if(navigator.clipboard)navigator.clipboard.writeText(t.Body).then(()=>showSaveIndicator('✓ Kopierat','#1a7a50'));}
+function editTemplate(id){
+  const t=allTemplates.find(x=>x.Id===id);if(!t)return;
+  showDialog(`Redigera mall: ${t.Title}`,
+    `<div class="modal-field"><label>Titel</label><input id="tpl-title" class="edit-input" value="${t.Title.replace(/"/g,'&quot;')}"></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Beskrivning</label><input id="tpl-desc" class="edit-input" value="${t.Description.replace(/"/g,'&quot;')}"></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Mall</label><textarea id="tpl-body" class="edit-input" style="height:220px;resize:vertical;font-family:'Courier New',monospace;font-size:12px;">${t.Body}</textarea></div>`,
+    async()=>{t.Title=document.getElementById('tpl-title').value;t.Description=document.getElementById('tpl-desc').value;t.Body=document.getElementById('tpl-body').value;renderArkivCurrent();return true;}
+  );
+}
+function renderArkivSparrlista(){
+  const q=(document.getElementById('ark-blk-search')?.value||'').toLowerCase();
+  const type=document.getElementById('ark-blk-type')?.value||'';
+  const reason=document.getElementById('ark-blk-reason')?.value||'';
+  const items=allBlocked.filter(b=>(!q||(b.Name||'').toLowerCase().includes(q)||(b.Org||'').toLowerCase().includes(q))&&(!type||b.Type===type)&&(!reason||b.Reason===reason));
+  const el=document.getElementById('ark-blk-list');if(!el)return;
+  if(!items.length){el.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:30px;text-align:center;color:var(--text3);font-size:13px;">Inga spärrar matchar.</div>';return;}
+  el.innerHTML=items.map(b=>{
+    const urg=b.Reason==='GDPR'?'red':b.Reason==='Explicit önskan'?'amber':'';
+    const icon=b.Type==='Person'?'👤':b.Type==='Organisation'?'🏢':'🌐';
+    return`<div class="ark-blk-item ${urg?`urg-${urg}`:''}" style="margin-bottom:8px;">
+      <span style="font-size:18px;">${icon}</span>
+      <div class="main">
+        <div class="name">${b.Name||'–'}${b.Email?` <span style="font-size:11px;color:var(--text3);font-weight:400;">· ${b.Email}</span>`:''}</div>
+        <div class="meta">${b.Type} · Spärrad ${b.BlockedDate?new Date(b.BlockedDate).toLocaleDateString('sv-SE'):'–'} av ${b.BlockedBy||'–'}</div>
+        ${b.Comment?`<div class="comment">${b.Comment}</div>`:''}
+      </div>
+      <span class="badge ${b.Reason==='GDPR'?'b-red':b.Reason==='Explicit önskan'?'b-amber':'b-gray'}">${b.Reason||'–'}</span>
+      <button class="btn-sm" style="background:var(--red);color:white;" onclick="removeBlocked(${b.Id})">Ta bort</button>
+    </div>`;
+  }).join('');
+}
+function openBlockedModal(prefill){
+  const d=prefill||{};
+  showDialog('Lägg till spärr',
+    `<div class="modal-field"><label>Namn / Organisation</label><input id="blk-name" class="edit-input" value="${(d.Name||'').replace(/"/g,'&quot;')}"></div>
+    <div class="modal-field" style="margin-top:8px;"><label>E-post</label><input id="blk-email" class="edit-input" value="${(d.Email||'').replace(/"/g,'&quot;')}"></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Organisation</label><input id="blk-org" class="edit-input" value="${(d.Org||'').replace(/"/g,'&quot;')}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+      <div class="modal-field"><label>Typ</label><select id="blk-type" class="edit-input"><option ${d.Type==='Person'?'selected':''}>Person</option><option ${d.Type==='Organisation'?'selected':''}>Organisation</option><option ${d.Type==='Domän'?'selected':''}>Domän</option></select></div>
+      <div class="modal-field"><label>Orsak</label><select id="blk-reason" class="edit-input"><option ${d.Reason==='GDPR'?'selected':''}>GDPR</option><option ${d.Reason==='Explicit önskan'?'selected':''}>Explicit önskan</option><option ${d.Reason==='Konkurrent'?'selected':''}>Konkurrent</option></select></div>
+    </div>
+    <div class="modal-field" style="margin-top:8px;"><label>Kommentar</label><textarea id="blk-comment" class="edit-input" style="height:60px;resize:vertical;">${d.Comment||''}</textarea></div>`,
+    async()=>{
+      const name=document.getElementById('blk-name').value.trim();if(!name)return false;
+      allBlocked.push({Id:Date.now(),Name:name,Email:document.getElementById('blk-email').value,Org:document.getElementById('blk-org').value,Type:document.getElementById('blk-type').value,Reason:document.getElementById('blk-reason').value,Comment:document.getElementById('blk-comment').value,BlockedDate:new Date().toISOString().substring(0,10),BlockedBy:'Matilda Olsson'});
+      renderArkivCurrent();updateArkivStatsBar();return true;
+    }
+  );
+}
+function removeBlocked(id){if(!confirm('Ta bort spärren?'))return;allBlocked=allBlocked.filter(b=>b.Id!==id);renderArkivCurrent();updateArkivStatsBar();}
+
 function populateIndustryDropdowns(){
   const opts=INDUSTRIES.map(i=>`<option>${i}</option>`).join('');
-  ['filter-industry','filter-pipe-industry','filter-tp-industry'].forEach(id=>{
+  ['filter-industry','filter-pipe-industry','filter-tp-industry','ark-tid-industry','ark-test-industry','ark-dorm-industry'].forEach(id=>{
     const sel=document.getElementById(id);if(sel)sel.insertAdjacentHTML('beforeend',opts);
   });
 }
 populateIndustryDropdowns();
+updateArkivStatsBar();
 loadCustomers();
 loadProspects();
 loadRecipients();
