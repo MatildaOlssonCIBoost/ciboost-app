@@ -309,8 +309,13 @@
   .kanban-col-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 2px; margin-bottom: 8px; }
   .kanban-col-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
   .kanban-col-count { font-size: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; color: var(--text3); }
-  .kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.1s; }
+  .kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.1s, opacity 0.1s; }
   .kanban-card:hover { border-color: var(--accent); }
+  .kanban-card.dragging { opacity: 0.4; cursor: grabbing; }
+  .kanban-col.drop-active { background: var(--accent-bg); outline: 2px dashed var(--accent); outline-offset: -4px; border-radius: 8px; }
+  .status-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
+  .status-dot.agera { background: var(--amber); box-shadow: 0 0 0 2px var(--amber-bg); }
+  .status-dot.waiting { background: var(--blue); box-shadow: 0 0 0 2px var(--blue-bg); }
   .kanban-card.won { border-color: #C0DD97; background: var(--green-bg); }
   .kanban-card.lost { border-color: #F7C1C1; background: var(--red-bg); opacity: 0.75; }
   .kc-name { font-weight: 500; font-size: 13px; margin-bottom: 1px; }
@@ -593,8 +598,8 @@
         <div class="rev-dd-panel" id="rev-dd-panel" style="display:none;">
           <div class="rev-dd-item" onclick="toggleRevSource('arr')"><div class="rev-cb on" id="rcb-arr"></div><span class="rev-dot" style="background:#1a7a50;"></span>Licens (prenumeration)</div>
           <div class="rev-dd-item" onclick="toggleRevSource('fast')"><div class="rev-cb on" id="rcb-fast"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Licens (fast pris)</div>
-          <div class="rev-dd-item" onclick="toggleRevSource('utb')"><div class="rev-cb" id="rcb-utb"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
-          <div class="rev-dd-item" onclick="toggleRevSource('cons')"><div class="rev-cb" id="rcb-cons"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
+          <div class="rev-dd-item" onclick="toggleRevSource('utb')"><div class="rev-cb on" id="rcb-utb"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
+          <div class="rev-dd-item" onclick="toggleRevSource('cons')"><div class="rev-cb on" id="rcb-cons"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
         </div>
       </div>
       <div style="margin-left:auto;font-size:13px;color:var(--text3);" id="filter-count"></div>
@@ -998,10 +1003,19 @@ const BUDGET_ROWS_DEF = [
 const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 let allCustomers=[], allProspects=[], allRecipients=[...DEFAULT_RECIPIENTS];
 let allTrials=[], allPilots=[];
+let prospectRevenueTotals={};
+const PROSPECT_REV_KEY=id=>`prospect-revenues-${id}`;
+function loadAllProspectRevenueTotals(){
+  prospectRevenueTotals={};
+  allProspects.forEach(p=>{
+    const items=JSON.parse(localStorage.getItem(PROSPECT_REV_KEY(p.Id))||'[]');
+    prospectRevenueTotals[p.Id]=items.reduce((s,i)=>s+(i.Amount||0),0);
+  });
+}
 let sortCol='days', sortAsc=true;
 let currentModalId=null, currentPage=1, isNewCustomer=false;
 let currentProspectId=null, isNewProspect=false, currentProspectTab=1;
-let revSources={arr:true,fast:true,utb:false,cons:false};
+let revSources={arr:true,fast:true,utb:true,cons:true};
 let perSources={arr:true,fast:true,utb:true,cons:true};
 let currentMain='pipeline', currentSub={pipeline:'oversikt',kunder:'oversikt',finansiellt:'prognos',trialpilot:'trials',arkiv:'tidigare'};
 let currentTpId=null, currentTpType=null, currentTpModalTab=1;
@@ -1152,7 +1166,7 @@ function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.
 
 // ─── PIPELINE ────────────────────────────────────────────
 async function loadProspects(){
-  try{const r=await apiFetch(`${API}/prospects`);allProspects=await r.json();renderKanban();updatePipeKpi();}
+  try{const r=await apiFetch(`${API}/prospects`);allProspects=await r.json();loadAllProspectRevenueTotals();renderKanban();updatePipeKpi();}
   catch(e){document.getElementById('kanban-board').innerHTML='<div class="empty">Kunde inte ladda pipeline</div>';}
 }
 function updatePipeKpi(){
@@ -1194,19 +1208,40 @@ function renderKanban(){
       }
       const stageDate=p.UpdatedAt||p.CreatedAt;
       const daysInStage=stageDate?Math.max(0,Math.round((new Date()-new Date(stageDate))/86400000)):0;
-      return`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" onclick="openProspectModal(${p.Id})">
+      const revTotal=prospectRevenueTotals[p.Id]||0;
+      const totalVal=revTotal||p.ValueMax||p.ValueMin||p.Value||0;
+      const totalValStr=totalVal?Math.round(totalVal/1000)+'k kr':'';
+      const isWaiting=!!p.WaitingForResponse;
+      const statusBlock=!isWon&&!isLost?`<div class="kc-status"><span class="status-dot ${isWaiting?'waiting':'agera'}"></span><span style="font-size:11px;font-weight:500;color:${isWaiting?'var(--blue)':'var(--amber)'};">${isWaiting?'INVÄNTAR':'AGERA'}</span></div>`:'';
+      return`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" onclick="openProspectModal(${p.Id})">
+        ${statusBlock}
         <div class="kc-name">${p.Company||'-'}</div>
-        <div class="kc-contact">${p.Contact||'–'}${p.Role?` · ${p.Role}`:''}</div>
+        <div class="kc-contact">${p.Contact||'–'}</div>
         <div class="kc-owner">${p.Owner||'–'}</div>
-        <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span>${val?`<span class="kc-val">${val}</span>`:''}</div>
+        <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span>${totalValStr?`<span class="kc-val">${totalValStr}</span>`:''}</div>
         ${probHtml?`<div style="margin-bottom:3px;">${probHtml}</div>`:''}
         ${actionHtml}
         ${isLost&&p.LostReason?`<div class="kc-lost-reason">Orsak: ${p.LostReason}</div>`:''}
         <div class="kc-days">I stage: ${daysInStage}d</div>
       </div>`;
     }).join(''):`<div style="border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:11px;color:var(--text3);">Tom</div>`;
-    return`<div class="kanban-col"><div class="kanban-col-header"><span class="kanban-col-title" style="${isWon?'color:var(--green)':isLost?'color:var(--red)':''}">${stage}</span><span class="kanban-col-count">${cards.length}</span></div>${cardsHtml}</div>`;
+    return`<div class="kanban-col" data-stage="${stage}" ondragover="onColDragOver(event)" ondragleave="onColDragLeave(event)" ondrop="onColDrop(event,'${stage.replace(/'/g,"\\'")}')"><div class="kanban-col-header"><span class="kanban-col-title" style="${isWon?'color:var(--green)':isLost?'color:var(--red)':''}">${stage}</span><span class="kanban-col-count">${cards.length}</span></div>${cardsHtml}</div>`;
   }).join('');
+}
+function prospectToBody(p){return{company:p.Company||'',contact:p.Contact||'',role:p.Role||'',email:p.Email||'',phone:p.Phone||'',employees:p.Employees||null,industry:p.Industry||'',source:p.Source||'',owner:p.Owner||'',stage:p.Stage||'',score:p.Score||0,nextActionType:p.NextActionType||null,nextActionDate:p.NextActionDate||null,valueMin:p.ValueMin||null,valueMax:p.ValueMax||null,value:p.Value||0,probability:p.Probability||null,lostReason:p.LostReason||null,notes:p.Notes||'',revenueCategory:p.RevenueCategory||null,expectedStartMonth:p.ExpectedStartMonth||null,waitingForResponse:p.WaitingForResponse?1:0};}
+function onCardDragStart(e,id){e.dataTransfer.setData('text/plain',String(id));e.dataTransfer.effectAllowed='move';e.currentTarget.classList.add('dragging');}
+function onCardDragEnd(e){e.currentTarget.classList.remove('dragging');document.querySelectorAll('.kanban-col.drop-active').forEach(c=>c.classList.remove('drop-active'));}
+function onColDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';e.currentTarget.classList.add('drop-active');}
+function onColDragLeave(e){if(!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('drop-active');}
+async function onColDrop(e,stage){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drop-active');
+  const id=parseInt(e.dataTransfer.getData('text/plain'));
+  const p=allProspects.find(x=>x.Id===id);if(!p||p.Stage===stage)return;
+  p.Stage=stage;p.UpdatedAt=new Date().toISOString();
+  renderKanban();updatePipeKpi();
+  try{const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});if(!r.ok)console.error('Stage drop PUT failed:',r.status);}
+  catch(err){console.error('Stage drop error:',err);}
 }
 // ─── PROSPECT MODAL ──────────────────────────────────────
 function openNewProspect(){isNewProspect=true;currentProspectId=null;currentProspectTab=1;document.getElementById('prospect-title').textContent='Ny prospect';document.getElementById('prospect-subtitle').textContent='';document.getElementById('prospect-delete-btn').style.display='none';renderProspectTabs(null);renderProspectBody(null,[]);document.getElementById('prospect-overlay').classList.add('open');}
@@ -1223,7 +1258,7 @@ async function openProspectModal(id){
   document.getElementById('prospect-overlay').classList.add('open');
 }
 function renderProspectTabs(p){
-  const tabs=['Översikt','Aktivitet'];
+  const tabs=['Översikt','Aktivitet','Värde'];
   document.getElementById('prospect-tabs').innerHTML=tabs.map((t,i)=>`<button class="modal-tab ${currentProspectTab===i+1?'active':''}" onclick="switchProspectTab(${i+1})">${i+1}. ${t}</button>`).join('');
 }
 async function switchProspectTab(tab){
@@ -1233,6 +1268,85 @@ async function switchProspectTab(tab){
   let acts=[];
   if(tab===2&&currentProspectId){try{const r=await apiFetch(`${API}/activities/prospect/${currentProspectId}`);acts=await r.json();}catch(e){}}
   renderProspectBody(p,acts);
+  if(tab===3&&currentProspectId)setTimeout(()=>loadProspectRevenuesUI(currentProspectId),50);
+}
+async function loadProspectRevenues(id){
+  try{const r=await apiFetch(`${API}/prospects/${id}/revenues`);if(r.ok){const data=await r.json();if(Array.isArray(data))return data;}}catch(e){}
+  return JSON.parse(localStorage.getItem(PROSPECT_REV_KEY(id))||'[]');
+}
+async function saveProspectRevenue(id,item){
+  const isUpdate=!!item.Id;
+  try{
+    const method=isUpdate?'PUT':'POST';
+    const url=isUpdate?`${API}/prospects/${id}/revenues/${item.Id}`:`${API}/prospects/${id}/revenues`;
+    const r=await apiFetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(item)});
+    if(r.ok){const data=await r.json().catch(()=>null);return data||item;}
+  }catch(e){}
+  const items=JSON.parse(localStorage.getItem(PROSPECT_REV_KEY(id))||'[]');
+  if(isUpdate){const idx=items.findIndex(x=>x.Id===item.Id);if(idx>=0)items[idx]=item;else items.push(item);}
+  else{item.Id=Date.now();items.push(item);}
+  localStorage.setItem(PROSPECT_REV_KEY(id),JSON.stringify(items));
+  return item;
+}
+async function deleteProspectRevenue(id,itemId){
+  try{const r=await apiFetch(`${API}/prospects/${id}/revenues/${itemId}`,{method:'DELETE'});if(r.ok)return;}catch(e){}
+  const items=JSON.parse(localStorage.getItem(PROSPECT_REV_KEY(id))||'[]').filter(x=>x.Id!==itemId);
+  localStorage.setItem(PROSPECT_REV_KEY(id),JSON.stringify(items));
+}
+async function loadProspectRevenuesUI(id){
+  const el=document.getElementById('p-revenues-list');if(!el)return;
+  const items=await loadProspectRevenues(id);
+  const totalEl=document.getElementById('p-revenues-total');
+  const tot=items.reduce((s,i)=>s+(i.Amount||0),0);
+  if(totalEl)totalEl.textContent=tot?fmtKr(tot):'–';
+  // Update cache for kanban
+  const local=JSON.parse(localStorage.getItem(PROSPECT_REV_KEY(id))||'[]');
+  if(items.length&&local.length===0)localStorage.setItem(PROSPECT_REV_KEY(id),JSON.stringify(items));
+  prospectRevenueTotals[id]=tot;
+  if(!items.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px;">Inga intäktsposter ännu.</div>';return;}
+  const typeColors={ARR:{bg:'#EAF3DE',color:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5'},Utbildning:{bg:'#FAEEDA',color:'#854F0B'},Consulting:{bg:'#EEEDFE',color:'#3C3489'}};
+  const typeLabels={ARR:'Licens (pren.)',Fastpris:'Licens (fast)',Utbildning:'Utbildning',Consulting:'Consulting'};
+  el.innerHTML=items.map(it=>{const tc=typeColors[it.Type]||{bg:'var(--surface2)',color:'var(--text2)'};const dr=it.DateFrom||it.DateTo?`${it.DateFrom?it.DateFrom.substring(0,10):'?'} – ${it.DateTo?it.DateTo.substring(0,10):'?'}`:'';return`<div class="rev-item"><div class="rev-item-header"><span class="rev-item-type" style="background:${tc.bg};color:${tc.color};">${typeLabels[it.Type]||it.Type}</span><span class="rev-item-amount">${Math.round(it.Amount||0).toLocaleString('sv-SE')} kr</span>${dr?`<span class="rev-item-dates">${dr}</span>`:''}<button onclick="editProspectRevItem(${id},${it.Id})" style="width:22px;height:22px;border:0.5px solid var(--border);border-radius:4px;background:none;cursor:pointer;color:var(--accent);font-size:12px;" title="Redigera">✎</button><button class="rev-del" onclick="deleteProspectRevItemUI(${id},${it.Id})"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div>${it.Description?`<div class="rev-item-desc">${it.Description}</div>`:''}</div>`;}).join('');
+}
+function openAddProspectRevenue(id){
+  showDialog('Lägg till intäktspost',
+    `<div class="modal-field"><label>Typ</label><select id="pr-type" class="edit-input"><option value="ARR">Licens (prenumeration)</option><option value="Fastpris">Licens (fast pris)</option><option value="Utbildning">Utbildning</option><option value="Consulting">Consulting</option></select></div>
+    <div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="pr-amount" type="number" class="edit-input" placeholder="0"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+      <div class="modal-field"><label>Från datum</label><input id="pr-from" type="date" class="edit-input"></div>
+      <div class="modal-field"><label>Till datum</label><input id="pr-to" type="date" class="edit-input"></div>
+    </div>
+    <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="pr-desc" class="edit-input"></div>`,
+    async()=>{
+      const amount=parseInt(document.getElementById('pr-amount').value)||0;if(!amount)return false;
+      await saveProspectRevenue(id,{Type:document.getElementById('pr-type').value,Amount:amount,DateFrom:document.getElementById('pr-from').value||null,DateTo:document.getElementById('pr-to').value||null,Description:document.getElementById('pr-desc').value||null});
+      loadProspectRevenuesUI(id);renderKanban();
+      return true;
+    }
+  );
+}
+async function editProspectRevItem(id,itemId){
+  const items=await loadProspectRevenues(id);
+  const it=items.find(x=>x.Id===itemId);if(!it)return;
+  showDialog('Redigera intäktspost',
+    `<div class="modal-field"><label>Typ</label><select id="pr-type" class="edit-input"><option value="ARR" ${it.Type==='ARR'?'selected':''}>Licens (prenumeration)</option><option value="Fastpris" ${it.Type==='Fastpris'?'selected':''}>Licens (fast pris)</option><option value="Utbildning" ${it.Type==='Utbildning'?'selected':''}>Utbildning</option><option value="Consulting" ${it.Type==='Consulting'?'selected':''}>Consulting</option></select></div>
+    <div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="pr-amount" type="number" class="edit-input" value="${it.Amount||0}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+      <div class="modal-field"><label>Från datum</label><input id="pr-from" type="date" class="edit-input" value="${it.DateFrom?it.DateFrom.substring(0,10):''}"></div>
+      <div class="modal-field"><label>Till datum</label><input id="pr-to" type="date" class="edit-input" value="${it.DateTo?it.DateTo.substring(0,10):''}"></div>
+    </div>
+    <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="pr-desc" class="edit-input" value="${(it.Description||'').replace(/"/g,'&quot;')}"></div>`,
+    async()=>{
+      await saveProspectRevenue(id,{Id:itemId,Type:document.getElementById('pr-type').value,Amount:parseInt(document.getElementById('pr-amount').value)||0,DateFrom:document.getElementById('pr-from').value||null,DateTo:document.getElementById('pr-to').value||null,Description:document.getElementById('pr-desc').value||null});
+      loadProspectRevenuesUI(id);renderKanban();
+      return true;
+    }
+  );
+}
+async function deleteProspectRevItemUI(id,itemId){
+  if(!confirm('Ta bort intäktsposten?'))return;
+  await deleteProspectRevenue(id,itemId);
+  loadProspectRevenuesUI(id);renderKanban();
 }
 function renderProspectBody(p,acts){
   const is='class="edit-input"';
@@ -1263,6 +1377,7 @@ function renderProspectBody(p,acts){
           <div class="modal-field"><label>Källa</label><select id="p-source" ${is}>${srcOpts}</select></div>
           <div class="modal-field"><label>Kundansvarig</label><select id="p-owner" ${is}>${ownerOpts}</select></div>
           <div class="modal-field"><label>Score</label><input ${is} id="p-score" type="number" min="0" max="100" value="${p?.Score||''}"></div>
+          <div class="modal-field" style="grid-column:span 2;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="p-waiting" ${p?.WaitingForResponse?'checked':''} style="width:16px;height:16px;cursor:pointer;"><span>Väntar på svar från kund (INVÄNTAR)</span></label></div>
         </div></div></div>
       <div class="modal-section"><div class="modal-section-label">Nästa åtgärd</div>
         <div class="modal-card"><div class="modal-grid">
@@ -1313,6 +1428,13 @@ function renderProspectBody(p,acts){
         </div></div>
       <div style="display:flex;flex-direction:column;gap:8px;">${actsHtml}</div>`;
   }
+  if(currentProspectTab===3){
+    document.getElementById('prospect-body').innerHTML=`
+      <div class="modal-section"><div class="modal-section-label">Intäktsposter <button class="btn-sm" style="margin-left:8px;" onclick="openAddProspectRevenue(${p?.Id})">+ Lägg till</button></div>
+        <div id="p-revenues-list"><div class="loading"><div class="spinner"></div></div></div>
+        <div class="modal-card" style="margin-top:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Totalt affärsvärde</span><span id="p-revenues-total" style="font-size:16px;font-weight:600;color:var(--accent);">–</span></div></div>
+      </div>`;
+  }
 }
 function onStageChange(){
   const stage=document.getElementById('p-stage')?.value;
@@ -1325,7 +1447,7 @@ function onStageChange(){
 }
 function getProspectBody(p){
   const exp=document.getElementById('p-expected-start')?.value||'';
-  return{company:document.getElementById('p-company')?.value||'',contact:document.getElementById('p-contact')?.value||'',role:document.getElementById('p-role')?.value||'',email:document.getElementById('p-email')?.value||'',phone:document.getElementById('p-phone')?.value||'',employees:parseInt(document.getElementById('p-employees')?.value)||null,industry:document.getElementById('p-industry')?.value||'',source:document.getElementById('p-source')?.value||'',owner:document.getElementById('p-owner')?.value||'Matilda Olsson',stage:document.getElementById('p-stage')?.value||'Prospect Identified',score:parseInt(document.getElementById('p-score')?.value)||0,nextActionType:document.getElementById('p-action-type')?.value||null,nextActionDate:document.getElementById('p-action-date')?.value||null,valueMin:parseInt(document.getElementById('p-valmin')?.value)||null,valueMax:parseInt(document.getElementById('p-valmax')?.value)||null,value:parseInt(document.getElementById('p-valmax')?.value)||parseInt(document.getElementById('p-valmin')?.value)||0,probability:parseInt(document.getElementById('p-prob')?.value)||null,lostReason:document.getElementById('p-lostreason')?.value||null,notes:document.getElementById('p-notes')?.value||'',revenueCategory:document.getElementById('p-revenue-category')?.value||null,expectedStartMonth:exp?exp+'-01':null};
+  return{company:document.getElementById('p-company')?.value||'',contact:document.getElementById('p-contact')?.value||'',role:document.getElementById('p-role')?.value||'',email:document.getElementById('p-email')?.value||'',phone:document.getElementById('p-phone')?.value||'',employees:parseInt(document.getElementById('p-employees')?.value)||null,industry:document.getElementById('p-industry')?.value||'',source:document.getElementById('p-source')?.value||'',owner:document.getElementById('p-owner')?.value||'Matilda Olsson',stage:document.getElementById('p-stage')?.value||'Prospect Identified',score:parseInt(document.getElementById('p-score')?.value)||0,nextActionType:document.getElementById('p-action-type')?.value||null,nextActionDate:document.getElementById('p-action-date')?.value||null,valueMin:parseInt(document.getElementById('p-valmin')?.value)||null,valueMax:parseInt(document.getElementById('p-valmax')?.value)||null,value:parseInt(document.getElementById('p-valmax')?.value)||parseInt(document.getElementById('p-valmin')?.value)||0,probability:parseInt(document.getElementById('p-prob')?.value)||null,lostReason:document.getElementById('p-lostreason')?.value||null,notes:document.getElementById('p-notes')?.value||'',revenueCategory:document.getElementById('p-revenue-category')?.value||null,expectedStartMonth:exp?exp+'-01':null,waitingForResponse:document.getElementById('p-waiting')?.checked?1:0};
 }
 async function createProspect(){const body=getProspectBody(null);try{const r=await apiFetch(`${API}/prospects`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte skapa prospect.');}}
 async function saveProspect(id){const body=getProspectBody(allProspects.find(x=>x.Id===id));try{const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte spara.');}}
@@ -1336,6 +1458,34 @@ function closeProspectModal(e){if(e.target===document.getElementById('prospect-o
 function closeProspectModalDirect(){document.getElementById('prospect-overlay').classList.remove('open');}
 // ─── KUNDANALYS (rebuild) ────────────────────────────────
 let kaSelectedCust=null,kaTypes=new Set(['ARR','Fastpris','Consulting','Utbildning']),kaYearSet=new Set([0]),kaOwner='',kaExpanded=new Set(),kaTableSort={col:'v26',asc:false},kaRowExpanded=new Set();
+let kaCache={aggEntries:[],kpiYear:new Date().getFullYear()};
+let kaAllSort={col:'cur',asc:false};
+function openKaAllModal(mode){
+  const isTop=mode==='top';
+  const yr=kaCache.kpiYear;
+  showDialog(isTop?`Topp intäkt – alla (${yr})`:`Snabbast växande – alla (${yr-1}→${yr})`,
+    `<input id="ka-all-search" class="edit-input" placeholder="Sök organisation..." oninput="renderKaAllModalBody('${mode}')" style="margin-bottom:10px;">
+    <div style="max-height:420px;overflow:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead style="position:sticky;top:0;background:var(--surface2);"><tr><th style="text-align:left;padding:8px;cursor:pointer;" onclick="kaAllSortBy('name','${mode}')">Namn</th><th style="text-align:right;padding:8px;cursor:pointer;" onclick="kaAllSortBy('cur','${mode}')">Intäkt ${yr}</th><th style="text-align:right;padding:8px;cursor:pointer;" onclick="kaAllSortBy('prev','${mode}')">${yr-1}</th>${isTop?'':`<th style="text-align:right;padding:8px;cursor:pointer;" onclick="kaAllSortBy('growth','${mode}')">Tillväxt</th>`}</tr></thead><tbody id="ka-all-body"></tbody></table></div>`,
+    async()=>true
+  );
+  kaAllSort={col:isTop?'cur':'growth',asc:false};
+  setTimeout(()=>renderKaAllModalBody(mode),20);
+}
+function kaAllSortBy(col,mode){
+  if(kaAllSort.col===col)kaAllSort.asc=!kaAllSort.asc;
+  else{kaAllSort.col=col;kaAllSort.asc=false;}
+  renderKaAllModalBody(mode);
+}
+function renderKaAllModalBody(mode){
+  const isTop=mode==='top';
+  const q=(document.getElementById('ka-all-search')?.value||'').toLowerCase();
+  let entries=isTop?kaCache.aggEntries.slice():kaCache.aggEntries.filter(e=>e.prev>0).map(e=>({...e,growth:Math.round((e.cur-e.prev)/e.prev*100)}));
+  entries=entries.filter(e=>(e.name||'').toLowerCase().includes(q));
+  entries.sort((a,b)=>{const av=a[kaAllSort.col]??'';const bv=b[kaAllSort.col]??'';if(typeof av==='string')return kaAllSort.asc?av.localeCompare(bv):bv.localeCompare(av);return kaAllSort.asc?av-bv:bv-av;});
+  const body=document.getElementById('ka-all-body');if(!body)return;
+  if(!entries.length){body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text3);">Inga träffar.</td></tr>';return;}
+  body.innerHTML=entries.map((e,i)=>`<tr><td style="padding:6px 8px;">${i+1}. ${e.name}${e.isKoncern?' <span style="font-size:10px;color:var(--text3);text-transform:uppercase;">koncern</span>':''}</td><td style="text-align:right;padding:6px 8px;">${e.cur?Math.round(e.cur/1000).toLocaleString('sv-SE')+'k kr':'–'}</td><td style="text-align:right;padding:6px 8px;color:var(--text3);">${e.prev?Math.round(e.prev/1000).toLocaleString('sv-SE')+'k kr':'–'}</td>${isTop?'':`<td style="text-align:right;padding:6px 8px;color:${e.growth>=0?'var(--green)':'var(--red)'};font-weight:500;">${e.growth>=0?'+':''}${e.growth}%</td>`}</tr>`).join('');
+}
 let kaRevCache={};
 async function kaFetchAll(){const missing=allCustomers.filter(c=>!kaRevCache[c.Id]);await Promise.all(missing.map(c=>apiFetch(`${API}/customers/${c.Id}/revenues`).then(r=>r.json()).then(items=>{kaRevCache[c.Id]=items;}).catch(()=>{kaRevCache[c.Id]=[];})));}
 function kaCalcYear(items,year){if(year===0)return items.filter(i=>kaTypes.has(i.Type)).reduce((s,i)=>s+(i.Amount||0),0);return items.filter(i=>kaTypes.has(i.Type)).reduce((s,i)=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yS=new Date(year,0,1),yE=new Date(year,11,31);if(!from&&!to)return s+(i.Amount||0);if(!from||!to)return s+(i.Amount||0);if(from>yE||to<yS)return s;const td=Math.max(1,Math.round((to-from)/86400000));const oS=from>yS?from:yS,oE=to<yE?to:yE;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);return s+Math.round((i.Amount||0)*od/td);},0);}
@@ -1503,9 +1653,10 @@ function renderKaAlla(viewCusts){
   const top5=[...aggEntries].sort((a,b)=>b.cur-a.cur).slice(0,5);
   const maxTop=Math.max(...top5.map(e=>e.cur),1);
   const top5Html=top5.length&&top5[0].cur>0?top5.map((e,i)=>`<div class="ka-top-row" ${entryClick(e)}><span class="rank">${i+1}</span><div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.name}${e.isKoncern?' <span style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">koncern</span>':(e.subName?` <span style="font-size:10px;color:var(--text3);">${e.subName}</span>`:'')}</span><span class="val">${e.cur>0?Math.round(e.cur/1000)+'k':'–'}</span></div><div style="height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;"><div style="width:${Math.round(e.cur/maxTop*100)}%;height:4px;background:var(--accent);border-radius:2px;"></div></div></div></div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px;">Ingen data</div>';
-  const growing=aggEntries.filter(e=>e.prev>0).map(e=>({...e,growth:Math.round((e.cur-e.prev)/e.prev*100)})).sort((a,b)=>b.growth-a.growth).slice(0,5);
+  const growing=aggEntries.filter(e=>e.prev>0).map(e=>({...e,growth:Math.round((e.cur-e.prev)/e.prev*100)})).sort((a,b)=>b.growth-a.growth).slice(0,3);
   const growHtml=growing.length?growing.map((e,i)=>`<div class="ka-top-row" ${entryClick(e)}><span class="rank">${i+1}</span><span class="name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.name}${e.isKoncern?' <span style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">koncern</span>':''}</span><span class="val" style="color:${e.growth>=0?'var(--green)':'var(--red)'};font-weight:600;">${e.growth>=0?'+':''}${e.growth}%</span></div>`).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px;">Ingen data</div>';
-  document.getElementById('ka-side-content').innerHTML=`<div class="ka-side-section"><div class="ka-card-title">Topp 5 – Intäkt ${kpiYear}</div><div class="ka-top-list">${top5Html}</div></div><div class="ka-side-divider"></div><div class="ka-side-section"><div class="ka-card-title">Snabbast växande ${kpiYear-1}→${kpiYear}</div><div class="ka-top-list">${growHtml}</div></div>`;
+  kaCache={aggEntries,kpiYear};
+  document.getElementById('ka-side-content').innerHTML=`<div class="ka-side-section"><div class="ka-card-title" style="display:flex;justify-content:space-between;align-items:center;">Topp 5 – Intäkt ${kpiYear}<button class="btn-sm" onclick="openKaAllModal('top')" style="font-size:10px;background:none;color:var(--accent);border:1px solid var(--accent);padding:2px 8px;">Visa alla →</button></div><div class="ka-top-list">${top5Html}</div></div><div class="ka-side-divider"></div><div class="ka-side-section"><div class="ka-card-title" style="display:flex;justify-content:space-between;align-items:center;">Topp 3 snabbast växande ${kpiYear-1}→${kpiYear}<button class="btn-sm" onclick="openKaAllModal('growth')" style="font-size:10px;background:none;color:var(--accent);border:1px solid var(--accent);padding:2px 8px;">Visa alla →</button></div><div class="ka-top-list">${growHtml}</div></div>`;
 
   // Table — no row caret/expansion, only koncern groups still expandable
   const avgK=viewCusts.length>0?Math.round(viewCusts.reduce((s,c)=>s+kaCalcYear((kaRevCache[c.Id]||[]),kpiYear),0)/viewCusts.length):0;
@@ -2065,7 +2216,10 @@ async function loadBudgetVersion(){
 }
 
 function renderBudgetTable(){
-  const year=parseInt(document.getElementById('budget-year-select').value)||new Date().getFullYear();
+  const versionYear=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId))?.Year;
+  const yearSel=document.getElementById('budget-year-select');
+  if(versionYear&&yearSel&&parseInt(yearSel.value)!==versionYear){if([...yearSel.options].some(o=>parseInt(o.value)===versionYear))yearSel.value=String(versionYear);}
+  const year=versionYear||parseInt(yearSel?.value)||new Date().getFullYear();
   const rowMap={};
   budgetRows.forEach(r=>{rowMap[`${r.Category}__${r.SubCategory}`]=r;});
 
@@ -2668,26 +2822,32 @@ function tpCardHtml(item,type){
   const progress=item.Progress||[false,false,false,false,false,false];
   const action=tpRecommendedAction(item);
   const srcColor=SOURCE_COLORS[item.Source]||'#8b90b0';
+  const firstUndone=(()=>{for(let i=0;i<6;i++)if(!progress[i])return i;return -1;})();
   const stepsHtml=TP_STEPS_SHORT.map((short,i)=>{
     const done=progress[i];
-    return`<div class="tp-tprog-step ${done?'done':''}" title="${TP_STEPS[i]}" onclick="event.stopPropagation();toggleTpStep('${type}',${item.Id},${i})"><div class="circle">${done?'✓':(i+1)}</div><div class="label">${short}</div></div>`;
+    const active=!done&&i===firstUndone;
+    const cls=done?'done':active?'active':'';
+    const inner=done?'✓':active?'!':(i+1);
+    return`<div class="tp-tprog-step ${cls}" title="${TP_STEPS[i]}" onclick="event.stopPropagation();toggleTpStep('${type}',${item.Id},${i})"><div class="circle">${inner}</div><div class="label">${short}</div></div>`;
   }).join('');
   let metaHtml='';
   if(type==='trial'){metaHtml=tpDaysBadge(days);}
   else{const dd=item.DecisionDate?new Date(item.DecisionDate).toLocaleDateString('sv-SE'):'–';metaHtml=`<span class="badge b-blue">Beslut ${dd}</span>`;}
-  const pilotExtras=type==='pilot'?` · ${item.Participants||0} deltagare · ${item.ExpectedARR?fmtKr(item.ExpectedARR)+' förv. ARR':'–'}`:'';
+  const totalVal=type==='pilot'?(item.ExpectedARR||0):0;
+  const totalValHtml=totalVal?`<span class="badge" style="background:var(--green-bg);color:var(--green);">${fmtKr(totalVal)}</span>`:'';
   const periodLine=`Igång: <strong>${elapsed??'–'} dagar</strong> · Kvar: <strong>${days??'–'} dagar</strong>`;
   return`<div class="tp-card urg-${urg}" id="tp-card-${type}-${item.Id}" style="cursor:pointer;" onclick="openTpModal('${type}',${item.Id})">
     <div class="tp-card-head">
       <div class="tp-card-head-left">
         <span class="tp-card-name">${item.Company||'–'}</span>
         ${metaHtml}
-        <span class="badge" style="background:${srcColor}22;color:${srcColor};">${item.Source||'–'}</span>
+        ${totalValHtml}
+        <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${srcColor};"></span>${item.Source||'–'}</span>
         <span class="tp-card-owner">${item.Owner||'–'}</span>
       </div>
       ${action?`<div class="tp-action-r sev-${action.sev}">${action.text}</div>`:''}
     </div>
-    <div class="tp-card-sub">${item.Contact||'–'}${item.Role?` · ${item.Role}`:''}${pilotExtras}</div>
+    <div class="tp-card-sub">${item.Contact||'–'}</div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">${periodLine}</div>
     <div class="tp-tprog">${stepsHtml}</div>
   </div>`;
