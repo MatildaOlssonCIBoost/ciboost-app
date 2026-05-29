@@ -419,6 +419,22 @@
   .ark-expand-btn { background:none; border:none; cursor:pointer; padding:4px; color:var(--text3); }
   .ark-expand-row { background:var(--surface2); }
   .ark-expand-row td { padding:10px 16px; font-size:12px; color:var(--text2); }
+  /* ─── Föreslagen kommunikation (Aktivering-fliken) ─── */
+  .tp-mail-suggest { background:#E6F1FB; border:1px solid #c5dbef; border-radius:8px; padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; transition:background 0.15s; }
+  .tp-mail-suggest:hover { background:#dcebf6; }
+  .tp-mail-suggest.open { border-bottom-left-radius:0; border-bottom-right-radius:0; }
+  .tp-mail-suggest .icon { font-size:20px; }
+  .tp-mail-suggest .title { font-weight:600; font-size:13px; color:#185FA5; }
+  .tp-mail-suggest .desc { font-size:11px; color:#185FA5; opacity:0.8; margin-top:2px; }
+  .tp-mail-suggest .chevron { margin-left:auto; color:#185FA5; transition:transform 0.15s; }
+  .tp-mail-suggest.open .chevron { transform:rotate(90deg); }
+  .tp-mail-panel { background:var(--surface); border:1px solid #c5dbef; border-top:none; border-radius:0 0 8px 8px; padding:14px 16px; display:none; }
+  .tp-mail-panel.open { display:block; }
+  .tp-mail-panel .field { margin-bottom:10px; }
+  .tp-mail-panel .field label { font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:4px; }
+  .tp-mail-panel input, .tp-mail-panel textarea { width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:6px; font-family:'Poppins',sans-serif; font-size:12px; color:var(--text); background:var(--surface); outline:none; }
+  .tp-mail-panel textarea { resize:vertical; min-height:140px; font-family:'Courier New',monospace; }
+  .tp-mail-actions { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
 </style>
 </head><body>
 <nav class="topnav">
@@ -2334,12 +2350,70 @@ function closeTpModalDirect(){
   currentTpId=null;currentTpType=null;
   renderTrialPilot();
 }
+let mailTemplates=[
+  {subject:'Välkommen till CIBoost!',desc:'Välkomstmail med tips för att komma igång.',body:`Hej {namn},\n\nVälkommen till CIBoost – vi är glada att ha {företag} ombord!\n\nNågra tips för att komma igång snabbt:\n• Bjud in ditt team så de kan börja köra sessioner\n• Kika igenom modulerna i översikten\n• Boka en kort genomgång om något känns oklart\n\nHör av dig om du behöver hjälp.\n\nHälsningar,\nCIBoost-teamet`},
+  {subject:'Bra start – nu är du redo att köra!',desc:'Uppmuntran efter modulval, peka mot nästa steg.',body:`Hej {namn},\n\nVad kul att ni har valt era moduler – {företag} är nu redo att börja köra på riktigt!\n\nNästa steg är att bjuda in teamet och boka in första sessionen. Säg till om ni vill ha hjälp med upplägget.\n\nHälsningar,\nCIBoost-teamet`},
+  {subject:'Dags att bjuda in ditt team',desc:'Guide för att bjuda in medlemmar.',body:`Hej {namn},\n\nFör att få ut det mesta av CIBoost rekommenderar vi att ni bjuder in hela teamet på {företag} så snart som möjligt.\n\nDet går snabbt:\n1. Logga in på admin-panelen\n2. Klicka på "Bjud in medlemmar"\n3. Lägg in e-postadresser eller importera en CSV-fil\n\nSäg till om du behöver hjälp.\n\nHälsningar,\nCIBoost-teamet`},
+  {subject:'Grattis till första sessionen!',desc:'Uppmuntran efter första sessionen, peka mot fler.',body:`Hej {namn},\n\nGrattis till {företag}s första session på CIBoost! Hur upplevde teamet det?\n\nNästa steg är att göra det till en vana – vi rekommenderar minst två sessioner i veckan för bästa effekt.\n\nVilken funktion vill ni testa härnäst?\n\nHälsningar,\nCIBoost-teamet`},
+  {subject:'Ni kör bra – dags att ta nästa steg',desc:'Konverteringserbjudande inför avslut.',body:`Hej {namn},\n\nVi har sett att {företag} kör flera sessioner – riktigt bra jobbat!\n\nNu när ni har sett värdet av plattformen, vill du höra mer om vägen till full licens? Vi har just nu ett kampanjpris för team som tar steget under testperioden.\n\nKan vi boka 15 minuter för att gå igenom?\n\nHälsningar,\nCIBoost-teamet`},
+  {subject:'Hur har det gått? Dags att summera',desc:'Offert / avslutsmöte efter pulsmätning.',body:`Hej {namn},\n\nTestperioden närmar sig sitt slut – och baserat på er pulsmätning ser det riktigt bra ut för {företag}!\n\nJag vill gärna boka ett avslutande möte för att:\n• Summera resultaten\n• Visa dashboard-värdet\n• Presentera offert för full licens\n\nVilken dag passar nästa vecka?\n\nHälsningar,\nCIBoost-teamet`}
+];
+function tpFirstUndoneStep(item){
+  const p=item.Progress||[false,false,false,false,false,false];
+  for(let i=0;i<6;i++)if(!p[i])return i;
+  return 5;
+}
+function tpFillMail(text,item){
+  const namn=(item.Contact||'').split(' ')[0]||'där';
+  return (text||'').replace(/\{namn\}/g,namn).replace(/\{företag\}/g,item.Company||'er');
+}
+function toggleTpMailPanel(){
+  const head=document.getElementById('tp-mail-head');
+  const panel=document.getElementById('tp-mail-panel');
+  if(!panel)return;
+  const open=panel.classList.toggle('open');
+  if(head)head.classList.toggle('open',open);
+}
+function tpMailOpenOutlook(){
+  const to=document.getElementById('tp-mail-to')?.value||'';
+  const subject=document.getElementById('tp-mail-subject')?.value||'';
+  const body=document.getElementById('tp-mail-body')?.value||'';
+  window.location.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+function tpMailCopy(){
+  const to=document.getElementById('tp-mail-to')?.value||'';
+  const subject=document.getElementById('tp-mail-subject')?.value||'';
+  const body=document.getElementById('tp-mail-body')?.value||'';
+  const txt=`Till: ${to}\nÄmne: ${subject}\n\n${body}`;
+  if(navigator.clipboard)navigator.clipboard.writeText(txt).then(()=>showSaveIndicator('✓ Kopierat','#1a7a50'));
+}
+function tpMailToggleEditTemplate(stepIdx){
+  const edit=document.getElementById('tp-mail-edit');if(!edit)return;
+  if(edit.style.display!=='none'){edit.style.display='none';return;}
+  const t=mailTemplates[stepIdx];
+  document.getElementById('tp-mail-tpl-subject').value=t.subject;
+  document.getElementById('tp-mail-tpl-body').value=t.body;
+  edit.style.display='block';
+}
+function tpMailSaveTemplate(stepIdx){
+  mailTemplates[stepIdx].subject=document.getElementById('tp-mail-tpl-subject').value;
+  mailTemplates[stepIdx].body=document.getElementById('tp-mail-tpl-body').value;
+  const arr=currentTpType==='trial'?allTrials:allPilots;
+  const item=arr.find(x=>x.Id===currentTpId);if(!item)return;
+  document.getElementById('tp-mail-subject').value=tpFillMail(mailTemplates[stepIdx].subject,item);
+  document.getElementById('tp-mail-body').value=tpFillMail(mailTemplates[stepIdx].body,item);
+  document.getElementById('tp-mail-head').querySelector('.title').textContent=mailTemplates[stepIdx].subject;
+  document.getElementById('tp-mail-head').querySelector('.desc').textContent=mailTemplates[stepIdx].desc;
+  document.getElementById('tp-mail-edit').style.display='none';
+  showSaveIndicator('✓ Mall sparad','#1a7a50');
+}
 function renderTpModalBody(){
   if(!currentTpId)return;
   const arr=currentTpType==='trial'?allTrials:allPilots;
   const item=arr.find(x=>x.Id===currentTpId);if(!item)return;
   const is='class="edit-input"';
   const body=document.getElementById('tp-modal-body');
+  const urg=tpUrgency(item.EndDate?daysLeft(item.EndDate):null);
   if(currentTpModalTab===1){
     const ownerOpts=OWNERS.map(o=>`<option ${item.Owner===o?'selected':''}>${o}</option>`).join('');
     const srcOpts=TP_SOURCES.map(s=>`<option ${item.Source===s?'selected':''}>${s}</option>`).join('');
@@ -2362,11 +2436,14 @@ function renderTpModalBody(){
             <div class="modal-field"><label>Källa</label><select ${is} id="tpm-source">${srcOpts}</select></div>
           </div></div></div>
       <div class="modal-section"><div class="modal-section-label">Licens</div>
-        <div class="modal-card"><div class="modal-grid">
-          <div class="modal-field"><label>Startdatum</label><input ${is} id="tpm-start" type="date" value="${item.StartDate?item.StartDate.substring(0,10):''}"></div>
-          <div class="modal-field"><label>Slutdatum</label><input ${is} id="tpm-end" type="date" value="${item.EndDate?item.EndDate.substring(0,10):''}"></div>
-          <div class="modal-field"><label>Typ</label><select ${is} id="tpm-type" onchange="document.getElementById('tpm-pilot-section').style.display=this.value==='Pilot'?'flex':'none';">${typeOpts}</select></div>
-        </div></div></div>
+        <div class="modal-card">
+          <div class="modal-grid">
+            <div class="modal-field"><label>Startdatum</label><input ${is} id="tpm-start" type="date" value="${item.StartDate?item.StartDate.substring(0,10):''}"></div>
+            <div class="modal-field"><label>Slutdatum</label><input ${is} id="tpm-end" type="date" value="${item.EndDate?item.EndDate.substring(0,10):''}"></div>
+            <div class="modal-field"><label>Typ</label><select ${is} id="tpm-type" onchange="document.getElementById('tpm-pilot-section').style.display=this.value==='Pilot'?'flex':'none';">${typeOpts}</select></div>
+          </div>
+          <div style="margin-top:12px;">${tpTimelineHtml(item,urg)}</div>
+        </div></div>
       <div id="tpm-pilot-section" style="display:${currentTpType==='pilot'?'flex':'none'};flex-direction:column;gap:8px;">
         <div class="modal-section-label">Pilot-detaljer</div>
         <div class="modal-card"><div class="modal-grid">
@@ -2383,10 +2460,38 @@ function renderTpModalBody(){
       const done=progress[i];
       return`<div class="tp-tprog-step ${done?'done':''}" title="${TP_STEPS[i]}" onclick="toggleTpStep('${currentTpType}',${item.Id},${i})"><div class="circle">${done?'✓':(i+1)}</div><div class="label">${short}</div></div>`;
     }).join('');
-    const urg=tpUrgency(item.EndDate?daysLeft(item.EndDate):null);
+    const stepIdx=tpFirstUndoneStep(item);
+    const tpl=mailTemplates[stepIdx];
+    const subjectFilled=tpFillMail(tpl.subject,item);
+    const bodyFilled=tpFillMail(tpl.body,item);
     body.innerHTML=`
       <div class="modal-section"><div class="modal-section-label">Aktiveringssteg</div>
         <div class="modal-card"><div class="tp-tprog" style="margin:8px 0;">${stepsHtml}</div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Föreslagen kommunikation</div>
+        <div class="tp-mail-suggest" id="tp-mail-head" onclick="toggleTpMailPanel()">
+          <div class="icon">✉️</div>
+          <div>
+            <div class="title">${tpl.subject}</div>
+            <div class="desc">Steg ${stepIdx+1}: ${tpl.desc}</div>
+          </div>
+          <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+        </div>
+        <div class="tp-mail-panel" id="tp-mail-panel">
+          <div class="field"><label>Till</label><input id="tp-mail-to" value="${item.Email||''}"></div>
+          <div class="field"><label>Ämne</label><input id="tp-mail-subject" value="${subjectFilled.replace(/"/g,'&quot;')}"></div>
+          <div class="field"><label>Brödtext</label><textarea id="tp-mail-body">${bodyFilled}</textarea></div>
+          <div class="tp-mail-actions">
+            <button class="btn-sm" onclick="tpMailOpenOutlook()">Öppna i Outlook</button>
+            <button class="btn-sm" onclick="tpMailCopy()">Kopiera</button>
+            <button class="btn-sm" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);" onclick="tpMailToggleEditTemplate(${stepIdx})">Redigera mall</button>
+          </div>
+          <div id="tp-mail-edit" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+            <div class="field"><label>Ämne (mall)</label><input id="tp-mail-tpl-subject" value=""></div>
+            <div class="field"><label>Brödtext (mall – använd {namn} och {företag})</label><textarea id="tp-mail-tpl-body"></textarea></div>
+            <button class="btn-sm" onclick="tpMailSaveTemplate(${stepIdx})">Spara mall</button>
+          </div>
+        </div>
+      </div>
       <div class="modal-section"><div class="modal-section-label">Körda sessioner</div>
         <div class="modal-card"><div class="modal-field"><label>Datum (kommaseparerad eller en per rad)</label><textarea ${is} id="tpm-sessions" style="height:90px;resize:vertical;">${item.Sessions||''}</textarea></div></div></div>
       <div class="modal-section"><div class="modal-section-label">Aktivitet</div>
@@ -2394,8 +2499,6 @@ function renderTpModalBody(){
           <div class="modal-field"><label>Senast aktiv</label><input ${is} id="tpm-lastactive" type="date" value="${item.LastActive?item.LastActive.substring(0,10):''}"></div>
           <div class="modal-field"><label>Antal inbjudna</label><input ${is} id="tpm-invited" type="number" value="${item.InvitedCount??''}"></div>
         </div></div></div>
-      <div class="modal-section"><div class="modal-section-label">Licenstidslinje</div>
-        <div class="modal-card">${tpTimelineHtml(item,urg)}</div></div>
       <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);"><button class="btn-primary" onclick="saveTpFromModal();showSaveIndicator('✓ Sparat','#1a7a50');">Spara</button></div>`;
   }
 }
