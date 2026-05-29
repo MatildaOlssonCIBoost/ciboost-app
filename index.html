@@ -312,6 +312,8 @@
   .kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.1s, opacity 0.1s; }
   .kanban-card:hover { border-color: var(--accent); }
   .kanban-card.dragging { opacity: 0.4; cursor: grabbing; }
+  .kanban-card.drop-above { box-shadow: 0 -2px 0 0 var(--accent); }
+  .kanban-card.drop-below { box-shadow: 0 2px 0 0 var(--accent); }
   .kanban-col.drop-active { background: var(--accent-bg); outline: 2px dashed var(--accent); outline-offset: -4px; border-radius: 8px; }
   .status-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
   .status-dot.agera { background: var(--amber); box-shadow: 0 0 0 2px var(--amber-bg); }
@@ -734,9 +736,9 @@
           <button class="rev-dd-btn" onclick="fcToggleDD(event)">Intäktskällor <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
           <div class="rev-dd-panel" id="fc-source-panel" style="display:none;">
             <div class="rev-dd-item" onclick="fcToggleSource('ARR')"><div class="rev-cb on" id="fc-cb-ARR"></div><span class="rev-dot" style="background:#1a7a50;"></span>Licens (prenumeration)</div>
-            <div class="rev-dd-item" onclick="fcToggleSource('Fastpris')"><div class="rev-cb" id="fc-cb-Fastpris"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Licens (fast pris)</div>
-            <div class="rev-dd-item" onclick="fcToggleSource('Consulting')"><div class="rev-cb" id="fc-cb-Consulting"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
-            <div class="rev-dd-item" onclick="fcToggleSource('Utbildning')"><div class="rev-cb" id="fc-cb-Utbildning"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
+            <div class="rev-dd-item" onclick="fcToggleSource('Fastpris')"><div class="rev-cb on" id="fc-cb-Fastpris"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Licens (fast pris)</div>
+            <div class="rev-dd-item" onclick="fcToggleSource('Consulting')"><div class="rev-cb on" id="fc-cb-Consulting"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
+            <div class="rev-dd-item" onclick="fcToggleSource('Utbildning')"><div class="rev-cb on" id="fc-cb-Utbildning"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
           </div>
         </div>
         <div class="fc-churn-control">
@@ -796,6 +798,7 @@
         <select id="filter-tp-owner" onchange="renderTpList()"><option value="">Alla kundansvariga</option><option>Matilda Olsson</option><option>Alexandra Henningson</option></select>
         <select id="filter-tp-source" onchange="renderTpList()"><option value="">Alla källor</option><option>Wow</option><option>Hemsida demo</option><option>30-dagars</option><option>Traditionell</option><option>Partners</option><option>Event</option><option>Utbildningsprogram</option></select>
         <select id="filter-tp-industry" onchange="renderTpList()"><option value="">Alla branscher</option></select>
+        <select id="filter-tp-sort" onchange="renderTpList()" style="margin-left:auto;"><option value="time">Kortast tid kvar</option><option value="steps">Flest steg först</option><option value="name">Namn (A-Ö)</option></select>
       </div>
       <div class="tp-list" id="tp-list"><div class="loading"><div class="spinner"></div> Laddar...</div></div>
     </div>
@@ -1192,7 +1195,7 @@ function renderKanban(){
   const today=new Date();today.setHours(0,0,0,0);
   const board=document.getElementById('kanban-board');
   board.innerHTML=STAGES.map(stage=>{
-    const cards=filtered.filter(p=>p.Stage===stage);
+    const cards=pipeOrderedIds(stage,filtered.filter(p=>p.Stage===stage));
     const isWon=stage==='Closed Won',isLost=stage==='Closed Lost';
     const cardsHtml=cards.length?cards.map(p=>{
       const srcColor=SOURCE_COLORS[p.Source]||'#8b90b0';
@@ -1213,7 +1216,7 @@ function renderKanban(){
       const totalValStr=totalVal?Math.round(totalVal/1000)+'k kr':'';
       const isWaiting=!!p.WaitingForResponse;
       const statusBlock=!isWon&&!isLost?`<div class="kc-status"><span class="status-dot ${isWaiting?'waiting':'agera'}"></span><span style="font-size:11px;font-weight:500;color:${isWaiting?'var(--blue)':'var(--amber)'};">${isWaiting?'INVÄNTAR':'AGERA'}</span></div>`:'';
-      return`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" onclick="openProspectModal(${p.Id})">
+      return`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" ondragover="onCardDragOver(event)" ondragleave="onCardDragLeave(event)" ondrop="onCardDrop(event,${p.Id},'${stage.replace(/'/g,"\\'")}')" onclick="openProspectModal(${p.Id})">
         ${statusBlock}
         <div class="kc-name">${p.Company||'-'}</div>
         <div class="kc-contact">${p.Contact||'–'}</div>
@@ -1229,19 +1232,64 @@ function renderKanban(){
   }).join('');
 }
 function prospectToBody(p){return{company:p.Company||'',contact:p.Contact||'',role:p.Role||'',email:p.Email||'',phone:p.Phone||'',employees:p.Employees||null,industry:p.Industry||'',source:p.Source||'',owner:p.Owner||'',stage:p.Stage||'',score:p.Score||0,nextActionType:p.NextActionType||null,nextActionDate:p.NextActionDate||null,valueMin:p.ValueMin||null,valueMax:p.ValueMax||null,value:p.Value||0,probability:p.Probability||null,lostReason:p.LostReason||null,notes:p.Notes||'',revenueCategory:p.RevenueCategory||null,expectedStartMonth:p.ExpectedStartMonth||null,waitingForResponse:p.WaitingForResponse?1:0};}
+function getPipelineOrder(){try{return JSON.parse(localStorage.getItem('pipelineOrder')||'{}');}catch(e){return{};}}
+function setPipelineOrder(o){localStorage.setItem('pipelineOrder',JSON.stringify(o));}
+function pipeOrderedIds(stage,allCards){
+  const order=getPipelineOrder()[stage]||[];
+  const orderedSet=new Set(order);
+  const ordered=order.map(id=>allCards.find(c=>c.Id===id)).filter(Boolean);
+  const unordered=allCards.filter(c=>!orderedSet.has(c.Id));
+  return [...ordered,...unordered];
+}
 function onCardDragStart(e,id){e.dataTransfer.setData('text/plain',String(id));e.dataTransfer.effectAllowed='move';e.currentTarget.classList.add('dragging');}
-function onCardDragEnd(e){e.currentTarget.classList.remove('dragging');document.querySelectorAll('.kanban-col.drop-active').forEach(c=>c.classList.remove('drop-active'));}
+function onCardDragEnd(e){e.currentTarget.classList.remove('dragging');document.querySelectorAll('.kanban-col.drop-active,.kanban-card.drop-above,.kanban-card.drop-below').forEach(el=>el.classList.remove('drop-active','drop-above','drop-below'));}
 function onColDragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move';e.currentTarget.classList.add('drop-active');}
 function onColDragLeave(e){if(!e.currentTarget.contains(e.relatedTarget))e.currentTarget.classList.remove('drop-active');}
+function onCardDragOver(e){e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='move';const r=e.currentTarget.getBoundingClientRect();const above=(e.clientY-r.top)<r.height/2;e.currentTarget.classList.toggle('drop-above',above);e.currentTarget.classList.toggle('drop-below',!above);}
+function onCardDragLeave(e){e.currentTarget.classList.remove('drop-above','drop-below');}
+async function onCardDrop(e,targetId,stage){
+  e.preventDefault();e.stopPropagation();
+  const above=e.currentTarget.classList.contains('drop-above');
+  e.currentTarget.classList.remove('drop-above','drop-below');
+  const draggedId=parseInt(e.dataTransfer.getData('text/plain'));
+  if(draggedId===targetId)return;
+  const p=allProspects.find(x=>x.Id===draggedId);if(!p)return;
+  const stageChanged=p.Stage!==stage;
+  if(stageChanged){p.Stage=stage;p.UpdatedAt=new Date().toISOString();}
+  // reorder within stage
+  const order=getPipelineOrder();
+  const stageCards=allProspects.filter(x=>x.Stage===stage).map(x=>x.Id);
+  let arr=(order[stage]||[]).filter(id=>stageCards.includes(id));
+  for(const id of stageCards)if(!arr.includes(id))arr.push(id);
+  arr=arr.filter(id=>id!==draggedId);
+  const targetIdx=arr.indexOf(targetId);
+  if(targetIdx>=0)arr.splice(targetIdx+(above?0:1),0,draggedId);
+  else arr.push(draggedId);
+  order[stage]=arr;
+  setPipelineOrder(order);
+  renderKanban();updatePipeKpi();
+  if(stageChanged){
+    try{const r=await apiFetch(`${API}/prospects/${draggedId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});if(!r.ok)console.error('Stage drop PUT failed:',r.status);}
+    catch(err){console.error('Stage drop error:',err);}
+  }
+}
 async function onColDrop(e,stage){
   e.preventDefault();
   e.currentTarget.classList.remove('drop-active');
   const id=parseInt(e.dataTransfer.getData('text/plain'));
-  const p=allProspects.find(x=>x.Id===id);if(!p||p.Stage===stage)return;
-  p.Stage=stage;p.UpdatedAt=new Date().toISOString();
+  const p=allProspects.find(x=>x.Id===id);if(!p)return;
+  const stageChanged=p.Stage!==stage;
+  if(stageChanged){p.Stage=stage;p.UpdatedAt=new Date().toISOString();}
+  const order=getPipelineOrder();
+  let arr=(order[stage]||[]).filter(x=>x!==id);
+  arr.push(id);
+  order[stage]=arr;
+  setPipelineOrder(order);
   renderKanban();updatePipeKpi();
-  try{const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});if(!r.ok)console.error('Stage drop PUT failed:',r.status);}
-  catch(err){console.error('Stage drop error:',err);}
+  if(stageChanged){
+    try{const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});if(!r.ok)console.error('Stage drop PUT failed:',r.status);}
+    catch(err){console.error('Stage drop error:',err);}
+  }
 }
 // ─── PROSPECT MODAL ──────────────────────────────────────
 function openNewProspect(){isNewProspect=true;currentProspectId=null;currentProspectTab=1;document.getElementById('prospect-title').textContent='Ny prospect';document.getElementById('prospect-subtitle').textContent='';document.getElementById('prospect-delete-btn').style.display='none';renderProspectTabs(null);renderProspectBody(null,[]);document.getElementById('prospect-overlay').classList.add('open');}
@@ -1258,7 +1306,7 @@ async function openProspectModal(id){
   document.getElementById('prospect-overlay').classList.add('open');
 }
 function renderProspectTabs(p){
-  const tabs=['Översikt','Aktivitet','Värde'];
+  const tabs=['Översikt','Pipeline','Värde','Aktivitet','Kontaktlogg'];
   document.getElementById('prospect-tabs').innerHTML=tabs.map((t,i)=>`<button class="modal-tab ${currentProspectTab===i+1?'active':''}" onclick="switchProspectTab(${i+1})">${i+1}. ${t}</button>`).join('');
 }
 async function switchProspectTab(tab){
@@ -1266,7 +1314,7 @@ async function switchProspectTab(tab){
   const p=allProspects.find(x=>x.Id===currentProspectId);
   renderProspectTabs(p);
   let acts=[];
-  if(tab===2&&currentProspectId){try{const r=await apiFetch(`${API}/activities/prospect/${currentProspectId}`);acts=await r.json();}catch(e){}}
+  if((tab===4||tab===5)&&currentProspectId){try{const r=await apiFetch(`${API}/activities/prospect/${currentProspectId}`);acts=await r.json();}catch(e){}}
   renderProspectBody(p,acts);
   if(tab===3&&currentProspectId)setTimeout(()=>loadProspectRevenuesUI(currentProspectId),50);
 }
@@ -1299,6 +1347,8 @@ async function loadProspectRevenuesUI(id){
   const totalEl=document.getElementById('p-revenues-total');
   const tot=items.reduce((s,i)=>s+(i.Amount||0),0);
   if(totalEl)totalEl.textContent=tot?fmtKr(tot):'–';
+  const weightedEl=document.getElementById('p-revenues-weighted');
+  if(weightedEl){const p=allProspects.find(x=>x.Id===id);const prob=(p?.Probability||0)/100;const w=Math.round(tot*prob);weightedEl.textContent=w?fmtKr(w):'–';}
   // Update cache for kanban
   const local=JSON.parse(localStorage.getItem(PROSPECT_REV_KEY(id))||'[]');
   if(items.length&&local.length===0)localStorage.setItem(PROSPECT_REV_KEY(id),JSON.stringify(items));
@@ -1316,14 +1366,25 @@ function openAddProspectRevenue(id){
       <div class="modal-field"><label>Från datum</label><input id="pr-from" type="date" class="edit-input"></div>
       <div class="modal-field"><label>Till datum</label><input id="pr-to" type="date" class="edit-input"></div>
     </div>
+    <div class="modal-field" style="margin-top:10px;"><label>Faktureringsdatum</label><input id="pr-invoice-date" type="date" class="edit-input" oninput="updateRiPaymentExpected('pr')"></div>
+    <div class="modal-field" style="margin-top:6px;font-size:11px;color:var(--text3);">Betalning förväntas: <span id="pr-payment-expected">–</span></div>
+    <div style="margin-top:10px;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="pr-paid" style="width:16px;height:16px;" onchange="document.getElementById('pr-payment-date-wrap').style.display=this.checked?'block':'none';"><span>Betalt</span></label></div>
+    <div class="modal-field" id="pr-payment-date-wrap" style="margin-top:10px;display:none;"><label>Betalningsdatum</label><input id="pr-payment-date" type="date" class="edit-input"></div>
     <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="pr-desc" class="edit-input"></div>`,
     async()=>{
       const amount=parseInt(document.getElementById('pr-amount').value)||0;if(!amount)return false;
-      await saveProspectRevenue(id,{Type:document.getElementById('pr-type').value,Amount:amount,DateFrom:document.getElementById('pr-from').value||null,DateTo:document.getElementById('pr-to').value||null,Description:document.getElementById('pr-desc').value||null});
+      await saveProspectRevenue(id,{Type:document.getElementById('pr-type').value,Amount:amount,DateFrom:document.getElementById('pr-from').value||null,DateTo:document.getElementById('pr-to').value||null,Description:document.getElementById('pr-desc').value||null,InvoiceDate:document.getElementById('pr-invoice-date').value||null,Paid:document.getElementById('pr-paid').checked?1:0,PaymentDate:document.getElementById('pr-payment-date').value||null});
       loadProspectRevenuesUI(id);renderKanban();
       return true;
     }
   );
+}
+function updateRiPaymentExpected(prefix){
+  const v=document.getElementById(`${prefix}-invoice-date`)?.value;
+  const el=document.getElementById(`${prefix}-payment-expected`);if(!el)return;
+  if(!v){el.textContent='–';return;}
+  const d=new Date(v);d.setDate(d.getDate()+30);
+  el.textContent=d.toLocaleDateString('sv-SE')+' (+30 dagar)';
 }
 async function editProspectRevItem(id,itemId){
   const items=await loadProspectRevenues(id);
@@ -1359,23 +1420,33 @@ function renderProspectBody(p,acts){
   const showLost=p?.Stage==='Closed Lost';
   if(currentProspectTab===1){
     document.getElementById('prospect-body').innerHTML=`
-      <div class="modal-section"><div class="modal-section-label">Kontakt</div>
+      <div class="modal-section"><div class="modal-section-label">Kundansvarig</div>
+        <div class="modal-card"><div class="modal-field"><label>Kundansvarig</label><select id="p-owner" ${is}>${ownerOpts}</select></div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Organisation</div>
         <div class="modal-card" style="display:flex;flex-direction:column;gap:10px;">
           <div class="modal-field"><label>Företag</label><input ${is} id="p-company" value="${p?.Company||''}"></div>
           <div class="modal-grid">
-            <div class="modal-field"><label>Kontaktperson</label><input ${is} id="p-contact" value="${p?.Contact||''}"></div>
-            <div class="modal-field"><label>Roll</label><input ${is} id="p-role" value="${p?.Role||''}"></div>
-            <div class="modal-field"><label>E-post</label><input ${is} id="p-email" type="email" value="${p?.Email||''}"></div>
-            <div class="modal-field"><label>Telefon</label><input ${is} id="p-phone" value="${p?.Phone||''}"></div>
             <div class="modal-field"><label>Antal anställda</label><input ${is} id="p-employees" type="number" value="${p?.Employees||''}"></div>
             <div class="modal-field"><label>Bransch</label><select ${is} id="p-industry"><option value="">–</option>${INDUSTRIES.map(i=>`<option ${p?.Industry===i?'selected':''}>${i}</option>`).join('')}</select></div>
           </div>
         </div></div>
+      <div class="modal-section"><div class="modal-section-label">Kontaktperson</div>
+        <div class="modal-card"><div class="modal-grid">
+          <div class="modal-field"><label>Namn</label><input ${is} id="p-contact" value="${p?.Contact||''}"></div>
+          <div class="modal-field"><label>Roll</label><input ${is} id="p-role" value="${p?.Role||''}"></div>
+          <div class="modal-field"><label>E-post</label><input ${is} id="p-email" type="email" value="${p?.Email||''}"></div>
+          <div class="modal-field"><label>Telefon</label><input ${is} id="p-phone" value="${p?.Phone||''}"></div>
+        </div></div></div>
+      <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">
+        ${isNewProspect?`<button class="btn-primary" onclick="createProspect()">Skapa prospect</button>`:`<button class="btn-primary" onclick="saveProspect(${p?.Id})">Spara</button>`}
+      </div>`;
+  }
+  if(currentProspectTab===2){
+    document.getElementById('prospect-body').innerHTML=`
       <div class="modal-section"><div class="modal-section-label">Pipeline</div>
         <div class="modal-card"><div class="modal-grid">
           <div class="modal-field"><label>Stage</label><select id="p-stage" ${is} onchange="onStageChange()">${stageOpts}</select></div>
           <div class="modal-field"><label>Källa</label><select id="p-source" ${is}>${srcOpts}</select></div>
-          <div class="modal-field"><label>Kundansvarig</label><select id="p-owner" ${is}>${ownerOpts}</select></div>
           <div class="modal-field"><label>Score</label><input ${is} id="p-score" type="number" min="0" max="100" value="${p?.Score||''}"></div>
           <div class="modal-field" style="grid-column:span 2;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="p-waiting" ${p?.WaitingForResponse?'checked':''} style="width:16px;height:16px;cursor:pointer;"><span>Väntar på svar från kund (INVÄNTAR)</span></label></div>
         </div></div></div>
@@ -1383,14 +1454,6 @@ function renderProspectBody(p,acts){
         <div class="modal-card"><div class="modal-grid">
           <div class="modal-field"><label>Typ</label><select id="p-action-type" ${is}><option value="">Ingen</option>${actionOpts}</select></div>
           <div class="modal-field"><label>Datum</label><input ${is} id="p-action-date" type="date" value="${p?.NextActionDate?p.NextActionDate.substring(0,10):''}"></div>
-        </div></div></div>
-      <div id="val-section" style="display:${showVal?'flex':'none'};flex-direction:column;gap:8px;">
-        <div class="modal-section-label">Värde</div>
-        <div class="modal-card"><div class="modal-grid">
-          <div class="modal-field"><label>Värde min (kr)</label><input ${is} id="p-valmin" type="number" value="${p?.ValueMin||''}"></div>
-          <div class="modal-field"><label>Värde max (kr)</label><input ${is} id="p-valmax" type="number" value="${p?.ValueMax||''}"></div>
-          <div class="modal-field"><label>Intäktskategori</label><select ${is} id="p-revenue-category"><option value="">–</option><option value="ARR" ${p?.RevenueCategory==='ARR'?'selected':''}>Licens (prenumeration)</option><option value="Fastpris" ${p?.RevenueCategory==='Fastpris'?'selected':''}>Licens (fast pris)</option><option value="Consulting" ${p?.RevenueCategory==='Consulting'?'selected':''}>Consulting</option><option value="Utbildning" ${p?.RevenueCategory==='Utbildning'?'selected':''}>Utbildning</option></select></div>
-          <div class="modal-field"><label>Förväntad startmånad</label><input ${is} id="p-expected-start" type="month" value="${p?.ExpectedStartMonth?p.ExpectedStartMonth.substring(0,7):''}"></div>
         </div></div></div>
       <div id="prob-section" style="display:${showProb?'flex':'none'};flex-direction:column;gap:8px;">
         <div class="modal-section-label">Sannolikhet</div>
@@ -1414,7 +1477,20 @@ function renderProspectBody(p,acts){
         ${isNewProspect?`<button class="btn-primary" onclick="createProspect()">Skapa prospect</button>`:`<button class="btn-primary" onclick="saveProspect(${p?.Id})">Spara</button>`}
       </div>`;
   }
-  if(currentProspectTab===2){
+  if(currentProspectTab===3){
+    const prob=p?.Probability||0;
+    document.getElementById('prospect-body').innerHTML=`
+      <div class="modal-section"><div class="modal-section-label">Värde – metadata</div>
+        <div class="modal-card"><div class="modal-grid">
+          <div class="modal-field"><label>Intäktskategori</label><select ${is} id="p-revenue-category"><option value="">–</option><option value="ARR" ${p?.RevenueCategory==='ARR'?'selected':''}>Licens (prenumeration)</option><option value="Fastpris" ${p?.RevenueCategory==='Fastpris'?'selected':''}>Licens (fast pris)</option><option value="Consulting" ${p?.RevenueCategory==='Consulting'?'selected':''}>Consulting</option><option value="Utbildning" ${p?.RevenueCategory==='Utbildning'?'selected':''}>Utbildning</option></select></div>
+          <div class="modal-field"><label>Förväntad startmånad</label><input ${is} id="p-expected-start" type="month" value="${p?.ExpectedStartMonth?p.ExpectedStartMonth.substring(0,7):''}"></div>
+        </div></div></div>
+      <div class="modal-section"><div class="modal-section-label">Intäktsposter <button class="btn-sm" style="margin-left:8px;" onclick="openAddProspectRevenue(${p?.Id})">+ Lägg till</button></div>
+        <div id="p-revenues-list"><div class="loading"><div class="spinner"></div></div></div>
+        <div class="modal-card" style="margin-top:8px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Totalt affärsvärde</span><span id="p-revenues-total" style="font-size:16px;font-weight:600;color:var(--accent);">–</span></div><div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid var(--border);"><span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Viktat värde <span style="font-weight:400;color:var(--text3);text-transform:none;">(${prob}%)</span></span><span id="p-revenues-weighted" style="font-size:16px;font-weight:600;color:var(--purple);">–</span></div></div>
+      </div>`;
+  }
+  if(currentProspectTab===4){
     const actsHtml=acts.length?acts.map(a=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;">${a.Type}</span><span style="font-size:11px;color:var(--text3);">${new Date(a.CreatedAt).toLocaleDateString('sv-SE')}</span></div><div style="font-size:13px;">${a.Note||''}</div></div>`).join(''):'<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Inga aktiviteter ännu</div>';
     document.getElementById('prospect-body').innerHTML=`
       <div class="modal-section"><div class="modal-section-label">Ny aktivitet</div>
@@ -1428,26 +1504,80 @@ function renderProspectBody(p,acts){
         </div></div>
       <div style="display:flex;flex-direction:column;gap:8px;">${actsHtml}</div>`;
   }
-  if(currentProspectTab===3){
-    document.getElementById('prospect-body').innerHTML=`
-      <div class="modal-section"><div class="modal-section-label">Intäktsposter <button class="btn-sm" style="margin-left:8px;" onclick="openAddProspectRevenue(${p?.Id})">+ Lägg till</button></div>
-        <div id="p-revenues-list"><div class="loading"><div class="spinner"></div></div></div>
-        <div class="modal-card" style="margin-top:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Totalt affärsvärde</span><span id="p-revenues-total" style="font-size:16px;font-weight:600;color:var(--accent);">–</span></div></div>
-      </div>`;
+  if(currentProspectTab===5){
+    document.getElementById('prospect-body').innerHTML=renderKontaktloggHtml('prospect',p?.Id,p,acts);
+  }
+}
+const KONTAKT_KIND={'Möte':{color:'#1a4f7a'},'Samtal':{color:'#1a7a50'},'E-post':{color:'#5a1a7a'},'Demo':{color:'#1a4f7a'},'Offert':{color:'#b85a00'},'Uppföljning':{color:'#3C3489'},'Annat':{color:'#888'}};
+function renderKontaktloggHtml(type,id,item,acts){
+  if(!id)return '<div style="padding:20px;color:var(--text3);font-size:13px;text-align:center;">Spara först för att kunna lägga till kontakter.</div>';
+  const nextType=item?.NextActionType;
+  const nextDate=item?.NextActionDate;
+  const waiting=!!item?.WaitingForResponse;
+  const stepBox=nextType||nextDate?`<div style="background:var(--blue-bg);border:1px solid var(--blue);border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Nästa steg</div><div style="margin-top:4px;font-size:13px;color:var(--blue);">${nextType||'–'}${nextDate?' · '+new Date(nextDate).toLocaleDateString('sv-SE'):''}</div></div><span class="badge ${waiting?'b-blue':'b-amber'}">${waiting?'INVÄNTAR':'AGERA'}</span></div>`:'';
+  let localActs=[];
+  if(type==='trial'||type==='pilot'){try{localActs=JSON.parse(localStorage.getItem(`${type}-activities-${id}`)||'[]');}catch(e){}}
+  if(type==='customer'){try{localActs=JSON.parse(localStorage.getItem(`customer-activities-${id}`)||'[]');}catch(e){}}
+  const allActs=[...(acts||[]),...localActs].sort((a,b)=>{const ad=new Date(a.Date||a.CreatedAt||0);const bd=new Date(b.Date||b.CreatedAt||0);return bd-ad;});
+  const timeline=allActs.length?`<div style="position:relative;">${allActs.map((a,i)=>{const kind=KONTAKT_KIND[a.Type]||{color:'#888'};const d=a.Date||a.CreatedAt;return`<div style="position:relative;padding:0 0 14px 24px;${i<allActs.length-1?'border-left:2px solid var(--border);margin-left:5px;padding-left:18px;':'margin-left:5px;padding-left:18px;'}"><span style="position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:${kind.color};border:2px solid var(--surface);"></span><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:${kind.color};text-transform:uppercase;">${a.Type||'Annat'}</span><span style="font-size:11px;color:var(--text3);">${d?new Date(d).toLocaleDateString('sv-SE'):''}</span></div>${a.Note?`<div style="font-size:12px;color:var(--text2);">${a.Note}</div>`:''}${a.CreatedBy?`<div style="font-size:10px;color:var(--text3);margin-top:2px;">— ${a.CreatedBy}</div>`:''}</div>`;}).join('')}</div>`:'<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px;">Inga kontakter loggade ännu.</div>';
+  const formId=`kontakt-${type}-${id}`;
+  return`${stepBox}
+    <div class="modal-section"><div class="modal-section-label">Lägg till kontakt</div>
+      <div class="modal-card">
+        <div class="modal-grid">
+          <div class="modal-field"><label>Typ</label><select id="${formId}-type" class="edit-input">${ACTION_TYPES.map(a=>`<option>${a}</option>`).join('')}</select></div>
+          <div class="modal-field"><label>Datum</label><input id="${formId}-date" type="date" class="edit-input" value="${new Date().toISOString().substring(0,10)}"></div>
+        </div>
+        <div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea id="${formId}-note" class="edit-input" style="height:60px;resize:vertical;"></textarea></div>
+        <div class="modal-grid" style="margin-top:8px;">
+          <div class="modal-field"><label>Nästa steg (fritext)</label><input id="${formId}-next" class="edit-input"></div>
+          <div class="modal-field"><label>Nästa steg datum</label><input id="${formId}-nextdate" type="date" class="edit-input"></div>
+        </div>
+        <div style="margin-top:8px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="checkbox" id="${formId}-waiting" style="width:16px;height:16px;cursor:pointer;"> Inväntar svar</label></div>
+        <button class="btn-sm" style="margin-top:10px;" onclick="addKontakt('${type}',${id})">+ Lägg till</button>
+      </div>
+    </div>
+    <div class="modal-section"><div class="modal-section-label">Tidslinje</div>${timeline}</div>`;
+}
+async function addKontakt(type,id){
+  const formId=`kontakt-${type}-${id}`;
+  const t=document.getElementById(`${formId}-type`)?.value;
+  const d=document.getElementById(`${formId}-date`)?.value;
+  const note=document.getElementById(`${formId}-note`)?.value||'';
+  const next=document.getElementById(`${formId}-next`)?.value;
+  const nextDate=document.getElementById(`${formId}-nextdate`)?.value;
+  const waiting=document.getElementById(`${formId}-waiting`)?.checked;
+  if(!note.trim())return;
+  const act={Type:t,Date:d||new Date().toISOString().substring(0,10),Note:note,CreatedBy:'Matilda Olsson',CreatedAt:new Date().toISOString()};
+  if(type==='prospect'){
+    try{await apiFetch(`${API}/activities`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectId:id,type:t,note,date:d,createdBy:'Matilda Olsson'})});}catch(e){}
+    const p=allProspects.find(x=>x.Id===id);
+    if(p){if(next)p.NextActionType=next;if(nextDate)p.NextActionDate=nextDate;p.WaitingForResponse=waiting?1:0;
+      try{await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});}catch(e){}}
+    let acts=[];try{const r=await apiFetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}
+    renderProspectBody(p,acts);renderKanban();
+  } else if(type==='trial'||type==='pilot'){
+    const key=`${type}-activities-${id}`;
+    const list=JSON.parse(localStorage.getItem(key)||'[]');list.push(act);localStorage.setItem(key,JSON.stringify(list));
+    renderTpModalBody();
+  } else if(type==='customer'){
+    let saved=false;
+    try{const r=await apiFetch(`${API}/activities/customer/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:t,note,date:d,createdBy:'Matilda Olsson'})});if(r.ok)saved=true;}catch(e){}
+    if(!saved){const key=`customer-activities-${id}`;const list=JSON.parse(localStorage.getItem(key)||'[]');list.push(act);localStorage.setItem(key,JSON.stringify(list));}
+    if(typeof loadActivities==='function')loadActivities(id);
+    renderModalPage(allCustomers.find(x=>x.Id===id),[],[]);
   }
 }
 function onStageChange(){
   const stage=document.getElementById('p-stage')?.value;
-  const showVal=['Evaluation & Proposal','Qualified Lead','Closed Won','Closed Lost'].includes(stage);
   const showProb=['Qualified Lead','Closed Won','Closed Lost'].includes(stage);
   const showLost=stage==='Closed Lost';
-  document.getElementById('val-section').style.display=showVal?'flex':'none';
-  document.getElementById('prob-section').style.display=showProb?'flex':'none';
-  document.getElementById('lost-section').style.display=showLost?'flex':'none';
+  const probEl=document.getElementById('prob-section');if(probEl)probEl.style.display=showProb?'flex':'none';
+  const lostEl=document.getElementById('lost-section');if(lostEl)lostEl.style.display=showLost?'flex':'none';
 }
 function getProspectBody(p){
   const exp=document.getElementById('p-expected-start')?.value||'';
-  return{company:document.getElementById('p-company')?.value||'',contact:document.getElementById('p-contact')?.value||'',role:document.getElementById('p-role')?.value||'',email:document.getElementById('p-email')?.value||'',phone:document.getElementById('p-phone')?.value||'',employees:parseInt(document.getElementById('p-employees')?.value)||null,industry:document.getElementById('p-industry')?.value||'',source:document.getElementById('p-source')?.value||'',owner:document.getElementById('p-owner')?.value||'Matilda Olsson',stage:document.getElementById('p-stage')?.value||'Prospect Identified',score:parseInt(document.getElementById('p-score')?.value)||0,nextActionType:document.getElementById('p-action-type')?.value||null,nextActionDate:document.getElementById('p-action-date')?.value||null,valueMin:parseInt(document.getElementById('p-valmin')?.value)||null,valueMax:parseInt(document.getElementById('p-valmax')?.value)||null,value:parseInt(document.getElementById('p-valmax')?.value)||parseInt(document.getElementById('p-valmin')?.value)||0,probability:parseInt(document.getElementById('p-prob')?.value)||null,lostReason:document.getElementById('p-lostreason')?.value||null,notes:document.getElementById('p-notes')?.value||'',revenueCategory:document.getElementById('p-revenue-category')?.value||null,expectedStartMonth:exp?exp+'-01':null,waitingForResponse:document.getElementById('p-waiting')?.checked?1:0};
+  return{company:document.getElementById('p-company')?.value||'',contact:document.getElementById('p-contact')?.value||'',role:document.getElementById('p-role')?.value||'',email:document.getElementById('p-email')?.value||'',phone:document.getElementById('p-phone')?.value||'',employees:parseInt(document.getElementById('p-employees')?.value)||null,industry:document.getElementById('p-industry')?.value||'',source:document.getElementById('p-source')?.value||'',owner:document.getElementById('p-owner')?.value||'Matilda Olsson',stage:document.getElementById('p-stage')?.value||'Prospect Identified',score:parseInt(document.getElementById('p-score')?.value)||0,nextActionType:document.getElementById('p-action-type')?.value||null,nextActionDate:document.getElementById('p-action-date')?.value||null,valueMin:p?.ValueMin??null,valueMax:p?.ValueMax??null,value:p?.Value||p?.ValueMax||p?.ValueMin||0,probability:parseInt(document.getElementById('p-prob')?.value)||null,lostReason:document.getElementById('p-lostreason')?.value||null,notes:document.getElementById('p-notes')?.value||'',revenueCategory:document.getElementById('p-revenue-category')?.value||null,expectedStartMonth:exp?exp+'-01':null,waitingForResponse:document.getElementById('p-waiting')?.checked?1:0};
 }
 async function createProspect(){const body=getProspectBody(null);try{const r=await apiFetch(`${API}/prospects`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte skapa prospect.');}}
 async function saveProspect(id){const body=getProspectBody(allProspects.find(x=>x.Id===id));try{const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte spara.');}}
@@ -1896,10 +2026,11 @@ function renderFinDashboard(){
     <div class="fin-card"><div class="fin-card-title">Mix totalt</div><div style="display:flex;align-items:center;gap:16px;"><div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(${donutStops.join(',')});position:relative;flex-shrink:0;"><div style="position:absolute;inset:25%;background:var(--surface);border-radius:50%;"></div></div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="font-size:10px;text-align:left;color:var(--text3);padding:4px;">Kategori</th><th style="font-size:10px;text-align:right;color:var(--text3);padding:4px;">Utfall</th><th style="font-size:10px;text-align:right;color:var(--text3);padding:4px;">Budget</th><th style="font-size:10px;text-align:right;color:var(--text3);padding:4px;">%</th></tr></thead><tbody>${tableHtml}</tbody></table></div></div>`;
   const periodOpts=['q1','q2','q3','q4','year'].map(p=>`<option value="${p}">${p==='year'?'Helår':p.toUpperCase()}</option>`).join('');
   document.getElementById('fa-period-cmp').innerHTML=`<div class="fin-card-title">Jämför perioder</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
       <div><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Period A</div><div style="display:flex;gap:6px;margin-bottom:8px;"><select id="cmp-a-period" class="date-input" style="font-size:12px;flex:1;" onchange="renderFaCompare()">${periodOpts}</select><input type="number" id="cmp-a-year" class="date-input" value="${y}" style="width:80px;font-size:12px;" onchange="renderFaCompare()"></div><div id="cmp-a-out" style="font-size:13px;"></div></div>
       <div><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Period B</div><div style="display:flex;gap:6px;margin-bottom:8px;"><select id="cmp-b-period" class="date-input" style="font-size:12px;flex:1;" onchange="renderFaCompare()">${periodOpts}</select><input type="number" id="cmp-b-year" class="date-input" value="${y-1}" style="width:80px;font-size:12px;" onchange="renderFaCompare()"></div><div id="cmp-b-out" style="font-size:13px;"></div></div>
     </div>
+    <div id="cmp-chart" style="margin-bottom:10px;"></div>
     <div id="cmp-delta-out" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;"></div>`;
   renderFaCompare();
   loadCommissions();
@@ -1910,14 +2041,38 @@ function setFaQuick(p,btn){btn.parentNode.querySelectorAll('.quick-btn').forEach
 function setFaMonth(v){if(!v)return;document.querySelectorAll('#fa-filters .quick-btn').forEach(b=>b.classList.remove('active'));const [y,m]=v.split('-').map(Number);const last=new Date(y,m,0).getDate();document.getElementById('fin-from').value=`${v}-01`;document.getElementById('fin-to').value=`${v}-${String(last).padStart(2,'0')}`;renderFinDashboard();}
 function faPeriodRange(p,y){const r={q1:[`${y}-01-01`,`${y}-03-31`],q2:[`${y}-04-01`,`${y}-06-30`],q3:[`${y}-07-01`,`${y}-09-30`],q4:[`${y}-10-01`,`${y}-12-31`],year:[`${y}-01-01`,`${y}-12-31`]};return r[p]||r.year;}
 function faComputePeriod(p,y){const [f,t]=faPeriodRange(p,y);const from=new Date(f),to=new Date(t);const months=[];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}let arr=0,fast=0,utb=0,cons=0;months.forEach(m=>{allCustomers.forEach(c=>{const mv=monthlyValue(c,m);arr+=mv.arr;fast+=mv.fast;utb+=mv.utb;cons+=mv.cons;});});const total=Math.round(arr+fast+utb+cons);return{total,arr:Math.round(arr),avg:months.length?Math.round(total/months.length):0,months:months.length};}
-function renderFaCompare(){const ap=document.getElementById('cmp-a-period')?.value||'year';const ay=parseInt(document.getElementById('cmp-a-year')?.value)||new Date().getFullYear();const bp=document.getElementById('cmp-b-period')?.value||'year';const by=parseInt(document.getElementById('cmp-b-year')?.value)||(new Date().getFullYear()-1);const A=faComputePeriod(ap,ay);const B=faComputePeriod(bp,by);const fmtSv=v=>v?v.toLocaleString('sv-SE')+' kr':'–';const aOut=document.getElementById('cmp-a-out');if(aOut)aOut.innerHTML=`<div><strong>${fmtSv(A.total)}</strong> totalt</div><div style="color:var(--text3);font-size:12px;">ARR: ${fmtSv(A.arr)} · Snitt/månad: ${fmtSv(A.avg)} · ${A.months} mån</div>`;const bOut=document.getElementById('cmp-b-out');if(bOut)bOut.innerHTML=`<div><strong>${fmtSv(B.total)}</strong> totalt</div><div style="color:var(--text3);font-size:12px;">ARR: ${fmtSv(B.arr)} · Snitt/månad: ${fmtSv(B.avg)} · ${B.months} mån</div>`;const delta=A.total-B.total;const pct=B.total?Math.round(delta/B.total*100):null;const out=document.getElementById('cmp-delta-out');if(out)out.innerHTML=`<strong>Delta:</strong> <span style="color:${delta>=0?'var(--green)':'var(--red)'};">${delta>=0?'+':''}${fmtSv(delta)}${pct!==null?' ('+(delta>=0?'+':'')+pct+'%)':''}</span>`;}
+function faPeriodMonths(p,y){const r={q1:[0,1,2],q2:[3,4,5],q3:[6,7,8],q4:[9,10,11],year:[0,1,2,3,4,5,6,7,8,9,10,11]};return (r[p]||r.year).map(m=>new Date(y,m,1));}
+function faMonthlyTotals(months){return months.map(m=>{let t=0;allCustomers.forEach(c=>{const mv=monthlyValue(c,m);t+=mv.arr+mv.fast+mv.utb+mv.cons;});return Math.round(t);});}
+function renderFaCompareChart(ap,ay,bp,by){
+  const chartEl=document.getElementById('cmp-chart');if(!chartEl)return;
+  const aMonths=faPeriodMonths(ap,ay),bMonths=faPeriodMonths(bp,by);
+  const aVals=faMonthlyTotals(aMonths),bVals=faMonthlyTotals(bMonths);
+  const max=Math.max(...aVals,...bVals,1);
+  const cnt=Math.max(aMonths.length,bMonths.length);
+  const W=600,H=160,padL=40,padR=10,padB=24,padT=10;
+  const innerW=W-padL-padR,innerH=H-padT-padB;
+  const groupW=innerW/cnt,barW=Math.min(groupW*0.4,28);
+  const mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const bars=[];
+  for(let i=0;i<cnt;i++){
+    const x=padL+groupW*i+groupW/2;
+    const aV=aVals[i]||0,bV=bVals[i]||0;
+    const aH=Math.round((aV/max)*innerH),bH=Math.round((bV/max)*innerH);
+    bars.push(`<rect x="${x-barW-2}" y="${padT+innerH-aH}" width="${barW}" height="${aH}" fill="#1a7a50"/>`);
+    bars.push(`<rect x="${x+2}" y="${padT+innerH-bH}" width="${barW}" height="${bH}" fill="#8b90b0"/>`);
+    const lbl=aMonths[i]?mNames[aMonths[i].getMonth()]:'';
+    bars.push(`<text x="${x}" y="${H-8}" font-size="10" fill="var(--text3)" text-anchor="middle">${lbl}</text>`);
+  }
+  chartEl.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Period A vs Period B</div><svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;"><line x1="${padL}" y1="${padT+innerH}" x2="${W-padR}" y2="${padT+innerH}" stroke="var(--border)" stroke-width="0.5"/>${bars.join('')}</svg><div style="display:flex;gap:16px;margin-top:6px;font-size:11px;"><span><span style="display:inline-block;width:10px;height:10px;background:#1a7a50;vertical-align:middle;margin-right:4px;"></span>Period A</span><span><span style="display:inline-block;width:10px;height:10px;background:#8b90b0;vertical-align:middle;margin-right:4px;"></span>Period B</span></div>`;
+}
+function renderFaCompare(){const ap=document.getElementById('cmp-a-period')?.value||'year';const ay=parseInt(document.getElementById('cmp-a-year')?.value)||new Date().getFullYear();const bp=document.getElementById('cmp-b-period')?.value||'year';const by=parseInt(document.getElementById('cmp-b-year')?.value)||(new Date().getFullYear()-1);const A=faComputePeriod(ap,ay);const B=faComputePeriod(bp,by);const fmtSv=v=>v?v.toLocaleString('sv-SE')+' kr':'–';renderFaCompareChart(ap,ay,bp,by);const aOut=document.getElementById('cmp-a-out');if(aOut)aOut.innerHTML=`<div><strong>${fmtSv(A.total)}</strong> totalt</div><div style="color:var(--text3);font-size:12px;">ARR: ${fmtSv(A.arr)} · Snitt/månad: ${fmtSv(A.avg)} · ${A.months} mån</div>`;const bOut=document.getElementById('cmp-b-out');if(bOut)bOut.innerHTML=`<div><strong>${fmtSv(B.total)}</strong> totalt</div><div style="color:var(--text3);font-size:12px;">ARR: ${fmtSv(B.arr)} · Snitt/månad: ${fmtSv(B.avg)} · ${B.months} mån</div>`;const delta=A.total-B.total;const pct=B.total?Math.round(delta/B.total*100):null;const out=document.getElementById('cmp-delta-out');if(out)out.innerHTML=`<strong>Delta:</strong> <span style="color:${delta>=0?'var(--green)':'var(--red)'};">${delta>=0?'+':''}${fmtSv(delta)}${pct!==null?' ('+(delta>=0?'+':'')+pct+'%)':''}</span>`;}
 async function loadCommissions(){try{const r=await apiFetch(`${API}/commissions`);const comms=await r.json();const unpaid=comms.filter(c=>!c.PaidOut);const totalUnpaid=unpaid.reduce((s,c)=>s+(c.Amount||0),0);document.getElementById('comm-badge').textContent=fmtKr(totalUnpaid);document.getElementById('comm-badge').className=`badge ${totalUnpaid>0?'b-amber':'b-green'}`;if(!comms.length){document.getElementById('comm-rows').innerHTML='<div style="padding:12px;font-size:13px;color:var(--text3);">Ingen provision registrerad</div>';return;}document.getElementById('comm-rows').innerHTML=comms.map(c=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px;" class="${c.PaidOut?'comm-paid':''}"><span style="flex:1;">${c.Company}</span><span style="color:var(--text3);font-size:12px;">${c.RevenueType}</span><span style="font-weight:500;">${fmtKr(c.Amount)}</span><span style="color:var(--text3);font-size:12px;">${c.Recipient}</span>${!c.PaidOut?`<button class="btn-sm" onclick="markPaid(${c.Id})">Markera betald</button>`:`<span class="badge b-green">Betald</span>`}</div>`).join('');}catch(e){document.getElementById('comm-rows').innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda provision</div>';}}
 async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadCommissions();}
 
 // ─── PERIODISERING ───────────────────────────────────────
 function setPerQuick(p,el){if(el)el.parentNode.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');const monthInp=document.getElementById('per-month');if(monthInp)monthInp.value='';const y=new Date().getFullYear();const ranges={q1:[`${y}-01-01`,`${y}-03-31`],q2:[`${y}-04-01`,`${y}-06-30`],q3:[`${y}-07-01`,`${y}-09-30`],q4:[`${y}-10-01`,`${y}-12-31`],year:[`${y}-01-01`,`${y}-12-31`],h1:[`${y}-01-01`,`${y}-06-30`],h2:[`${y}-07-01`,`${y}-12-31`]};const r=ranges[p];if(r){document.getElementById('per-from').value=r[0];document.getElementById('per-to').value=r[1];}renderPrognos();}
 function setPerMonth(v){if(!v)return;document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));const [y,m]=v.split('-').map(Number);const last=new Date(y,m,0).getDate();document.getElementById('per-from').value=`${v}-01`;document.getElementById('per-to').value=`${v}-${String(last).padStart(2,'0')}`;renderPrognos();}
-function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const useArr=typeof fcSources!=='undefined'?fcSources.has('ARR'):perSources.arr;const useFast=typeof fcSources!=='undefined'?fcSources.has('Fastpris'):perSources.fast;const useUtb=typeof fcSources!=='undefined'?fcSources.has('Utbildning'):perSources.utb;const useCons=typeof fcSources!=='undefined'?fcSources.has('Consulting'):perSources.cons;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(useArr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useFast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useUtb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useCons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');const pipeWeighted=(typeof allProspects!=='undefined'?allProspects:[]).filter(p=>p.Stage==='Qualified Lead').reduce((s,p)=>s+Math.round((p.ValueMax||p.Value||0)*(p.Probability||0)/100),0);const pipePerMonth=Math.round(pipeWeighted/12);const pipeCells=months.map(()=>`<td><span style="color:var(--blue);font-size:11px;font-weight:500;">${pipePerMonth>=1000?Math.round(pipePerMonth/1000)+'k':pipePerMonth}</span></td>`).join('');const pipeTot=pipePerMonth*months.length;const pipeRow=pipeWeighted>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeCells}<td><span style="font-weight:600;color:var(--blue);">${pipeTot>=1000?Math.round(pipeTot/1000)+'k':pipeTot} kr</span></td></tr>`:'';document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`+pipeRow;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
+function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const useArr=typeof fcSources!=='undefined'?fcSources.has('ARR'):perSources.arr;const useFast=typeof fcSources!=='undefined'?fcSources.has('Fastpris'):perSources.fast;const useUtb=typeof fcSources!=='undefined'?fcSources.has('Utbildning'):perSources.utb;const useCons=typeof fcSources!=='undefined'?fcSources.has('Consulting'):perSources.cons;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(useArr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useFast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useUtb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useCons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');const pipeWeighted=(typeof allProspects!=='undefined'?allProspects:[]).filter(p=>p.Stage==='Qualified Lead').reduce((s,p)=>s+Math.round((p.ValueMax||p.Value||0)*(p.Probability||0)/100),0);const pipePerMonth=Math.round(pipeWeighted/12);const pipeCells=months.map(()=>`<td><span style="color:var(--blue);font-size:11px;font-weight:500;">${pipePerMonth>=1000?Math.round(pipePerMonth/1000)+'k':pipePerMonth}</span></td>`).join('');const pipeTot=pipePerMonth*months.length;const pipeRow=pipeWeighted>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeCells}<td><span style="font-weight:600;color:var(--blue);">${pipeTot>=1000?Math.round(pipeTot/1000)+'k':pipeTot} kr</span></td></tr>`:'';document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`+pipeRow;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML='';}
 // ─── KUNDER ──────────────────────────────────────────────
 async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
 async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
@@ -2041,10 +2196,11 @@ function renderFinDashboard(){
     <div class="fin-card"><div class="fin-card-title">Mix totalt</div><div style="display:flex;align-items:center;gap:16px;"><div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(${donutStops.join(',')});position:relative;flex-shrink:0;"><div style="position:absolute;inset:25%;background:var(--surface);border-radius:50%;"></div></div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="font-size:10px;text-align:left;color:var(--text3);padding:4px;">Kategori</th><th style="font-size:10px;text-align:right;color:var(--text3);padding:4px;">Utfall</th><th style="font-size:10px;text-align:right;color:var(--text3);padding:4px;">Budget</th><th style="font-size:10px;text-align:right;color:var(--text3);padding:4px;">%</th></tr></thead><tbody>${tableHtml}</tbody></table></div></div>`;
   const periodOpts=['q1','q2','q3','q4','year'].map(p=>`<option value="${p}">${p==='year'?'Helår':p.toUpperCase()}</option>`).join('');
   document.getElementById('fa-period-cmp').innerHTML=`<div class="fin-card-title">Jämför perioder</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
       <div><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Period A</div><div style="display:flex;gap:6px;margin-bottom:8px;"><select id="cmp-a-period" class="date-input" style="font-size:12px;flex:1;" onchange="renderFaCompare()">${periodOpts}</select><input type="number" id="cmp-a-year" class="date-input" value="${y}" style="width:80px;font-size:12px;" onchange="renderFaCompare()"></div><div id="cmp-a-out" style="font-size:13px;"></div></div>
       <div><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Period B</div><div style="display:flex;gap:6px;margin-bottom:8px;"><select id="cmp-b-period" class="date-input" style="font-size:12px;flex:1;" onchange="renderFaCompare()">${periodOpts}</select><input type="number" id="cmp-b-year" class="date-input" value="${y-1}" style="width:80px;font-size:12px;" onchange="renderFaCompare()"></div><div id="cmp-b-out" style="font-size:13px;"></div></div>
     </div>
+    <div id="cmp-chart" style="margin-bottom:10px;"></div>
     <div id="cmp-delta-out" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;"></div>`;
   renderFaCompare();
   loadCommissions();
@@ -2055,16 +2211,40 @@ function setFaQuick(p,btn){btn.parentNode.querySelectorAll('.quick-btn').forEach
 function setFaMonth(v){if(!v)return;document.querySelectorAll('#fa-filters .quick-btn').forEach(b=>b.classList.remove('active'));const [y,m]=v.split('-').map(Number);const last=new Date(y,m,0).getDate();document.getElementById('fin-from').value=`${v}-01`;document.getElementById('fin-to').value=`${v}-${String(last).padStart(2,'0')}`;renderFinDashboard();}
 function faPeriodRange(p,y){const r={q1:[`${y}-01-01`,`${y}-03-31`],q2:[`${y}-04-01`,`${y}-06-30`],q3:[`${y}-07-01`,`${y}-09-30`],q4:[`${y}-10-01`,`${y}-12-31`],year:[`${y}-01-01`,`${y}-12-31`]};return r[p]||r.year;}
 function faComputePeriod(p,y){const [f,t]=faPeriodRange(p,y);const from=new Date(f),to=new Date(t);const months=[];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}let arr=0,fast=0,utb=0,cons=0;months.forEach(m=>{allCustomers.forEach(c=>{const mv=monthlyValue(c,m);arr+=mv.arr;fast+=mv.fast;utb+=mv.utb;cons+=mv.cons;});});const total=Math.round(arr+fast+utb+cons);return{total,arr:Math.round(arr),avg:months.length?Math.round(total/months.length):0,months:months.length};}
-function renderFaCompare(){const ap=document.getElementById('cmp-a-period')?.value||'year';const ay=parseInt(document.getElementById('cmp-a-year')?.value)||new Date().getFullYear();const bp=document.getElementById('cmp-b-period')?.value||'year';const by=parseInt(document.getElementById('cmp-b-year')?.value)||(new Date().getFullYear()-1);const A=faComputePeriod(ap,ay);const B=faComputePeriod(bp,by);const fmtSv=v=>v?v.toLocaleString('sv-SE')+' kr':'–';const aOut=document.getElementById('cmp-a-out');if(aOut)aOut.innerHTML=`<div><strong>${fmtSv(A.total)}</strong> totalt</div><div style="color:var(--text3);font-size:12px;">ARR: ${fmtSv(A.arr)} · Snitt/månad: ${fmtSv(A.avg)} · ${A.months} mån</div>`;const bOut=document.getElementById('cmp-b-out');if(bOut)bOut.innerHTML=`<div><strong>${fmtSv(B.total)}</strong> totalt</div><div style="color:var(--text3);font-size:12px;">ARR: ${fmtSv(B.arr)} · Snitt/månad: ${fmtSv(B.avg)} · ${B.months} mån</div>`;const delta=A.total-B.total;const pct=B.total?Math.round(delta/B.total*100):null;const out=document.getElementById('cmp-delta-out');if(out)out.innerHTML=`<strong>Delta:</strong> <span style="color:${delta>=0?'var(--green)':'var(--red)'};">${delta>=0?'+':''}${fmtSv(delta)}${pct!==null?' ('+(delta>=0?'+':'')+pct+'%)':''}</span>`;}
+function faPeriodMonths(p,y){const r={q1:[0,1,2],q2:[3,4,5],q3:[6,7,8],q4:[9,10,11],year:[0,1,2,3,4,5,6,7,8,9,10,11]};return (r[p]||r.year).map(m=>new Date(y,m,1));}
+function faMonthlyTotals(months){return months.map(m=>{let t=0;allCustomers.forEach(c=>{const mv=monthlyValue(c,m);t+=mv.arr+mv.fast+mv.utb+mv.cons;});return Math.round(t);});}
+function renderFaCompareChart(ap,ay,bp,by){
+  const chartEl=document.getElementById('cmp-chart');if(!chartEl)return;
+  const aMonths=faPeriodMonths(ap,ay),bMonths=faPeriodMonths(bp,by);
+  const aVals=faMonthlyTotals(aMonths),bVals=faMonthlyTotals(bMonths);
+  const max=Math.max(...aVals,...bVals,1);
+  const cnt=Math.max(aMonths.length,bMonths.length);
+  const W=600,H=160,padL=40,padR=10,padB=24,padT=10;
+  const innerW=W-padL-padR,innerH=H-padT-padB;
+  const groupW=innerW/cnt,barW=Math.min(groupW*0.4,28);
+  const mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const bars=[];
+  for(let i=0;i<cnt;i++){
+    const x=padL+groupW*i+groupW/2;
+    const aV=aVals[i]||0,bV=bVals[i]||0;
+    const aH=Math.round((aV/max)*innerH),bH=Math.round((bV/max)*innerH);
+    bars.push(`<rect x="${x-barW-2}" y="${padT+innerH-aH}" width="${barW}" height="${aH}" fill="#1a7a50"/>`);
+    bars.push(`<rect x="${x+2}" y="${padT+innerH-bH}" width="${barW}" height="${bH}" fill="#8b90b0"/>`);
+    const lbl=aMonths[i]?mNames[aMonths[i].getMonth()]:'';
+    bars.push(`<text x="${x}" y="${H-8}" font-size="10" fill="var(--text3)" text-anchor="middle">${lbl}</text>`);
+  }
+  chartEl.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Period A vs Period B</div><svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;"><line x1="${padL}" y1="${padT+innerH}" x2="${W-padR}" y2="${padT+innerH}" stroke="var(--border)" stroke-width="0.5"/>${bars.join('')}</svg><div style="display:flex;gap:16px;margin-top:6px;font-size:11px;"><span><span style="display:inline-block;width:10px;height:10px;background:#1a7a50;vertical-align:middle;margin-right:4px;"></span>Period A</span><span><span style="display:inline-block;width:10px;height:10px;background:#8b90b0;vertical-align:middle;margin-right:4px;"></span>Period B</span></div>`;
+}
+function renderFaCompare(){const ap=document.getElementById('cmp-a-period')?.value||'year';const ay=parseInt(document.getElementById('cmp-a-year')?.value)||new Date().getFullYear();const bp=document.getElementById('cmp-b-period')?.value||'year';const by=parseInt(document.getElementById('cmp-b-year')?.value)||(new Date().getFullYear()-1);const A=faComputePeriod(ap,ay);const B=faComputePeriod(bp,by);const fmtSv=v=>v?v.toLocaleString('sv-SE')+' kr':'–';renderFaCompareChart(ap,ay,bp,by);const aOut=document.getElementById('cmp-a-out');if(aOut)aOut.innerHTML=`<div><strong>${fmtSv(A.total)}</strong> totalt</div><div style="color:var(--text3);font-size:12px;">ARR: ${fmtSv(A.arr)} · Snitt/månad: ${fmtSv(A.avg)} · ${A.months} mån</div>`;const bOut=document.getElementById('cmp-b-out');if(bOut)bOut.innerHTML=`<div><strong>${fmtSv(B.total)}</strong> totalt</div><div style="color:var(--text3);font-size:12px;">ARR: ${fmtSv(B.arr)} · Snitt/månad: ${fmtSv(B.avg)} · ${B.months} mån</div>`;const delta=A.total-B.total;const pct=B.total?Math.round(delta/B.total*100):null;const out=document.getElementById('cmp-delta-out');if(out)out.innerHTML=`<strong>Delta:</strong> <span style="color:${delta>=0?'var(--green)':'var(--red)'};">${delta>=0?'+':''}${fmtSv(delta)}${pct!==null?' ('+(delta>=0?'+':'')+pct+'%)':''}</span>`;}
 async function loadCommissions(){try{const r=await apiFetch(`${API}/commissions`);const comms=await r.json();const unpaid=comms.filter(c=>!c.PaidOut);const totalUnpaid=unpaid.reduce((s,c)=>s+(c.Amount||0),0);document.getElementById('comm-badge').textContent=fmtKr(totalUnpaid);document.getElementById('comm-badge').className=`badge ${totalUnpaid>0?'b-amber':'b-green'}`;if(!comms.length){document.getElementById('comm-rows').innerHTML='<div style="padding:12px;font-size:13px;color:var(--text3);">Ingen provision registrerad</div>';return;}document.getElementById('comm-rows').innerHTML=comms.map(c=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px;" class="${c.PaidOut?'comm-paid':''}"><span style="flex:1;">${c.Company}</span><span style="color:var(--text3);font-size:12px;">${c.RevenueType}</span><span style="font-weight:500;">${fmtKr(c.Amount)}</span><span style="color:var(--text3);font-size:12px;">${c.Recipient}</span>${!c.PaidOut?`<button class="btn-sm" onclick="markPaid(${c.Id})">Markera betald</button>`:`<span class="badge b-green">Betald</span>`}</div>`).join('');}catch(e){document.getElementById('comm-rows').innerHTML='<div style="color:var(--text3);font-size:13px;">Kunde inte ladda provision</div>';}}
 async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadCommissions();}
 
 // ─── PERIODISERING ───────────────────────────────────────
 function setPerQuick(p,el){if(el)el.parentNode.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');const monthInp=document.getElementById('per-month');if(monthInp)monthInp.value='';const y=new Date().getFullYear();const ranges={q1:[`${y}-01-01`,`${y}-03-31`],q2:[`${y}-04-01`,`${y}-06-30`],q3:[`${y}-07-01`,`${y}-09-30`],q4:[`${y}-10-01`,`${y}-12-31`],year:[`${y}-01-01`,`${y}-12-31`],h1:[`${y}-01-01`,`${y}-06-30`],h2:[`${y}-07-01`,`${y}-12-31`]};const r=ranges[p];if(r){document.getElementById('per-from').value=r[0];document.getElementById('per-to').value=r[1];}renderPrognos();}
 function setPerMonth(v){if(!v)return;document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));const [y,m]=v.split('-').map(Number);const last=new Date(y,m,0).getDate();document.getElementById('per-from').value=`${v}-01`;document.getElementById('per-to').value=`${v}-${String(last).padStart(2,'0')}`;renderPrognos();}
-function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const useArr=typeof fcSources!=='undefined'?fcSources.has('ARR'):perSources.arr;const useFast=typeof fcSources!=='undefined'?fcSources.has('Fastpris'):perSources.fast;const useUtb=typeof fcSources!=='undefined'?fcSources.has('Utbildning'):perSources.utb;const useCons=typeof fcSources!=='undefined'?fcSources.has('Consulting'):perSources.cons;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(useArr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useFast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useUtb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useCons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');const pipeWeighted=(typeof allProspects!=='undefined'?allProspects:[]).filter(p=>p.Stage==='Qualified Lead').reduce((s,p)=>s+Math.round((p.ValueMax||p.Value||0)*(p.Probability||0)/100),0);const pipePerMonth=Math.round(pipeWeighted/12);const pipeCells=months.map(()=>`<td><span style="color:var(--blue);font-size:11px;font-weight:500;">${pipePerMonth>=1000?Math.round(pipePerMonth/1000)+'k':pipePerMonth}</span></td>`).join('');const pipeTot=pipePerMonth*months.length;const pipeRow=pipeWeighted>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeCells}<td><span style="font-weight:600;color:var(--blue);">${pipeTot>=1000?Math.round(pipeTot/1000)+'k':pipeTot} kr</span></td></tr>`:'';document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`+pipeRow;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML=`<div class="kpi-card"><div class="kpi-label">Period totalt</div><div class="kpi-value" style="color:var(--accent)">${grand.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Snitt/månad</div><div class="kpi-value" style="color:var(--green)">${avg.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Bästa månad</div><div class="kpi-value" style="color:var(--blue)">${max.toLocaleString('sv-SE')} kr</div></div><div class="kpi-card"><div class="kpi-label">Antal månader</div><div class="kpi-value">${months.length} st</div></div>`;}
+function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const useArr=typeof fcSources!=='undefined'?fcSources.has('ARR'):perSources.arr;const useFast=typeof fcSources!=='undefined'?fcSources.has('Fastpris'):perSources.fast;const useUtb=typeof fcSources!=='undefined'?fcSources.has('Utbildning'):perSources.utb;const useCons=typeof fcSources!=='undefined'?fcSources.has('Consulting'):perSources.cons;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(useArr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useFast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useUtb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useCons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');const pipeWeighted=(typeof allProspects!=='undefined'?allProspects:[]).filter(p=>p.Stage==='Qualified Lead').reduce((s,p)=>s+Math.round((p.ValueMax||p.Value||0)*(p.Probability||0)/100),0);const pipePerMonth=Math.round(pipeWeighted/12);const pipeCells=months.map(()=>`<td><span style="color:var(--blue);font-size:11px;font-weight:500;">${pipePerMonth>=1000?Math.round(pipePerMonth/1000)+'k':pipePerMonth}</span></td>`).join('');const pipeTot=pipePerMonth*months.length;const pipeRow=pipeWeighted>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeCells}<td><span style="font-weight:600;color:var(--blue);">${pipeTot>=1000?Math.round(pipeTot/1000)+'k':pipeTot} kr</span></td></tr>`:'';document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`+pipeRow;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML='';}
 // ─── PROGNOS (Forecast scenarios) ────────────────────────
-let fcSources=new Set(['ARR']),fcChurnOverride=null;
+let fcSources=new Set(['ARR','Fastpris','Consulting','Utbildning']),fcChurnOverride=null;
 async function renderPrognos(){
   await kaFetchAll();
   renderForecastSection();
@@ -2631,7 +2811,7 @@ async function deleteBudgetVersion(){
 }
 // ─── MODAL KUND ──────────────────────────────────────────
 function getLicenseType(c){return document.getElementById('edit-type')?.value||c?.LicenseType||'Team';}
-function renderTabs(lt){const tab2=lt==='Enterprise'?'Enterprise':'Team';document.getElementById('modal-tabs').innerHTML=['Översikt',tab2,'Värde','Aktivitet'].map((t,i)=>`<button class="modal-tab ${currentPage===i+1?'active':''}" onclick="goToPage(${i+1})">${i+1}. ${t}</button>`).join('');}
+function renderTabs(lt){const tab2=lt==='Enterprise'?'Enterprise':'Team';document.getElementById('modal-tabs').innerHTML=['Översikt',tab2,'Värde','Aktivitet','Kontaktlogg'].map((t,i)=>`<button class="modal-tab ${currentPage===i+1?'active':''}" onclick="goToPage(${i+1})">${i+1}. ${t}</button>`).join('');}
 function openNewModal(){isNewCustomer=true;currentModalId=null;currentPage=1;document.getElementById('modal-title').textContent='Ny kund';document.getElementById('modal-subtitle').textContent='';document.getElementById('btn-delete').style.display='none';renderTabs('Team');renderModalPage(null,[],[]);document.getElementById('modal-overlay').classList.add('open');}
 async function openModal(id){isNewCustomer=false;currentModalId=id;currentPage=1;const c=allCustomers.find(x=>x.Id===id);if(!c)return;let teams=[],admins=[];try{const r=await apiFetch(`${API}/customers/${id}/teams`);teams=await r.json();}catch(e){}try{const r=await apiFetch(`${API}/customers/${id}/admins`);admins=await r.json();}catch(e){}document.getElementById('modal-title').textContent=c.Company||'–';document.getElementById('modal-subtitle').textContent=`${c.LicenseType||''} · ${c._owner}`;document.getElementById('btn-delete').style.display='flex';renderTabs(c.LicenseType);renderModalPage(c,teams,admins);document.getElementById('modal-overlay').classList.add('open');}
 
@@ -2645,6 +2825,7 @@ function renderModalPage(c,teams,admins){
     <div class="modal-section"><div class="modal-section-label">Anteckningar</div><div class="modal-card"><textarea id="edit-notes" ${is} style="height:80px;resize:vertical;">${c?.Notes||''}</textarea></div></div>`;}
   if(currentPage===2){const lt=getLicenseType(c);if(lt==='Enterprise'){const ac=admins.length||1;let h=`<div class="modal-section"><div class="modal-section-label">Admins</div><div class="modal-card"><div class="modal-field"><label>Antal</label><input ${is} id="edit-admin-count" type="number" min="1" max="20" value="${ac}" oninput="updateAdminBlocks(this.value,${JSON.stringify(admins).replace(/"/g,'&quot;')})"></div></div></div><div id="admin-blocks">`;for(let i=0;i<ac;i++){const a=admins[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input ${is} id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input ${is} id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input ${is} id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`;}html=h+'</div>';}else{const tc=teams.length||1;let h=`<div class="modal-section"><div class="modal-section-label">Antal team</div><div class="modal-card"><div class="modal-field"><label>Antal</label><input ${is} id="edit-team-count" type="number" min="1" max="20" value="${tc}" oninput="updateTeamBlocks(this.value,${JSON.stringify(teams).replace(/"/g,'&quot;')})"></div></div></div><div id="team-blocks">`;for(let i=0;i<tc;i++){const t=teams[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input ${is} id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input ${is} id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input ${is} id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input ${is} id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input ${is} id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`;}html=h+'</div>';}}
   if(currentPage===3){html=`<div class="modal-section"><div class="modal-section-label">Intäktsposter<button class="btn-sm" style="margin-left:8px;" onclick="openAddRevenue(${c?.Id})">+ Lägg till</button></div><div id="revenue-items"><div class="loading"><div class="spinner"></div></div></div><div class="modal-card" style="margin-top:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Total intäkt</span><span id="total-revenue" style="font-size:16px;font-weight:600;color:var(--accent);">–</span></div></div></div>`;}
+  if(currentPage===5){html=renderKontaktloggHtml('customer',c?.Id,c,[]);}
   if(currentPage===4){html=`<div class="modal-section"><div class="modal-section-label">Aktivitetslogg</div><div class="modal-card" style="margin-bottom:12px;"><div class="modal-grid"><div class="modal-field"><label>Typ</label><select id="new-activity-type" ${is}><option>Möte</option><option>Samtal</option><option>E-post</option><option>Anteckning</option></select></div><div class="modal-field"><label>Datum</label><input ${is} id="new-activity-date" type="date" value="${new Date().toISOString().substring(0,10)}"></div></div><div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea ${is} id="new-activity-note" style="height:80px;resize:vertical;"></textarea></div><button onclick="addActivity(${c?.Id})" style="margin-top:8px;padding:6px 14px;border:none;border-radius:6px;background:var(--accent);color:#1e2140;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">+ Lägg till</button></div><div id="activity-list" style="display:flex;flex-direction:column;gap:8px;"><div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Laddar...</div></div></div>`;}
   const saveBtn=isNewCustomer?`<button class="btn-primary" onclick="createCustomer()">Skapa kund</button>`:`<button class="btn-primary" onclick="silentSave(${c?.Id});showSaveIndicator('✓ Sparat','#1a7a50');">Spara</button>`;
   document.getElementById('modal-body').innerHTML=`${html}<div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">${saveBtn}</div>`;
@@ -2664,7 +2845,7 @@ function editRevenueItem(customerId,itemId){apiFetch(`${API}/customers/${custome
 async function saveEditRevItem(customerId,itemId){const type=document.getElementById('ei-type').value;const amount=parseInt(document.getElementById('ei-amount').value)||0;const dateFrom=document.getElementById('ei-from').value||null;const dateTo=document.getElementById('ei-to').value||null;const description=document.getElementById('ei-desc').value||null;await apiFetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,amount,dateFrom,dateTo,description})});document.querySelector('div[style*="fixed"][style*="rgba"]')?.remove();loadRevenueItems(customerId);}
 async function markCommPaid(commId,revenueId,customerId){await apiFetch(`${API}/commissions/${commId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadRevCommissions(revenueId,customerId);}
 async function deleteComm(commId,revenueId,customerId){await apiFetch(`${API}/commissions/${commId}`,{method:'DELETE'});loadRevCommissions(revenueId,customerId);}
-function openAddRevenue(customerId){const c=allCustomers.find(x=>x.Id===customerId);const licStart=c?.LicenseStart?c.LicenseStart.substring(0,10):'';const licEnd=c?.LicenseEnd?c.LicenseEnd.substring(0,10):'';showDialog('Lägg till intäkt',`<div class="modal-field"><label>Typ</label><select id="di-type" class="edit-input" onchange="updateRevDialogDates('${licStart}','${licEnd}')"><option value="ARR">Licens (prenumeration)</option><option value="Fastpris">Licens (fast pris)</option><option value="Utbildning">Utbildning</option><option value="Consulting">Consulting</option></select></div><div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="di-amount" class="edit-input" type="number" placeholder="0"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;"><div class="modal-field"><label>Från datum</label><input id="di-from" class="edit-input" type="date" value="${licStart}"></div><div class="modal-field"><label>Till datum</label><input id="di-to" class="edit-input" type="date" value="${licEnd}"></div></div><div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="di-desc" class="edit-input" placeholder="t.ex. Grundutbildning Q1 2026"></div>`,async()=>{const type=document.getElementById('di-type').value;const amount=parseInt(document.getElementById('di-amount').value)||0;if(!amount)return false;await apiFetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,amount,dateFrom:document.getElementById('di-from').value||null,dateTo:document.getElementById('di-to').value||null,description:document.getElementById('di-desc').value||null})});loadRevenueItems(customerId);return true;});}
+function openAddRevenue(customerId){const c=allCustomers.find(x=>x.Id===customerId);const licStart=c?.LicenseStart?c.LicenseStart.substring(0,10):'';const licEnd=c?.LicenseEnd?c.LicenseEnd.substring(0,10):'';showDialog('Lägg till intäkt',`<div class="modal-field"><label>Typ</label><select id="di-type" class="edit-input" onchange="updateRevDialogDates('${licStart}','${licEnd}')"><option value="ARR">Licens (prenumeration)</option><option value="Fastpris">Licens (fast pris)</option><option value="Utbildning">Utbildning</option><option value="Consulting">Consulting</option></select></div><div class="modal-field" style="margin-top:10px;"><label>Faktureringsdatum</label><input id="di-invoice-date" type="date" class="edit-input" oninput="updateRiPaymentExpected('di')"></div><div class="modal-field" style="margin-top:6px;font-size:11px;color:var(--text3);">Betalning förväntas: <span id="di-payment-expected">–</span></div><div style="margin-top:10px;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="di-paid" style="width:16px;height:16px;" onchange="document.getElementById('di-payment-date-wrap').style.display=this.checked?'block':'none';"><span>Betalt</span></label></div><div class="modal-field" id="di-payment-date-wrap" style="margin-top:10px;display:none;"><label>Betalningsdatum</label><input id="di-payment-date" type="date" class="edit-input"></div><div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="di-amount" class="edit-input" type="number" placeholder="0"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;"><div class="modal-field"><label>Från datum</label><input id="di-from" class="edit-input" type="date" value="${licStart}"></div><div class="modal-field"><label>Till datum</label><input id="di-to" class="edit-input" type="date" value="${licEnd}"></div></div><div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="di-desc" class="edit-input" placeholder="t.ex. Grundutbildning Q1 2026"></div>`,async()=>{const type=document.getElementById('di-type').value;const amount=parseInt(document.getElementById('di-amount').value)||0;if(!amount)return false;await apiFetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,amount,dateFrom:document.getElementById('di-from').value||null,dateTo:document.getElementById('di-to').value||null,description:document.getElementById('di-desc').value||null,invoiceDate:document.getElementById('di-invoice-date')?.value||null,paid:document.getElementById('di-paid')?.checked?1:0,paymentDate:document.getElementById('di-payment-date')?.value||null})});loadRevenueItems(customerId);return true;});}
 function updateRevDialogDates(licStart,licEnd){const type=document.getElementById('di-type')?.value;const fromEl=document.getElementById('di-from');const toEl=document.getElementById('di-to');if(!fromEl||!toEl)return;if(type==='ARR'||type==='Fastpris'){fromEl.value=licStart;toEl.value=licEnd;}else{fromEl.value='';toEl.value='';}}
 function openAddCommission(revenueId,customerId,baseAmount){const recipientOptions=allRecipients.map(r=>`<option>${r}</option>`).join('');showDialog('Lägg till provision',`<div class="modal-field"><label>Mottagare</label><select id="ci-recipient" class="edit-input">${recipientOptions}<option value="__new__">+ Lägg till ny...</option></select></div><div id="ci-new-recipient-wrap" style="display:none;margin-top:8px;"><div class="modal-field"><label>Nytt namn</label><input id="ci-new-recipient" class="edit-input" placeholder="Namn"></div></div><div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end;"><div class="modal-field" style="flex:1;"><label>Procent (%)</label><input id="ci-percent" class="edit-input" type="number" step="0.1" placeholder="t.ex. 10" oninput="calcCommFromPercent(${baseAmount})"></div><span style="padding-bottom:8px;color:var(--text3);">eller</span><div class="modal-field" style="flex:1;"><label>Belopp (kr)</label><input id="ci-amount" class="edit-input" type="number" placeholder="t.ex. 5000"></div></div><div style="margin-top:6px;font-size:12px;color:var(--text3);">Basbelopp: ${baseAmount.toLocaleString('sv-SE')} kr</div>`,async()=>{let recipient=document.getElementById('ci-recipient').value;if(recipient==='__new__'){const newName=document.getElementById('ci-new-recipient')?.value?.trim();if(!newName)return false;await apiFetch(`${API}/commission-recipients`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName})});allRecipients.push(newName);allRecipients.sort();recipient=newName;}const pct=parseFloat(document.getElementById('ci-percent')?.value)||null;const amt=parseInt(document.getElementById('ci-amount')?.value)||(pct?Math.round(baseAmount*pct/100):0);if(!amt)return false;await apiFetch(`${API}/revenues/${revenueId}/commissions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId,recipient,commissionPercent:pct,amount:amt})});loadRevCommissions(revenueId,customerId);return true;});setTimeout(()=>{document.getElementById('ci-recipient')?.addEventListener('change',function(){document.getElementById('ci-new-recipient-wrap').style.display=this.value==='__new__'?'block':'none';});},50);}
 function calcCommFromPercent(base){const pct=parseFloat(document.getElementById('ci-percent')?.value)||0;const el=document.getElementById('ci-amount');if(el&&pct>0)el.value=Math.round(base*pct/100);}
@@ -2793,6 +2974,12 @@ function renderTpKonvertering(){
   const stageRows=TP_STEPS_SHORT.map((s,i)=>{const v=stuck[i];const pct=all.length?Math.round(v/all.length*100):0;return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="flex:1;">${i+1}. ${s}</span><span style="color:var(--text3);">${v} fastnar</span><span style="font-weight:500;min-width:50px;text-align:right;">${pct}%</span></div>`;}).join('');
   const converted=all.filter(it=>it.LostReason==='Konverterad'||it.Status==='konverterad');
   const avgDays=converted.length?Math.round(converted.reduce((s,it)=>{if(!it.StartDate)return s;const start=new Date(it.StartDate);const end=new Date(it.EndDate||new Date());return s+Math.max(0,(end-start)/86400000);},0)/converted.length):0;
+  // Nuläge: aktiva trials/piloter med progress
+  const activeT=allTrials.filter(t=>t.Status!=='avslutad').sort((a,b)=>(a.EndDate?daysLeft(a.EndDate):999)-(b.EndDate?daysLeft(b.EndDate):999));
+  const activeP=allPilots.filter(p=>p.Status!=='avslutad').sort((a,b)=>{const ad=a.DecisionDate?new Date(a.DecisionDate)-new Date():9e15;const bd=b.DecisionDate?new Date(b.DecisionDate)-new Date():9e15;return ad-bd;});
+  const tpRowHtml=(it,kind)=>{const done=(it.Progress||[]).filter(x=>x).length;const pct=Math.round(done/6*100);const days=it.EndDate?daysLeft(it.EndDate):null;const urg=tpUrgency(days);const meta=kind==='trial'?tpDaysBadge(days):`<span class="badge b-blue" style="white-space:nowrap;">Beslut ${it.DecisionDate?new Date(it.DecisionDate).toLocaleDateString('sv-SE'):'–'}</span>`;return`<div style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="openTpModal('${kind}',${it.Id})"><span style="flex:1;font-size:13px;font-weight:500;min-width:140px;">${it.Company||'–'}</span><div style="flex:2;background:var(--surface2);border-radius:3px;height:8px;position:relative;overflow:hidden;"><div style="width:${pct}%;height:8px;background:${urg==='red'?'var(--red)':urg==='amber'?'var(--amber)':'var(--green)'};"></div></div><span style="font-size:11px;color:var(--text3);min-width:36px;">${done}/6</span>${meta}</div>`;};
+  const nulageHtml=`<div class="fin-card" style="margin-top:14px;"><div class="fin-card-title">Nuläge – aktiva trials</div>${activeT.length?activeT.map(it=>tpRowHtml(it,'trial')).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px;">Inga aktiva trials.</div>'}</div>
+  <div class="fin-card" style="margin-top:14px;"><div class="fin-card-title">Nuläge – aktiva piloter</div>${activeP.length?activeP.map(it=>tpRowHtml(it,'pilot')).join(''):'<div style="color:var(--text3);font-size:13px;padding:10px;">Inga aktiva piloter.</div>'}</div>`;
   el.innerHTML=`<div class="kpi-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px;">
     <div class="kpi-card"><div class="kpi-label">Total konvertering</div><div class="kpi-value" style="color:var(--green);">${all.length?Math.round(converted.length/all.length*100):0}%</div><div class="kpi-delta neu">${converted.length}/${all.length}</div></div>
     <div class="kpi-card"><div class="kpi-label">Tid till konvertering</div><div class="kpi-value" style="color:var(--accent);">${avgDays} d</div><div class="kpi-delta neu">snitt</div></div>
@@ -2801,7 +2988,8 @@ function renderTpKonvertering(){
   <div class="fin-grid">
     <div class="fin-card"><div class="fin-card-title">Konvertering per källa</div>${sourceRows}</div>
     <div class="fin-card"><div class="fin-card-title">Var fastnar folk?</div>${stageRows}</div>
-  </div>`;
+  </div>
+  ${nulageHtml}`;
 }
 function renderTpList(){
   const tab=currentSub.trialpilot||'trials';
@@ -2811,6 +2999,12 @@ function renderTpList(){
   const srcF=document.getElementById('filter-tp-source')?.value||'';
   const indF=document.getElementById('filter-tp-industry')?.value||'';
   const items=all.filter(it=>(!q||(it.Company||'').toLowerCase().includes(q))&&(!ownerF||it.Owner===ownerF)&&(!srcF||it.Source===srcF)&&(!indF||it.Industry===indF));
+  const sortMode=document.getElementById('filter-tp-sort')?.value||'time';
+  items.sort((a,b)=>{
+    if(sortMode==='name')return (a.Company||'').localeCompare(b.Company||'');
+    if(sortMode==='steps'){const ad=(a.Progress||[]).filter(x=>x).length;const bd=(b.Progress||[]).filter(x=>x).length;return bd-ad;}
+    const ad=a.EndDate?daysLeft(a.EndDate):999;const bd=b.EndDate?daysLeft(b.EndDate):999;return ad-bd;
+  });
   const el=document.getElementById('tp-list');
   if(!items.length){el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:var(--text3);font-size:13px;">Inga ${tab==='trials'?'trials':'piloter'} matchar</div>`;return;}
   el.innerHTML=items.map(it=>tpCardHtml(it,tab==='trials'?'trial':'pilot')).join('');
@@ -2880,7 +3074,7 @@ function openTpModal(type,id){
   document.getElementById('tp-overlay').classList.add('open');
 }
 function renderTpModalTabs(){
-  document.getElementById('tp-modal-tabs').innerHTML=['Översikt','Aktivering'].map((t,i)=>`<button class="modal-tab ${currentTpModalTab===i+1?'active':''}" onclick="goToTpModalTab(${i+1})">${i+1}. ${t}</button>`).join('');
+  document.getElementById('tp-modal-tabs').innerHTML=['Översikt','Aktivering','Kontaktlogg'].map((t,i)=>`<button class="modal-tab ${currentTpModalTab===i+1?'active':''}" onclick="goToTpModalTab(${i+1})">${i+1}. ${t}</button>`).join('');
 }
 function goToTpModalTab(n){saveTpFromModal();currentTpModalTab=n;renderTpModalTabs();renderTpModalBody();}
 function closeTpModal(e){if(e.target===document.getElementById('tp-overlay'))closeTpModalDirect();}
@@ -2999,7 +3193,7 @@ function renderTpModalBody(){
       <div class="modal-section"><div class="modal-section-label">Anteckningar</div>
         <div class="modal-card"><textarea ${is} id="tpm-notes" style="height:80px;resize:vertical;">${item.Notes||''}</textarea></div></div>
       <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);"><button class="btn-primary" onclick="saveTpFromModal();showSaveIndicator('✓ Sparat','#1a7a50');">Spara</button></div>`;
-  } else {
+  } else if(currentTpModalTab===2){
     const progress=item.Progress||[false,false,false,false,false,false];
     const stepsHtml=TP_STEPS_SHORT.map((short,i)=>{
       const done=progress[i];
@@ -3042,6 +3236,8 @@ function renderTpModalBody(){
           <div class="modal-field"><label>Antal inbjudna</label><input ${is} id="tpm-invited" type="number" value="${item.InvitedCount??''}"></div>
         </div></div></div>
       <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);"><button class="btn-primary" onclick="saveTpFromModal();showSaveIndicator('✓ Sparat','#1a7a50');">Spara</button></div>`;
+  } else if(currentTpModalTab===3){
+    body.innerHTML=renderKontaktloggHtml(currentTpType,item.Id,item,[]);
   }
 }
 async function saveTpFromModal(){

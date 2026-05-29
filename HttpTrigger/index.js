@@ -3,6 +3,9 @@
 //   ALTER TABLE Prospects ADD Phone NVARCHAR(50) NULL, Employees INT NULL, Industry NVARCHAR(100) NULL;
 // Required schema for the new RevenueCategory / ExpectedStartMonth fields:
 //   ALTER TABLE Prospects ADD RevenueCategory NVARCHAR(50) NULL, ExpectedStartMonth DATE NULL;
+// Required schema for invoice tracking on revenue items:
+//   ALTER TABLE CustomerRevenues ADD InvoiceDate DATE NULL, Paid BIT DEFAULT 0, PaymentDate DATE NULL;
+//   ALTER TABLE ProspectRevenues ADD InvoiceDate DATE NULL, Paid BIT DEFAULT 0, PaymentDate DATE NULL;
 // Until those columns exist the corresponding PUT/POST below will fail with
 // "Invalid column name" — run the ALTER TABLE statements first.
 
