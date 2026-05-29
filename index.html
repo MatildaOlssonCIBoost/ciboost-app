@@ -1509,6 +1509,81 @@ function renderProspectBody(p,acts){
   }
 }
 const KONTAKT_KIND={'Möte':{color:'#1a4f7a'},'Samtal':{color:'#1a7a50'},'E-post':{color:'#5a1a7a'},'Demo':{color:'#1a4f7a'},'Offert':{color:'#b85a00'},'Uppföljning':{color:'#3C3489'},'Annat':{color:'#888'}};
+const ACTIVATION_STEPS={
+  Enterprise:['Org admins','Laddat upp team','Ett team har använt plattformen','Några få team har använt plattformen','Flera team använder plattformen','Mätning genomförd'],
+  Team:['Teamledare','Valt moduler','Kört 1 session','Kört några sessioner','Kört flera sessioner','Mätning genomförd'],
+  Pilot:['Teamledare','Valt moduler','Kört 1 session','Kört några sessioner','Kört flera sessioner','Mätning genomförd']
+};
+const SATISFACTION_EMOJIS=['😞','😕','😐','🙂','😊'];
+function getCustomerActivation(id){try{return JSON.parse(localStorage.getItem(`activation-${id}`)||'{}');}catch(e){return{};}}
+function setCustomerActivation(id,data){localStorage.setItem(`activation-${id}`,JSON.stringify(data));}
+function getCustomerSatisfaction(id){return parseInt(localStorage.getItem(`satisfaction-${id}`))||0;}
+function setCustomerSatisfactionValue(id,v){if(v)localStorage.setItem(`satisfaction-${id}`,String(v));else localStorage.removeItem(`satisfaction-${id}`);}
+function computeActivationRisk(stepsDone,activityLevel){
+  if(activityLevel==='Hög'){return{level:'Low',color:'var(--green)',bg:'var(--green-bg)',label:'Låg risk',sub:'Hög aktivitet – kunden använder plattformen väl'};}
+  if(activityLevel==='Medium'&&stepsDone<=3){return{level:'Medium',color:'var(--amber)',bg:'var(--amber-bg)',label:'Medium risk',sub:`Medium aktivitet · ${stepsDone}/6 steg klara`};}
+  if(activityLevel==='Låg'&&stepsDone<=2){return{level:'High',color:'var(--red)',bg:'var(--red-bg)',label:'Hög risk',sub:`Låg aktivitet · bara ${stepsDone}/6 steg klara`};}
+  if(stepsDone>=5){return{level:'Low',color:'var(--green)',bg:'var(--green-bg)',label:'Låg risk',sub:`${stepsDone}/6 steg klara`};}
+  if(stepsDone>=3){return{level:'Medium',color:'var(--amber)',bg:'var(--amber-bg)',label:'Medium risk',sub:`${stepsDone}/6 steg klara`};}
+  return{level:'High',color:'var(--red)',bg:'var(--red-bg)',label:'Hög risk',sub:`${stepsDone}/6 steg klara · sätt aktivitetsnivå för exakt beräkning`};
+}
+function renderCustomerActivationHtml(c){
+  if(!c||!c.Id)return '<div style="padding:20px;color:var(--text3);font-size:13px;text-align:center;">Spara kunden först för att aktivera.</div>';
+  const data=getCustomerActivation(c.Id);
+  const steps=data.steps||[false,false,false,false,false,false];
+  const lt=c.LicenseType==='Enterprise'?'Enterprise':'Team';
+  const labels=ACTIVATION_STEPS[lt]||ACTIVATION_STEPS.Team;
+  const stepsHtml=labels.map((label,i)=>{
+    const done=!!steps[i];
+    return`<div class="tp-tprog-step ${done?'done':''}" title="${label}" onclick="toggleCustActivationStep(${c.Id},${i})"><div class="circle">${done?'✓':(i+1)}</div><div class="label">${label}</div></div>`;
+  }).join('');
+  const sat=getCustomerSatisfaction(c.Id);
+  const satHtml=SATISFACTION_EMOJIS.map((e,i)=>`<button onclick="setSatisfaction(${c.Id},${i+1})" style="font-size:28px;padding:8px 12px;border:1px solid ${sat===i+1?'var(--accent)':'var(--border)'};border-radius:8px;background:${sat===i+1?'var(--accent-bg)':'var(--surface)'};cursor:pointer;">${e}</button>`).join('');
+  const actLevel=data.activityLevel||'';
+  const lastActive=data.lastActive||'';
+  const stepsDone=steps.filter(x=>x).length;
+  const risk=computeActivationRisk(stepsDone,actLevel);
+  return`<div class="modal-section"><div class="modal-section-label">Aktiveringssteg (${lt})</div>
+      <div class="modal-card"><div class="tp-tprog" style="margin:8px 0;">${stepsHtml}</div></div></div>
+    <div class="modal-section"><div class="modal-section-label">Riskindikator</div>
+      <div class="modal-card" style="background:${risk.bg};border-color:${risk.color};display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div><div style="font-weight:600;color:${risk.color};font-size:14px;">${risk.label}</div><div style="font-size:12px;color:var(--text2);margin-top:2px;">${risk.sub}</div></div>
+        <button class="btn-sm" onclick="applyActivationRisk(${c.Id},'${risk.level}')">Uppdatera risk</button>
+      </div></div>
+    <div class="modal-section"><div class="modal-section-label">Upplevd nöjdhet</div>
+      <div class="modal-card"><div style="display:flex;gap:8px;flex-wrap:wrap;">${satHtml}</div>${sat?`<button class="btn-sm" style="margin-top:10px;background:var(--surface2);color:var(--text);" onclick="setSatisfaction(${c.Id},0)">Rensa</button>`:''}</div></div>
+    <div class="modal-section"><div class="modal-section-label">Aktivitetsnivå</div>
+      <div class="modal-card"><div class="modal-grid">
+        <div class="modal-field"><label>Nivå</label><select class="edit-input" id="cust-activity-level" onchange="saveActivationField(${c.Id},'activityLevel',this.value)"><option value="">–</option><option ${actLevel==='Låg'?'selected':''}>Låg</option><option ${actLevel==='Medium'?'selected':''}>Medium</option><option ${actLevel==='Hög'?'selected':''}>Hög</option></select></div>
+        <div class="modal-field"><label>Senast aktiv</label><input class="edit-input" id="cust-last-active" type="date" value="${lastActive}" onchange="saveActivationField(${c.Id},'lastActive',this.value)"></div>
+      </div></div></div>
+    <div class="modal-section"><div class="modal-section-label">Aktivitetslogg</div>
+      <div class="modal-card" style="margin-bottom:12px;"><div class="modal-grid"><div class="modal-field"><label>Typ</label><select id="new-activity-type" class="edit-input"><option>Möte</option><option>Samtal</option><option>E-post</option><option>Anteckning</option></select></div><div class="modal-field"><label>Datum</label><input class="edit-input" id="new-activity-date" type="date" value="${new Date().toISOString().substring(0,10)}"></div></div><div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea class="edit-input" id="new-activity-note" style="height:80px;resize:vertical;"></textarea></div><button onclick="addActivity(${c.Id})" style="margin-top:8px;padding:6px 14px;border:none;border-radius:6px;background:var(--accent);color:#1e2140;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">+ Lägg till</button></div>
+      <div id="activity-list" style="display:flex;flex-direction:column;gap:8px;"><div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Laddar...</div></div></div>`;
+}
+function toggleCustActivationStep(id,idx){
+  const d=getCustomerActivation(id);
+  d.steps=d.steps||[false,false,false,false,false,false];
+  d.steps[idx]=!d.steps[idx];
+  setCustomerActivation(id,d);
+  if(currentModalId===id&&currentPage===4)renderModalPage(allCustomers.find(x=>x.Id===id),[],[]);
+}
+function setSatisfaction(id,v){
+  setCustomerSatisfactionValue(id,v);
+  if(currentModalId===id&&currentPage===4)renderModalPage(allCustomers.find(x=>x.Id===id),[],[]);
+  renderTable();
+}
+function saveActivationField(id,field,value){
+  const d=getCustomerActivation(id);d[field]=value;setCustomerActivation(id,d);
+  if(currentModalId===id&&currentPage===4)renderModalPage(allCustomers.find(x=>x.Id===id),[],[]);
+}
+function applyActivationRisk(id,level){
+  const c=allCustomers.find(x=>x.Id===id);if(!c)return;
+  c.Risk=level;
+  if(typeof silentSave==='function')silentSave(id);
+  showSaveIndicator(`✓ Risk satt till ${level}`,'#1a7a50');
+  renderTable();
+}
 function renderKontaktloggHtml(type,id,item,acts){
   if(!id)return '<div style="padding:20px;color:var(--text3);font-size:13px;text-align:center;">Spara först för att kunna lägga till kontakter.</div>';
   const nextType=item?.NextActionType;
@@ -1911,7 +1986,7 @@ function renderRevSummary(){const totArr=allCustomers.reduce((s,c)=>s+(c.ARR||0)
 function getFiltered(){const q=(document.getElementById('search')?.value||'').toLowerCase();const owner=document.getElementById('filter-owner')?.value||'';const license=document.getElementById('filter-license')?.value||'';const risk=document.getElementById('filter-risk')?.value||'';const industry=document.getElementById('filter-industry')?.value||'';return allCustomers.filter(c=>{const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk)&&(!industry||c.Industry===industry);});}
 function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderTable();}
 function sortData(data){return [...data].sort((a,b)=>{let va=sortCol==='days'?(a._days??99999):(sortCol==='ARR'?customerValue(a):(a[sortCol]||''));let vb=sortCol==='days'?(b._days??99999):(sortCol==='ARR'?customerValue(b):(b[sortCol]||''));if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;});}
-function renderTable(){const data=sortData(getFiltered());document.getElementById('filter-count').textContent=`${data.length} kund${data.length!==1?'er':''}`;if(!data.length){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Inga kunder matchar</div></td></tr>`;return;}document.getElementById('table-body').innerHTML=data.map(c=>{const arr=c.ARR||0,fast=c.ARR_Fixed||0,utb=c.Revenue_Training||0,cons=c.Revenue_Consulting||0;const tot=arr+fast+utb+cons||1;const val=customerValue(c);const bars=[arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;"></div>`:'',fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;"></div>`:'',utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;"></div>`:'',cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;"></div>`:''].filter(Boolean).join('');return`<tr onclick="openModal(${c.Id})"><td><div class="company-name">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td><td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td><td><span class="owner-tag">${c._owner}</span></td><td><span class="license-type lt-${c.LicenseType}">${c.LicenseType||'-'}</span></td><td style="font-weight:500;font-size:13px;">${val>0?val.toLocaleString('sv-SE')+' kr':'-'}</td><td><div style="display:flex;gap:2px;align-items:center;">${bars}</div></td><td style="font-size:13px;color:var(--text2);">${formatDate(c.LicenseEnd)}</td><td>${daysPill(c._days)}</td><td><span class="risk-dot risk-${c.Risk}">${c.Risk||'-'}</span></td></tr>`;}).join('');}
+function renderTable(){const data=sortData(getFiltered());document.getElementById('filter-count').textContent=`${data.length} kund${data.length!==1?'er':''}`;if(!data.length){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Inga kunder matchar</div></td></tr>`;return;}document.getElementById('table-body').innerHTML=data.map(c=>{const arr=c.ARR||0,fast=c.ARR_Fixed||0,utb=c.Revenue_Training||0,cons=c.Revenue_Consulting||0;const tot=arr+fast+utb+cons||1;const val=customerValue(c);const bars=[arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;"></div>`:'',fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;"></div>`:'',utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;"></div>`:'',cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;"></div>`:''].filter(Boolean).join('');return`<tr onclick="openModal(${c.Id})"><td><div class="company-name">${c.Company||'-'}${(()=>{const s=getCustomerSatisfaction(c.Id);return s?` <span style="font-size:14px;" title="Nöjdhet ${s}/5">${SATISFACTION_EMOJIS[s-1]}</span>`:'';})()}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td><td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td><td><span class="owner-tag">${c._owner}</span></td><td><span class="license-type lt-${c.LicenseType}">${c.LicenseType||'-'}</span></td><td style="font-weight:500;font-size:13px;">${val>0?val.toLocaleString('sv-SE')+' kr':'-'}</td><td><div style="display:flex;gap:2px;align-items:center;">${bars}</div></td><td style="font-size:13px;color:var(--text2);">${formatDate(c.LicenseEnd)}</td><td>${daysPill(c._days)}</td><td><span class="risk-dot risk-${c.Risk}">${c.Risk||'-'}</span></td></tr>`;}).join('');}
 function toggleRevDD(e){e.stopPropagation();const p=document.getElementById('rev-dd-panel');p.style.display=p.style.display==='none'?'block':'none';}
 function toggleRevSource(s){revSources[s]=!revSources[s];document.getElementById(`rcb-${s}`).classList.toggle('on',revSources[s]);renderTable();updateStats();}
 function togglePerDD(e){e.stopPropagation();const p=document.getElementById('per-dd-panel');p.style.display=p.style.display==='none'?'block':'none';}
@@ -2072,7 +2147,79 @@ async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'P
 // ─── PERIODISERING ───────────────────────────────────────
 function setPerQuick(p,el){if(el)el.parentNode.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');const monthInp=document.getElementById('per-month');if(monthInp)monthInp.value='';const y=new Date().getFullYear();const ranges={q1:[`${y}-01-01`,`${y}-03-31`],q2:[`${y}-04-01`,`${y}-06-30`],q3:[`${y}-07-01`,`${y}-09-30`],q4:[`${y}-10-01`,`${y}-12-31`],year:[`${y}-01-01`,`${y}-12-31`],h1:[`${y}-01-01`,`${y}-06-30`],h2:[`${y}-07-01`,`${y}-12-31`]};const r=ranges[p];if(r){document.getElementById('per-from').value=r[0];document.getElementById('per-to').value=r[1];}renderPrognos();}
 function setPerMonth(v){if(!v)return;document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));const [y,m]=v.split('-').map(Number);const last=new Date(y,m,0).getDate();document.getElementById('per-from').value=`${v}-01`;document.getElementById('per-to').value=`${v}-${String(last).padStart(2,'0')}`;renderPrognos();}
-function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const useArr=typeof fcSources!=='undefined'?fcSources.has('ARR'):perSources.arr;const useFast=typeof fcSources!=='undefined'?fcSources.has('Fastpris'):perSources.fast;const useUtb=typeof fcSources!=='undefined'?fcSources.has('Utbildning'):perSources.utb;const useCons=typeof fcSources!=='undefined'?fcSources.has('Consulting'):perSources.cons;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(useArr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useFast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useUtb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useCons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');const pipeWeighted=(typeof allProspects!=='undefined'?allProspects:[]).filter(p=>p.Stage==='Qualified Lead').reduce((s,p)=>s+Math.round((p.ValueMax||p.Value||0)*(p.Probability||0)/100),0);const pipePerMonth=Math.round(pipeWeighted/12);const pipeCells=months.map(()=>`<td><span style="color:var(--blue);font-size:11px;font-weight:500;">${pipePerMonth>=1000?Math.round(pipePerMonth/1000)+'k':pipePerMonth}</span></td>`).join('');const pipeTot=pipePerMonth*months.length;const pipeRow=pipeWeighted>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeCells}<td><span style="font-weight:600;color:var(--blue);">${pipeTot>=1000?Math.round(pipeTot/1000)+'k':pipeTot} kr</span></td></tr>`:'';document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`+pipeRow;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML='';}
+function renderPeriodisering(){
+  const fromIn=document.getElementById('per-from'),toIn=document.getElementById('per-to');
+  if(!fromIn||!toIn)return;
+  const from=new Date(fromIn.value),to=new Date(toIn.value);
+  const mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const months=[];let cur=new Date(from.getFullYear(),from.getMonth(),1);
+  while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
+  if(!months.length)return;
+  document.getElementById('per-thead').innerHTML=`<tr><th>Rad</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;
+  const useArr=typeof fcSources!=='undefined'?fcSources.has('ARR'):perSources.arr;
+  const useFast=typeof fcSources!=='undefined'?fcSources.has('Fastpris'):perSources.fast;
+  const useUtb=typeof fcSources!=='undefined'?fcSources.has('Utbildning'):perSources.utb;
+  const useCons=typeof fcSources!=='undefined'?fcSources.has('Consulting'):perSources.cons;
+  const fmtK=v=>v?(v>=1000?Math.round(v/1000)+'k':String(Math.round(v))):'–';
+  const fmtKKr=v=>v?(v>=1000?Math.round(v/1000)+'k kr':Math.round(v)+' kr'):'–';
+  // BUDGET (primary)
+  const budgetByMonth=months.map(m=>{const mn=mNames[m.getMonth()];return primaryBudgetRows.filter(r=>r.Category==='Revenue').reduce((s,r)=>s+(r[mn]||0),0);});
+  const budgetTotal=budgetByMonth.reduce((a,b)=>a+b,0);
+  // ACTIVE customer revenue (existing periodisering)
+  const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));
+  const activeMonth=months.map(()=>0);
+  const custRows=active.map(c=>{
+    let rt=0;
+    const cells=months.map((m,mi)=>{
+      const v=monthlyValue(c,m);
+      let parts=[];
+      if(useArr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${fmtK(r)}</span>`);activeMonth[mi]+=r;rt+=r;}
+      if(useFast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${fmtK(r)}</span>`);activeMonth[mi]+=r;rt+=r;}
+      if(useUtb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${fmtK(r)}</span>`);activeMonth[mi]+=r;rt+=r;}
+      if(useCons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${fmtK(r)}</span>`);activeMonth[mi]+=r;rt+=r;}
+      return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;
+    }).join('');
+    return`<tr onclick="openModal(${c.Id})" style="cursor:pointer;"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${fmtK(rt)} kr</span></td></tr>`;
+  }).join('');
+  const activeTotal=activeMonth.reduce((a,b)=>a+b,0);
+  // FÖRNYELSEPOTENTIAL — kunder vars LicenseEnd ligger i aktuell månad
+  const renewMonth=months.map(m=>{
+    const y=m.getFullYear(),mn=m.getMonth();
+    return allCustomers.filter(c=>{if(!c.LicenseEnd)return false;const d=new Date(c.LicenseEnd);return d.getFullYear()===y&&d.getMonth()===mn;}).reduce((s,c)=>s+(c.ARR||0)+(c.ARR_Fixed||0),0);
+  });
+  const renewTotal=renewMonth.reduce((a,b)=>a+b,0);
+  // VIKTAT PIPELINE — Qualified Leads distribuerade på ExpectedStartMonth (eller jämnt om saknas)
+  const pipeMonth=months.map(()=>0);
+  allProspects.filter(p=>p.Stage==='Qualified Lead').forEach(p=>{
+    const val=p.ValueMax||p.ValueMin||p.Value||0;const w=Math.round(val*(p.Probability||0)/100);
+    if(!w)return;
+    if(p.ExpectedStartMonth){
+      const sm=new Date(p.ExpectedStartMonth);
+      const idx=months.findIndex(m=>m.getFullYear()===sm.getFullYear()&&m.getMonth()===sm.getMonth());
+      if(idx>=0)pipeMonth[idx]+=w;
+    } else {
+      const per=Math.round(w/months.length);months.forEach((_,i)=>pipeMonth[i]+=per);
+    }
+  });
+  const pipeTotal=pipeMonth.reduce((a,b)=>a+b,0);
+  // GAP = Budget − (Active + Renewal + Pipeline) per month
+  const gapMonth=months.map((_,i)=>budgetByMonth[i]-(activeMonth[i]+renewMonth[i]+pipeMonth[i]));
+  const gapTotal=gapMonth.reduce((a,b)=>a+b,0);
+  const gapPct=budgetTotal>0?Math.round(gapTotal/budgetTotal*100):null;
+  const cell=(v,c)=>`<td style="text-align:center;font-size:11px;font-weight:500;color:${c||'inherit'};">${v?fmtK(v):'–'}</td>`;
+  const sepRow=label=>`<tr style="background:transparent;"><td colspan="${months.length+2}" style="border-top:1px solid var(--border);padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);">${label}</td></tr>`;
+  const budgetRow=`<tr style="background:#fdf0e8;"><td style="font-weight:600;color:#7a3a1a;">Budget (primär)</td>${budgetByMonth.map(v=>cell(v,'#7a3a1a')).join('')}<td style="text-align:center;font-weight:600;color:#7a3a1a;">${fmtKKr(budgetTotal)}</td></tr>`;
+  const gapColor=v=>v>=0?'var(--green)':'var(--red)';
+  const gapRow=`<tr style="background:var(--surface2);"><td style="font-weight:600;">Gap mot budget${gapPct!==null?` <span style="font-size:10px;color:var(--text3);font-weight:400;">(${gapPct>=0?'+':''}${gapPct}%)</span>`:''}</td>${gapMonth.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;color:${gapColor(v)};">${v?(v>=0?'+':'')+fmtK(v):'–'}</td>`).join('')}<td style="text-align:center;font-weight:600;color:${gapColor(gapTotal)};">${gapTotal?(gapTotal>=0?'+':'')+fmtKKr(gapTotal):'–'}</td></tr>`;
+  const pipeRow=pipeTotal>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeMonth.map(v=>cell(v,'var(--blue)')).join('')}<td style="text-align:center;font-weight:600;color:var(--blue);">${fmtKKr(pipeTotal)}</td></tr>`:'';
+  const renewRow=renewTotal>0?`<tr style="background:var(--purple-bg);"><td style="font-weight:600;color:var(--purple);">Förnyelsepotential <span class="badge b-purple" style="font-size:10px;margin-left:4px;">renewal</span></td>${renewMonth.map(v=>cell(v,'var(--purple)')).join('')}<td style="text-align:center;font-weight:600;color:var(--purple);">${fmtKKr(renewTotal)}</td></tr>`:'';
+  const totalActiveRow=`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt aktiva avtal</td>${activeMonth.map(t=>`<td style="text-align:center;font-weight:600;font-size:11px;">${fmtK(t)}</td>`).join('')}<td style="text-align:center;font-weight:600;">${fmtKKr(activeTotal)}</td></tr>`;
+  document.getElementById('per-tbody').innerHTML=
+    budgetRow+gapRow+
+    sepRow('Prognos')+pipeRow+renewRow+
+    sepRow('Aktiva avtal')+custRows+totalActiveRow;
+  document.getElementById('per-kpi').innerHTML='';
+}
 // ─── KUNDER ──────────────────────────────────────────────
 async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
 async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
@@ -2081,7 +2228,7 @@ function renderRevSummary(){const totArr=allCustomers.reduce((s,c)=>s+(c.ARR||0)
 function getFiltered(){const q=(document.getElementById('search')?.value||'').toLowerCase();const owner=document.getElementById('filter-owner')?.value||'';const license=document.getElementById('filter-license')?.value||'';const risk=document.getElementById('filter-risk')?.value||'';const industry=document.getElementById('filter-industry')?.value||'';return allCustomers.filter(c=>{const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk)&&(!industry||c.Industry===industry);});}
 function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderTable();}
 function sortData(data){return [...data].sort((a,b)=>{let va=sortCol==='days'?(a._days??99999):(sortCol==='ARR'?customerValue(a):(a[sortCol]||''));let vb=sortCol==='days'?(b._days??99999):(sortCol==='ARR'?customerValue(b):(b[sortCol]||''));if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;});}
-function renderTable(){const data=sortData(getFiltered());document.getElementById('filter-count').textContent=`${data.length} kund${data.length!==1?'er':''}`;if(!data.length){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Inga kunder matchar</div></td></tr>`;return;}document.getElementById('table-body').innerHTML=data.map(c=>{const arr=c.ARR||0,fast=c.ARR_Fixed||0,utb=c.Revenue_Training||0,cons=c.Revenue_Consulting||0;const tot=arr+fast+utb+cons||1;const val=customerValue(c);const bars=[arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;"></div>`:'',fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;"></div>`:'',utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;"></div>`:'',cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;"></div>`:''].filter(Boolean).join('');return`<tr onclick="openModal(${c.Id})"><td><div class="company-name">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td><td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td><td><span class="owner-tag">${c._owner}</span></td><td><span class="license-type lt-${c.LicenseType}">${c.LicenseType||'-'}</span></td><td style="font-weight:500;font-size:13px;">${val>0?val.toLocaleString('sv-SE')+' kr':'-'}</td><td><div style="display:flex;gap:2px;align-items:center;">${bars}</div></td><td style="font-size:13px;color:var(--text2);">${formatDate(c.LicenseEnd)}</td><td>${daysPill(c._days)}</td><td><span class="risk-dot risk-${c.Risk}">${c.Risk||'-'}</span></td></tr>`;}).join('');}
+function renderTable(){const data=sortData(getFiltered());document.getElementById('filter-count').textContent=`${data.length} kund${data.length!==1?'er':''}`;if(!data.length){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Inga kunder matchar</div></td></tr>`;return;}document.getElementById('table-body').innerHTML=data.map(c=>{const arr=c.ARR||0,fast=c.ARR_Fixed||0,utb=c.Revenue_Training||0,cons=c.Revenue_Consulting||0;const tot=arr+fast+utb+cons||1;const val=customerValue(c);const bars=[arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;"></div>`:'',fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;"></div>`:'',utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;"></div>`:'',cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;"></div>`:''].filter(Boolean).join('');return`<tr onclick="openModal(${c.Id})"><td><div class="company-name">${c.Company||'-'}${(()=>{const s=getCustomerSatisfaction(c.Id);return s?` <span style="font-size:14px;" title="Nöjdhet ${s}/5">${SATISFACTION_EMOJIS[s-1]}</span>`:'';})()}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td><td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td><td><span class="owner-tag">${c._owner}</span></td><td><span class="license-type lt-${c.LicenseType}">${c.LicenseType||'-'}</span></td><td style="font-weight:500;font-size:13px;">${val>0?val.toLocaleString('sv-SE')+' kr':'-'}</td><td><div style="display:flex;gap:2px;align-items:center;">${bars}</div></td><td style="font-size:13px;color:var(--text2);">${formatDate(c.LicenseEnd)}</td><td>${daysPill(c._days)}</td><td><span class="risk-dot risk-${c.Risk}">${c.Risk||'-'}</span></td></tr>`;}).join('');}
 function toggleRevDD(e){e.stopPropagation();const p=document.getElementById('rev-dd-panel');p.style.display=p.style.display==='none'?'block':'none';}
 function toggleRevSource(s){revSources[s]=!revSources[s];document.getElementById(`rcb-${s}`).classList.toggle('on',revSources[s]);renderTable();updateStats();}
 function togglePerDD(e){e.stopPropagation();const p=document.getElementById('per-dd-panel');p.style.display=p.style.display==='none'?'block':'none';}
@@ -2242,7 +2389,79 @@ async function markPaid(id){await apiFetch(`${API}/commissions/${id}`,{method:'P
 // ─── PERIODISERING ───────────────────────────────────────
 function setPerQuick(p,el){if(el)el.parentNode.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');const monthInp=document.getElementById('per-month');if(monthInp)monthInp.value='';const y=new Date().getFullYear();const ranges={q1:[`${y}-01-01`,`${y}-03-31`],q2:[`${y}-04-01`,`${y}-06-30`],q3:[`${y}-07-01`,`${y}-09-30`],q4:[`${y}-10-01`,`${y}-12-31`],year:[`${y}-01-01`,`${y}-12-31`],h1:[`${y}-01-01`,`${y}-06-30`],h2:[`${y}-07-01`,`${y}-12-31`]};const r=ranges[p];if(r){document.getElementById('per-from').value=r[0];document.getElementById('per-to').value=r[1];}renderPrognos();}
 function setPerMonth(v){if(!v)return;document.querySelectorAll('#page-finansiellt-prognos .quick-btn').forEach(b=>b.classList.remove('active'));const [y,m]=v.split('-').map(Number);const last=new Date(y,m,0).getDate();document.getElementById('per-from').value=`${v}-01`;document.getElementById('per-to').value=`${v}-${String(last).padStart(2,'0')}`;renderPrognos();}
-function renderPeriodisering(){const from=new Date(document.getElementById('per-from').value);const to=new Date(document.getElementById('per-to').value);const months=[],mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];let cur=new Date(from.getFullYear(),from.getMonth(),1);while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}if(!months.length)return;document.getElementById('per-thead').innerHTML=`<tr><th>Kund</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;const mTotals=months.map(()=>0);let grand=0;const useArr=typeof fcSources!=='undefined'?fcSources.has('ARR'):perSources.arr;const useFast=typeof fcSources!=='undefined'?fcSources.has('Fastpris'):perSources.fast;const useUtb=typeof fcSources!=='undefined'?fcSources.has('Utbildning'):perSources.utb;const useCons=typeof fcSources!=='undefined'?fcSources.has('Consulting'):perSources.cons;const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));const rows=active.map(c=>{let rt=0;const cells=months.map((m,mi)=>{const v=monthlyValue(c,m);let parts=[];if(useArr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useFast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useUtb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}if(useCons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${r>=1000?Math.round(r/1000)+'k':r}</span>`);mTotals[mi]+=r;rt+=r;}return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;}).join('');grand+=rt;return`<tr onclick="openModal(${c.Id})"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${rt>=1000?Math.round(rt/1000)+'k':rt} kr</span></td></tr>`;}).join('');const pipeWeighted=(typeof allProspects!=='undefined'?allProspects:[]).filter(p=>p.Stage==='Qualified Lead').reduce((s,p)=>s+Math.round((p.ValueMax||p.Value||0)*(p.Probability||0)/100),0);const pipePerMonth=Math.round(pipeWeighted/12);const pipeCells=months.map(()=>`<td><span style="color:var(--blue);font-size:11px;font-weight:500;">${pipePerMonth>=1000?Math.round(pipePerMonth/1000)+'k':pipePerMonth}</span></td>`).join('');const pipeTot=pipePerMonth*months.length;const pipeRow=pipeWeighted>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeCells}<td><span style="font-weight:600;color:var(--blue);">${pipeTot>=1000?Math.round(pipeTot/1000)+'k':pipeTot} kr</span></td></tr>`:'';document.getElementById('per-tbody').innerHTML=rows+`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt</td>${mTotals.map(t=>`<td><span class="p-total">${t>=1000?Math.round(t/1000)+'k':t}</span></td>`).join('')}<td><span class="p-total">${grand>=1000?Math.round(grand/1000)+'k':grand} kr</span></td></tr>`+pipeRow;const avg=Math.round(grand/months.length);const max=Math.max(...mTotals);document.getElementById('per-kpi').innerHTML='';}
+function renderPeriodisering(){
+  const fromIn=document.getElementById('per-from'),toIn=document.getElementById('per-to');
+  if(!fromIn||!toIn)return;
+  const from=new Date(fromIn.value),to=new Date(toIn.value);
+  const mNames=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const months=[];let cur=new Date(from.getFullYear(),from.getMonth(),1);
+  while(cur<=to){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
+  if(!months.length)return;
+  document.getElementById('per-thead').innerHTML=`<tr><th>Rad</th>${months.map(m=>`<th>${mNames[m.getMonth()]}<br><span style="font-weight:400;font-size:9px;">${m.getFullYear()}</span></th>`).join('')}<th>Totalt</th></tr>`;
+  const useArr=typeof fcSources!=='undefined'?fcSources.has('ARR'):perSources.arr;
+  const useFast=typeof fcSources!=='undefined'?fcSources.has('Fastpris'):perSources.fast;
+  const useUtb=typeof fcSources!=='undefined'?fcSources.has('Utbildning'):perSources.utb;
+  const useCons=typeof fcSources!=='undefined'?fcSources.has('Consulting'):perSources.cons;
+  const fmtK=v=>v?(v>=1000?Math.round(v/1000)+'k':String(Math.round(v))):'–';
+  const fmtKKr=v=>v?(v>=1000?Math.round(v/1000)+'k kr':Math.round(v)+' kr'):'–';
+  // BUDGET (primary)
+  const budgetByMonth=months.map(m=>{const mn=mNames[m.getMonth()];return primaryBudgetRows.filter(r=>r.Category==='Revenue').reduce((s,r)=>s+(r[mn]||0),0);});
+  const budgetTotal=budgetByMonth.reduce((a,b)=>a+b,0);
+  // ACTIVE customer revenue (existing periodisering)
+  const active=allCustomers.filter(c=>months.some(m=>{const v=monthlyValue(c,m);return v.arr+v.fast+v.utb+v.cons>0;}));
+  const activeMonth=months.map(()=>0);
+  const custRows=active.map(c=>{
+    let rt=0;
+    const cells=months.map((m,mi)=>{
+      const v=monthlyValue(c,m);
+      let parts=[];
+      if(useArr&&v.arr>0){const r=Math.round(v.arr);parts.push(`<span class="p-arr">${fmtK(r)}</span>`);activeMonth[mi]+=r;rt+=r;}
+      if(useFast&&v.fast>0){const r=Math.round(v.fast);parts.push(`<span class="p-fast">${fmtK(r)}</span>`);activeMonth[mi]+=r;rt+=r;}
+      if(useUtb&&v.utb>0){const r=Math.round(v.utb);parts.push(`<span class="p-utb">${fmtK(r)}</span>`);activeMonth[mi]+=r;rt+=r;}
+      if(useCons&&v.cons>0){const r=Math.round(v.cons);parts.push(`<span class="p-cons">${fmtK(r)}</span>`);activeMonth[mi]+=r;rt+=r;}
+      return`<td>${parts.length?parts.join(''):'<span style="color:var(--text3);font-size:11px;">–</span>'}</td>`;
+    }).join('');
+    return`<tr onclick="openModal(${c.Id})" style="cursor:pointer;"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${fmtK(rt)} kr</span></td></tr>`;
+  }).join('');
+  const activeTotal=activeMonth.reduce((a,b)=>a+b,0);
+  // FÖRNYELSEPOTENTIAL — kunder vars LicenseEnd ligger i aktuell månad
+  const renewMonth=months.map(m=>{
+    const y=m.getFullYear(),mn=m.getMonth();
+    return allCustomers.filter(c=>{if(!c.LicenseEnd)return false;const d=new Date(c.LicenseEnd);return d.getFullYear()===y&&d.getMonth()===mn;}).reduce((s,c)=>s+(c.ARR||0)+(c.ARR_Fixed||0),0);
+  });
+  const renewTotal=renewMonth.reduce((a,b)=>a+b,0);
+  // VIKTAT PIPELINE — Qualified Leads distribuerade på ExpectedStartMonth (eller jämnt om saknas)
+  const pipeMonth=months.map(()=>0);
+  allProspects.filter(p=>p.Stage==='Qualified Lead').forEach(p=>{
+    const val=p.ValueMax||p.ValueMin||p.Value||0;const w=Math.round(val*(p.Probability||0)/100);
+    if(!w)return;
+    if(p.ExpectedStartMonth){
+      const sm=new Date(p.ExpectedStartMonth);
+      const idx=months.findIndex(m=>m.getFullYear()===sm.getFullYear()&&m.getMonth()===sm.getMonth());
+      if(idx>=0)pipeMonth[idx]+=w;
+    } else {
+      const per=Math.round(w/months.length);months.forEach((_,i)=>pipeMonth[i]+=per);
+    }
+  });
+  const pipeTotal=pipeMonth.reduce((a,b)=>a+b,0);
+  // GAP = Budget − (Active + Renewal + Pipeline) per month
+  const gapMonth=months.map((_,i)=>budgetByMonth[i]-(activeMonth[i]+renewMonth[i]+pipeMonth[i]));
+  const gapTotal=gapMonth.reduce((a,b)=>a+b,0);
+  const gapPct=budgetTotal>0?Math.round(gapTotal/budgetTotal*100):null;
+  const cell=(v,c)=>`<td style="text-align:center;font-size:11px;font-weight:500;color:${c||'inherit'};">${v?fmtK(v):'–'}</td>`;
+  const sepRow=label=>`<tr style="background:transparent;"><td colspan="${months.length+2}" style="border-top:1px solid var(--border);padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);">${label}</td></tr>`;
+  const budgetRow=`<tr style="background:#fdf0e8;"><td style="font-weight:600;color:#7a3a1a;">Budget (primär)</td>${budgetByMonth.map(v=>cell(v,'#7a3a1a')).join('')}<td style="text-align:center;font-weight:600;color:#7a3a1a;">${fmtKKr(budgetTotal)}</td></tr>`;
+  const gapColor=v=>v>=0?'var(--green)':'var(--red)';
+  const gapRow=`<tr style="background:var(--surface2);"><td style="font-weight:600;">Gap mot budget${gapPct!==null?` <span style="font-size:10px;color:var(--text3);font-weight:400;">(${gapPct>=0?'+':''}${gapPct}%)</span>`:''}</td>${gapMonth.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;color:${gapColor(v)};">${v?(v>=0?'+':'')+fmtK(v):'–'}</td>`).join('')}<td style="text-align:center;font-weight:600;color:${gapColor(gapTotal)};">${gapTotal?(gapTotal>=0?'+':'')+fmtKKr(gapTotal):'–'}</td></tr>`;
+  const pipeRow=pipeTotal>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeMonth.map(v=>cell(v,'var(--blue)')).join('')}<td style="text-align:center;font-weight:600;color:var(--blue);">${fmtKKr(pipeTotal)}</td></tr>`:'';
+  const renewRow=renewTotal>0?`<tr style="background:var(--purple-bg);"><td style="font-weight:600;color:var(--purple);">Förnyelsepotential <span class="badge b-purple" style="font-size:10px;margin-left:4px;">renewal</span></td>${renewMonth.map(v=>cell(v,'var(--purple)')).join('')}<td style="text-align:center;font-weight:600;color:var(--purple);">${fmtKKr(renewTotal)}</td></tr>`:'';
+  const totalActiveRow=`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt aktiva avtal</td>${activeMonth.map(t=>`<td style="text-align:center;font-weight:600;font-size:11px;">${fmtK(t)}</td>`).join('')}<td style="text-align:center;font-weight:600;">${fmtKKr(activeTotal)}</td></tr>`;
+  document.getElementById('per-tbody').innerHTML=
+    budgetRow+gapRow+
+    sepRow('Prognos')+pipeRow+renewRow+
+    sepRow('Aktiva avtal')+custRows+totalActiveRow;
+  document.getElementById('per-kpi').innerHTML='';
+}
 // ─── PROGNOS (Forecast scenarios) ────────────────────────
 let fcSources=new Set(['ARR','Fastpris','Consulting','Utbildning']),fcChurnOverride=null;
 async function renderPrognos(){
@@ -2826,7 +3045,7 @@ function renderModalPage(c,teams,admins){
   if(currentPage===2){const lt=getLicenseType(c);if(lt==='Enterprise'){const ac=admins.length||1;let h=`<div class="modal-section"><div class="modal-section-label">Admins</div><div class="modal-card"><div class="modal-field"><label>Antal</label><input ${is} id="edit-admin-count" type="number" min="1" max="20" value="${ac}" oninput="updateAdminBlocks(this.value,${JSON.stringify(admins).replace(/"/g,'&quot;')})"></div></div></div><div id="admin-blocks">`;for(let i=0;i<ac;i++){const a=admins[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input ${is} id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input ${is} id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input ${is} id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`;}html=h+'</div>';}else{const tc=teams.length||1;let h=`<div class="modal-section"><div class="modal-section-label">Antal team</div><div class="modal-card"><div class="modal-field"><label>Antal</label><input ${is} id="edit-team-count" type="number" min="1" max="20" value="${tc}" oninput="updateTeamBlocks(this.value,${JSON.stringify(teams).replace(/"/g,'&quot;')})"></div></div></div><div id="team-blocks">`;for(let i=0;i<tc;i++){const t=teams[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input ${is} id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input ${is} id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input ${is} id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input ${is} id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input ${is} id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`;}html=h+'</div>';}}
   if(currentPage===3){html=`<div class="modal-section"><div class="modal-section-label">Intäktsposter<button class="btn-sm" style="margin-left:8px;" onclick="openAddRevenue(${c?.Id})">+ Lägg till</button></div><div id="revenue-items"><div class="loading"><div class="spinner"></div></div></div><div class="modal-card" style="margin-top:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Total intäkt</span><span id="total-revenue" style="font-size:16px;font-weight:600;color:var(--accent);">–</span></div></div></div>`;}
   if(currentPage===5){html=renderKontaktloggHtml('customer',c?.Id,c,[]);}
-  if(currentPage===4){html=`<div class="modal-section"><div class="modal-section-label">Aktivitetslogg</div><div class="modal-card" style="margin-bottom:12px;"><div class="modal-grid"><div class="modal-field"><label>Typ</label><select id="new-activity-type" ${is}><option>Möte</option><option>Samtal</option><option>E-post</option><option>Anteckning</option></select></div><div class="modal-field"><label>Datum</label><input ${is} id="new-activity-date" type="date" value="${new Date().toISOString().substring(0,10)}"></div></div><div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea ${is} id="new-activity-note" style="height:80px;resize:vertical;"></textarea></div><button onclick="addActivity(${c?.Id})" style="margin-top:8px;padding:6px 14px;border:none;border-radius:6px;background:var(--accent);color:#1e2140;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">+ Lägg till</button></div><div id="activity-list" style="display:flex;flex-direction:column;gap:8px;"><div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Laddar...</div></div></div>`;}
+  if(currentPage===4){html=renderCustomerActivationHtml(c);}
   const saveBtn=isNewCustomer?`<button class="btn-primary" onclick="createCustomer()">Skapa kund</button>`:`<button class="btn-primary" onclick="silentSave(${c?.Id});showSaveIndicator('✓ Sparat','#1a7a50');">Spara</button>`;
   document.getElementById('modal-body').innerHTML=`${html}<div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">${saveBtn}</div>`;
   if(c&&!isNewCustomer)setTimeout(()=>setupAutoSave(c.Id),100);
