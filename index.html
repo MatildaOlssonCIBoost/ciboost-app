@@ -2451,11 +2451,21 @@ async function renameBudgetVersion(){
 
 async function deleteBudgetVersion(){
   if(!currentBudgetVersionId)return;
-  const v=budgetVersions.find(x=>x.Id==currentBudgetVersionId);
+  const idToDelete=currentBudgetVersionId;
+  const v=budgetVersions.find(x=>x.Id==idToDelete);
   if(!confirm(`Radera "${v?.Name}"? Detta går inte att ångra.`))return;
-  const delRes=await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}`,{method:'DELETE'});
-  if(!delRes.ok){alert('Kunde inte radera budgetversionen.');return;}
-  if(String(currentPrimaryBudgetVersionId)===String(currentBudgetVersionId)){currentPrimaryBudgetVersionId=null;localStorage.removeItem('primaryBudgetVersionId');}
+  console.log('[deleteBudgetVersion] DELETE',`${API}/budget-versions/${idToDelete}`);
+  let delRes;
+  try{delRes=await apiFetch(`${API}/budget-versions/${idToDelete}`,{method:'DELETE'});}
+  catch(e){console.error('[deleteBudgetVersion] network error:',e);alert('Nätverksfel vid radering.');return;}
+  console.log('[deleteBudgetVersion] response status:',delRes.status,delRes.ok?'OK':'FAIL');
+  if(!delRes.ok){
+    const body=await delRes.clone().text().catch(()=>'<no body>');
+    console.error('[deleteBudgetVersion] error body:',body);
+    alert(`Kunde inte radera budgetversionen (HTTP ${delRes.status}).`);
+    return;
+  }
+  if(String(currentPrimaryBudgetVersionId)===String(idToDelete)){currentPrimaryBudgetVersionId=null;localStorage.removeItem('primaryBudgetVersionId');}
   currentBudgetVersionId=null;
   budgetRows=[];
   const sel=document.getElementById('budget-version-select');if(sel)sel.value='';
@@ -2463,6 +2473,7 @@ async function deleteBudgetVersion(){
   ['budget-save-btn','btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget','budget-mode-toggle'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
   document.getElementById('budget-kpi').innerHTML='';
   await loadBudgetVersions();
+  console.log('[deleteBudgetVersion] reload done; remaining versions:',budgetVersions.length);
 }
 // ─── MODAL KUND ──────────────────────────────────────────
 function getLicenseType(c){return document.getElementById('edit-type')?.value||c?.LicenseType||'Team';}
