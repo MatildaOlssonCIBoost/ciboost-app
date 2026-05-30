@@ -794,12 +794,12 @@
 <div class="page" id="page-finansiellt-budget">
   <div class="main">
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
-      <select id="budget-version-select" onchange="loadBudgetVersion()" style="font-size:13px;">
+      <select id="budget-version-select" onchange="loadBudgetVersion()" style="font-size:14px;padding:6px 10px;min-width:280px;">
         <option value="">Välj budgetversion...</option>
       </select>
       <button class="quick-btn" onclick="openNewBudgetVersion()">+ Ny version</button>
       <button class="quick-btn" onclick="copyBudgetVersion()" id="btn-copy-budget" style="display:none;">⎘ Kopiera</button>
-      <button class="quick-btn" onclick="openImportFromPipeline()" id="btn-import-pipeline" style="display:none;">⇪ Importera från pipeline</button>
+      <button class="quick-btn" onclick="openImportRevenues()" id="btn-import-pipeline" style="display:none;">⇪ Importera intäkter</button>
       <button class="quick-btn" onclick="toggleBudgetPrimary()" id="btn-primary-budget" style="display:none;">☆ Sätt som primär</button>
       <button class="quick-btn" onclick="renameBudgetVersion()" id="btn-rename-budget" style="display:none;">✎ Byt namn</button>
       <button class="quick-btn" onclick="deleteBudgetVersion()" id="btn-delete-budget" style="display:none;color:var(--red);">🗑 Radera</button>
@@ -2966,7 +2966,7 @@ async function loadBudgetVersions(){
     const r=await apiFetch(`${API}/budget-versions`);
     budgetVersions=await r.json();
     const sel=document.getElementById('budget-version-select');
-    sel.innerHTML='<option value="">Välj budgetversion...</option>'+budgetVersions.map(v=>{const star=String(v.Id)===String(currentPrimaryBudgetVersionId)?'★ ':'';const tag=String(v.Id)===String(currentPrimaryBudgetVersionId)?' (Primär)':'';return`<option value="${v.Id}">${star}${v.Name} (${v.Year})${tag}</option>`;}).join('');
+    sel.innerHTML='<option value="">Välj budgetversion...</option>'+budgetVersions.map(v=>{const star=String(v.Id)===String(currentPrimaryBudgetVersionId)?'★ ':'';const tag=String(v.Id)===String(currentPrimaryBudgetVersionId)?' (Primär)':'';const created=v.CreatedAt?` · ${String(v.CreatedAt).substring(0,10)}`:'';return`<option value="${v.Id}">${star}${v.Name} (${v.Year})${created} · #${v.Id}${tag}</option>`;}).join('');
     if(currentBudgetVersionId){sel.value=currentBudgetVersionId;loadBudgetVersion();}
     await loadPrimaryBudget();
   }catch(e){}
@@ -2998,25 +2998,33 @@ function renderBudgetTable(){
   const yearSel=document.getElementById('budget-year-select');
   if(versionYear&&yearSel&&parseInt(yearSel.value)!==versionYear){if([...yearSel.options].some(o=>parseInt(o.value)===versionYear))yearSel.value=String(versionYear);}
   const year=versionYear||parseInt(yearSel?.value)||new Date().getFullYear();
-  const rowMap={};
-  budgetRows.forEach(r=>{rowMap[`${r.Category}__${r.SubCategory}`]=r;});
 
-  const actualByMonth=MONTHS.map((_,mi)=>{
-    const monthDate=new Date(year,mi,1);
-    let tot=0;
-    allCustomers.forEach(c=>{const mv=monthlyValue(c,monthDate);tot+=mv.arr+mv.fast+mv.utb+mv.cons;});
-    return Math.round(tot);
+  // Editable rows are keyed by Category+SubCategory and have no Source.
+  // Imported rows have a Source string and are filtered by the active mode for "Avtal".
+  const editableRowMap={};
+  budgetRows.filter(r=>!r.Source).forEach(r=>{editableRowMap[`${r.Category}__${r.SubCategory}`]=r;});
+  const visibleImportedRows=budgetRows.filter(r=>{
+    if(!r.Source)return false;
+    if(r.Source.startsWith('Avtal (')){return r.Source==='Avtal ('+currentBudgetMode+')';}
+    return true;
   });
 
   const getVal=(category,sub,mi)=>{
-    const key=`${category}__${sub}`;
-    const saved=rowMap[key]||{};
+    const saved=editableRowMap[`${category}__${sub}`]||{};
     return saved[MONTHS[mi]]||0;
   };
+  const getImportedVal=(row,mi)=>row[MONTHS[mi]]||0;
 
   const sumSection=(section)=>{
-    const rows=allBudgetRows().filter(r=>r.section===section);
-    return MONTHS.map((_,mi)=>rows.reduce((s,r)=>s+getVal(r.category,r.subCategory,mi),0));
+    const editableDefs=allBudgetRows().filter(r=>r.section===section);
+    return MONTHS.map((_,mi)=>{
+      let total=editableDefs.reduce((s,r)=>s+getVal(r.category,r.subCategory,mi),0);
+      visibleImportedRows.forEach(ir=>{
+        const def=allBudgetRows().find(d=>d.category===ir.Category&&d.subCategory===ir.SubCategory);
+        if(def&&def.section===section)total+=getImportedVal(ir,mi);
+      });
+      return total;
+    });
   };
 
   const revMonthly=sumSection('REVENUE');
@@ -3057,6 +3065,29 @@ function renderBudgetTable(){
       ${dotHtml(category,sub,mi)}
     </div></td>`;
   };
+  const readonlyCell=(v)=>`<td style="padding:2px 3px;text-align:right;font-size:11px;color:var(--text2);">${v?Math.round(v/1000)+'k':'-'}</td>`;
+  const isCustomRow=(rd)=>customBudgetRows.some(c=>c.category===rd.category&&c.subCategory===rd.subCategory);
+  const sourceLabel=(src)=>{
+    if(!src)return'';
+    if(src.startsWith('Avtal ('))return'Avtal';
+    return src;
+  };
+  const subCell=(rd,extraStyle)=>{
+    const isCustom=isCustomRow(rd);
+    const sub=`<div>${rd.subCategory}</div>${isCustom?`<div style="font-size:9px;color:var(--text3);font-style:italic;">Manuellt</div>`:''}`;
+    return `<td style="padding-left:10px;font-size:12px;${extraStyle||''}">${sub}</td>`;
+  };
+  const importedRowHtml=(ir,bg,totalBg)=>{
+    const vals=MONTHS.map((_,mi)=>getImportedVal(ir,mi));
+    const total=vals.reduce((a,b)=>a+b,0);
+    const imp=ir.ImportedAt?String(ir.ImportedAt).substring(0,10):'';
+    const lbl=`<div style="color:var(--text2);">${ir.SubCategory}</div><div style="font-size:9px;color:var(--text3);font-style:italic;">${sourceLabel(ir.Source)}${imp?` · ${imp}`:''}</div>`;
+    return `<tr style="background:${bg};">
+      <td style="padding-left:24px;font-size:11px;">${lbl}</td>
+      ${vals.map(v=>readonlyCell(v)).join('')}
+      <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:${totalBg};font-size:11px;color:var(--text2);">${total?Math.round(total/1000)+'k':'-'}</td>
+    </tr>`;
+  };
 
   const thStyle='style="background:#1e2140;color:white;font-weight:500;font-size:11px;padding:5px 8px;"';
   const tbRow=(label,monthly,total,extra)=>`<tr style="background:#1e2140;">
@@ -3083,15 +3114,18 @@ function renderBudgetTable(){
     </tr></thead><tbody>`;
 
   // REVENUE
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#7a3a1a;color:white;font-weight:500;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ REVENUE</td></tr>`;
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#7a3a1a;color:white;font-weight:500;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ REVENUE <span style="font-weight:400;font-size:10px;opacity:0.8;margin-left:8px;">· ${currentBudgetMode==='likviditet'?'Kassaflöde (NET30)':'Periodiserat'}</span></td></tr>`;
   allBudgetRows().filter(r=>r.section==='REVENUE').forEach(rd=>{
     const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
     const total=sum(vals);
     html+=`<tr style="background:#fdf0e8;">
-      <td style="padding-left:10px;font-size:12px;">${rd.subCategory}</td>
+      ${subCell(rd)}
       ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
       <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:#fae0cc;">${fmtK(total)}</td>
     </tr>`;
+    visibleImportedRows.filter(ir=>ir.Category===rd.category&&ir.SubCategory===rd.subCategory).forEach(ir=>{
+      html+=importedRowHtml(ir,'#fef7f1','#fae0cc');
+    });
   });
   html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#fdf0e8;padding:4px 10px;text-align:left;"><button class="btn-sm" onclick="addBudgetRow('REVENUE')" style="background:none;color:var(--accent);font-size:11px;border:1px dashed var(--accent);">+ Lägg till rad</button></td></tr>`;
   html+=sumRow('Total Revenue',revMonthly,revTotal,'#fae0cc');
@@ -3102,7 +3136,7 @@ function renderBudgetTable(){
     const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
     const total=sum(vals);
     html+=`<tr>
-      <td style="padding-left:10px;font-size:12px;">${rd.subCategory}</td>
+      ${subCell(rd)}
       ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
       <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
     </tr>`;
@@ -3128,7 +3162,7 @@ function renderBudgetTable(){
       const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
       const total=sum(vals);
       html+=`<tr>
-        <td style="padding-left:24px;color:var(--text2);font-size:11px;">${rd.subCategory}</td>
+        ${subCell(rd,'padding-left:24px;color:var(--text2);font-size:11px;')}
         ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
         <td style="font-weight:500;text-align:center;font-size:11px;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
       </tr>`;
@@ -3145,7 +3179,7 @@ function renderBudgetTable(){
     const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
     const total=sum(vals);
     html+=`<tr>
-      <td style="padding-left:10px;font-size:12px;">${rd.subCategory}</td>
+      ${subCell(rd)}
       ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
       <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
     </tr>`;
@@ -3236,38 +3270,243 @@ async function copyBudgetVersion(){
     }
   );
 }
-function openImportFromPipeline(){
-  const qualified=allProspects.filter(p=>p.Stage==='Qualified Lead'&&(p.ValueMax||p.ValueMin||p.Value));
-  if(!qualified.length){alert('Inga qualified leads med värde att importera.');return;}
-  const rowsHtml=qualified.map(p=>{
-    const val=p.ValueMax||p.ValueMin||p.Value||0;
-    const cat=p.RevenueCategory||'ARR';
+// ─── BUDGET IMPORT ──────────────────────────────────────────
+// Mapping from CustomerRevenues.Type / RevenueCategory → BudgetRows.SubCategory
+const REV_CAT_TO_SUB={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Utbildning:'Utbildning',Consulting:'Consulting'};
+const REV_CATEGORY='Revenue';
+
+// Spread an amount across months of a given year, weighted by the day-overlap
+// between [from,to] and each month — same logic as loadRevenueItems' calcYearTotal.
+function spreadPeriodAcrossMonths(amount,from,to,year){
+  const out=new Array(12).fill(0);
+  if(!amount)return out;
+  const f=from?new Date(from):null;
+  const t=to?new Date(to):null;
+  if(!f||!t){const mi=f?f.getMonth():0;if(f&&f.getFullYear()===year)out[mi]=amount;return out;}
+  const totalDays=Math.max(1,Math.round((t-f)/86400000)+1);
+  for(let mi=0;mi<12;mi++){
+    const mStart=new Date(year,mi,1);
+    const mEnd=new Date(year,mi+1,0);
+    if(t<mStart||f>mEnd)continue;
+    const os=f>mStart?f:mStart;
+    const oe=t<mEnd?t:mEnd;
+    const od=Math.max(0,Math.round((oe-os)/86400000)+1);
+    out[mi]=Math.round(amount*od/totalDays);
+  }
+  return out;
+}
+
+// Place an invoiced amount into a single month based on InvoiceDate + 30 days
+// (NET30). Fallback: DateFrom + 30 if InvoiceDate is missing.
+function placeCashflowMonth(amount,invoiceDate,fallbackDate,year){
+  const out=new Array(12).fill(0);
+  if(!amount)return out;
+  const base=invoiceDate?new Date(invoiceDate):(fallbackDate?new Date(fallbackDate):null);
+  if(!base)return out;
+  const paid=new Date(base.getTime()+30*86400000);
+  if(paid.getFullYear()!==year)return out;
+  out[paid.getMonth()]=amount;
+  return out;
+}
+
+// Aggregate per-customer monthly arrays into one budget row per (mode, SubCategory).
+function aggregateAvtalRows(customers,allRevenues,year,today){
+  const periodized={};const cashflow={};
+  customers.forEach(c=>{
+    const items=allRevenues.filter(r=>r.CustomerId===c.Id);
+    items.forEach(it=>{
+      const sub=REV_CAT_TO_SUB[it.Type];
+      if(!sub)return;
+      const per=spreadPeriodAcrossMonths(it.Amount||0,it.DateFrom,it.DateTo,year);
+      const cash=placeCashflowMonth(it.Amount||0,it.InvoiceDate,it.DateFrom,year);
+      if(!periodized[sub])periodized[sub]=new Array(12).fill(0);
+      if(!cashflow[sub])cashflow[sub]=new Array(12).fill(0);
+      per.forEach((v,i)=>{periodized[sub][i]+=v;});
+      cash.forEach((v,i)=>{cashflow[sub][i]+=v;});
+    });
+  });
+  const buildRows=(map,sourceTag)=>Object.entries(map).filter(([_,arr])=>arr.some(v=>v>0)).map(([sub,arr])=>{
+    const row={Category:REV_CATEGORY,SubCategory:sub,Source:sourceTag,ImportedAt:today};
+    MONTHS.forEach((m,i)=>{row[m]=Math.round(arr[i]);});
+    return row;
+  });
+  return[...buildRows(periodized,'Avtal (resultat)'),...buildRows(cashflow,'Avtal (likviditet)')];
+}
+
+function aggregateFornyelseRows(customers,mode,churnPct,today,year){
+  // mode: 'full' | 'churn' | 'risk'
+  // For each customer with a LicenseEnd in the budget year, place renewal
+  // value (ARR + ARR_Fixed) in the month after license end.
+  const buckets={};
+  customers.forEach(c=>{
+    if(!c.LicenseEnd)return;
+    const le=new Date(c.LicenseEnd);
+    let target=new Date(le.getFullYear(),le.getMonth()+1,1);
+    if(target.getFullYear()!==year)return;
+    const baseArr=(c.ARR||0);const baseFast=(c.ARR_Fixed||0);
+    let factor=1;
+    if(mode==='churn')factor=Math.max(0,1-churnPct);
+    if(mode==='risk'){
+      const r=calculateRiskScoreClient(c);
+      factor=(r.renewalProb||0)/100;
+    }
+    const placements=[
+      {sub:REV_CAT_TO_SUB.ARR,val:Math.round(baseArr*factor)},
+      {sub:REV_CAT_TO_SUB.Fastpris,val:Math.round(baseFast*factor)},
+    ];
+    placements.forEach(p=>{
+      if(!p.val)return;
+      if(!buckets[p.sub])buckets[p.sub]=new Array(12).fill(0);
+      buckets[p.sub][target.getMonth()]+=p.val;
+    });
+  });
+  const tag=mode==='full'?'Förnyelse (full)':mode==='churn'?`Förnyelse (churn ${Math.round(churnPct*100)}%)`:'Förnyelse (risk)';
+  return Object.entries(buckets).filter(([_,arr])=>arr.some(v=>v>0)).map(([sub,arr])=>{
+    const row={Category:REV_CATEGORY,SubCategory:sub,Source:tag,ImportedAt:today};
+    MONTHS.forEach((m,i)=>{row[m]=arr[i];});
+    return row;
+  });
+}
+
+function aggregatePipelineRows(prospects,today,year){
+  const buckets={};
+  prospects.forEach(p=>{
+    const val=p.Value||p.ValueMax||p.ValueMin||0;
+    if(!val)return;
+    const prob=(p.Probability||0)/100;
+    const weighted=Math.round(val*prob);
+    if(!weighted)return;
     const startMonth=p.ExpectedStartMonth?new Date(p.ExpectedStartMonth).getMonth():new Date().getMonth();
-    return`<tr><td style="font-size:11px;padding:4px;">${p.Company}</td><td style="padding:4px;"><select id="imp-cat-${p.Id}" class="edit-input" style="font-size:11px;"><option value="ARR" ${cat==='ARR'?'selected':''}>Licens (pren.)</option><option value="Fastpris" ${cat==='Fastpris'?'selected':''}>Licens (fast)</option><option value="Consulting" ${cat==='Consulting'?'selected':''}>Consulting</option><option value="Utbildning" ${cat==='Utbildning'?'selected':''}>Utbildning</option></select></td><td style="padding:4px;"><input id="imp-val-${p.Id}" class="edit-input" style="font-size:11px;width:90px;" type="number" value="${val}"></td><td style="padding:4px;"><select id="imp-start-${p.Id}" class="edit-input" style="font-size:11px;">${MONTHS.map((m,i)=>`<option value="${i}" ${i===startMonth?'selected':''}>${m}</option>`).join('')}</select></td><td style="padding:4px;text-align:center;"><input type="checkbox" id="imp-sel-${p.Id}" checked></td></tr>`;
+    const startYear=p.ExpectedStartMonth?new Date(p.ExpectedStartMonth).getFullYear():year;
+    if(startYear!==year)return;
+    const sub=REV_CAT_TO_SUB[p.RevenueCategory||'ARR']||REV_CAT_TO_SUB.ARR;
+    if(!buckets[sub])buckets[sub]=new Array(12).fill(0);
+    buckets[sub][startMonth]+=weighted;
+  });
+  return Object.entries(buckets).filter(([_,arr])=>arr.some(v=>v>0)).map(([sub,arr])=>{
+    const row={Category:REV_CATEGORY,SubCategory:sub,Source:'Pipeline (viktat)',ImportedAt:today};
+    MONTHS.forEach((m,i)=>{row[m]=arr[i];});
+    return row;
+  });
+}
+
+// Client-side mirror of HttpTrigger's calculateRiskScore — pulls steps + factors
+// from the same activation-state localStorage layout the customer modal writes.
+function calculateRiskScoreClient(c){
+  const state=getCustomerActivation(c.Id);
+  const steps=state.steps||[];
+  const satisfaction=state.satisfaction||0;
+  const activityLevel=state.activityLevel||'';
+  const economy=state.economy||'unknown';
+  const focus=state.focus||'unknown';
+  const stepPoints=[5,10,35,65,95,100];
+  let stepBase=0;
+  for(let i=0;i<6;i++)if(steps[i])stepBase=stepPoints[i];
+  let score=stepBase;
+  const satAdj={1:-100,2:-75,3:-25,4:0,5:25};score+=satAdj[satisfaction]||0;
+  const actAdj={'':-50,'Låg':-25,'låg':-25,'Medium':25,'medium':25,'Hög':50,'hög':50};
+  score+=actAdj[activityLevel]!=null?actAdj[activityLevel]:0;
+  const ecoAdj={large_savings:-50,savings:-25,unknown:0,good:25};score+=ecoAdj[economy]||0;
+  const focAdj={strong_other:-50,other:-25,unknown:0,priority:25};score+=focAdj[focus]||0;
+  const anchors=[[-150,5],[0,45],[50,55],[120,80],[200,95]];
+  let prob;
+  if(score<=anchors[0][0])prob=anchors[0][1];
+  else if(score>=anchors[anchors.length-1][0])prob=anchors[anchors.length-1][1];
+  else{for(let i=0;i<anchors.length-1;i++){const[x1,y1]=anchors[i],[x2,y2]=anchors[i+1];if(score>=x1&&score<=x2){prob=y1+(y2-y1)*((score-x1)/(x2-x1));break;}}}
+  return{score,renewalProb:Math.round(Math.max(5,Math.min(95,prob)))};
+}
+
+// Historisk churn — same calc as renderForecastSection in Prognos view.
+function computeHistoricChurnPct(){
+  if(!allCustomers||!allCustomers.length)return 0;
+  const today=new Date();today.setHours(0,0,0,0);
+  const withDays=allCustomers.map(c=>({...c,_days:c.LicenseEnd?Math.round((new Date(c.LicenseEnd)-today)/86400000):null}));
+  const churnedCount=withDays.filter(c=>c._days!==null&&c._days<0).length;
+  return withDays.length?churnedCount/withDays.length:0;
+}
+
+async function openImportRevenues(){
+  if(!currentBudgetVersionId){alert('Välj en budgetversion först.');return;}
+  const year=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId))?.Year||new Date().getFullYear();
+  const today=new Date().toISOString().substring(0,10);
+  // Active customers (those with LicenseEnd in the future or unset) are
+  // the universe for Avtal + Förnyelse. Non-active are excluded.
+  const activeCustomers=allCustomers.filter(c=>{if(!c.LicenseEnd)return true;return new Date(c.LicenseEnd)>=new Date(year,0,1);});
+  const openProspects=allProspects.filter(p=>p.Stage!=='Closed Lost');
+  const churnPct=computeHistoricChurnPct();
+
+  const custList=(idPrefix)=>activeCustomers.map(c=>{
+    const sub=c.SubName?` (${c.SubName})`:'';
+    const le=c.LicenseEnd?` · slutar ${String(c.LicenseEnd).substring(0,10)}`:'';
+    return `<label style="display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:11px;cursor:pointer;border-bottom:1px solid var(--border);"><input type="checkbox" class="${idPrefix}-cb" data-id="${c.Id}" checked><span>${c.Company}${sub}<span style="color:var(--text3);">${le}</span></span></label>`;
   }).join('');
-  showDialog('Importera från pipeline',
-    `<div style="max-height:360px;overflow:auto;"><table style="width:100%;font-size:11px;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:4px;">Företag</th><th style="padding:4px;">Kategori</th><th style="padding:4px;">Värde</th><th style="padding:4px;">Startmånad</th><th style="padding:4px;">Med</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
-    <div style="margin-top:10px;font-size:11px;color:var(--text3);">Värdet fördelas jämnt över återstående månader. Glöm inte att spara budget efteråt.</div>`,
+  const prospList=openProspects.map(p=>{
+    const val=p.Value||p.ValueMax||p.ValueMin||0;
+    const prob=p.Probability||0;
+    return `<label style="display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:11px;cursor:pointer;border-bottom:1px solid var(--border);"><input type="checkbox" class="imp-pipe-cb" data-id="${p.Id}" checked><span>${p.Company}<span style="color:var(--text3);"> · ${val.toLocaleString('sv-SE')} kr · ${prob}%</span></span></label>`;
+  }).join('');
+
+  const block=(title,bodyHtml)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;">${title}${bodyHtml}</div>`;
+  const selAllBtns=(cls,listSel)=>`<div style="margin:6px 0;display:flex;gap:6px;"><button type="button" class="quick-btn" style="font-size:11px;padding:3px 8px;" onclick="document.querySelectorAll('.${cls}').forEach(cb=>cb.checked=true)">Välj alla</button><button type="button" class="quick-btn" style="font-size:11px;padding:3px 8px;" onclick="document.querySelectorAll('.${cls}').forEach(cb=>cb.checked=false)">Avmarkera alla</button></div>`;
+
+  showDialog('Importera intäkter till budget '+year,
+    `<div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Importens läge följer toggle: <strong>${currentBudgetMode==='likviditet'?'Likviditet (NET30)':'Resultat (periodiserat)'}</strong>. Manuellt tillagda rader påverkas ej.</div>
+    ${block(`<label style="display:flex;align-items:center;gap:6px;font-weight:500;"><input type="checkbox" id="imp-avtal-on" checked><span>1. Avtal (befintliga kunder)</span></label>`,
+      `${selAllBtns('imp-avtal-cb')}<div style="max-height:140px;overflow:auto;border:1px solid var(--border);border-radius:6px;background:var(--surface2);">${custList('imp-avtal')||'<div style=\"padding:8px;font-size:11px;color:var(--text3);\">Inga aktiva kunder</div>'}</div>`)}
+    ${block(`<label style="display:flex;align-items:center;gap:6px;font-weight:500;"><input type="checkbox" id="imp-renew-on" checked><span>2. Förnyelse</span></label>`,
+      `<div style="display:flex;gap:10px;margin:6px 0;font-size:11px;flex-wrap:wrap;">
+         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="imp-renew-mode" value="full" checked>Fullt värde</label>
+         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="imp-renew-mode" value="churn">Viktat på historisk churn (${Math.round(churnPct*100)}%)</label>
+         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="imp-renew-mode" value="risk">Riskbaserat per kund</label>
+       </div>
+       ${selAllBtns('imp-renew-cb')}
+       <div style="max-height:140px;overflow:auto;border:1px solid var(--border);border-radius:6px;background:var(--surface2);">${custList('imp-renew')||'<div style=\"padding:8px;font-size:11px;color:var(--text3);\">Inga aktiva kunder</div>'}</div>`)}
+    ${block(`<label style="display:flex;align-items:center;gap:6px;font-weight:500;"><input type="checkbox" id="imp-pipe-on" checked><span>3. Viktad pipeline</span></label>`,
+      `${selAllBtns('imp-pipe-cb')}<div style="max-height:140px;overflow:auto;border:1px solid var(--border);border-radius:6px;background:var(--surface2);">${prospList||'<div style=\"padding:8px;font-size:11px;color:var(--text3);\">Inga öppna prospects</div>'}</div>`)}
+    <div style="font-size:11px;color:var(--text3);margin-top:6px;">Re-import med samma källa ersätter tidigare importerade rader av den källan. Spara budgeten efteråt för att persistera.</div>`,
     async()=>{
-      const catMap={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Consulting:'Consulting',Utbildning:'Utbildning'};
-      qualified.forEach(p=>{
-        if(!document.getElementById(`imp-sel-${p.Id}`)?.checked)return;
-        const cat=document.getElementById(`imp-cat-${p.Id}`).value;
-        const val=parseInt(document.getElementById(`imp-val-${p.Id}`).value)||0;
-        const start=parseInt(document.getElementById(`imp-start-${p.Id}`).value)||0;
-        if(!val)return;
-        const monthsLeft=12-start;
-        const perMonth=Math.round(val/monthsLeft);
-        const sub=catMap[cat]||cat;
-        let row=budgetRows.find(r=>r.Category==='Revenue'&&r.SubCategory===sub);
-        if(!row){row={Category:'Revenue',SubCategory:sub};budgetRows.push(row);}
-        for(let mi=start;mi<12;mi++){row[MONTHS[mi]]=(row[MONTHS[mi]]||0)+perMonth;}
-      });
+      const newRows=[];
+      // Avtal
+      if(document.getElementById('imp-avtal-on')?.checked){
+        const ids=[...document.querySelectorAll('.imp-avtal-cb:checked')].map(cb=>parseInt(cb.dataset.id));
+        if(ids.length){
+          let revenues=[];
+          try{const r=await apiFetch(`${API}/revenues`);revenues=await r.json();}catch(e){alert('Kunde inte hämta intäkter från servern.');}
+          const selected=activeCustomers.filter(c=>ids.includes(c.Id));
+          newRows.push(...aggregateAvtalRows(selected,revenues,year,today));
+        }
+      }
+      // Förnyelse
+      if(document.getElementById('imp-renew-on')?.checked){
+        const ids=[...document.querySelectorAll('.imp-renew-cb:checked')].map(cb=>parseInt(cb.dataset.id));
+        const mode=document.querySelector('input[name="imp-renew-mode"]:checked')?.value||'full';
+        if(ids.length){
+          const selected=activeCustomers.filter(c=>ids.includes(c.Id));
+          newRows.push(...aggregateFornyelseRows(selected,mode,churnPct,today,year));
+        }
+      }
+      // Pipeline
+      if(document.getElementById('imp-pipe-on')?.checked){
+        const ids=[...document.querySelectorAll('.imp-pipe-cb:checked')].map(cb=>parseInt(cb.dataset.id));
+        if(ids.length){
+          const selected=openProspects.filter(p=>ids.includes(p.Id));
+          newRows.push(...aggregatePipelineRows(selected,today,year));
+        }
+      }
+      if(!newRows.length){alert('Inget att importera — markera minst en källa med valda rader.');return false;}
+      // Replace existing rows with same Source (idempotent re-import).
+      const sourcesToReplace=new Set(newRows.map(r=>r.Source));
+      budgetRows=budgetRows.filter(r=>!sourcesToReplace.has(r.Source));
+      budgetRows.push(...newRows);
       renderBudgetTable();
+      showSaveIndicator(`✓ Importerade ${newRows.length} rad(er) — kom ihåg att Spara`,'#1a7a50');
       return true;
     }
   );
 }
+
+// Legacy alias — older onclick handlers may still reference this name.
+function openImportFromPipeline(){return openImportRevenues();}
 
 function restoreNoteDots(){
   document.querySelectorAll('.ndot').forEach(dot=>{
@@ -3340,9 +3579,20 @@ async function saveBudget(){
     rowData[key][month]=val;
   });
   const rows=Object.values(rowData);
+  // Carry forward imported rows (rows with a Source) — they aren't editable
+  // via inputs but must survive saves so they reappear after reload.
+  budgetRows.filter(r=>r.Source).forEach(ir=>{
+    const carry={category:ir.Category,subCategory:ir.SubCategory,source:ir.Source};
+    if(ir.ImportedAt)carry.importedAt=String(ir.ImportedAt).substring(0,10);
+    MONTHS.forEach(m=>{carry[m]=ir[m]||0;});
+    rows.push(carry);
+  });
   try{
     await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rows)});
-    budgetRows=rows;
+    // Reload from API so we pick up server-assigned ids and the canonical row shape.
+    const reload=await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`);
+    budgetRows=await reload.json();
+    renderBudgetTable();
     showSaveIndicator('✓ Budget sparad','#1a7a50');
   }catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}
 }
