@@ -1713,22 +1713,56 @@ function renderCustomerActivationHtml(c){
     const sign=f.value>0?'+':'';
     return`<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:11px;"><span style="font-weight:600;color:${color};">${sign}${f.value}p</span><span style="color:var(--text2);">${f.label}</span></span>`;
   }).join('');
-  const riskColor=risk.riskLevel==='Hög'?'var(--red)':risk.riskLevel==='Medium'?'var(--amber)':'var(--green)';
-  const riskBg=risk.riskLevel==='Hög'?'var(--red-bg)':risk.riskLevel==='Medium'?'var(--amber-bg)':'var(--green-bg)';
+  const manual=data.manualRiskLevel||'';
+  const manualNotes=data.manualRiskNotes||'';
+  const effectiveLevel=manual||risk.riskLevel;
+  const riskColor=effectiveLevel==='Hög'?'var(--red)':effectiveLevel==='Medium'?'var(--amber)':'var(--green)';
+  const riskBg=effectiveLevel==='Hög'?'var(--red-bg)':effectiveLevel==='Medium'?'var(--amber-bg)':'var(--green-bg)';
   const levelMap={'Hög':'High','Medium':'Medium','Låg':'Low'};
   const satHtml=SATISFACTION_EMOJIS.map((e,i)=>`<button onclick="setSatisfaction(${c.Id},${i+1})" style="font-size:28px;padding:8px 12px;border:1px solid ${sat===i+1?'var(--accent)':'var(--border)'};border-radius:8px;background:${sat===i+1?'var(--accent-bg)':'var(--surface)'};cursor:pointer;">${e}</button>`).join('');
+  // Activation steps timeline
+  const lt=c.LicenseType==='Enterprise'?'Enterprise':(c.LicenseType==='Consulting/Utbildning'?'Team':'Team');
+  const stepLabels=ACTIVATION_STEPS[lt]||ACTIVATION_STEPS.Team;
+  const firstUndone=(()=>{for(let i=0;i<6;i++)if(!steps[i])return i;return -1;})();
+  const stepsHtml=stepLabels.map((label,i)=>{
+    const done=!!steps[i];
+    const active=!done&&i===firstUndone;
+    const cls=done?'done':active?'active':'';
+    const inner=done?'✓':active?'!':(i+1);
+    return`<div class="tp-tprog-step ${cls}" title="${label}" onclick="toggleCustActivationStep(${c.Id},${i})"><div class="circle">${inner}</div><div class="label">${label}</div></div>`;
+  }).join('');
   return`<div class="modal-section"><div class="modal-section-label">Riskindikator</div>
       <div class="modal-card" style="background:${riskBg};border-color:${riskColor};">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
-          <div>
-            <div style="font-weight:600;color:${riskColor};font-size:18px;">${risk.riskLevel} risk</div>
-            <div style="font-size:13px;color:var(--text2);margin-top:4px;">Poäng: <strong>${risk.score}p</strong> · Förnyelsesannolikhet: <strong>${risk.renewalProb}%</strong></div>
+        <div id="risk-display-mode">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;color:${riskColor};font-size:18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${effectiveLevel} risk${manual?`<span style="font-size:10px;background:var(--surface);color:var(--text2);padding:2px 8px;border-radius:8px;font-weight:500;">Manuell</span>`:''}</div>
+              ${manual?`<div style="font-size:11px;color:var(--text3);margin-top:3px;">Beräknad: ${risk.riskLevel}</div>`:''}
+              <div style="font-size:13px;color:var(--text2);margin-top:6px;">Poäng: <strong>${risk.score}p</strong> · Förnyelsesannolikhet: <strong>${risk.renewalProb}%</strong></div>
+              ${manual&&manualNotes?`<div style="font-size:12px;color:var(--text2);margin-top:6px;padding:6px 8px;background:var(--surface);border-radius:6px;font-style:italic;">"${manualNotes.replace(/"/g,'&quot;')}"</div>`:''}
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
+              <button class="btn-sm" style="background:var(--surface);color:var(--text2);border:1px solid var(--border);padding:6px;" title="Redigera nivå" onclick="toggleRiskEdit(true)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+              <button class="btn-primary" onclick="applyActivationRisk(${c.Id},'${levelMap[effectiveLevel]}')">Uppdatera risk</button>
+            </div>
           </div>
-          <button class="btn-primary" onclick="applyActivationRisk(${c.Id},'${levelMap[risk.riskLevel]}')">Uppdatera risk</button>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tyngsta faktorer</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">${factorChips}</div>
         </div>
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Tyngsta faktorer</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;">${factorChips}</div>
+        <div id="risk-edit-mode" style="display:none;">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Redigera nivå manuellt</div>
+          <div class="modal-grid" style="margin-bottom:10px;">
+            <div class="modal-field"><label>Risknivå</label><select id="risk-edit-level" class="edit-input"><option value="" ${!manual?'selected':''}>Använd beräknad (${risk.riskLevel})</option><option value="Låg" ${manual==='Låg'?'selected':''}>Låg</option><option value="Medium" ${manual==='Medium'?'selected':''}>Medium</option><option value="Hög" ${manual==='Hög'?'selected':''}>Hög</option></select></div>
+          </div>
+          <div class="modal-field" style="margin-bottom:10px;"><label>Motivering (frivillig)</label><textarea id="risk-edit-notes" class="edit-input" style="height:60px;resize:vertical;">${manualNotes}</textarea></div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-primary" onclick="saveManualRisk(${c.Id})">Spara</button>
+            <button class="btn-sm" style="background:var(--surface);color:var(--text2);border:1px solid var(--border);" onclick="toggleRiskEdit(false)">Avbryt</button>
+          </div>
+        </div>
       </div></div>
+    <div class="modal-section"><div class="modal-section-label">Aktiveringssteg (${lt})</div>
+      <div class="modal-card"><div class="tp-tprog" style="margin:8px 0;">${stepsHtml}</div></div></div>
     <div class="modal-section"><div class="modal-section-label">Upplevd nöjdhet</div>
       <div class="modal-card"><div style="display:flex;gap:8px;flex-wrap:wrap;">${satHtml}</div>${sat?`<button class="btn-sm" style="margin-top:10px;background:var(--surface2);color:var(--text);" onclick="setSatisfaction(${c.Id},0)">Rensa</button>`:''}</div></div>
     <div class="modal-section"><div class="modal-section-label">Aktivitetsnivå</div>
@@ -1763,6 +1797,23 @@ function applyActivationRisk(id,level){
   if(typeof silentSave==='function')silentSave(id);
   showSaveIndicator(`✓ Risk satt till ${level}`,'#1a7a50');
   renderTable();
+}
+function toggleRiskEdit(on){
+  const disp=document.getElementById('risk-display-mode');
+  const edit=document.getElementById('risk-edit-mode');
+  if(!disp||!edit)return;
+  disp.style.display=on?'none':'block';
+  edit.style.display=on?'block':'none';
+}
+function saveManualRisk(id){
+  const lvl=document.getElementById('risk-edit-level')?.value||'';
+  const notes=document.getElementById('risk-edit-notes')?.value||'';
+  const d=getCustomerActivation(id);
+  if(lvl){d.manualRiskLevel=lvl;d.manualRiskNotes=notes;}
+  else{delete d.manualRiskLevel;delete d.manualRiskNotes;}
+  setCustomerActivation(id,d);
+  showSaveIndicator(lvl?`✓ Manuell nivå: ${lvl}`:'✓ Beräknad nivå återställd','#1a7a50');
+  if(currentModalId===id&&currentPage===4)renderModalPage(allCustomers.find(x=>x.Id===id),[],[]);
 }
 function renderKontaktloggHtml(type,id,item,acts){
   if(!id)return '<div style="padding:20px;color:var(--text3);font-size:13px;text-align:center;">Spara först för att kunna lägga till kontakter.</div>';
