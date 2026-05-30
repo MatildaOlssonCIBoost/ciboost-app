@@ -756,11 +756,15 @@
             <div class="rev-dd-item" onclick="fcToggleSource('Utbildning')"><div class="rev-cb on" id="fc-cb-Utbildning"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
           </div>
         </div>
-        <div class="fc-churn-control">
+        <div class="fc-churn-control" id="fc-churn-control">
           <span class="fc-churn-label">Churn-rate:</span>
           <input type="number" id="fc-churn" step="0.1" min="0" max="100" oninput="fcOnChurnChange(this.value)">
           <span class="fc-churn-suffix">%</span>
           <span class="fc-churn-hist">Historisk: <span id="fc-churn-historic">–</span>%</span>
+        </div>
+        <div class="result-toggle" id="fc-mode-toggle" style="margin-left:auto;">
+          <button class="result-btn active" data-mode="historisk" onclick="fcSetMode('historisk')">Historisk churn</button>
+          <button class="result-btn" data-mode="risk" onclick="fcSetMode('risk')">Riskbaserad</button>
         </div>
       </div>
       <div class="kpi-grid" id="forecast-kpi-grid"></div>
@@ -2789,7 +2793,13 @@ function renderPeriodisering(){
   document.getElementById('per-kpi').innerHTML='';
 }
 // ─── PROGNOS (Forecast scenarios) ────────────────────────
-let fcSources=new Set(['ARR','Fastpris','Consulting','Utbildning']),fcChurnOverride=null;
+let fcSources=new Set(['ARR','Fastpris','Consulting','Utbildning']),fcChurnOverride=null,fcMode='historisk';
+function fcSetMode(mode){
+  fcMode=mode;
+  document.querySelectorAll('#fc-mode-toggle .result-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  const ctrl=document.getElementById('fc-churn-control');if(ctrl)ctrl.style.display=mode==='risk'?'none':'flex';
+  renderPrognos();
+}
 async function renderPrognos(){
   await kaFetchAll();
   renderForecastSection();
@@ -2829,12 +2839,38 @@ function renderForecastSection(){
   const renewing=allCustomers.filter(c=>c.LicenseEnd&&new Date(c.LicenseEnd)>endOfPeriodYear);
   const allaFornyas=renewing.reduce((s,c)=>s+custTotal(c),0);
   const medChurn=Math.round(activeArr*(1-churnRate));
+  // Risk-based: each customer's contribution = custTotal * renewalProb/100 from calculateRiskScore
+  const activeForRisk=allCustomers.filter(c=>c._days!==null&&c._days>=0);
+  let avgRiskProb=0,riskBased=0,riskCount=0;
+  if(activeForRisk.length){
+    let probSum=0;
+    riskBased=activeForRisk.reduce((s,c)=>{
+      const d=(typeof getCustomerActivation==='function')?getCustomerActivation(c.Id):{};
+      const sat=(typeof getCustomerSatisfaction==='function')?getCustomerSatisfaction(c.Id):0;
+      const r=calculateRiskScore({steps:d.steps||[],satisfaction:sat,activityLevel:d.activityLevel||'',economy:d.economy||'unknown',focus:d.focus||'unknown'});
+      probSum+=r.renewalProb;riskCount++;
+      return s+Math.round(custTotal(c)*r.renewalProb/100);
+    },0);
+    avgRiskProb=Math.round(probSum/riskCount);
+  }
+  const renewingRiskBased=renewing.reduce((s,c)=>{
+    const d=(typeof getCustomerActivation==='function')?getCustomerActivation(c.Id):{};
+    const sat=(typeof getCustomerSatisfaction==='function')?getCustomerSatisfaction(c.Id):0;
+    const r=calculateRiskScore({steps:d.steps||[],satisfaction:sat,activityLevel:d.activityLevel||'',economy:d.economy||'unknown',focus:d.focus||'unknown'});
+    return s+Math.round(custTotal(c)*r.renewalProb/100);
+  },0);
   const openProspects=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost');
   const qualifiedLeads=openProspects.filter(p=>p.Stage==='Qualified Lead');
   const pipeWeighted=qualifiedLeads.reduce((s,p)=>s+Math.round((p.ValueMax||p.Value||0)*(p.Probability||0)/100),0);
   const pipeFull=openProspects.reduce((s,p)=>s+(p.ValueMax||p.Value||0),0);
-  const realistic=Math.round(allaFornyas*(1-churnRate))+pipeWeighted;
+  const realisticChurn=Math.round(allaFornyas*(1-churnRate))+pipeWeighted;
+  const realisticRisk=renewingRiskBased+pipeWeighted;
+  const realistic=fcMode==='risk'?realisticRisk:realisticChurn;
   const optimistic=allaFornyas+pipeFull;
+  const midLabel=fcMode==='risk'?'Riskbaserad':'Med churn';
+  const midVal=fcMode==='risk'?riskBased:medChurn;
+  const midSub=fcMode==='risk'?`Snittsannolikhet ${avgRiskProb}% från calculateRiskScore`:`Baserat på ${(churnRate*100).toFixed(1)}% churn-rate`;
+  const realisticSub=fcMode==='risk'?`Riskbaserad förnyelse + ${pipeWeighted.toLocaleString('sv-SE')} kr viktat pipe`:`Förnyas − churn + ${pipeWeighted.toLocaleString('sv-SE')} kr viktat pipe`;
 
   // Title
   const titleEl=document.getElementById('forecast-title');
@@ -2852,8 +2888,8 @@ function renderForecastSection(){
   document.getElementById('forecast-kpi-grid').style.gridTemplateColumns='repeat(5,minmax(0,1fr))';
   document.getElementById('forecast-kpi-grid').innerHTML=[
     {label:'Alla förnyas',val:allaFornyas,color:'var(--blue)',sub:`${renewing.length} aktiva licenser`},
-    {label:'Med churn',val:medChurn,color:'var(--amber)',sub:`Baserat på ${(churnRate*100).toFixed(1)}% churn-rate`},
-    {label:'Realistisk',val:realistic,color:'var(--green)',sub:`Förnyas − churn + ${pipeWeighted.toLocaleString('sv-SE')} kr viktat pipe`},
+    {label:midLabel,val:midVal,color:'var(--amber)',sub:midSub},
+    {label:'Realistisk',val:realistic,color:'var(--green)',sub:realisticSub},
     {label:'Optimistisk',val:optimistic,color:'#34a36b',sub:`Alla förnyas + ${pipeFull.toLocaleString('sv-SE')} kr full pipeline (ej viktat)`},
     {label:'Budget (primär)',val:primaryBudgetTotal,color:'var(--purple)',sub:primaryName?`Baserat på ${primaryName}`:'Ingen primär budget vald'}
   ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val.toLocaleString('sv-SE')} kr</div><div class="kpi-delta neu">${k.sub}</div></div>`).join('');
@@ -2864,7 +2900,7 @@ function renderForecastSection(){
   const last=historic[historic.length-1];
   const scenarios=[
     {label:'Alla förnyas',val:allaFornyas,color:'#1a4f7a'},
-    {label:'Med churn',val:medChurn,color:'#b85a00'},
+    {label:midLabel,val:midVal,color:'#b85a00'},
     {label:'Realistisk',val:realistic,color:'#1a7a50'},
     {label:'Optimistisk',val:optimistic,color:'#5eb98f'}
   ];
