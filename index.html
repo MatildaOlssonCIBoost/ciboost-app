@@ -3070,7 +3070,6 @@ function renderBudgetTable(){
   const tb1Total=sum(tb1Monthly);
   const tb2Total=sum(tb2Monthly);
   const tb3Total=sum(tb3Monthly);
-  const utfallTotal=sum(actualByMonth);
 
   const fmtK=v=>v===0?'-':Math.round(v/1000)+'k';
   const fmtPct=(num,den)=>den===0?'-':Math.round(num/den*100)+'%';
