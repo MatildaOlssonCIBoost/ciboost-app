@@ -215,6 +215,16 @@
   .result-toggle { display: flex; gap: 2px; background: var(--surface2); border-radius: 8px; padding: 2px; }
   .result-btn { padding: 5px 12px; border-radius: 6px; border: none; background: none; font-family: 'Poppins', sans-serif; font-size: 12px; color: var(--text3); cursor: pointer; }
   .result-btn.active { background: var(--surface); color: var(--text); font-weight: 500; border: 1px solid var(--border); }
+  .fa-pill-toggle { display:inline-flex; gap:4px; padding:3px; background:var(--surface2); border-radius:999px; border:1px solid var(--border); }
+  .fa-pill-btn { padding:5px 14px; border-radius:999px; border:none; background:transparent; font-family:'Poppins',sans-serif; font-size:12px; font-weight:500; color:var(--text2); cursor:pointer; transition:all 0.15s; }
+  .fa-pill-btn:hover { color:var(--text); }
+  .fa-pill-btn.active { background:var(--accent); color:#1e2140; font-weight:600; box-shadow:0 1px 2px rgba(30,33,64,0.15); }
+  #fa-modelanalys .info-box { background:var(--surface2); border-left:3px solid var(--accent); padding:8px 12px; border-radius:4px; font-size:11px; color:var(--text2); }
+  #fa-modelanalys table { font-size:11px; }
+  #fa-modelanalys table th { padding:5px 6px; }
+  #fa-modelanalys table td { padding:5px 6px; }
+  #fa-modelanalys .ma-chart-card { background:var(--surface2); border-radius:8px; padding:14px 16px; }
+  #fa-modelanalys .ma-chart-title { font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px; }
   .hero-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; display: flex; gap: 40px; align-items: flex-end; flex-wrap: wrap; }
   .hero-main .label { font-size: 12px; color: var(--text3); margin-bottom: 4px; }
   .hero-main .value { font-size: 38px; font-weight: 600; letter-spacing: -1.5px; line-height: 1; }
@@ -704,13 +714,16 @@
     <div class="fin-card" id="fa-main-chart-card" style="margin-bottom:14px;"></div>
     <div class="fin-grid" id="fa-mix-grid" style="margin-bottom:14px;"></div>
     <div class="fin-card" id="fa-period-cmp" style="margin-bottom:14px;"></div>
-    <div class="fin-card" id="fa-modelanalys" style="margin-bottom:14px;">
-      <div class="fin-card-title">Modellanalys</div>
-      <div id="fa-model-mode" class="result-toggle" style="margin-bottom:14px;">
-        <button class="result-btn active" data-mode="renewal" onclick="setModelMode('renewal')">Förnyelse</button>
-        <button class="result-btn" data-mode="pipeline" onclick="setModelMode('pipeline')">Pipeline</button>
+    <div class="fin-card" style="margin-bottom:14px;"><div class="fin-card-title">Provision – utestående <span class="badge b-amber" id="comm-badge">-</span></div><div id="comm-rows"><div class="loading"><div class="spinner"></div></div></div></div>
+    <div class="fin-card" id="fa-modelanalys" style="margin-bottom:14px;font-size:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+        <div class="fin-card-title" style="margin-bottom:0;">Modellanalys</div>
+        <div id="fa-model-mode" class="fa-pill-toggle">
+          <button class="fa-pill-btn active" data-mode="renewal" onclick="setModelMode('renewal')">Förnyelse</button>
+          <button class="fa-pill-btn" data-mode="pipeline" onclick="setModelMode('pipeline')">Pipeline</button>
+        </div>
       </div>
-      <div id="fa-model-tabs" style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--border);">
+      <div id="fa-model-tabs" class="sub-tabs-bar" style="padding:0;margin-bottom:12px;background:transparent;">
         <button class="sub-tab active" onclick="setModelTab('kalibrering',this)">Kalibrering</button>
         <button class="sub-tab" onclick="setModelTab('fel',this)">Felklassificering</button>
         <button class="sub-tab" onclick="setModelTab('faktor',this)">Faktorbidrag</button>
@@ -718,7 +731,6 @@
       </div>
       <div id="fa-modelanalys-body"><div class="loading"><div class="spinner"></div> Laddar modellanalys...</div></div>
     </div>
-    <div class="fin-card" style="margin-bottom:14px;"><div class="fin-card-title">Provision – utestående <span class="badge b-amber" id="comm-badge">-</span></div><div id="comm-rows"><div class="loading"><div class="spinner"></div></div></div></div>
     <input type="hidden" id="fin-from"><input type="hidden" id="fin-to">
   </div>
 </div>
@@ -1580,31 +1592,34 @@ function renderModelAnalys(){
     const yAxis=[0,25,50,75,100].map(p=>`<text x="${padL-6}" y="${yFor(p)+3}" font-size="9" fill="var(--text3)" text-anchor="end">${p}%</text>`).join('');
     const intro=isPipe?'Faktiskt utfall (% vunna) per satt sannolikhetsbucket på prospects.':'Faktiskt utfall (% förnyade) per predicerad sannolikhetsbucket.';
     const xLabel=isPipe?'Satt vinst-sannolikhet (Probability)':'Predicerad förnyelsesannolikhet';
-    el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">${intro} Diagonal = perfekt kalibrering.</div>
-      <svg viewBox="0 0 ${W} ${H}" width="100%" style="overflow:visible;">
-        <line x1="${xFor(0)}" y1="${yFor(0)}" x2="${xFor(100)}" y2="${yFor(100)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4"/>
-        ${actualPts?`<polyline points="${actualPts}" fill="none" stroke="var(--accent)" stroke-width="2"/>`:''}
-        ${dotsHtml}
-        ${xAxis}${yAxis}
-        <text x="${W/2}" y="${H-2}" font-size="10" fill="var(--text3)" text-anchor="middle">${xLabel}</text>
-      </svg>
-      <div style="font-size:11px;color:var(--text3);margin-top:8px;">Baserat på ${data.pairedCount} ${outcomeLabel}.</div>`;
+    el.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:10px;">${intro} Diagonal = perfekt kalibrering.</div>
+      <div class="ma-chart-card">
+        <div class="ma-chart-title">Kalibrering – ${isPipe?'pipeline':'förnyelse'}</div>
+        <svg viewBox="0 0 ${W} ${H}" width="100%" style="overflow:visible;display:block;">
+          <line x1="${xFor(0)}" y1="${yFor(0)}" x2="${xFor(100)}" y2="${yFor(100)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4"/>
+          ${actualPts?`<polyline points="${actualPts}" fill="none" stroke="var(--accent)" stroke-width="2"/>`:''}
+          ${dotsHtml}
+          ${xAxis}${yAxis}
+          <text x="${W/2}" y="${H-2}" font-size="10" fill="var(--text3)" text-anchor="middle">${xLabel}</text>
+        </svg>
+      </div>
+      <div class="info-box" style="margin-top:10px;">Baserat på <strong>${data.pairedCount}</strong> ${outcomeLabel}.</div>`;
   } else if(currentModelTab==='fel'){
     const rows=data.misclassified||[];
     if(!rows.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center;">Inga felklassificeringar – prediktionerna stämmer hittills.</div>';return;}
     const intro=isPipe?'Prospects där prediktionen gick åt fel håll (>60% vinst men förlorad, eller <40% vinst men vunnen).':'Kunder där prediktionen gick åt fel håll (Hög risk men förnyade, eller Låg risk men churnade).';
-    el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">${intro}</div>
+    el.innerHTML=`<div class="info-box" style="margin-bottom:10px;">${intro}</div>
       <table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">${isPipe?'Prospect':'Kund'}</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Predikterat</th><th style="text-align:right;padding:6px;border-bottom:1px solid var(--border);">Prob</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Utfall</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Datum</th></tr></thead><tbody>${rows.map(r=>{const name=r.company||(allCustomers.find(c=>c.Id===r.customerId)?.Company)||`#${r.customerId}`;const lvlClass=r.predictedLevel==='Hög'?'b-red':r.predictedLevel==='Medium'?'b-amber':'b-green';const wonish=r.actualOutcome===renewedLabel||r.actualOutcome==='Förnyade'||r.actualOutcome==='Vunnen';const outClass=wonish?'b-green':'b-red';return`<tr><td style="padding:6px;">${name}</td><td style="padding:6px;"><span class="badge ${lvlClass}">${r.predictedLevel}</span></td><td style="text-align:right;padding:6px;">${r.predictedProb}%</td><td style="padding:6px;"><span class="badge ${outClass}">${r.actualOutcome}</span></td><td style="padding:6px;color:var(--text3);">${r.decisionDate?new Date(r.decisionDate).toLocaleDateString('sv-SE'):'–'}</td></tr>`;}).join('')}</tbody></table>`;
   } else if(currentModelTab==='faktor'){
     const f=data.factorContribution||[];
     if(!f.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center;">Otillräcklig data för att räkna faktorbidrag.</div>';return;}
     if(isPipe){
       // Pipeline-mode: each factor has entries[{value,winRate,n}] + spread
-      el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Vinst-procent per värde inom varje faktor. Större spridning mellan värden = starkare prediktor.</div>
+      el.innerHTML=`<div class="info-box" style="margin-bottom:12px;">Vinst-procent per värde inom varje faktor. Större spridning mellan värden = starkare prediktor.</div>
         <div style="display:flex;flex-direction:column;gap:16px;">${f.map(factor=>`<div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><strong>${factor.factor}</strong><span style="color:var(--text2);">Spridning: <strong>${factor.spread}p%</strong></span></div><div style="display:flex;flex-direction:column;gap:3px;">${(factor.entries||[]).slice(0,8).map(e=>`<div style="display:flex;align-items:center;gap:8px;font-size:11px;"><span style="flex:1;color:var(--text2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.value}</span><div style="flex:2;height:7px;background:var(--surface2);border-radius:3px;overflow:hidden;"><div style="height:7px;width:${e.winRate}%;background:${e.winRate>=60?'var(--green)':e.winRate>=40?'var(--amber)':'var(--red)'};"></div></div><span style="min-width:38px;text-align:right;font-weight:500;">${e.winRate}%</span><span style="min-width:32px;text-align:right;color:var(--text3);">n=${e.n}</span></div>`).join('')}</div></div>`).join('')}</div>`;
     } else {
       const maxL=Math.max(...f.map(x=>Math.abs(x.predictiveLift)),1);
-      el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Predictive lift = snittfaktorvärde när kunden förnyade minus snittet när de churnade. Större belopp = starkare prediktor.</div>
+      el.innerHTML=`<div class="info-box" style="margin-bottom:12px;">Predictive lift = snittfaktorvärde när kunden förnyade minus snittet när de churnade. Större belopp = starkare prediktor.</div>
         <div style="display:flex;flex-direction:column;gap:12px;">${f.map(x=>{const pct=Math.abs(x.predictiveLift)/maxL*100;const pos=x.predictiveLift>=0;const color=pos?'var(--green)':'var(--red)';return`<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><strong>${x.factor}</strong><span style="color:${color};font-weight:500;">${pos?'+':''}${x.predictiveLift}p lift</span></div><div style="height:10px;background:var(--surface2);border-radius:3px;overflow:hidden;"><div style="height:10px;width:${pct}%;background:${color};"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px;">Förnyade snitt: ${x.avgRenewed}p · Churnade snitt: ${x.avgChurned}p</div></div>`;}).join('')}</div>`;
     }
   } else if(currentModelTab==='vikt'){
@@ -1614,7 +1629,7 @@ function renderModelAnalys(){
       el.innerHTML=`<div style="text-align:center;padding:30px 20px;"><div style="font-size:14px;color:var(--text2);margin-bottom:14px;">🔒 Låst tills 20 utfall finns</div><div style="font-size:28px;font-weight:600;color:var(--accent);">${have}/${need}</div><div style="font-size:12px;color:var(--text3);margin-top:4px;">utfall registrerade</div><div style="margin:14px auto;max-width:300px;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;"><div style="height:8px;width:${pct}%;background:var(--accent);"></div></div><div style="font-size:12px;color:var(--text3);">${data.outcomesNeeded} fler utfall behövs.</div></div>`;
     } else {
       const w=data.suggestedWeights||{};
-      el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Föreslagna vikter baserat på faktorernas predictive lift.</div>
+      el.innerHTML=`<div class="info-box" style="margin-bottom:12px;">Föreslagna vikter baserat på faktorernas predictive lift.</div>
         <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:14px;"><thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Faktor</th><th style="text-align:right;padding:6px;border-bottom:1px solid var(--border);">Nuvarande vikt</th><th style="text-align:right;padding:6px;border-bottom:1px solid var(--border);">Föreslagen vikt</th></tr></thead><tbody>${Object.entries(w).map(([k,v])=>`<tr><td style="padding:6px;">${k}</td><td style="text-align:right;padding:6px;color:var(--text3);">1.0×</td><td style="text-align:right;padding:6px;font-weight:500;color:var(--accent);">${v}×</td></tr>`).join('')}</tbody></table>
         <button class="btn-primary" onclick="applyWeightSuggestions()">Tillämpa föreslagna vikter</button>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;font-style:italic;">Sparas i localStorage('riskWeights'). calculateRiskScore behöver uppdateras separat för att läsa dem.</div>`;
