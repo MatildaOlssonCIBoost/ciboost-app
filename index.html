@@ -703,6 +703,16 @@
     <div class="fin-card" id="fa-main-chart-card" style="margin-bottom:14px;"></div>
     <div class="fin-grid" id="fa-mix-grid" style="margin-bottom:14px;"></div>
     <div class="fin-card" id="fa-period-cmp" style="margin-bottom:14px;"></div>
+    <div class="fin-card" id="fa-modelanalys" style="margin-bottom:14px;">
+      <div class="fin-card-title">Modellanalys</div>
+      <div id="fa-model-tabs" style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--border);">
+        <button class="sub-tab active" onclick="setModelTab('kalibrering',this)">Kalibrering</button>
+        <button class="sub-tab" onclick="setModelTab('fel',this)">Felklassificering</button>
+        <button class="sub-tab" onclick="setModelTab('faktor',this)">Faktorbidrag</button>
+        <button class="sub-tab" onclick="setModelTab('vikt',this)">Viktningsförslag</button>
+      </div>
+      <div id="fa-modelanalys-body"><div class="loading"><div class="spinner"></div> Laddar modellanalys...</div></div>
+    </div>
     <div class="fin-card" style="margin-bottom:14px;"><div class="fin-card-title">Provision – utestående <span class="badge b-amber" id="comm-badge">-</span></div><div id="comm-rows"><div class="loading"><div class="spinner"></div></div></div></div>
     <input type="hidden" id="fin-from"><input type="hidden" id="fin-to">
   </div>
@@ -1519,6 +1529,100 @@ function getCustomerActivation(id){try{return JSON.parse(localStorage.getItem(`a
 function setCustomerActivation(id,data){localStorage.setItem(`activation-${id}`,JSON.stringify(data));}
 function getCustomerSatisfaction(id){return parseInt(localStorage.getItem(`satisfaction-${id}`))||0;}
 function setCustomerSatisfactionValue(id,v){if(v)localStorage.setItem(`satisfaction-${id}`,String(v));else localStorage.removeItem(`satisfaction-${id}`);}
+let modelAnalysisCache=null;
+let currentModelTab='kalibrering';
+async function loadModelAnalysis(){
+  try{const r=await apiFetch(`${API}/modelAnalysis`);if(r.ok)modelAnalysisCache=await r.json();else modelAnalysisCache={totalSnapshots:0,totalOutcomes:0,pairedCount:0,calibration:[],misclassified:[],confusionMatrix:{},factorContribution:[],weightsLocked:true,suggestedWeights:null,outcomesNeeded:20};}
+  catch(e){modelAnalysisCache={totalSnapshots:0,totalOutcomes:0,pairedCount:0,calibration:[],misclassified:[],confusionMatrix:{},factorContribution:[],weightsLocked:true,suggestedWeights:null,outcomesNeeded:20};}
+  renderModelAnalys();
+}
+function setModelTab(tab,el){
+  currentModelTab=tab;
+  document.querySelectorAll('#fa-model-tabs .sub-tab').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderModelAnalys();
+}
+function renderModelAnalys(){
+  const el=document.getElementById('fa-modelanalys-body');if(!el)return;
+  if(!modelAnalysisCache){el.innerHTML='<div class="loading"><div class="spinner"></div> Laddar...</div>';return;}
+  const data=modelAnalysisCache;
+  if(currentModelTab==='kalibrering'){
+    const buckets=data.calibration||[];
+    const W=540,H=240,padL=40,padR=10,padB=30,padT=10;
+    const innerW=W-padL-padR,innerH=H-padT-padB;
+    const xFor=p=>padL+(p/100)*innerW;
+    const yFor=p=>padT+(1-p/100)*innerH;
+    const actualPts=buckets.filter(b=>b.actual!==null).map(b=>`${xFor(b.predicted)},${yFor(b.actual)}`).join(' ');
+    const dotsHtml=buckets.filter(b=>b.actual!==null).map(b=>`<circle cx="${xFor(b.predicted)}" cy="${yFor(b.actual)}" r="4" fill="var(--accent)"/><text x="${xFor(b.predicted)}" y="${yFor(b.actual)-8}" font-size="10" fill="var(--text2)" text-anchor="middle">${b.actual}% (n=${b.n})</text>`).join('');
+    const xAxis=[0,20,40,60,80,100].map(p=>`<text x="${xFor(p)}" y="${H-10}" font-size="9" fill="var(--text3)" text-anchor="middle">${p}%</text>`).join('');
+    const yAxis=[0,25,50,75,100].map(p=>`<text x="${padL-6}" y="${yFor(p)+3}" font-size="9" fill="var(--text3)" text-anchor="end">${p}%</text>`).join('');
+    el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Faktiskt utfall (% förnyade) per predicerad sannolikhetsbucket. Diagonal = perfekt kalibrering.</div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" style="overflow:visible;">
+        <line x1="${xFor(0)}" y1="${yFor(0)}" x2="${xFor(100)}" y2="${yFor(100)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4"/>
+        ${actualPts?`<polyline points="${actualPts}" fill="none" stroke="var(--accent)" stroke-width="2"/>`:''}
+        ${dotsHtml}
+        ${xAxis}${yAxis}
+        <text x="${W/2}" y="${H-2}" font-size="10" fill="var(--text3)" text-anchor="middle">Predicerad förnyelsesannolikhet</text>
+      </svg>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;">Baserat på ${data.pairedCount} utfall (av ${data.totalOutcomes} totalt).</div>`;
+  } else if(currentModelTab==='fel'){
+    const rows=data.misclassified||[];
+    if(!rows.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center;">Inga felklassificeringar – prediktionerna stämmer hittills.</div>';return;}
+    el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Kunder där prediktionen gick åt fel håll (Hög risk men förnyade, eller Låg risk men churnade).</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Kund</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Predikterat</th><th style="text-align:right;padding:6px;border-bottom:1px solid var(--border);">Prob</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Utfall</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Datum</th></tr></thead><tbody>${rows.map(r=>{const cust=allCustomers.find(c=>c.Id===r.customerId);const name=cust?cust.Company:`#${r.customerId}`;const lvlClass=r.predictedLevel==='Hög'?'b-red':r.predictedLevel==='Medium'?'b-amber':'b-green';const outClass=r.actualOutcome==='Förnyade'?'b-green':'b-red';return`<tr><td style="padding:6px;">${name}</td><td style="padding:6px;"><span class="badge ${lvlClass}">${r.predictedLevel}</span></td><td style="text-align:right;padding:6px;">${r.predictedProb}%</td><td style="padding:6px;"><span class="badge ${outClass}">${r.actualOutcome}</span></td><td style="padding:6px;color:var(--text3);">${r.decisionDate?new Date(r.decisionDate).toLocaleDateString('sv-SE'):'–'}</td></tr>`;}).join('')}</tbody></table>`;
+  } else if(currentModelTab==='faktor'){
+    const f=data.factorContribution||[];
+    if(!f.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center;">Otillräcklig data för att räkna faktorbidrag.</div>';return;}
+    const maxL=Math.max(...f.map(x=>Math.abs(x.predictiveLift)),1);
+    el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Predictive lift = snittfaktorvärde när kunden förnyade minus snittet när de churnade. Större belopp = starkare prediktor.</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">${f.map(x=>{const pct=Math.abs(x.predictiveLift)/maxL*100;const pos=x.predictiveLift>=0;const color=pos?'var(--green)':'var(--red)';return`<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><strong>${x.factor}</strong><span style="color:${color};font-weight:500;">${pos?'+':''}${x.predictiveLift}p lift</span></div><div style="height:10px;background:var(--surface2);border-radius:3px;overflow:hidden;"><div style="height:10px;width:${pct}%;background:${color};"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px;">Förnyade snitt: ${x.avgRenewed}p · Churnade snitt: ${x.avgChurned}p</div></div>`;}).join('')}</div>`;
+  } else if(currentModelTab==='vikt'){
+    if(data.weightsLocked){
+      const have=data.totalOutcomes;const need=20;
+      const pct=Math.min(100,Math.round(have/need*100));
+      el.innerHTML=`<div style="text-align:center;padding:30px 20px;"><div style="font-size:14px;color:var(--text2);margin-bottom:14px;">🔒 Låst tills 20 utfall finns</div><div style="font-size:28px;font-weight:600;color:var(--accent);">${have}/${need}</div><div style="font-size:12px;color:var(--text3);margin-top:4px;">utfall registrerade</div><div style="margin:14px auto;max-width:300px;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;"><div style="height:8px;width:${pct}%;background:var(--accent);"></div></div><div style="font-size:12px;color:var(--text3);">${data.outcomesNeeded} fler utfall behövs.</div></div>`;
+    } else {
+      const w=data.suggestedWeights||{};
+      el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Föreslagna vikter baserat på faktorernas predictive lift.</div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:14px;"><thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Faktor</th><th style="text-align:right;padding:6px;border-bottom:1px solid var(--border);">Nuvarande vikt</th><th style="text-align:right;padding:6px;border-bottom:1px solid var(--border);">Föreslagen vikt</th></tr></thead><tbody>${Object.entries(w).map(([k,v])=>`<tr><td style="padding:6px;">${k}</td><td style="text-align:right;padding:6px;color:var(--text3);">1.0×</td><td style="text-align:right;padding:6px;font-weight:500;color:var(--accent);">${v}×</td></tr>`).join('')}</tbody></table>
+        <button class="btn-primary" onclick="applyWeightSuggestions()">Tillämpa föreslagna vikter</button>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;font-style:italic;">Sparas i localStorage('riskWeights'). calculateRiskScore behöver uppdateras separat för att läsa dem.</div>`;
+    }
+  }
+}
+function applyWeightSuggestions(){
+  if(!modelAnalysisCache||!modelAnalysisCache.suggestedWeights)return;
+  localStorage.setItem('riskWeights',JSON.stringify(modelAnalysisCache.suggestedWeights));
+  showSaveIndicator('✓ Vikter tillämpade','#1a7a50');
+}
+function renderRenewalSectionHtml(c){
+  const today=new Date().toISOString().substring(0,10);
+  const urgent=c._days!==null&&c._days<0;
+  const bg=urgent?'var(--red-bg)':'var(--amber-bg)';
+  const col=urgent?'var(--red)':'var(--amber)';
+  const subtitle=urgent?`Licensen gick ut ${Math.abs(c._days)} dagar sedan`:`Licensen går ut om ${c._days} dagar`;
+  return`<div class="modal-section"><div class="modal-section-label" style="color:${col};">Förnyelse</div>
+    <div class="modal-card" style="background:${bg};border-color:${col};">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;"><strong>${subtitle}</strong> – registrera utfall så fort beslut är taget.</div>
+      <div class="modal-grid">
+        <div class="modal-field"><label>Utfall</label><select id="renewal-outcome" class="edit-input"><option>Ej registrerat</option><option>Förnyade</option><option>Churnade</option><option>Pausad</option></select></div>
+        <div class="modal-field"><label>Beslutsdatum</label><input id="renewal-date" type="date" class="edit-input" value="${today}"></div>
+      </div>
+      <div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea id="renewal-notes" class="edit-input" style="height:60px;resize:vertical;"></textarea></div>
+      <button class="btn-sm" style="margin-top:10px;" onclick="saveRenewalOutcome(${c.Id})">Spara förnyelseutfall</button>
+    </div></div>`;
+}
+async function saveRenewalOutcome(id){
+  const outcome=document.getElementById('renewal-outcome')?.value;
+  const decisionDate=document.getElementById('renewal-date')?.value||null;
+  const notes=document.getElementById('renewal-notes')?.value||'';
+  if(!outcome)return;
+  try{
+    const r=await apiFetch(`${API}/renewalOutcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:id,outcome,decisionDate,notes})});
+    if(r.ok){showSaveIndicator('✓ Förnyelseutfall sparat','#1a7a50');}
+    else{showSaveIndicator('⚠ Kunde inte spara','#a32d2d');}
+  }catch(e){console.error('saveRenewalOutcome',e);showSaveIndicator('⚠ Nätverksfel','#a32d2d');}
+}
 function getCustomerRiskFactors(c){
   if(!c||!c.Id)return[];
   const data=getCustomerActivation(c.Id);
@@ -2181,6 +2285,7 @@ function renderFinDashboard(){
     <div id="cmp-delta-out" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;"></div>`;
   renderFaCompare();
   loadCommissions();
+  loadModelAnalysis();
 }
 var currentFaMode='resultat';
 function setFaMode(m,btn){currentFaMode=m;btn.parentNode.querySelectorAll('.result-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderFinDashboard();}
@@ -2423,6 +2528,7 @@ function renderFinDashboard(){
     <div id="cmp-delta-out" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;"></div>`;
   renderFaCompare();
   loadCommissions();
+  loadModelAnalysis();
 }
 var currentFaMode='resultat';
 function setFaMode(m,btn){currentFaMode=m;btn.parentNode.querySelectorAll('.result-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderFinDashboard();}
@@ -3102,7 +3208,16 @@ async function deleteBudgetVersion(){
 }
 // ─── MODAL KUND ──────────────────────────────────────────
 function getLicenseType(c){return document.getElementById('edit-type')?.value||c?.LicenseType||'Team';}
-function renderTabs(lt){const tab2=lt==='Enterprise'?'Enterprise':'Team';document.getElementById('modal-tabs').innerHTML=['Översikt',tab2,'Värde','Aktivitet','Kontaktlogg'].map((t,i)=>`<button class="modal-tab ${currentPage===i+1?'active':''}" onclick="goToPage(${i+1})">${i+1}. ${t}</button>`).join('');}
+function renderTabs(lt){
+  if(lt==='Consulting/Utbildning'){
+    const labels=['Översikt','Värde','Aktivitet','Kontaktlogg'];
+    const pages=[1,3,4,5];
+    document.getElementById('modal-tabs').innerHTML=labels.map((t,i)=>`<button class="modal-tab ${currentPage===pages[i]?'active':''}" onclick="goToPage(${pages[i]})">${i+1}. ${t}</button>`).join('');
+    return;
+  }
+  const tab2=lt==='Enterprise'?'Enterprise':'Team';
+  document.getElementById('modal-tabs').innerHTML=['Översikt',tab2,'Värde','Aktivitet','Kontaktlogg'].map((t,i)=>`<button class="modal-tab ${currentPage===i+1?'active':''}" onclick="goToPage(${i+1})">${i+1}. ${t}</button>`).join('');
+}
 function openNewModal(){isNewCustomer=true;currentModalId=null;currentPage=1;document.getElementById('modal-title').textContent='Ny kund';document.getElementById('modal-subtitle').textContent='';document.getElementById('btn-delete').style.display='none';renderTabs('Team');renderModalPage(null,[],[]);document.getElementById('modal-overlay').classList.add('open');}
 async function openModal(id){isNewCustomer=false;currentModalId=id;currentPage=1;const c=allCustomers.find(x=>x.Id===id);if(!c)return;let teams=[],admins=[];try{const r=await apiFetch(`${API}/customers/${id}/teams`);teams=await r.json();}catch(e){}try{const r=await apiFetch(`${API}/customers/${id}/admins`);admins=await r.json();}catch(e){}document.getElementById('modal-title').textContent=c.Company||'–';document.getElementById('modal-subtitle').textContent=`${c.LicenseType||''} · ${c._owner}`;document.getElementById('btn-delete').style.display='flex';renderTabs(c.LicenseType);renderModalPage(c,teams,admins);document.getElementById('modal-overlay').classList.add('open');}
 
@@ -3112,7 +3227,8 @@ function renderModalPage(c,teams,admins){
     <div class="modal-section"><div class="modal-section-label">Kundansvarig</div><div class="modal-card"><div class="modal-field"><label>Kundansvarig</label><select id="edit-owner" ${is}>${oo}</select></div></div></div>
     <div class="modal-section"><div class="modal-section-label">Organisation</div><div class="modal-card" style="display:flex;flex-direction:column;gap:10px;"><div class="modal-field"><label>Företagsnamn</label><input ${is} id="edit-company" value="${c?.Company||''}"></div><div class="modal-field"><label>Team / Avdelning</label><input ${is} id="edit-subname" value="${c?.SubName||''}"></div><div class="modal-field"><label>Koncern</label><input ${is} id="edit-parent-company" value="${c?.ParentCompany||''}"></div><div class="modal-grid"><div class="modal-field"><label>Antal anställda</label><input ${is} id="edit-employees" type="number" value="${c?.Employees||''}"></div><div class="modal-field"><label>Bransch</label><select ${is} id="edit-industry"><option value="">–</option>${INDUSTRIES.map(i=>`<option ${c?.Industry===i?'selected':''}>${i}</option>`).join('')}</select></div></div></div></div>
     <div class="modal-section"><div class="modal-section-label">Kontaktperson</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input ${is} id="edit-contact" value="${c?.Contact||''}"></div><div class="modal-field"><label>Roll</label><input ${is} id="edit-contact-role" value="${c?.ContactRole||''}"></div><div class="modal-field"><label>E-post</label><input ${is} id="edit-contact-email" type="email" value="${c?.ContactEmail||''}"></div><div class="modal-field"><label>Telefon</label><input ${is} id="edit-contact-phone" value="${c?.ContactPhone||''}"></div></div></div></div>
-    <div class="modal-section"><div class="modal-section-label">Licens</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Kund sedan</label><input ${is} id="edit-customer-since" type="date" value="${c?.CustomerSince?c.CustomerSince.substring(0,10):''}"></div><div class="modal-field"><label>Typ</label><select id="edit-type" ${is} onchange="onLicTypeChange()"><option ${(c?.LicenseType||'Team')==='Team'?'selected':''}>Team</option><option ${c?.LicenseType==='Enterprise'?'selected':''}>Enterprise</option><option ${c?.LicenseType==='Pilot'?'selected':''}>Pilot</option></select></div><div class="modal-field"><label>Start</label><input ${is} id="edit-start" type="date" value="${c?.LicenseStart?c.LicenseStart.substring(0,10):''}"></div><div class="modal-field"><label>Slut</label><input ${is} id="edit-end" type="date" value="${c?.LicenseEnd?c.LicenseEnd.substring(0,10):''}"></div><div class="modal-field"><label>Risk</label><select id="edit-risk" ${is}><option ${(c?.Risk||'Low')==='Low'?'selected':''}>Low</option><option ${c?.Risk==='Medium'?'selected':''}>Medium</option><option ${c?.Risk==='High'?'selected':''}>High</option></select></div></div></div></div>
+    <div class="modal-section"><div class="modal-section-label">Licens</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Kund sedan</label><input ${is} id="edit-customer-since" type="date" value="${c?.CustomerSince?c.CustomerSince.substring(0,10):''}"></div><div class="modal-field"><label>Typ</label><select id="edit-type" ${is} onchange="onLicTypeChange()"><option ${(c?.LicenseType||'Team')==='Team'?'selected':''}>Team</option><option ${c?.LicenseType==='Enterprise'?'selected':''}>Enterprise</option><option ${c?.LicenseType==='Pilot'?'selected':''}>Pilot</option><option ${c?.LicenseType==='Consulting/Utbildning'?'selected':''}>Consulting/Utbildning</option></select></div><div class="modal-field"><label>Start</label><input ${is} id="edit-start" type="date" value="${c?.LicenseStart?c.LicenseStart.substring(0,10):''}"></div><div class="modal-field"><label>Slut</label><input ${is} id="edit-end" type="date" value="${c?.LicenseEnd?c.LicenseEnd.substring(0,10):''}"></div><div class="modal-field"><label>Risk</label><select id="edit-risk" ${is}><option ${(c?.Risk||'Low')==='Low'?'selected':''}>Low</option><option ${c?.Risk==='Medium'?'selected':''}>Medium</option><option ${c?.Risk==='High'?'selected':''}>High</option></select></div></div></div></div>
+    ${c&&c._days!==null&&c._days<=30?renderRenewalSectionHtml(c):''}
     <div class="modal-section"><div class="modal-section-label">Anteckningar</div><div class="modal-card"><textarea id="edit-notes" ${is} style="height:80px;resize:vertical;">${c?.Notes||''}</textarea></div></div>`;}
   if(currentPage===2){const lt=getLicenseType(c);if(lt==='Enterprise'){const ac=admins.length||1;let h=`<div class="modal-section"><div class="modal-section-label">Admins</div><div class="modal-card"><div class="modal-field"><label>Antal</label><input ${is} id="edit-admin-count" type="number" min="1" max="20" value="${ac}" oninput="updateAdminBlocks(this.value,${JSON.stringify(admins).replace(/"/g,'&quot;')})"></div></div></div><div id="admin-blocks">`;for(let i=0;i<ac;i++){const a=admins[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input ${is} id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input ${is} id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input ${is} id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`;}html=h+'</div>';}else{const tc=teams.length||1;let h=`<div class="modal-section"><div class="modal-section-label">Antal team</div><div class="modal-card"><div class="modal-field"><label>Antal</label><input ${is} id="edit-team-count" type="number" min="1" max="20" value="${tc}" oninput="updateTeamBlocks(this.value,${JSON.stringify(teams).replace(/"/g,'&quot;')})"></div></div></div><div id="team-blocks">`;for(let i=0;i<tc;i++){const t=teams[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input ${is} id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input ${is} id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input ${is} id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input ${is} id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input ${is} id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`;}html=h+'</div>';}}
   if(currentPage===3){html=`<div class="modal-section"><div class="modal-section-label">Intäktsposter<button class="btn-sm" style="margin-left:8px;" onclick="openAddRevenue(${c?.Id})">+ Lägg till</button></div><div id="revenue-items"><div class="loading"><div class="spinner"></div></div></div><div class="modal-card" style="margin-top:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Total intäkt</span><span id="total-revenue" style="font-size:16px;font-weight:600;color:var(--accent);">–</span></div></div></div>`;}
