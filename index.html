@@ -1519,6 +1519,33 @@ function getCustomerActivation(id){try{return JSON.parse(localStorage.getItem(`a
 function setCustomerActivation(id,data){localStorage.setItem(`activation-${id}`,JSON.stringify(data));}
 function getCustomerSatisfaction(id){return parseInt(localStorage.getItem(`satisfaction-${id}`))||0;}
 function setCustomerSatisfactionValue(id,v){if(v)localStorage.setItem(`satisfaction-${id}`,String(v));else localStorage.removeItem(`satisfaction-${id}`);}
+function calculateRiskScore({steps=[],satisfaction=0,activityLevel='',economy='unknown',focus='unknown'}={}){
+  const stepPoints=[5,10,35,65,95,100];
+  let base=0;
+  for(let i=0;i<6;i++)if(steps[i])base=stepPoints[i];
+  let score=base;
+  const satAdj={1:-100,2:-75,3:-25,4:0,5:25};
+  score+=satAdj[satisfaction]||0;
+  const actAdj={'':-50,'ingen':-50,'Låg':-25,'låg':-25,'Medium':25,'medium':25,'Hög':50,'hög':50};
+  score+=actAdj[activityLevel]??0;
+  const ecoAdj={large_savings:-50,savings:-25,unknown:0,good:25};
+  score+=ecoAdj[economy]??0;
+  const focAdj={strong_other:-50,other:-25,unknown:0,priority:25};
+  score+=focAdj[focus]??0;
+  const riskLevel=score<50?'Hög':score<=120?'Medium':'Låg';
+  const anchors=[[-150,5],[0,45],[50,55],[120,80],[200,95]];
+  let prob;
+  if(score<=anchors[0][0])prob=anchors[0][1];
+  else if(score>=anchors[anchors.length-1][0])prob=anchors[anchors.length-1][1];
+  else{
+    for(let i=0;i<anchors.length-1;i++){
+      const [x1,y1]=anchors[i],[x2,y2]=anchors[i+1];
+      if(score>=x1&&score<=x2){prob=y1+(y2-y1)*((score-x1)/(x2-x1));break;}
+    }
+  }
+  const renewalProb=Math.round(Math.max(5,Math.min(95,prob)));
+  return{score,base,riskLevel,renewalProb};
+}
 function computeActivationRisk(stepsDone,activityLevel){
   if(activityLevel==='Hög'){return{level:'Low',color:'var(--green)',bg:'var(--green-bg)',label:'Låg risk',sub:'Hög aktivitet – kunden använder plattformen väl'};}
   if(activityLevel==='Medium'&&stepsDone<=3){return{level:'Medium',color:'var(--amber)',bg:'var(--amber-bg)',label:'Medium risk',sub:`Medium aktivitet · ${stepsDone}/6 steg klara`};}
