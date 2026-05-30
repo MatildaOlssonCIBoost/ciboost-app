@@ -6,6 +6,10 @@
 // Required schema for invoice tracking on revenue items:
 //   ALTER TABLE CustomerRevenues ADD InvoiceDate DATE NULL, Paid BIT DEFAULT 0, PaymentDate DATE NULL;
 //   ALTER TABLE ProspectRevenues ADD InvoiceDate DATE NULL, Paid BIT DEFAULT 0, PaymentDate DATE NULL;
+// Renewal chain linking on customer revenue items (points at the previous period's row):
+//   ALTER TABLE CustomerRevenues ADD RenewedFromId INT NULL;
+// POST/PUT /customers/{id}/revenues should accept and persist a renewedFromId field.
+// (The revenue endpoints aren't in this file — they live in a sibling function. Update there too.)
 // Risk-snapshot / renewal-outcome tables:
 //   CREATE TABLE RiskSnapshots (
 //     Id INT IDENTITY(1,1) PRIMARY KEY,
