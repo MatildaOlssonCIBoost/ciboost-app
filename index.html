@@ -198,14 +198,15 @@
   .action-row:last-child { border-bottom: none; }
   .gantt-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .gantt-header { display: flex; border-bottom: 1px solid var(--border); background: var(--surface2); padding: 8px 14px; }
-  .gantt-name-col { min-width: 180px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
-  .gantt-months { flex: 1; display: flex; }
+  .gantt-name-col { width: 160px; flex-shrink: 0; padding-right: 10px; box-sizing: border-box; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
+  .gantt-months { flex: 1; display: flex; min-width: 0; }
   .gantt-month { flex: 1; text-align: center; font-size: 11px; color: var(--text3); font-weight: 500; }
   .gantt-row { display: flex; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
   .gantt-row:last-child { border-bottom: none; }
   .gantt-row:hover { background: var(--surface2); }
-  .gantt-row-name { min-width: 180px; }
-  .gantt-bars { flex: 1; position: relative; height: 22px; }
+  .gantt-row-name { width: 160px; flex-shrink: 0; padding-right: 10px; box-sizing: border-box; overflow: hidden; }
+  .gantt-row-name > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gantt-bars { flex: 1; min-width: 0; position: relative; height: 22px; }
   .gantt-bar { position: absolute; height: 22px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: white; white-space: nowrap; overflow: hidden; }
   .date-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .date-input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-family: 'Poppins', sans-serif; font-size: 13px; background: var(--surface); color: var(--text); outline: none; }
