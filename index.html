@@ -1644,19 +1644,23 @@ function getCustomerRiskFactors(c){
   if(!steps.some(x=>x))factors.push({label:'Inga aktiveringssteg klara',v:0});
   return factors.sort((a,b)=>a.v-b.v).slice(0,3).map(f=>f.label);
 }
-function calculateRiskScore({steps=[],satisfaction=0,activityLevel='',economy='unknown',focus='unknown'}={}){
+function calculateRiskScore({steps=[],satisfaction=0,activityLevel='',economy='unknown',focus='unknown',weights=null}={}){
+  if(!weights){try{const s=localStorage.getItem('riskWeights');if(s)weights=JSON.parse(s);}catch(e){}}
+  const w=weights||{};
+  const wf=k=>typeof w[k]==='number'?w[k]:1;
   const stepPoints=[5,10,35,65,95,100];
   let base=0;
   for(let i=0;i<6;i++)if(steps[i])base=stepPoints[i];
-  let score=base;
+  let score=base*wf('StepBase');
   const satAdj={1:-100,2:-75,3:-25,4:0,5:25};
-  score+=satAdj[satisfaction]||0;
+  score+=(satAdj[satisfaction]||0)*wf('Satisfaction');
   const actAdj={'':-50,'ingen':-50,'Låg':-25,'låg':-25,'Medium':25,'medium':25,'Hög':50,'hög':50};
-  score+=actAdj[activityLevel]??0;
+  score+=((actAdj[activityLevel]??0))*wf('ActivityLevel');
   const ecoAdj={large_savings:-50,savings:-25,unknown:0,good:25};
-  score+=ecoAdj[economy]??0;
+  score+=((ecoAdj[economy]??0))*wf('Economy');
   const focAdj={strong_other:-50,other:-25,unknown:0,priority:25};
-  score+=focAdj[focus]??0;
+  score+=((focAdj[focus]??0))*wf('Focus');
+  score=Math.round(score);
   const riskLevel=score<50?'Hög':score<=120?'Medium':'Låg';
   const anchors=[[-150,5],[0,45],[50,55],[120,80],[200,95]];
   let prob;
@@ -1669,7 +1673,7 @@ function calculateRiskScore({steps=[],satisfaction=0,activityLevel='',economy='u
     }
   }
   const renewalProb=Math.round(Math.max(5,Math.min(95,prob)));
-  return{score,base,riskLevel,renewalProb};
+  return{score,base,riskLevel,renewalProb,weightsApplied:!!weights};
 }
 function computeActivationRisk(stepsDone,activityLevel){
   if(activityLevel==='Hög'){return{level:'Low',color:'var(--green)',bg:'var(--green-bg)',label:'Låg risk',sub:'Hög aktivitet – kunden använder plattformen väl'};}
