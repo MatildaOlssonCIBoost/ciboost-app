@@ -705,6 +705,10 @@
     <div class="fin-card" id="fa-period-cmp" style="margin-bottom:14px;"></div>
     <div class="fin-card" id="fa-modelanalys" style="margin-bottom:14px;">
       <div class="fin-card-title">Modellanalys</div>
+      <div id="fa-model-mode" class="result-toggle" style="margin-bottom:14px;">
+        <button class="result-btn active" data-mode="renewal" onclick="setModelMode('renewal')">Förnyelse</button>
+        <button class="result-btn" data-mode="pipeline" onclick="setModelMode('pipeline')">Pipeline</button>
+      </div>
       <div id="fa-model-tabs" style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--border);">
         <button class="sub-tab active" onclick="setModelTab('kalibrering',this)">Kalibrering</button>
         <button class="sub-tab" onclick="setModelTab('fel',this)">Felklassificering</button>
@@ -1529,12 +1533,21 @@ function getCustomerActivation(id){try{return JSON.parse(localStorage.getItem(`a
 function setCustomerActivation(id,data){localStorage.setItem(`activation-${id}`,JSON.stringify(data));}
 function getCustomerSatisfaction(id){return parseInt(localStorage.getItem(`satisfaction-${id}`))||0;}
 function setCustomerSatisfactionValue(id,v){if(v)localStorage.setItem(`satisfaction-${id}`,String(v));else localStorage.removeItem(`satisfaction-${id}`);}
-let modelAnalysisCache=null;
+let modelAnalysisCache={renewal:null,pipeline:null};
 let currentModelTab='kalibrering';
-async function loadModelAnalysis(){
-  try{const r=await apiFetch(`${API}/modelAnalysis`);if(r.ok)modelAnalysisCache=await r.json();else modelAnalysisCache={totalSnapshots:0,totalOutcomes:0,pairedCount:0,calibration:[],misclassified:[],confusionMatrix:{},factorContribution:[],weightsLocked:true,suggestedWeights:null,outcomesNeeded:20};}
-  catch(e){modelAnalysisCache={totalSnapshots:0,totalOutcomes:0,pairedCount:0,calibration:[],misclassified:[],confusionMatrix:{},factorContribution:[],weightsLocked:true,suggestedWeights:null,outcomesNeeded:20};}
-  renderModelAnalys();
+let currentModelMode='renewal';
+const _defaultModelData={totalSnapshots:0,totalOutcomes:0,pairedCount:0,calibration:[],misclassified:[],confusionMatrix:{},factorContribution:[],weightsLocked:true,suggestedWeights:null,outcomesNeeded:20};
+async function loadModelAnalysis(mode){
+  mode=mode||currentModelMode;
+  try{const r=await apiFetch(`${API}/modelAnalysis?mode=${mode}`);if(r.ok)modelAnalysisCache[mode]=await r.json();else modelAnalysisCache[mode]={..._defaultModelData,mode};}
+  catch(e){modelAnalysisCache[mode]={..._defaultModelData,mode};}
+  if(mode===currentModelMode)renderModelAnalys();
+}
+function setModelMode(mode){
+  currentModelMode=mode;
+  document.querySelectorAll('#fa-model-mode .result-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  if(!modelAnalysisCache[mode])loadModelAnalysis(mode);
+  else renderModelAnalys();
 }
 function setModelTab(tab,el){
   currentModelTab=tab;
@@ -1544,8 +1557,12 @@ function setModelTab(tab,el){
 }
 function renderModelAnalys(){
   const el=document.getElementById('fa-modelanalys-body');if(!el)return;
-  if(!modelAnalysisCache){el.innerHTML='<div class="loading"><div class="spinner"></div> Laddar...</div>';return;}
-  const data=modelAnalysisCache;
+  const data=modelAnalysisCache[currentModelMode];
+  if(!data){el.innerHTML='<div class="loading"><div class="spinner"></div> Laddar...</div>';return;}
+  const isPipe=currentModelMode==='pipeline';
+  const outcomeLabel=isPipe?'avslutade prospects':'utfall';
+  const renewedLabel=isPipe?'Vunnen':'Förnyade';
+  const churnedLabel=isPipe?'Förlorad':'Churnade';
   if(currentModelTab==='kalibrering'){
     const buckets=data.calibration||[];
     const W=540,H=240,padL=40,padR=10,padB=30,padT=10;
@@ -1556,26 +1573,35 @@ function renderModelAnalys(){
     const dotsHtml=buckets.filter(b=>b.actual!==null).map(b=>`<circle cx="${xFor(b.predicted)}" cy="${yFor(b.actual)}" r="4" fill="var(--accent)"/><text x="${xFor(b.predicted)}" y="${yFor(b.actual)-8}" font-size="10" fill="var(--text2)" text-anchor="middle">${b.actual}% (n=${b.n})</text>`).join('');
     const xAxis=[0,20,40,60,80,100].map(p=>`<text x="${xFor(p)}" y="${H-10}" font-size="9" fill="var(--text3)" text-anchor="middle">${p}%</text>`).join('');
     const yAxis=[0,25,50,75,100].map(p=>`<text x="${padL-6}" y="${yFor(p)+3}" font-size="9" fill="var(--text3)" text-anchor="end">${p}%</text>`).join('');
-    el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Faktiskt utfall (% förnyade) per predicerad sannolikhetsbucket. Diagonal = perfekt kalibrering.</div>
+    const intro=isPipe?'Faktiskt utfall (% vunna) per satt sannolikhetsbucket på prospects.':'Faktiskt utfall (% förnyade) per predicerad sannolikhetsbucket.';
+    const xLabel=isPipe?'Satt vinst-sannolikhet (Probability)':'Predicerad förnyelsesannolikhet';
+    el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">${intro} Diagonal = perfekt kalibrering.</div>
       <svg viewBox="0 0 ${W} ${H}" width="100%" style="overflow:visible;">
         <line x1="${xFor(0)}" y1="${yFor(0)}" x2="${xFor(100)}" y2="${yFor(100)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4"/>
         ${actualPts?`<polyline points="${actualPts}" fill="none" stroke="var(--accent)" stroke-width="2"/>`:''}
         ${dotsHtml}
         ${xAxis}${yAxis}
-        <text x="${W/2}" y="${H-2}" font-size="10" fill="var(--text3)" text-anchor="middle">Predicerad förnyelsesannolikhet</text>
+        <text x="${W/2}" y="${H-2}" font-size="10" fill="var(--text3)" text-anchor="middle">${xLabel}</text>
       </svg>
-      <div style="font-size:11px;color:var(--text3);margin-top:8px;">Baserat på ${data.pairedCount} utfall (av ${data.totalOutcomes} totalt).</div>`;
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;">Baserat på ${data.pairedCount} ${outcomeLabel}.</div>`;
   } else if(currentModelTab==='fel'){
     const rows=data.misclassified||[];
     if(!rows.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center;">Inga felklassificeringar – prediktionerna stämmer hittills.</div>';return;}
-    el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Kunder där prediktionen gick åt fel håll (Hög risk men förnyade, eller Låg risk men churnade).</div>
-      <table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Kund</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Predikterat</th><th style="text-align:right;padding:6px;border-bottom:1px solid var(--border);">Prob</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Utfall</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Datum</th></tr></thead><tbody>${rows.map(r=>{const cust=allCustomers.find(c=>c.Id===r.customerId);const name=cust?cust.Company:`#${r.customerId}`;const lvlClass=r.predictedLevel==='Hög'?'b-red':r.predictedLevel==='Medium'?'b-amber':'b-green';const outClass=r.actualOutcome==='Förnyade'?'b-green':'b-red';return`<tr><td style="padding:6px;">${name}</td><td style="padding:6px;"><span class="badge ${lvlClass}">${r.predictedLevel}</span></td><td style="text-align:right;padding:6px;">${r.predictedProb}%</td><td style="padding:6px;"><span class="badge ${outClass}">${r.actualOutcome}</span></td><td style="padding:6px;color:var(--text3);">${r.decisionDate?new Date(r.decisionDate).toLocaleDateString('sv-SE'):'–'}</td></tr>`;}).join('')}</tbody></table>`;
+    const intro=isPipe?'Prospects där prediktionen gick åt fel håll (>60% vinst men förlorad, eller <40% vinst men vunnen).':'Kunder där prediktionen gick åt fel håll (Hög risk men förnyade, eller Låg risk men churnade).';
+    el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">${intro}</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">${isPipe?'Prospect':'Kund'}</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Predikterat</th><th style="text-align:right;padding:6px;border-bottom:1px solid var(--border);">Prob</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Utfall</th><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border);">Datum</th></tr></thead><tbody>${rows.map(r=>{const name=r.company||(allCustomers.find(c=>c.Id===r.customerId)?.Company)||`#${r.customerId}`;const lvlClass=r.predictedLevel==='Hög'?'b-red':r.predictedLevel==='Medium'?'b-amber':'b-green';const wonish=r.actualOutcome===renewedLabel||r.actualOutcome==='Förnyade'||r.actualOutcome==='Vunnen';const outClass=wonish?'b-green':'b-red';return`<tr><td style="padding:6px;">${name}</td><td style="padding:6px;"><span class="badge ${lvlClass}">${r.predictedLevel}</span></td><td style="text-align:right;padding:6px;">${r.predictedProb}%</td><td style="padding:6px;"><span class="badge ${outClass}">${r.actualOutcome}</span></td><td style="padding:6px;color:var(--text3);">${r.decisionDate?new Date(r.decisionDate).toLocaleDateString('sv-SE'):'–'}</td></tr>`;}).join('')}</tbody></table>`;
   } else if(currentModelTab==='faktor'){
     const f=data.factorContribution||[];
     if(!f.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center;">Otillräcklig data för att räkna faktorbidrag.</div>';return;}
-    const maxL=Math.max(...f.map(x=>Math.abs(x.predictiveLift)),1);
-    el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Predictive lift = snittfaktorvärde när kunden förnyade minus snittet när de churnade. Större belopp = starkare prediktor.</div>
-      <div style="display:flex;flex-direction:column;gap:12px;">${f.map(x=>{const pct=Math.abs(x.predictiveLift)/maxL*100;const pos=x.predictiveLift>=0;const color=pos?'var(--green)':'var(--red)';return`<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><strong>${x.factor}</strong><span style="color:${color};font-weight:500;">${pos?'+':''}${x.predictiveLift}p lift</span></div><div style="height:10px;background:var(--surface2);border-radius:3px;overflow:hidden;"><div style="height:10px;width:${pct}%;background:${color};"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px;">Förnyade snitt: ${x.avgRenewed}p · Churnade snitt: ${x.avgChurned}p</div></div>`;}).join('')}</div>`;
+    if(isPipe){
+      // Pipeline-mode: each factor has entries[{value,winRate,n}] + spread
+      el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Vinst-procent per värde inom varje faktor. Större spridning mellan värden = starkare prediktor.</div>
+        <div style="display:flex;flex-direction:column;gap:16px;">${f.map(factor=>`<div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;"><strong>${factor.factor}</strong><span style="color:var(--text2);">Spridning: <strong>${factor.spread}p%</strong></span></div><div style="display:flex;flex-direction:column;gap:3px;">${(factor.entries||[]).slice(0,8).map(e=>`<div style="display:flex;align-items:center;gap:8px;font-size:11px;"><span style="flex:1;color:var(--text2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.value}</span><div style="flex:2;height:7px;background:var(--surface2);border-radius:3px;overflow:hidden;"><div style="height:7px;width:${e.winRate}%;background:${e.winRate>=60?'var(--green)':e.winRate>=40?'var(--amber)':'var(--red)'};"></div></div><span style="min-width:38px;text-align:right;font-weight:500;">${e.winRate}%</span><span style="min-width:32px;text-align:right;color:var(--text3);">n=${e.n}</span></div>`).join('')}</div></div>`).join('')}</div>`;
+    } else {
+      const maxL=Math.max(...f.map(x=>Math.abs(x.predictiveLift)),1);
+      el.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Predictive lift = snittfaktorvärde när kunden förnyade minus snittet när de churnade. Större belopp = starkare prediktor.</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">${f.map(x=>{const pct=Math.abs(x.predictiveLift)/maxL*100;const pos=x.predictiveLift>=0;const color=pos?'var(--green)':'var(--red)';return`<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><strong>${x.factor}</strong><span style="color:${color};font-weight:500;">${pos?'+':''}${x.predictiveLift}p lift</span></div><div style="height:10px;background:var(--surface2);border-radius:3px;overflow:hidden;"><div style="height:10px;width:${pct}%;background:${color};"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px;">Förnyade snitt: ${x.avgRenewed}p · Churnade snitt: ${x.avgChurned}p</div></div>`;}).join('')}</div>`;
+    }
   } else if(currentModelTab==='vikt'){
     if(data.weightsLocked){
       const have=data.totalOutcomes;const need=20;
@@ -1591,8 +1617,10 @@ function renderModelAnalys(){
   }
 }
 function applyWeightSuggestions(){
-  if(!modelAnalysisCache||!modelAnalysisCache.suggestedWeights)return;
-  localStorage.setItem('riskWeights',JSON.stringify(modelAnalysisCache.suggestedWeights));
+  const data=modelAnalysisCache[currentModelMode];
+  if(!data||!data.suggestedWeights)return;
+  const key=currentModelMode==='pipeline'?'pipelineWeights':'riskWeights';
+  localStorage.setItem(key,JSON.stringify(data.suggestedWeights));
   showSaveIndicator('✓ Vikter tillämpade','#1a7a50');
 }
 function fmtRenewPeriod(from,to){const ms=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];const f=d=>{if(!d)return'?';const x=new Date(d);return ms[x.getMonth()]+' '+x.getFullYear();};return f(from)+'–'+f(to);}

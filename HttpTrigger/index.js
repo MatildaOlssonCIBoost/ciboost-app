@@ -10,6 +10,8 @@
 //   ALTER TABLE CustomerRevenues ADD RenewedFromId INT NULL;
 // POST/PUT /customers/{id}/revenues should accept and persist a renewedFromId field.
 // (The revenue endpoints aren't in this file — they live in a sibling function. Update there too.)
+// Pipeline-analysis: when a prospect transitions to Closed Won / Closed Lost we stamp the date.
+//   ALTER TABLE Prospects ADD ClosedAt DATE NULL;
 // Risk-snapshot / renewal-outcome tables:
 //   CREATE TABLE RiskSnapshots (
 //     Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -171,6 +173,7 @@ module.exports = async function (context, req) {
                   Source=@Source,Owner=@Owner,Stage=@Stage,Score=@Score,Value=@Value,Probability=@Probability,
                   LastContact=@LastContact,NextMeeting=@NextMeeting,Notes=@Notes,
                   RevenueCategory=@RevenueCategory,ExpectedStartMonth=@ExpectedStartMonth,
+                  ClosedAt=CASE WHEN @Stage IN ('Closed Won','Closed Lost') AND ClosedAt IS NULL THEN CAST(GETDATE() AS DATE) ELSE ClosedAt END,
                   UpdatedAt=GETDATE() WHERE Id=@Id`);
         return respond(context, 200, { message: 'Uppdaterad' });
       }
@@ -356,6 +359,71 @@ module.exports = async function (context, req) {
     }
 
     if (path === 'modelAnalysis' && method === 'GET') {
+      const mode = (req.query && req.query.mode) || 'renewal';
+      if (mode === 'pipeline') {
+        const closed = (await db.request().query("SELECT * FROM Prospects WHERE Stage IN ('Closed Won','Closed Lost')")).recordset;
+        const total = closed.length;
+        const buckets = [[0, 20], [20, 40], [40, 60], [60, 80], [80, 100]];
+        const calibration = buckets.map(([lo, hi]) => {
+          const inB = closed.filter(p => (p.Probability || 0) >= lo && (p.Probability || 0) < (hi === 100 ? 101 : hi));
+          const won = inB.filter(p => p.Stage === 'Closed Won').length;
+          return { bucket: `${lo}-${hi}%`, predicted: (lo + hi) / 2, actual: inB.length ? Math.round(won / inB.length * 100) : null, n: inB.length };
+        });
+        const misclassified = closed.filter(p => {
+          const prob = p.Probability || 0;
+          return (prob > 60 && p.Stage === 'Closed Lost') || (prob < 40 && p.Stage === 'Closed Won');
+        }).map(p => ({
+          customerId: p.Id,
+          company: p.Company,
+          predictedLevel: (p.Probability || 0) >= 50 ? 'Hög' : 'Låg',
+          predictedProb: p.Probability || 0,
+          actualOutcome: p.Stage === 'Closed Won' ? 'Vunnen' : 'Förlorad',
+          snapshotDate: p.CreatedAt,
+          decisionDate: p.ClosedAt || p.UpdatedAt
+        }));
+        const catFactors = [
+          { key: 'Industry', label: 'Bransch' },
+          { key: 'Source', label: 'Källa' },
+          { key: 'Owner', label: 'Kundansvarig' }
+        ];
+        const factorContribution = catFactors.map(f => {
+          const groups = {};
+          closed.forEach(p => {
+            const v = p[f.key] || '–';
+            if (!groups[v]) groups[v] = { won: 0, total: 0 };
+            groups[v].total++;
+            if (p.Stage === 'Closed Won') groups[v].won++;
+          });
+          const entries = Object.entries(groups).map(([v, s]) => ({ value: v, winRate: s.total ? Math.round(s.won / s.total * 100) : 0, n: s.total })).sort((a, b) => b.winRate - a.winRate);
+          const rates = entries.map(e => e.winRate);
+          const spread = rates.length ? Math.max(...rates) - Math.min(...rates) : 0;
+          return { factor: f.label, key: f.key, entries, spread, predictiveLift: spread };
+        });
+        const empBuckets = [{ lo: 0, hi: 10, label: '1-10' }, { lo: 11, hi: 50, label: '11-50' }, { lo: 51, hi: 200, label: '51-200' }, { lo: 201, hi: 1000, label: '201-1000' }, { lo: 1001, hi: 1e9, label: '1000+' }];
+        const empEntries = empBuckets.map(b => {
+          const inB = closed.filter(p => (p.Employees || 0) >= b.lo && (p.Employees || 0) <= b.hi);
+          const won = inB.filter(p => p.Stage === 'Closed Won').length;
+          return { value: b.label, winRate: inB.length ? Math.round(won / inB.length * 100) : 0, n: inB.length };
+        }).filter(e => e.n > 0);
+        const empRates = empEntries.map(e => e.winRate);
+        const empSpread = empRates.length ? Math.max(...empRates) - Math.min(...empRates) : 0;
+        factorContribution.push({ factor: 'Storlek (anställda)', key: 'Employees', entries: empEntries, spread: empSpread, predictiveLift: empSpread });
+        factorContribution.sort((a, b) => b.spread - a.spread);
+        let suggestedWeights = null;
+        if (total >= 20) {
+          const maxSpread = Math.max(...factorContribution.map(f => f.spread), 1);
+          suggestedWeights = {};
+          factorContribution.forEach(f => {
+            suggestedWeights[f.key] = Math.round(Math.max(0.5, Math.min(2, f.spread / maxSpread * 1.5)) * 100) / 100;
+          });
+        }
+        return respond(context, 200, {
+          mode: 'pipeline',
+          totalSnapshots: total, totalOutcomes: total, pairedCount: total,
+          calibration, misclassified, confusionMatrix: {}, factorContribution,
+          weightsLocked: total < 20, suggestedWeights, outcomesNeeded: Math.max(0, 20 - total)
+        });
+      }
       const snaps = (await db.request().query('SELECT * FROM RiskSnapshots ORDER BY CreatedAt DESC')).recordset;
       const outs = (await db.request().query('SELECT * FROM RenewalOutcomes ORDER BY CreatedAt DESC')).recordset;
       // Pair each outcome with its linked snapshot (or latest snapshot prior to outcome)
