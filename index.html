@@ -2975,25 +2975,51 @@ async function loadBudgetVersions(){
 async function loadBudgetVersion(){
   const sel=document.getElementById('budget-version-select');
   currentBudgetVersionId=sel.value;
-  const hide=['budget-save-btn','btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget','budget-mode-toggle'];
+  const buttons=['budget-save-btn','btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget','budget-mode-toggle'];
+  const content=document.getElementById('budget-content');
+  const showMessage=(msg,color)=>{content.innerHTML=`<div style="text-align:center;padding:60px;color:${color||'var(--text3)'};font-size:13px;line-height:1.5;">${msg}</div>`;};
   if(!currentBudgetVersionId){
-    document.getElementById('budget-content').innerHTML='<div style="text-align:center;padding:60px;color:var(--text3);font-size:13px;">Välj eller skapa en budgetversion för att börja</div>';
-    hide.forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+    showMessage('Välj eller skapa en budgetversion för att börja');
+    buttons.forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
     document.getElementById('budget-kpi').innerHTML='';
     return;
   }
+  showMessage('<div class="spinner" style="margin:0 auto 12px;"></div>Laddar budgetdata…');
+  let resp;
+  try{resp=await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`);}
+  catch(e){
+    console.error('[loadBudgetVersion] network error:',e);
+    showMessage(`<strong>Nätverksfel</strong><br>Kunde inte nå API:et. ${e.message||e}`,'var(--red)');
+    return;
+  }
+  if(!resp.ok){
+    const body=await resp.clone().text().catch(()=>'');
+    console.error('[loadBudgetVersion] HTTP',resp.status,body.substring(0,500));
+    showMessage(`<strong>API svarade HTTP ${resp.status}</strong><br><span style="font-size:11px;font-family:monospace;color:var(--text3);">${(body.substring(0,200)||'(tom body)').replace(/</g,'&lt;')}</span>`,'var(--red)');
+    return;
+  }
   try{
-    const r=await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`);
-    budgetRows=await r.json();
-    ['budget-save-btn','btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='flex';});
-    document.getElementById('budget-mode-toggle').style.display='flex';
-    const primBtn=document.getElementById('btn-primary-budget');
-    if(primBtn)primBtn.textContent=String(currentBudgetVersionId)===String(currentPrimaryBudgetVersionId)?'★ Primär':'☆ Sätt som primär';
-    renderBudgetTable();
-  }catch(e){}
+    const parsed=await resp.json();
+    budgetRows=Array.isArray(parsed)?parsed:[];
+    console.log('[loadBudgetVersion] loaded',budgetRows.length,'rows for version',currentBudgetVersionId);
+  }catch(e){
+    console.error('[loadBudgetVersion] JSON parse failed:',e);
+    showMessage('<strong>Fel: API returnerade ogiltigt JSON-svar.</strong><br>Kolla att ciboost-api-v2 är uppe och svarar normalt.','var(--red)');
+    return;
+  }
+  ['budget-save-btn','btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='flex';});
+  const modeToggle=document.getElementById('budget-mode-toggle');if(modeToggle)modeToggle.style.display='flex';
+  const primBtn=document.getElementById('btn-primary-budget');
+  if(primBtn)primBtn.textContent=String(currentBudgetVersionId)===String(currentPrimaryBudgetVersionId)?'★ Primär':'☆ Sätt som primär';
+  try{renderBudgetTable();}
+  catch(e){
+    console.error('[loadBudgetVersion] renderBudgetTable threw:',e);
+    showMessage(`<strong>Fel vid rendering av budget-tabell</strong><br><span style="font-size:11px;font-family:monospace;color:var(--text3);">${e.message||e}</span>`,'var(--red)');
+  }
 }
 
 function renderBudgetTable(){
+  if(!Array.isArray(budgetRows))budgetRows=[];
   const versionYear=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId))?.Year;
   const yearSel=document.getElementById('budget-year-select');
   if(versionYear&&yearSel&&parseInt(yearSel.value)!==versionYear){if([...yearSel.options].some(o=>parseInt(o.value)===versionYear))yearSel.value=String(versionYear);}
