@@ -1376,7 +1376,7 @@ function renderKanban(){
       const totalVal=revTotal||p.ValueMax||p.ValueMin||p.Value||0;
       const totalValStr=totalVal?Math.round(totalVal/1000)+'k kr':'';
       const isWaiting=!!p.WaitingForResponse;
-      const statusBlock=!isWon&&!isLost?`<div class="kc-status"><span class="status-dot ${isWaiting?'waiting':'agera'}"></span><span style="font-size:11px;font-weight:500;color:${isWaiting?'var(--blue)':'var(--amber)'};">${isWaiting?'INVÄNTAR':'AGERA'}</span></div>`:'';
+      const statusBlock=!isWon&&!isLost?`<div class="kc-status"><span class="status-dot ${isWaiting?'waiting':'agera'}"></span><span style="font-size:11px;font-weight:500;color:${isWaiting?'var(--blue)':'var(--amber)'};">${isWaiting?'Inväntar svar':'AGERA'}</span></div>`:'';
       return`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" ondragover="onCardDragOver(event)" ondragleave="onCardDragLeave(event)" ondrop="onCardDrop(event,${p.Id},'${stage.replace(/'/g,"\\'")}')" onclick="openProspectModal(${p.Id})">
         ${statusBlock}
         <div class="kc-name">${p.Company||'-'}</div>
@@ -1392,7 +1392,7 @@ function renderKanban(){
     return`<div class="kanban-col" data-stage="${stage}" ondragover="onColDragOver(event)" ondragleave="onColDragLeave(event)" ondrop="onColDrop(event,'${stage.replace(/'/g,"\\'")}')"><div class="kanban-col-header"><span class="kanban-col-title" style="${isWon?'color:var(--green)':isLost?'color:var(--red)':''}">${stage}</span><span class="kanban-col-count">${cards.length}</span></div>${cardsHtml}</div>`;
   }).join('');
 }
-function prospectToBody(p){return{company:p.Company||'',contact:p.Contact||'',role:p.Role||'',email:p.Email||'',phone:p.Phone||'',employees:p.Employees||null,industry:p.Industry||'',source:p.Source||'',owner:p.Owner||'',stage:p.Stage||'',score:p.Score||0,nextActionType:p.NextActionType||null,nextActionDate:p.NextActionDate||null,valueMin:p.ValueMin||null,valueMax:p.ValueMax||null,value:p.Value||0,probability:p.Probability||null,lostReason:p.LostReason||null,notes:p.Notes||'',revenueCategory:p.RevenueCategory||null,expectedStartMonth:p.ExpectedStartMonth||null,waitingForResponse:p.WaitingForResponse?1:0};}
+function prospectToBody(p){return{company:p.Company||'',contact:p.Contact||'',role:p.Role||'',email:p.Email||'',phone:p.Phone||'',employees:p.Employees||null,industry:p.Industry||'',source:p.Source||'',owner:p.Owner||'',stage:p.Stage||'',score:p.Score||0,nextActionType:p.NextActionType||null,nextActionDate:p.NextActionDate||null,valueMin:p.ValueMin||null,valueMax:p.ValueMax||null,value:p.Value||0,probability:p.Probability||null,lostReason:p.LostReason||null,notes:p.Notes||'',revenueCategory:p.RevenueCategory||null,expectedStartMonth:p.ExpectedStartMonth||null,waitingForResponse:p.WaitingForResponse?1:0,subName:p.SubName||'',parentCompany:p.ParentCompany||''};}
 function getPipelineOrder(){try{return JSON.parse(localStorage.getItem('pipelineOrder')||'{}');}catch(e){return{};}}
 function setPipelineOrder(o){localStorage.setItem('pipelineOrder',JSON.stringify(o));}
 function pipeOrderedIds(stage,allCards){
@@ -1467,8 +1467,10 @@ async function openProspectModal(id){
   document.getElementById('prospect-overlay').classList.add('open');
 }
 function renderProspectTabs(p){
-  const tabs=['Översikt','Pipeline','Värde','Aktivitet','Kontaktlogg'];
-  document.getElementById('prospect-tabs').innerHTML=tabs.map((t,i)=>`<button class="modal-tab ${currentProspectTab===i+1?'active':''}" onclick="switchProspectTab(${i+1})">${i+1}. ${t}</button>`).join('');
+  // Pipeline (gamla flik 2) och Aktivitet (gamla flik 4) är borttagna; deras
+  // innehåll finns nu på Översikt resp. Kontaktlogg. Interna flik-nr (1,3,5) behålls.
+  const tabs=[{n:1,label:'Översikt'},{n:3,label:'Värde'},{n:5,label:'Kontaktlogg'}];
+  document.getElementById('prospect-tabs').innerHTML=tabs.map((t,i)=>`<button class="modal-tab ${currentProspectTab===t.n?'active':''}" onclick="switchProspectTab(${t.n})">${i+1}. ${t.label}</button>`).join('');
 }
 async function switchProspectTab(tab){
   currentProspectTab=tab;
@@ -1586,6 +1588,8 @@ function renderProspectBody(p,acts){
       <div class="modal-section"><div class="modal-section-label">Organisation</div>
         <div class="modal-card" style="display:flex;flex-direction:column;gap:10px;">
           <div class="modal-field"><label>Organisation</label><input ${is} id="p-company" value="${p?.Company||''}"></div>
+          <div class="modal-field"><label>Team / avdelning</label><input ${is} id="p-subname" value="${p?.SubName||''}"></div>
+          <div class="modal-field"><label>Koncern</label><input ${is} id="p-parent-company" value="${p?.ParentCompany||''}"></div>
           <div class="modal-grid">
             <div class="modal-field"><label>Antal anställda</label><input ${is} id="p-employees" type="number" value="${p?.Employees||''}"></div>
             <div class="modal-field"><label>Bransch</label><select ${is} id="p-industry"><option value="">–</option>${INDUSTRIES.map(i=>`<option ${p?.Industry===i?'selected':''}>${i}</option>`).join('')}</select></div>
@@ -1598,23 +1602,11 @@ function renderProspectBody(p,acts){
           <div class="modal-field"><label>E-post</label><input ${is} id="p-email" type="email" value="${p?.Email||''}"></div>
           <div class="modal-field"><label>Telefon</label><input ${is} id="p-phone" value="${p?.Phone||''}"></div>
         </div></div></div>
-      <div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">
-        ${isNewProspect?`<button class="btn-primary" onclick="createProspect()">Skapa prospect</button>`:`<button class="btn-primary" onclick="saveProspect(${p?.Id})">Spara</button>`}
-      </div>`;
-  }
-  if(currentProspectTab===2){
-    document.getElementById('prospect-body').innerHTML=`
       <div class="modal-section"><div class="modal-section-label">Pipeline</div>
         <div class="modal-card"><div class="modal-grid">
           <div class="modal-field"><label>Stage</label><select id="p-stage" ${is} onchange="onStageChange()">${stageOpts}</select></div>
           <div class="modal-field"><label>Källa</label><select id="p-source" ${is}>${srcOpts}</select></div>
           <div class="modal-field"><label>Score</label><input ${is} id="p-score" type="number" min="0" max="100" value="${p?.Score||''}"></div>
-          <div class="modal-field" style="grid-column:span 2;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="p-waiting" ${p?.WaitingForResponse?'checked':''} style="width:16px;height:16px;cursor:pointer;"><span>Väntar på svar från kund (INVÄNTAR)</span></label></div>
-        </div></div></div>
-      <div class="modal-section"><div class="modal-section-label">Nästa åtgärd</div>
-        <div class="modal-card"><div class="modal-grid">
-          <div class="modal-field"><label>Typ</label><select id="p-action-type" ${is}><option value="">Ingen</option>${actionOpts}</select></div>
-          <div class="modal-field"><label>Datum</label><input ${is} id="p-action-date" type="date" value="${p?.NextActionDate?p.NextActionDate.substring(0,10):''}"></div>
         </div></div></div>
       <div id="prob-section" style="display:${showProb?'flex':'none'};flex-direction:column;gap:8px;">
         <div class="modal-section-label">Sannolikhet</div>
@@ -1650,20 +1642,6 @@ function renderProspectBody(p,acts){
         <div id="p-revenues-list"><div class="loading"><div class="spinner"></div></div></div>
         <div class="modal-card" style="margin-top:8px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Totalt affärsvärde</span><span id="p-revenues-total" style="font-size:16px;font-weight:600;color:var(--accent);">–</span></div><div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid var(--border);"><span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Viktat värde <span style="font-weight:400;color:var(--text3);text-transform:none;">(${prob}%)</span></span><span id="p-revenues-weighted" style="font-size:16px;font-weight:600;color:var(--purple);">–</span></div></div>
       </div>`;
-  }
-  if(currentProspectTab===4){
-    const actsHtml=acts.length?acts.map(a=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;"><div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;">${a.Type}</span><span style="font-size:11px;color:var(--text3);">${new Date(a.CreatedAt).toLocaleDateString('sv-SE')}</span></div><div style="font-size:13px;">${a.Note||''}</div></div>`).join(''):'<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px;">Inga aktiviteter ännu</div>';
-    document.getElementById('prospect-body').innerHTML=`
-      <div class="modal-section"><div class="modal-section-label">Ny aktivitet</div>
-        <div class="modal-card">
-          <div class="modal-grid">
-            <div class="modal-field"><label>Typ</label><select id="pa-type" ${is}>${ACTION_TYPES.map(a=>`<option>${a}</option>`).join('')}</select></div>
-            <div class="modal-field"><label>Datum</label><input ${is} id="pa-date" type="date" value="${new Date().toISOString().substring(0,10)}"></div>
-          </div>
-          <div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea ${is} id="pa-note" style="height:80px;resize:vertical;"></textarea></div>
-          <button onclick="addProspectActivity(${p?.Id})" style="margin-top:8px;padding:6px 14px;border:none;border-radius:6px;background:var(--accent);color:#1e2140;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">+ Lägg till</button>
-        </div></div>
-      <div style="display:flex;flex-direction:column;gap:8px;">${actsHtml}</div>`;
   }
   if(currentProspectTab===5){
     document.getElementById('prospect-body').innerHTML=renderKontaktloggHtml('prospect',p?.Id,p,acts);
@@ -2087,7 +2065,7 @@ function renderKontaktloggHtml(type,id,item,acts){
   if(type==='trial'||type==='pilot'){try{localActs=JSON.parse(localStorage.getItem(`${type}-activities-${id}`)||'[]');}catch(e){}}
   if(type==='customer'){try{localActs=JSON.parse(localStorage.getItem(`customer-activities-${id}`)||'[]');}catch(e){}}
   const allActs=[...(acts||[]),...localActs].sort((a,b)=>{const ad=new Date(a.Date||a.CreatedAt||0);const bd=new Date(b.Date||b.CreatedAt||0);return bd-ad;});
-  const timeline=allActs.length?`<div style="position:relative;">${allActs.map((a,i)=>{const kind=KONTAKT_KIND[a.Type]||{color:'#888'};const d=a.Date||a.CreatedAt;return`<div style="position:relative;padding:0 0 14px 24px;${i<allActs.length-1?'border-left:2px solid var(--border);margin-left:5px;padding-left:18px;':'margin-left:5px;padding-left:18px;'}"><span style="position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:${kind.color};border:2px solid var(--surface);"></span><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:${kind.color};text-transform:uppercase;">${a.Type||'Annat'}</span><span style="font-size:11px;color:var(--text3);">${d?new Date(d).toLocaleDateString('sv-SE'):''}</span></div>${a.Note?`<div style="font-size:12px;color:var(--text2);">${a.Note}</div>`:''}${a.CreatedBy?`<div style="font-size:10px;color:var(--text3);margin-top:2px;">— ${a.CreatedBy}</div>`:''}</div>`;}).join('')}</div>`:'<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px;">Inga kontakter loggade ännu.</div>';
+  const timeline=allActs.length?`<div style="position:relative;">${allActs.map((a,i)=>{const kind=KONTAKT_KIND[a.Type]||{color:'#888'};const d=a.Date||a.CreatedAt;return`<div style="position:relative;padding:0 0 14px 24px;${i<allActs.length-1?'border-left:2px solid var(--border);margin-left:5px;padding-left:18px;':'margin-left:5px;padding-left:18px;'}"><span style="position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:${kind.color};border:2px solid var(--surface);"></span><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:${kind.color};text-transform:uppercase;">${a.Type||'Annat'}</span><span style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:var(--text3);">${d?new Date(d).toLocaleDateString('sv-SE'):''}</span>${(type==='prospect'&&a.Id)?`<button onclick="deleteTimelineActivity('${type}',${id},${a.Id})" title="Ta bort aktivitet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;">×</button>`:''}</span></div>${a.Note?`<div style="font-size:12px;color:var(--text2);">${a.Note}</div>`:''}${a.CreatedBy?`<div style="font-size:10px;color:var(--text3);margin-top:2px;">— ${a.CreatedBy}</div>`:''}</div>`;}).join('')}</div>`:'<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px;">Inga kontakter loggade ännu.</div>';
   const formId=`kontakt-${type}-${id}`;
   return`${stepBox}
     <div class="modal-section"><div class="modal-section-label">Lägg till kontakt</div>
@@ -2097,10 +2075,7 @@ function renderKontaktloggHtml(type,id,item,acts){
           <div class="modal-field"><label>Datum</label><input id="${formId}-date" type="date" class="edit-input" value="${new Date().toISOString().substring(0,10)}"></div>
         </div>
         <div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea id="${formId}-note" class="edit-input" style="height:60px;resize:vertical;"></textarea></div>
-        <div class="modal-grid" style="margin-top:8px;">
-          <div class="modal-field"><label>Nästa steg (fritext)</label><input id="${formId}-next" class="edit-input"></div>
-          <div class="modal-field"><label>Nästa steg datum</label><input id="${formId}-nextdate" type="date" class="edit-input"></div>
-        </div>
+        <div class="modal-field" style="margin-top:8px;"><label>Nästa steg datum</label><input id="${formId}-nextdate" type="date" class="edit-input"></div>
         <div style="margin-top:8px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="checkbox" id="${formId}-waiting" style="width:16px;height:16px;cursor:pointer;"> Inväntar svar</label></div>
         <button class="btn-sm" style="margin-top:10px;" onclick="addKontakt('${type}',${id})">+ Lägg till</button>
       </div>
@@ -2112,7 +2087,6 @@ async function addKontakt(type,id){
   const t=document.getElementById(`${formId}-type`)?.value;
   const d=document.getElementById(`${formId}-date`)?.value;
   const note=document.getElementById(`${formId}-note`)?.value||'';
-  const next=document.getElementById(`${formId}-next`)?.value;
   const nextDate=document.getElementById(`${formId}-nextdate`)?.value;
   const waiting=document.getElementById(`${formId}-waiting`)?.checked;
   if(!note.trim())return;
@@ -2120,7 +2094,8 @@ async function addKontakt(type,id){
   if(type==='prospect'){
     try{await apiFetch(`${API}/activities`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectId:id,type:t,note,date:d,createdBy:'Matilda Olsson'})});}catch(e){}
     const p=allProspects.find(x=>x.Id===id);
-    if(p){if(next)p.NextActionType=next;if(nextDate)p.NextActionDate=nextDate;p.WaitingForResponse=waiting?1:0;
+    // Aktivitetens typ blir prospektets "nästa steg"; datum + inväntar-status uppdateras.
+    if(p){if(t)p.NextActionType=t;if(nextDate)p.NextActionDate=nextDate;p.WaitingForResponse=waiting?1:0;
       try{await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});}catch(e){}}
     let acts=[];try{const r=await apiFetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}
     renderProspectBody(p,acts);renderKanban();
@@ -2137,6 +2112,17 @@ async function addKontakt(type,id){
     loadCustomerKontakt(id);
   }
 }
+// Ta bort en enskild aktivitet från tidslinjen (DELETE /activities/:id).
+async function deleteTimelineActivity(type,id,activityId){
+  if(!confirm('Ta bort aktiviteten?'))return;
+  try{await apiFetch(`${API}/activities/${activityId}`,{method:'DELETE'});}
+  catch(e){showSaveIndicator('⚠ Kunde inte ta bort','#a32d2d');return;}
+  showSaveIndicator('✓ Aktivitet borttagen','#1a7a50');
+  if(type==='prospect'){
+    let acts=[];try{const r=await apiFetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}
+    const p=allProspects.find(x=>x.Id===id);renderProspectBody(p,acts);renderKanban();
+  }
+}
 function onStageChange(){
   const stage=document.getElementById('p-stage')?.value;
   const showProb=['Qualified Lead','Closed Won','Closed Lost'].includes(stage);
@@ -2145,8 +2131,37 @@ function onStageChange(){
   const lostEl=document.getElementById('lost-section');if(lostEl)lostEl.style.display=showLost?'flex':'none';
 }
 function getProspectBody(p){
-  const exp=document.getElementById('p-expected-start')?.value||'';
-  return{company:document.getElementById('p-company')?.value||'',contact:document.getElementById('p-contact')?.value||'',role:document.getElementById('p-role')?.value||'',email:document.getElementById('p-email')?.value||'',phone:document.getElementById('p-phone')?.value||'',employees:parseInt(document.getElementById('p-employees')?.value)||null,industry:document.getElementById('p-industry')?.value||'',source:document.getElementById('p-source')?.value||'',owner:document.getElementById('p-owner')?.value||'Matilda Olsson',stage:document.getElementById('p-stage')?.value||'Prospect Identified',score:parseInt(document.getElementById('p-score')?.value)||0,nextActionType:document.getElementById('p-action-type')?.value||null,nextActionDate:document.getElementById('p-action-date')?.value||null,valueMin:p?.ValueMin??null,valueMax:p?.ValueMax??null,value:p?.Value||p?.ValueMax||p?.ValueMin||0,probability:parseInt(document.getElementById('p-prob')?.value)||null,lostReason:document.getElementById('p-lostreason')?.value||null,notes:document.getElementById('p-notes')?.value||'',revenueCategory:document.getElementById('p-revenue-category')?.value||null,expectedStartMonth:exp?exp+'-01':null,waitingForResponse:document.getElementById('p-waiting')?.checked?1:0};
+  p=p||{};
+  // Läs varje fält från DOM om elementet finns, annars behåll befintligt värde
+  // från p — så att sparning från en flik inte nollar fält som ligger på en annan.
+  const has=id=>document.getElementById(id)!=null;
+  const sval=(id,fb)=>has(id)?document.getElementById(id).value:fb;
+  const snum=(id,fb)=>has(id)?(parseInt(document.getElementById(id).value)||null):fb;
+  const exp=sval('p-expected-start',null);
+  return{
+    company:sval('p-company',p.Company||''),
+    contact:sval('p-contact',p.Contact||''),
+    role:sval('p-role',p.Role||''),
+    email:sval('p-email',p.Email||''),
+    phone:sval('p-phone',p.Phone||''),
+    employees:snum('p-employees',p.Employees??null),
+    industry:sval('p-industry',p.Industry||''),
+    source:sval('p-source',p.Source||''),
+    owner:sval('p-owner',p.Owner||'Matilda Olsson'),
+    stage:sval('p-stage',p.Stage||'Prospect Identified'),
+    score:snum('p-score',p.Score??0)||0,
+    nextActionType:sval('p-action-type',p.NextActionType||null)||null,
+    nextActionDate:sval('p-action-date',p.NextActionDate||null)||null,
+    valueMin:p.ValueMin??null,valueMax:p.ValueMax??null,value:p.Value||p.ValueMax||p.ValueMin||0,
+    probability:snum('p-prob',p.Probability??null),
+    lostReason:sval('p-lostreason',p.LostReason||null)||null,
+    notes:sval('p-notes',p.Notes||''),
+    revenueCategory:sval('p-revenue-category',p.RevenueCategory||null)||null,
+    expectedStartMonth:exp?(exp.length===7?exp+'-01':exp):(p.ExpectedStartMonth||null),
+    waitingForResponse:p.WaitingForResponse?1:0,
+    subName:sval('p-subname',p.SubName||''),
+    parentCompany:sval('p-parent-company',p.ParentCompany||'')
+  };
 }
 async function createProspect(){const body=getProspectBody(null);try{const r=await apiFetch(`${API}/prospects`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte skapa prospect.');}}
 async function saveProspect(id){const body=getProspectBody(allProspects.find(x=>x.Id===id));try{const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte spara.');}}
