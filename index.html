@@ -369,7 +369,8 @@
   .budget-table td { padding: 3px 4px; text-align: center; border-bottom: 0.5px solid var(--border); }
   .budget-table td:first-child { text-align: left; padding-left: 10px; }
   .budget-table tr:last-child td { border-bottom: none; }
-  .budget-input { width: 62px; padding: 3px 4px; border: 1px solid transparent; border-radius: 4px; font-family: 'Poppins', sans-serif; font-size: 11px; color: var(--text); background: transparent; text-align: right; }
+  .budget-input { width: 82px; padding: 3px 6px; border: 1px solid transparent; border-radius: 4px; font-family: 'Poppins', sans-serif; font-size: 11px; color: var(--text); background: transparent; text-align: right; -moz-appearance: textfield; box-sizing: border-box; }
+  .budget-input::-webkit-outer-spin-button, .budget-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .budget-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
   .budget-input:hover { border-color: var(--border); background: var(--surface); }
   .vs-over { color: var(--green); font-weight: 500; }
@@ -1087,14 +1088,22 @@ function persistBudgetNotes(){
 // 'Resultatbudget'; these map it to a short badge label and the toggle mode.
 function budgetTypeLabel(t){return t==='Resultatbudget'?'Resultat':t==='Likviditetsbudget'?'Likviditet':'';}
 function budgetTypeMode(t){return t==='Resultatbudget'?'resultat':t==='Likviditetsbudget'?'likviditet':null;}
-let currentPrimaryBudgetVersionId=localStorage.getItem('primaryBudgetVersionId')||null;
+// Two separate primary budgets — one per type — stored under separate keys.
+// 'likviditet' → primaryLiquidityBudgetId, 'resultat' → primaryResultBudgetId.
+function primaryBudgetStorageKey(budgetType){return budgetType==='Resultatbudget'?'primaryResultBudgetId':'primaryLiquidityBudgetId';}
+function getPrimaryBudgetIdForMode(mode){return localStorage.getItem(mode==='resultat'?'primaryResultBudgetId':'primaryLiquidityBudgetId')||null;}
+function isPrimaryBudgetVersion(v){return !!v&&!!localStorage.getItem(primaryBudgetStorageKey(v.BudgetType))&&String(localStorage.getItem(primaryBudgetStorageKey(v.BudgetType)))===String(v.Id);}
+// Revenue rows in a budget — likviditet uses 'Revenue', resultat uses
+// 'Periodiserade intäkter' + 'Nyförsäljning'. Only one type's rows are present.
+function budgetRevenueRows(rows){return (rows||[]).filter(r=>r.Category==='Revenue'||r.Category==='Periodiserade intäkter'||r.Category==='Nyförsäljning');}
 let currentBudgetMode='likviditet';
 let customBudgetRows=JSON.parse(localStorage.getItem('budgetCustomRows')||'[]');
 const allBudgetRows=()=>[...BUDGET_ROWS_DEF,...customBudgetRows];
 let primaryBudgetRows=[];
-async function loadPrimaryBudget(){
-  if(!currentPrimaryBudgetVersionId){primaryBudgetRows=[];return;}
-  try{const r=await apiFetch(`${API}/budget-versions/${currentPrimaryBudgetVersionId}/rows`);primaryBudgetRows=await r.json();}catch(e){primaryBudgetRows=[];}
+async function loadPrimaryBudget(mode){
+  const id=getPrimaryBudgetIdForMode(mode||currentFaMode||'resultat');
+  if(!id){primaryBudgetRows=[];return;}
+  try{const r=await apiFetch(`${API}/budget-versions/${id}/rows`);primaryBudgetRows=await r.json();}catch(e){primaryBudgetRows=[];}
 }
 const TP_STEPS=['Loggat in','Valt moduler','Bjudit in medlemmar','Genomfört 1 session','Genomfört fler sessioner','Genomfört pulsmätning'];
 const TP_STEPS_SHORT=['Loggat in','Valt moduler','Bjudit in','1 session','Fler sessioner','Pulsmätning'];
@@ -1728,32 +1737,50 @@ function openRenewRevenue(customerId,itemId){
   });
 }
 function renderRenewalSectionHtml(c){
-  const today=new Date().toISOString().substring(0,10);
   const urgent=c._days!==null&&c._days<0;
-  const bg=urgent?'var(--red-bg)':'var(--amber-bg)';
   const col=urgent?'var(--red)':'var(--amber)';
-  const subtitle=urgent?`Licensen gick ut ${Math.abs(c._days)} dagar sedan`:`Licensen går ut om ${c._days} dagar`;
+  // Listan fylls async med kundens prenumerationsavtal (Licens prenumeration)
+  // som löpt ut eller löper ut inom 30 dagar — en rad per intäktspost.
   return`<div class="modal-section"><div class="modal-section-label" style="color:${col};">Förnyelse</div>
-    <div class="modal-card" style="background:${bg};border-color:${col};">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;"><strong>${subtitle}</strong> – registrera utfall så fort beslut är taget.</div>
-      <div class="modal-grid">
-        <div class="modal-field"><label>Utfall</label><select id="renewal-outcome" class="edit-input"><option>Ej registrerat</option><option>Förnyade</option><option>Churnade</option><option>Pausad</option></select></div>
-        <div class="modal-field"><label>Beslutsdatum</label><input id="renewal-date" type="date" class="edit-input" value="${today}"></div>
-      </div>
-      <div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea id="renewal-notes" class="edit-input" style="height:60px;resize:vertical;"></textarea></div>
-      <button class="btn-sm" style="margin-top:10px;" onclick="saveRenewalOutcome(${c.Id})">Spara förnyelseutfall</button>
-    </div></div>`;
+    <div id="renewal-items-list"><div class="loading"><div class="spinner"></div></div></div></div>`;
 }
-async function saveRenewalOutcome(id){
-  const outcome=document.getElementById('renewal-outcome')?.value;
-  const decisionDate=document.getElementById('renewal-date')?.value||null;
-  const notes=document.getElementById('renewal-notes')?.value||'';
+async function loadRenewalItems(id){
+  const el=document.getElementById('renewal-items-list');if(!el)return;
+  let items=[];
+  try{const r=await apiFetch(`${API}/customers/${id}/revenues`);items=await r.json();}
+  catch(e){el.innerHTML='<div class="modal-card" style="font-size:12px;color:var(--text3);">Kunde inte ladda intäktsposter.</div>';return;}
+  const today=new Date();today.setHours(0,0,0,0);
+  const within30=new Date(today.getTime()+30*86400000);
+  const expiring=(Array.isArray(items)?items:[]).filter(it=>it.Type==='ARR'&&it.DateTo&&new Date(it.DateTo)<=within30)
+    .sort((a,b)=>new Date(a.DateTo)-new Date(b.DateTo));
+  if(!expiring.length){el.innerHTML='<div class="modal-card" style="font-size:12px;color:var(--text3);">Inga prenumerationsavtal som löpt ut eller löper ut inom 30 dagar.</div>';return;}
+  const todayStr=new Date().toISOString().substring(0,10);
+  const fmtP=(f,t)=>`${f?String(f).substring(0,10):'?'} – ${t?String(t).substring(0,10):'?'}`;
+  el.innerHTML=expiring.map((it,i)=>{
+    const d=new Date(it.DateTo);const dd=Math.round((d-today)/86400000);
+    const status=dd<0?`<span class="badge b-red" style="font-size:10px;">Utgången ${Math.abs(dd)}d</span>`:`<span class="badge b-amber" style="font-size:10px;">${dd}d kvar</span>`;
+    const amount=Math.round(it.Amount||0);
+    return `<div class="modal-card" style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+        <div><div style="font-weight:600;font-size:14px;">${amount.toLocaleString('sv-SE')} kr</div><div style="font-size:11px;color:var(--text3);">Licens (prenumeration) · ${fmtP(it.DateFrom,it.DateTo)}</div></div>
+        ${status}
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="modal-field" style="flex:1;min-width:140px;"><label>Utfall</label><select id="renewal-outcome-${i}" class="edit-input"><option>Ej registrerat</option><option>Förnyade</option><option>Churnade</option><option>Pausad</option></select></div>
+        <div class="modal-field"><label>Beslutsdatum</label><input id="renewal-date-${i}" type="date" class="edit-input" value="${todayStr}"></div>
+        <button class="btn-sm" onclick="saveRenewalOutcomeItem(${id},${i},${amount})">Spara</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function saveRenewalOutcomeItem(id,i,amount){
+  const outcome=document.getElementById(`renewal-outcome-${i}`)?.value;
+  const decisionDate=document.getElementById(`renewal-date-${i}`)?.value||null;
   if(!outcome)return;
   try{
-    const r=await apiFetch(`${API}/renewalOutcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:id,outcome,decisionDate,notes})});
-    if(r.ok){showSaveIndicator('✓ Förnyelseutfall sparat','#1a7a50');}
-    else{showSaveIndicator('⚠ Kunde inte spara','#a32d2d');}
-  }catch(e){console.error('saveRenewalOutcome',e);showSaveIndicator('⚠ Nätverksfel','#a32d2d');}
+    const r=await apiFetch(`${API}/renewalOutcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:id,outcome,decisionDate,amount})});
+    showSaveIndicator(r.ok?'✓ Förnyelseutfall sparat':'⚠ Kunde inte spara',r.ok?'#1a7a50':'#a32d2d');
+  }catch(e){console.error('saveRenewalOutcomeItem',e);showSaveIndicator('⚠ Nätverksfel','#a32d2d');}
 }
 function getCustomerRiskFactors(c){
   if(!c||!c.Id)return[];
@@ -2407,7 +2434,9 @@ function renderLicenstidslinje(){const now=new Date();const urgent=allCustomers.
 // ─── FINANSIELLT ─────────────────────────────────────────
 function setFinQuick(){}
 function setResultView(v,el){document.querySelectorAll('.result-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
-function renderFinDashboard(){
+async function renderFinDashboard(){
+  // Visa primärbudgeten som matchar valt läge (Likviditet/Resultat).
+  await loadPrimaryBudget(currentFaMode);
   const fromIn=document.getElementById('fin-from'),toIn=document.getElementById('fin-to');
   const y=new Date().getFullYear();
   if(!fromIn||!toIn)return;
@@ -2442,7 +2471,7 @@ function renderFinDashboard(){
   const avgContract=active.length?Math.round(totalARR/active.length):0;
   const expansion=totUtb+totCons;
   const nrr=(totalARR+churnARR)>0?Math.round((totalARR+expansion)/(totalARR+churnARR)*100):0;
-  const budgetByMonth=months.map(m=>{const mn=mNames[m.getMonth()];return primaryBudgetRows.filter(r=>r.Category==='Revenue').reduce((s,r)=>s+(r[mn]||0),0);});
+  const budgetByMonth=months.map(m=>{const mn=mNames[m.getMonth()];return budgetRevenueRows(primaryBudgetRows).reduce((s,r)=>s+(r[mn]||0),0);});
   const budgetTotal=budgetByMonth.reduce((a,b)=>a+b,0);
   const budgetFulfillment=budgetTotal>0?Math.round(total/budgetTotal*100):0;
   const last3=actualByMonth.slice(-3).filter(v=>v>0);
@@ -2451,8 +2480,8 @@ function renderFinDashboard(){
   let mixArr=0,mixFast=0,mixUtb=0,mixCons=0;
   months.forEach(m=>{allCustomers.forEach(c=>{const mv=monthlyValue(c,m);mixArr+=mv.arr;mixFast+=mv.fast;mixUtb+=mv.utb;mixCons+=mv.cons;});});
   mixArr=Math.round(mixArr);mixFast=Math.round(mixFast);mixUtb=Math.round(mixUtb);mixCons=Math.round(mixCons);
-  const primName=budgetVersions.find(v=>String(v.Id)===String(currentPrimaryBudgetVersionId))?.Name||'';
-  const lbl=document.getElementById('fa-primary-label');if(lbl)lbl.textContent=primName?`Primär budget: ${primName}`:'';
+  const primName=budgetVersions.find(v=>String(v.Id)===String(getPrimaryBudgetIdForMode(currentFaMode)))?.Name||'';
+  const lbl=document.getElementById('fa-primary-label');if(lbl)lbl.textContent=primName?`Primär ${currentFaMode==='resultat'?'resultatbudget':'likviditetsbudget'}: ${primName}`:'';
   const fmtSv=v=>v?v.toLocaleString('sv-SE')+' kr':'–';
   const kpis=[
     {label:'Total försäljning',val:fmtSv(total),sub:cmpPct!==null?`${cmpPct>=0?'+':''}${cmpPct}% vs föreg.`:'period',color:'var(--accent)'},
@@ -2504,7 +2533,7 @@ function renderFinDashboard(){
   const mixTotal=mixArr+mixFast+mixUtb+mixCons;
   let acc=0;const donutStops=[];['ARR','Fastpris','Utbildning','Consulting'].forEach(k=>{const v={ARR:mixArr,Fastpris:mixFast,Utbildning:mixUtb,Consulting:mixCons}[k];const pct=mixTotal?v/mixTotal*100:0;donutStops.push(`${catColors[k]} ${acc}% ${acc+pct}%`);acc+=pct;});
   const subMap={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Utbildning:'Utbildning',Consulting:'Consulting'};
-  const tableHtml=['ARR','Fastpris','Utbildning','Consulting'].map(k=>{const v={ARR:mixArr,Fastpris:mixFast,Utbildning:mixUtb,Consulting:mixCons}[k];const budgetVal=primaryBudgetRows.filter(r=>r.Category==='Revenue'&&r.SubCategory===subMap[k]).reduce((s,r)=>s+months.reduce((ms,m)=>ms+(r[mNames[m.getMonth()]]||0),0),0);const pct=budgetVal?Math.round(v/budgetVal*100):0;return`<tr><td style="font-size:12px;padding:4px;"><span style="display:inline-block;width:10px;height:10px;background:${catColors[k]};margin-right:6px;vertical-align:middle;"></span>${catLabels[k]}</td><td style="text-align:right;font-size:12px;padding:4px;">${fmtSv(v)}</td><td style="text-align:right;font-size:12px;padding:4px;color:var(--text3);">${fmtSv(budgetVal)}</td><td style="text-align:right;font-size:12px;padding:4px;font-weight:500;color:${pct>=100?'var(--green)':'var(--amber)'};">${budgetVal?pct+'%':'–'}</td></tr>`;}).join('');
+  const tableHtml=['ARR','Fastpris','Utbildning','Consulting'].map(k=>{const v={ARR:mixArr,Fastpris:mixFast,Utbildning:mixUtb,Consulting:mixCons}[k];const budgetVal=budgetRevenueRows(primaryBudgetRows).filter(r=>r.SubCategory===subMap[k]).reduce((s,r)=>s+months.reduce((ms,m)=>ms+(r[mNames[m.getMonth()]]||0),0),0);const pct=budgetVal?Math.round(v/budgetVal*100):0;return`<tr><td style="font-size:12px;padding:4px;"><span style="display:inline-block;width:10px;height:10px;background:${catColors[k]};margin-right:6px;vertical-align:middle;"></span>${catLabels[k]}</td><td style="text-align:right;font-size:12px;padding:4px;">${fmtSv(v)}</td><td style="text-align:right;font-size:12px;padding:4px;color:var(--text3);">${fmtSv(budgetVal)}</td><td style="text-align:right;font-size:12px;padding:4px;font-weight:500;color:${pct>=100?'var(--green)':'var(--amber)'};">${budgetVal?pct+'%':'–'}</td></tr>`;}).join('');
   document.getElementById('fa-mix-grid').innerHTML=`
     <div class="fin-card"><div class="fin-card-title">Intäktsmix per månad</div><div style="display:flex;align-items:flex-end;gap:6px;min-height:${barH+30}px;">${barsHtml}</div></div>
     <div class="fin-card"><div class="fin-card-title">Mix totalt</div><div style="display:flex;align-items:center;gap:16px;"><div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(${donutStops.join(',')});position:relative;flex-shrink:0;"><div style="position:absolute;inset:25%;background:var(--surface);border-radius:50%;"></div></div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="font-size:10px;text-align:left;color:var(--text3);padding:4px;">Kategori</th><th style="font-size:10px;text-align:right;color:var(--text3);padding:4px;">Utfall</th><th style="font-size:10px;text-align:right;color:var(--text3);padding:4px;">Budget</th><th style="font-size:10px;text-align:right;color:var(--text3);padding:4px;">%</th></tr></thead><tbody>${tableHtml}</tbody></table></div></div>`;
@@ -2573,7 +2602,7 @@ function renderPeriodisering(){
   const fmtK=v=>v?(v>=1000?Math.round(v/1000)+'k':String(Math.round(v))):'–';
   const fmtKKr=v=>v?(v>=1000?Math.round(v/1000)+'k kr':Math.round(v)+' kr'):'–';
   // BUDGET (primary)
-  const budgetByMonth=months.map(m=>{const mn=mNames[m.getMonth()];return primaryBudgetRows.filter(r=>r.Category==='Revenue').reduce((s,r)=>s+(r[mn]||0),0);});
+  const budgetByMonth=months.map(m=>{const mn=mNames[m.getMonth()];return budgetRevenueRows(primaryBudgetRows).reduce((s,r)=>s+(r[mn]||0),0);});
   const budgetTotal=budgetByMonth.reduce((a,b)=>a+b,0);
   // ACTIVE customer revenue. The Likviditet/Resultat toggle (fcResultMode)
   // decides the basis: Resultat = periodiserade intäkter (as before, spread over
@@ -2612,20 +2641,31 @@ function renderPeriodisering(){
     return`<tr onclick="openModal(${c.Id})" style="cursor:pointer;"><td><div style="font-weight:500;font-size:13px;">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);">${c.SubName}</div>`:''}</td>${cells}<td><span class="p-total">${fmtK(rt)} kr</span></td></tr>`;
   }).join('');
   const activeTotal=activeMonth.reduce((a,b)=>a+b,0);
-  // FÖRNYELSEPOTENTIAL — viktad med förnyelsesannolikhet (renewalProb) per kund.
-  // Resultat: bokförs i förnyelsemånaden (LicenseEnd). Likviditet: kassan kommer
-  // ~30 dagar efter förnyelsefakturan (LicenseEnd + NET30).
-  const renewMonth=months.map(()=>0);
+  // FÖRNYELSEPOTENTIAL (viktad) — fyra rader per intäktstyp. Baseras på summan av
+  // aktiva intäktsposter (CustomerRevenues) av varje typ vars avtal löper ut inom
+  // prognosperioden, viktat med kundens förnyelsesannolikhet (renewalProb). Rader
+  // följer intäktskällefiltret. Likviditet skjuter kassan +30 dagar (NET30).
+  const renewTypes=[
+    {label:'Licens (prenumeration)',type:'ARR',on:useArr},
+    {label:'Licens (fast pris)',type:'Fastpris',on:useFast},
+    {label:'Consulting',type:'Consulting',on:useCons},
+    {label:'Utbildning',type:'Utbildning',on:useUtb},
+  ];
+  const renewByType={};renewTypes.forEach(rt=>{renewByType[rt.type]=months.map(()=>0);});
   allCustomers.forEach(c=>{
-    if(!c.LicenseEnd)return;
-    const le=new Date(c.LicenseEnd);
-    const target=isLiq?new Date(le.getTime()+30*86400000):le;
-    const idx=months.findIndex(m=>m.getFullYear()===target.getFullYear()&&m.getMonth()===target.getMonth());
-    if(idx<0)return;
     const prob=(calculateRiskScoreClient(c).renewalProb||0)/100;
-    const base=(useArr?(c.ARR||0):0)+(useFast?(c.ARR_Fixed||0):0);
-    renewMonth[idx]+=Math.round(base*prob);
+    if(!prob)return;
+    (kaRevCache[c.Id]||[]).forEach(it=>{
+      if(!renewByType[it.Type]||!it.DateTo)return;
+      const end=new Date(it.DateTo);
+      const target=isLiq?new Date(end.getTime()+30*86400000):end;
+      const idx=months.findIndex(m=>m.getFullYear()===target.getFullYear()&&m.getMonth()===target.getMonth());
+      if(idx<0)return;
+      renewByType[it.Type][idx]+=Math.round((it.Amount||0)*prob);
+    });
   });
+  // Total respekterar källfiltret (endast påslagna typer räknas).
+  const renewMonth=months.map((_,i)=>renewTypes.reduce((s,rt)=>s+(rt.on?renewByType[rt.type][i]:0),0));
   const renewTotal=renewMonth.reduce((a,b)=>a+b,0);
   // VIKTAT PIPELINE — Qualified Leads distribuerade på ExpectedStartMonth (eller jämnt om saknas)
   const pipeMonth=months.map(()=>0);
@@ -2651,11 +2691,14 @@ function renderPeriodisering(){
   const gapColor=v=>v>=0?'var(--green)':'var(--red)';
   const gapRow=`<tr style="background:var(--surface2);"><td style="font-weight:600;">Gap mot budget${gapPct!==null?` <span style="font-size:10px;color:var(--text3);font-weight:400;">(${gapPct>=0?'+':''}${gapPct}%)</span>`:''}</td>${gapMonth.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;color:${gapColor(v)};">${v?(v>=0?'+':'')+fmtK(v):'–'}</td>`).join('')}<td style="text-align:center;font-weight:600;color:${gapColor(gapTotal)};">${gapTotal?(gapTotal>=0?'+':'')+fmtKKr(gapTotal):'–'}</td></tr>`;
   const pipeRow=pipeTotal>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeMonth.map(v=>cell(v,'var(--blue)')).join('')}<td style="text-align:center;font-weight:600;color:var(--blue);">${fmtKKr(pipeTotal)}</td></tr>`:'';
-  const renewRow=renewTotal>0?`<tr style="background:var(--purple-bg);"><td style="font-weight:600;color:var(--purple);">Förnyelsepotential <span class="badge b-purple" style="font-size:10px;margin-left:4px;">viktad</span></td>${renewMonth.map(v=>cell(v,'var(--purple)')).join('')}<td style="text-align:center;font-weight:600;color:var(--purple);">${fmtKKr(renewTotal)}</td></tr>`:'';
+  // Rubrikrad med "viktad"-badge + en rad per påslagen intäktstyp.
+  const renewHeaderRow=`<tr style="background:var(--purple-bg);"><td style="font-weight:600;color:var(--purple);">Förnyelsepotential (viktad) <span class="badge b-purple" style="font-size:10px;margin-left:4px;">viktad</span></td>${renewMonth.map(v=>cell(v,'var(--purple)')).join('')}<td style="text-align:center;font-weight:600;color:var(--purple);">${fmtKKr(renewTotal)}</td></tr>`;
+  const renewTypeRows=renewTypes.filter(rt=>rt.on).map(rt=>{const arr=renewByType[rt.type];const tot=arr.reduce((a,b)=>a+b,0);return `<tr><td style="padding-left:24px;font-size:12px;color:var(--text2);">${rt.label}</td>${arr.map(v=>cell(v,'var(--purple)')).join('')}<td style="text-align:center;font-weight:500;color:var(--purple);font-size:11px;">${tot?fmtKKr(tot):'–'}</td></tr>`;}).join('');
+  const renewBlock=renewTotal>0?(renewHeaderRow+renewTypeRows):'';
   const totalActiveRow=`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt aktiva avtal</td>${activeMonth.map(t=>`<td style="text-align:center;font-weight:600;font-size:11px;">${fmtK(t)}</td>`).join('')}<td style="text-align:center;font-weight:600;">${fmtKKr(activeTotal)}</td></tr>`;
   document.getElementById('per-tbody').innerHTML=
     budgetRow+gapRow+
-    sepRow('Prognos')+pipeRow+renewRow+
+    sepRow('Prognos')+pipeRow+renewBlock+
     sepRow('Aktiva avtal')+custRows+totalActiveRow;
   document.getElementById('per-kpi').innerHTML='';
 }
@@ -2667,6 +2710,10 @@ let fcSelectedBudgetRows=[];
 async function fcSetResultMode(mode){
   fcResultMode=mode;
   document.querySelectorAll('#fc-result-mode-toggle .result-btn').forEach(b=>b.classList.toggle('active',b.dataset.rmode===mode));
+  // Byt jämförelsebudget till lägets primärbudget och ladda periodiseringens primär.
+  const primId=getPrimaryBudgetIdForMode(mode);
+  await loadPrimaryBudget(mode);
+  await fcSetBudgetVersion(primId);
   renderForecastSection();
   renderPeriodisering();
 }
@@ -2689,7 +2736,10 @@ function fcSetMode(mode){
 async function renderPrognos(){
   await kaFetchAll();
   if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
-  if(fcSelectedBudgetVersionId===null&&currentPrimaryBudgetVersionId){await fcSetBudgetVersion(currentPrimaryBudgetVersionId);}
+  // Default jämförelse + periodiseringens primärbudget = lägets primärbudget.
+  const primId=getPrimaryBudgetIdForMode(fcResultMode);
+  if(fcSelectedBudgetVersionId===null&&primId){await fcSetBudgetVersion(primId);}
+  await loadPrimaryBudget(fcResultMode);
   renderForecastSection();
   renderPeriodisering();
 }
@@ -2803,7 +2853,7 @@ function renderForecastSection(){
   // Default = primary budget if set.
   const selectedBudgetTotal=fcSelectedBudgetRows.filter(r=>r.Category==='Revenue').reduce((s,r)=>s+MONTHS.reduce((ms,m)=>ms+(r[m]||0),0),0);
   const selectedBudgetVersion=budgetVersions.find(v=>String(v.Id)===String(fcSelectedBudgetVersionId));
-  const budgetDropdownHtml=`<select class="fc-budget-select" onchange="fcSetBudgetVersion(this.value)"><option value="">Välj budgetversion…</option>${(budgetVersions||[]).map(v=>{const star=String(v.Id)===String(currentPrimaryBudgetVersionId)?'★ ':'';const sel=String(v.Id)===String(fcSelectedBudgetVersionId)?' selected':'';const type=v.BudgetType?` · ${budgetTypeLabel(v.BudgetType)}`:'';return`<option value="${v.Id}"${sel}>${star}${v.Name} (${v.Year})${type}</option>`;}).join('')}</select>`;
+  const budgetDropdownHtml=`<select class="fc-budget-select" onchange="fcSetBudgetVersion(this.value)"><option value="">Välj budgetversion…</option>${(budgetVersions||[]).map(v=>{const star=isPrimaryBudgetVersion(v)?'★ ':'';const sel=String(v.Id)===String(fcSelectedBudgetVersionId)?' selected':'';const type=v.BudgetType?` · ${budgetTypeLabel(v.BudgetType)}`:'';return`<option value="${v.Id}"${sel}>${star}${v.Name} (${v.Year})${type}</option>`;}).join('')}</select>`;
   const budgetVal=fcSelectedBudgetVersionId?selectedBudgetTotal:0;
   const budgetSub=fcSelectedBudgetVersionId?(selectedBudgetVersion?`${selectedBudgetVersion.Name} · ${selectedBudgetVersion.Year}`:'-'):'Välj en version ovan';
 
@@ -2899,9 +2949,16 @@ async function loadBudgetVersions(){
   try{
     const r=await apiFetch(`${API}/budget-versions`);
     budgetVersions=await r.json();
+    // Engångsmigrering: flytta gammal enstaka primärnyckel till rätt typnyckel.
+    const oldPrim=localStorage.getItem('primaryBudgetVersionId');
+    if(oldPrim){
+      const ov=budgetVersions.find(v=>String(v.Id)===String(oldPrim));
+      if(ov&&!localStorage.getItem(primaryBudgetStorageKey(ov.BudgetType)))localStorage.setItem(primaryBudgetStorageKey(ov.BudgetType),oldPrim);
+      localStorage.removeItem('primaryBudgetVersionId');
+    }
     const sel=document.getElementById('budget-version-select');
     // Group versions by budget type under headers in the dropdown.
-    const optHtml=v=>{const star=String(v.Id)===String(currentPrimaryBudgetVersionId)?'★ ':'';const tag=String(v.Id)===String(currentPrimaryBudgetVersionId)?' (Primär)':'';const created=v.CreatedAt?` · ${String(v.CreatedAt).substring(0,10)}`:'';return`<option value="${v.Id}">${star}${v.Name} (${v.Year})${created} · #${v.Id}${tag}</option>`;};
+    const optHtml=v=>{const prim=isPrimaryBudgetVersion(v);const star=prim?'★ ':'';const tag=prim?' (Primär)':'';const created=v.CreatedAt?` · ${String(v.CreatedAt).substring(0,10)}`:'';return`<option value="${v.Id}">${star}${v.Name} (${v.Year})${created} · #${v.Id}${tag}</option>`;};
     const liq=budgetVersions.filter(v=>v.BudgetType==='Likviditetsbudget');
     const res=budgetVersions.filter(v=>v.BudgetType==='Resultatbudget');
     const other=budgetVersions.filter(v=>v.BudgetType!=='Likviditetsbudget'&&v.BudgetType!=='Resultatbudget');
@@ -2964,7 +3021,7 @@ async function loadBudgetVersion(){
   }
   ['btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='flex';});
   const primBtn=document.getElementById('btn-primary-budget');
-  if(primBtn)primBtn.textContent=String(currentBudgetVersionId)===String(currentPrimaryBudgetVersionId)?'★ Primär':'☆ Sätt som primär';
+  if(primBtn)primBtn.textContent=isPrimaryBudgetVersion(selVersion)?'★ Primär':'☆ Sätt som primär';
   try{renderBudgetTable();}
   catch(e){
     console.error('[loadBudgetVersion] renderBudgetTable threw:',e);
@@ -3009,30 +3066,30 @@ function renderResultatBudgetTable(){
     return `<tr style="background:#fef7f1;"><td style="padding-left:40px;font-size:11px;"><div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;"><div style="color:var(--text2);">${sub}</div><div style="font-size:9px;color:var(--text3);font-style:italic;">${srcLabel}${imp?` · ${imp}`:''}</div></div><button onclick="deleteImportedBudgetRow('${cat.replace(/'/g,"\\'")}','${sub.replace(/'/g,"\\'")}','${srcEsc.replace(/'/g,"\\'")}')" title="Ta bort importerad rad" style="width:18px;height:18px;border:0.5px solid var(--border);border-radius:3px;background:none;cursor:pointer;color:var(--red);font-size:11px;line-height:1;padding:0;">×</button></div></td>${cells}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);font-size:11px;color:var(--text2);">${total?Math.round(total/1000)+'k':'-'}</td></tr>`;
   }).join('');
 
-  // Unified palette: orange-brown section headers, dark-blue cost sections,
-  // beige income rows — matching the rest of the dashboard.
-  const ORANGE='#E8823A', DARK='#1a1a2e', BEIGE='#fdf0e8';
+  // Palette: intäktsrubriker = varm ljusbeige med mörkbrun text; kostnads-
+  // sektioner = mörkblå; intäktsrader = beige.
+  const WARM_BG='#fdf0e8', WARM_TEXT='#7a3e1a', DARK='#1a1a2e', BEIGE='#fdf0e8';
   let html=`<div class="budget-table-wrap"><table class="budget-table"><thead><tr><th style="text-align:left;min-width:240px;padding-left:10px;">Rad</th>${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th style="border-left:1px solid var(--border);">Total år</th></tr></thead><tbody>`;
 
   // Periodiserade intäkter (orange). Egna nycklar (Category='Periodiserade
   // intäkter') så att resultatbudgeten ALDRIG delar värden med likviditets-
   // budgetens 'Revenue'-rader.
   const periodRows=[{cat:'Periodiserade intäkter',sub:'Licens (prenumeration)'},{cat:'Periodiserade intäkter',sub:'Licens (fast pris)'},{cat:'Periodiserade intäkter',sub:'Utbildning'},{cat:'Periodiserade intäkter',sub:'Consulting'}];
-  html+=headerRow('▸ Periodiserade intäkter',ORANGE);
+  html+=headerRow('▸ Periodiserade intäkter',WARM_BG,WARM_TEXT);
   periodRows.forEach(r=>{html+=inputRow(r.cat,r.sub,24,BEIGE);html+=importedSubRows(r.cat,r.sub);});
   const periodMonthly=sumRowsMonthly(periodRows);
   html+=groupSumRow('Summa periodiserade intäkter',periodMonthly,sum(periodMonthly),10);
 
   // Nyförsäljning (orange)
   const nyRows=[{cat:'Nyförsäljning',sub:'Licens (prenumeration)'},{cat:'Nyförsäljning',sub:'Licens (fast pris)'},{cat:'Nyförsäljning',sub:'Utbildning'},{cat:'Nyförsäljning',sub:'Consulting'},{cat:'Nyförsäljning',sub:'Okvalificerat/okänt'}];
-  html+=headerRow('▸ Nyförsäljning',ORANGE);
+  html+=headerRow('▸ Nyförsäljning',WARM_BG,WARM_TEXT);
   nyRows.forEach(r=>{html+=inputRow(r.cat,r.sub,24,BEIGE);html+=importedSubRows(r.cat,r.sub);});
   const nyMonthly=sumRowsMonthly(nyRows);
   html+=groupSumRow('Summa nyförsäljning',nyMonthly,sum(nyMonthly),10);
 
-  // Rörelsens intäkter (orange — intäktssektion)
+  // Rörelsens intäkter (varm beige — intäktssektion)
   const nettoMonthly=MONTHS.map((_,i)=>periodMonthly[i]+nyMonthly[i]);
-  html+=headerRow('▸ Rörelsens intäkter',ORANGE);
+  html+=headerRow('▸ Rörelsens intäkter',WARM_BG,WARM_TEXT);
   html+=calcRow('Nettoomsättning',nettoMonthly,sum(nettoMonthly));
   html+=calcRow('Summa rörelsens intäkter',nettoMonthly,sum(nettoMonthly));
 
@@ -3196,28 +3253,35 @@ function renderBudgetTable(){
     <td style="font-weight:600;text-align:center;border-left:1px solid var(--border);">${fmtK(total)}</td>
   </tr>`;
 
-  let html=`<div class="budget-table-wrap"><table class="budget-table">
+  // Kassaflödessammanställning som eget sammanfattningskort ovanför tabellen
+  // (endast Likviditet-läget) — varm beige med egen ram så den läses som ett kort.
+  let cashflowCard='';
+  if(currentBudgetMode==='likviditet'){
+    const cashOutMonthly=MONTHS.map((_,i)=>cogsMonthly[i]+opexMonthly[i]+smMonthly[i]);
+    const cashOutTotal=cogsTotal+opexTotal+smTotal;
+    const netMonthly=revMonthly.map((v,i)=>v-cashOutMonthly[i]);
+    const netTotal=revTotal-cashOutTotal;
+    const cfHead=`<th style="min-width:140px;"></th>${MONTHS.map(m=>`<th style="text-align:center;font-size:10px;color:#7a3e1a;font-weight:500;padding:3px 4px;">${m}</th>`).join('')}<th style="text-align:center;font-size:10px;color:#7a3e1a;font-weight:600;padding:3px 6px;border-left:1px solid #e8c9b0;">Totalt</th>`;
+    const cfRow=(label,arr,total,color,strong)=>`<tr${strong?' style="border-top:1px solid #e8c9b0;"':''}><td style="font-weight:${strong?700:600};font-size:12px;color:${color};padding:4px 6px;">${label}</td>${arr.map(v=>`<td style="text-align:center;font-size:11px;font-weight:${strong?700:500};color:${color};padding:3px 4px;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;font-size:12px;color:${color};border-left:1px solid #e8c9b0;padding:3px 6px;">${fmtK(total)}</td></tr>`;
+    cashflowCard=`<div style="background:#fae0cc;border:1px solid #e0b894;border-radius:10px;padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow);">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#7a3e1a;margin-bottom:8px;">Kassaflöde</div>
+      <table style="width:100%;border-collapse:collapse;"><thead><tr>${cfHead}</tr></thead><tbody>
+        ${cfRow('Cash in (intäkter)',revMonthly,revTotal,'#1a7a50')}
+        ${cfRow('Cash out (kostnader)',cashOutMonthly,cashOutTotal,'#a32d2d')}
+        ${cfRow('Netto kassaflöde',netMonthly,netTotal,netTotal>=0?'#1a7a50':'#a32d2d',true)}
+      </tbody></table>
+    </div>`;
+  }
+
+  let html=cashflowCard+`<div class="budget-table-wrap"><table class="budget-table">
     <thead><tr>
       <th style="text-align:left;min-width:180px;padding-left:10px;">Row</th>
       ${MONTHS.map(m=>`<th>${m}</th>`).join('')}
       <th style="border-left:1px solid var(--border);">Total år</th>
     </tr></thead><tbody>`;
 
-  // KASSAFLÖDESSAMMANSTÄLLNING (endast Likviditet-läget) — högst upp.
-  if(currentBudgetMode==='likviditet'){
-    const cashOutMonthly=MONTHS.map((_,i)=>cogsMonthly[i]+opexMonthly[i]+smMonthly[i]);
-    const cashOutTotal=cogsTotal+opexTotal+smTotal;
-    const netMonthly=revMonthly.map((v,i)=>v-cashOutMonthly[i]);
-    const netTotal=revTotal-cashOutTotal;
-    const cfRow=(label,arr,total,color)=>`<tr style="background:var(--surface2);"><td style="font-weight:600;padding-left:10px;color:${color};">${label}</td>${arr.map(v=>`<td style="text-align:center;font-size:11px;font-weight:500;color:${color};">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:600;border-left:1px solid var(--border);color:${color};">${fmtK(total)}</td></tr>`;
-    html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#E8823A;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ KASSAFLÖDE</td></tr>`;
-    html+=cfRow('Cash in (intäkter)',revMonthly,revTotal,'#1a7a50');
-    html+=cfRow('Cash out (kostnader)',cashOutMonthly,cashOutTotal,'#a32d2d');
-    html+=`<tr style="background:#1a1a2e;"><td style="font-weight:700;padding-left:10px;color:white;">Netto kassaflöde</td>${netMonthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;color:${v>=0?'#6fcf97':'#ff9b9b'};">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;border-left:1px solid #444;color:${netTotal>=0?'#6fcf97':'#ff9b9b'};">${fmtK(netTotal)}</td></tr>`;
-  }
-
-  // REVENUE
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#E8823A;color:white;font-weight:500;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ REVENUE <span style="font-weight:400;font-size:10px;opacity:0.8;margin-left:8px;">· Kassaflöde (NET30)</span></td></tr>`;
+  // REVENUE — varm beige intäktsrubrik med mörkbrun text.
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#fdf0e8;color:#7a3e1a;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ REVENUE <span style="font-weight:400;font-size:10px;color:#a06a3a;margin-left:8px;">· Kassaflöde (NET30)</span></td></tr>`;
   allBudgetRows().filter(r=>r.section==='REVENUE').forEach(rd=>{
     const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
     const total=sum(vals);
@@ -3307,15 +3371,17 @@ function updateBudgetTotals(){}
 
 function toggleBudgetPrimary(){
   if(!currentBudgetVersionId)return;
-  if(String(currentPrimaryBudgetVersionId)===String(currentBudgetVersionId)){
-    currentPrimaryBudgetVersionId=null;
-    localStorage.removeItem('primaryBudgetVersionId');
+  const v=budgetVersions.find(x=>String(x.Id)===String(currentBudgetVersionId));
+  if(!v)return;
+  // Sätt/avsätt primär INOM versionens typ (separat nyckel per likviditet/resultat).
+  const key=primaryBudgetStorageKey(v.BudgetType);
+  if(String(localStorage.getItem(key))===String(currentBudgetVersionId)){
+    localStorage.removeItem(key);
   } else {
-    currentPrimaryBudgetVersionId=currentBudgetVersionId;
-    localStorage.setItem('primaryBudgetVersionId',currentBudgetVersionId);
+    localStorage.setItem(key,currentBudgetVersionId);
   }
   const primBtn=document.getElementById('btn-primary-budget');
-  if(primBtn)primBtn.textContent=String(currentBudgetVersionId)===String(currentPrimaryBudgetVersionId)?'★ Primär':'☆ Sätt som primär';
+  if(primBtn)primBtn.textContent=isPrimaryBudgetVersion(v)?'★ Primär':'☆ Sätt som primär';
   loadBudgetVersions();
 }
 // Budget type is fixed at creation and cannot be switched afterwards, so there
@@ -3793,7 +3859,8 @@ async function deleteBudgetVersion(){
     alert(`Kunde inte radera budgetversionen (HTTP ${delRes.status}).`);
     return;
   }
-  if(String(currentPrimaryBudgetVersionId)===String(idToDelete)){currentPrimaryBudgetVersionId=null;localStorage.removeItem('primaryBudgetVersionId');}
+  // Rensa primärnyckeln (oavsett typ) om den raderade versionen var primär.
+  ['primaryLiquidityBudgetId','primaryResultBudgetId'].forEach(k=>{if(String(localStorage.getItem(k))===String(idToDelete))localStorage.removeItem(k);});
   currentBudgetVersionId=null;
   budgetRows=[];
   const sel=document.getElementById('budget-version-select');if(sel)sel.value='';
@@ -3824,17 +3891,19 @@ function renderModalPage(c,teams,admins){
     <div class="modal-section"><div class="modal-section-label">Kundansvarig</div><div class="modal-card"><div class="modal-field"><label>Kundansvarig</label><select id="edit-owner" ${is}>${oo}</select></div></div></div>
     <div class="modal-section"><div class="modal-section-label">Organisation</div><div class="modal-card" style="display:flex;flex-direction:column;gap:10px;"><div class="modal-field"><label>Företagsnamn</label><input ${is} id="edit-company" value="${c?.Company||''}"></div><div class="modal-field"><label>Team / Avdelning</label><input ${is} id="edit-subname" value="${c?.SubName||''}"></div><div class="modal-field"><label>Koncern</label><input ${is} id="edit-parent-company" value="${c?.ParentCompany||''}"></div><div class="modal-grid"><div class="modal-field"><label>Antal anställda</label><input ${is} id="edit-employees" type="number" value="${c?.Employees||''}"></div><div class="modal-field"><label>Bransch</label><select ${is} id="edit-industry"><option value="">–</option>${INDUSTRIES.map(i=>`<option ${c?.Industry===i?'selected':''}>${i}</option>`).join('')}</select></div></div></div></div>
     <div class="modal-section"><div class="modal-section-label">Kontaktperson</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input ${is} id="edit-contact" value="${c?.Contact||''}"></div><div class="modal-field"><label>Roll</label><input ${is} id="edit-contact-role" value="${c?.ContactRole||''}"></div><div class="modal-field"><label>E-post</label><input ${is} id="edit-contact-email" type="email" value="${c?.ContactEmail||''}"></div><div class="modal-field"><label>Telefon</label><input ${is} id="edit-contact-phone" value="${c?.ContactPhone||''}"></div></div></div></div>
-    <div class="modal-section"><div class="modal-section-label">Licens</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Kund sedan</label><input ${is} id="edit-customer-since" type="date" value="${c?.CustomerSince?c.CustomerSince.substring(0,10):''}"></div><div class="modal-field"><label>Typ</label><select id="edit-type" ${is} onchange="onLicTypeChange()"><option ${(c?.LicenseType||'Team')==='Team'?'selected':''}>Team</option><option ${c?.LicenseType==='Enterprise'?'selected':''}>Enterprise</option><option ${c?.LicenseType==='Pilot'?'selected':''}>Pilot</option><option ${c?.LicenseType==='Consulting/Utbildning'?'selected':''}>Consulting/Utbildning</option></select></div><div class="modal-field"><label>Start</label><input ${is} id="edit-start" type="date" value="${c?.LicenseStart?c.LicenseStart.substring(0,10):''}"></div><div class="modal-field"><label>Slut</label><input ${is} id="edit-end" type="date" value="${c?.LicenseEnd?c.LicenseEnd.substring(0,10):''}"></div><div class="modal-field"><label>Risk</label><select id="edit-risk" ${is}><option ${(c?.Risk||'Low')==='Low'?'selected':''}>Low</option><option ${c?.Risk==='Medium'?'selected':''}>Medium</option><option ${c?.Risk==='High'?'selected':''}>High</option></select></div></div></div></div>
+    <div class="modal-section"><div class="modal-section-label">Licens</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Kund sedan</label><input ${is} id="edit-customer-since" type="date" value="${c?.CustomerSince?c.CustomerSince.substring(0,10):''}"></div><div class="modal-field"><label>Typ</label><select id="edit-type" ${is} onchange="onLicTypeChange()"><option ${(c?.LicenseType||'Team')==='Team'?'selected':''}>Team</option><option ${c?.LicenseType==='Enterprise'?'selected':''}>Enterprise</option><option ${c?.LicenseType==='Pilot'?'selected':''}>Pilot</option><option ${c?.LicenseType==='Consulting/Utbildning'?'selected':''}>Consulting/Utbildning</option></select></div><div class="modal-field"><label>Start</label><input ${is} id="edit-start" type="date" value="${c?.LicenseStart?c.LicenseStart.substring(0,10):''}"></div><div class="modal-field"><label>Slut</label><input ${is} id="edit-end" type="date" value="${c?.LicenseEnd?c.LicenseEnd.substring(0,10):''}"></div></div></div></div>
     ${c&&c._days!==null&&c._days<=30?renderRenewalSectionHtml(c):''}
     <div class="modal-section"><div class="modal-section-label">Anteckningar</div><div class="modal-card"><textarea id="edit-notes" ${is} style="height:80px;resize:vertical;">${c?.Notes||''}</textarea></div></div>`;}
   if(currentPage===2){const lt=getLicenseType(c);if(lt==='Enterprise'){const ac=admins.length||1;let h=`<div class="modal-section"><div class="modal-section-label">Admins</div><div class="modal-card"><div class="modal-field"><label>Antal</label><input ${is} id="edit-admin-count" type="number" min="1" max="20" value="${ac}" oninput="updateAdminBlocks(this.value,${JSON.stringify(admins).replace(/"/g,'&quot;')})"></div></div></div><div id="admin-blocks">`;for(let i=0;i<ac;i++){const a=admins[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input ${is} id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input ${is} id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input ${is} id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`;}html=h+'</div>';}else{const tc=teams.length||1;let h=`<div class="modal-section"><div class="modal-section-label">Antal team</div><div class="modal-card"><div class="modal-field"><label>Antal</label><input ${is} id="edit-team-count" type="number" min="1" max="20" value="${tc}" oninput="updateTeamBlocks(this.value,${JSON.stringify(teams).replace(/"/g,'&quot;')})"></div></div></div><div id="team-blocks">`;for(let i=0;i<tc;i++){const t=teams[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input ${is} id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input ${is} id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input ${is} id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input ${is} id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input ${is} id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`;}html=h+'</div>';}}
   if(currentPage===3){html=`<div class="modal-section"><div class="modal-section-label">Intäktsposter<button class="btn-sm" style="margin-left:8px;" onclick="openAddRevenue(${c?.Id})">+ Lägg till</button></div><div id="revenue-items"><div class="loading"><div class="spinner"></div></div></div><div class="modal-card" style="margin-top:8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Total intäkt</span><span id="total-revenue" style="font-size:16px;font-weight:600;color:var(--accent);">–</span></div></div></div>`;}
   if(currentPage===5){html=renderKontaktloggHtml('customer',c?.Id,c,[]);}
   if(currentPage===4){html=renderCustomerActivationHtml(c);}
-  const saveBtn=isNewCustomer?`<button class="btn-primary" onclick="createCustomer()">Skapa kund</button>`:`<button class="btn-primary" onclick="silentSave(${c?.Id});showSaveIndicator('✓ Sparat','#1a7a50');">Spara</button>`;
-  document.getElementById('modal-body').innerHTML=`${html}<div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">${saveBtn}</div>`;
+  // Kontaktlogg-fliken (sida 5) sparar direkt via "+ Lägg till" — ingen Spara-knapp.
+  const saveBtn=isNewCustomer?`<button class="btn-primary" onclick="createCustomer()">Skapa kund</button>`:(currentPage===5?'':`<button class="btn-primary" onclick="silentSave(${c?.Id});showSaveIndicator('✓ Sparat','#1a7a50');">Spara</button>`);
+  document.getElementById('modal-body').innerHTML=`${html}${saveBtn?`<div style="display:flex;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border);">${saveBtn}</div>`:''}`;
   if(c&&!isNewCustomer)setTimeout(()=>setupAutoSave(c.Id),100);
   if(currentPage===3&&c)setTimeout(()=>loadRevenueItems(c.Id),50);
+  if(currentPage===1&&c&&c._days!==null&&c._days<=30)setTimeout(()=>loadRenewalItems(c.Id),60);
 }
 
 function onLicTypeChange(){renderTabs(document.getElementById('edit-type')?.value||'Team');}
