@@ -817,13 +817,13 @@
       <select id="budget-version-select" onchange="loadBudgetVersion()" style="font-size:14px;padding:6px 10px;min-width:260px;">
         <option value="">Välj budgetversion...</option>
       </select>
-      <span class="badge b-blue" id="budget-type-badge" style="display:none;"></span>
+      <span class="badge b-blue" id="budget-type-badge" style="display:none;cursor:pointer;" title="Klicka för att byta budgettyp (Likviditet/Resultat)" onclick="toggleBudgetType()"></span>
+      <button class="quick-btn" onclick="openImportRevenues()" id="btn-import-pipeline" style="display:none;">⇪ Importera inkomster</button>
       <button class="quick-btn" onclick="openNewBudgetVersion()">+ Ny version</button>
       <button class="quick-btn" onclick="copyBudgetVersion()" id="btn-copy-budget" style="display:none;">⎘ Kopiera</button>
-      <button class="quick-btn" onclick="openImportRevenues()" id="btn-import-pipeline" style="display:none;">⇪ Importera inkomster</button>
-      <button class="quick-btn" onclick="toggleBudgetPrimary()" id="btn-primary-budget" style="display:none;">☆ Sätt som primär</button>
       <button class="quick-btn" onclick="renameBudgetVersion()" id="btn-rename-budget" style="display:none;">✎ Byt namn</button>
       <button class="quick-btn" onclick="deleteBudgetVersion()" id="btn-delete-budget" style="display:none;color:var(--red);">🗑 Radera</button>
+      <button class="quick-btn" onclick="toggleBudgetPrimary()" id="btn-primary-budget" style="display:none;">☆ Sätt som primär</button>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
         <div class="result-toggle" id="budget-mode-toggle" style="display:none;"><button class="result-btn" onclick="setBudgetMode('resultat',this)">Resultat</button><button class="result-btn active" onclick="setBudgetMode('likviditet',this)">Likviditet</button></div>
         <button class="btn-primary" onclick="saveBudget()" id="budget-save-btn" style="display:none;">Spara budget</button>
@@ -1038,6 +1038,7 @@ const BUDGET_ROWS_DEF = [
   {section:'REVENUE', category:'Revenue', subCategory:'Licens (fast pris)', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Utbildning', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Consulting', type:'revenue'},
+  {section:'REVENUE', category:'Revenue', subCategory:'Okvalificerat/okänt', type:'revenue'},
   {section:'COGS', category:'Direct Costs (COGS)', subCategory:'Hosting & support', type:'cost'},
   {section:'COGS', category:'Direct Costs (COGS)', subCategory:'Third party licensing', type:'cost'},
   {section:'OPEX', category:'Product Development', subCategory:'Content', type:'cost'},
@@ -1581,6 +1582,8 @@ function renderProspectBody(p,acts){
   if(currentProspectTab===5){
     document.getElementById('prospect-body').innerHTML=renderKontaktloggHtml('prospect',p?.Id,p,acts);
   }
+  // Autosave the main info tab fields (existing prospects only).
+  if(!isNewProspect&&currentProspectId&&currentProspectTab===1)setTimeout(()=>setupProspectAutoSave(),100);
 }
 const KONTAKT_KIND={'Möte':{color:'#1a4f7a'},'Samtal':{color:'#1a7a50'},'E-post':{color:'#5a1a7a'},'Demo':{color:'#1a4f7a'},'Offert':{color:'#b85a00'},'Uppföljning':{color:'#3C3489'},'Annat':{color:'#888'}};
 const ACTIVATION_STEPS={
@@ -2042,6 +2045,29 @@ function getProspectBody(p){
 }
 async function createProspect(){const body=getProspectBody(null);try{const r=await apiFetch(`${API}/prospects`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte skapa prospect.');}}
 async function saveProspect(id){const body=getProspectBody(allProspects.find(x=>x.Id===id));try{const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte spara.');}}
+// Autosave for the prospect modal (mirror of the customer modal's silentSave).
+let prospectAutoSaveTimer=null;
+function setupProspectAutoSave(){
+  if(isNewProspect||!currentProspectId)return;
+  const body=document.getElementById('prospect-body');if(!body)return;
+  body.querySelectorAll('input,select,textarea').forEach(f=>{
+    const h=()=>{clearTimeout(prospectAutoSaveTimer);showSaveIndicator('Sparar...');prospectAutoSaveTimer=setTimeout(()=>silentSaveProspect(),1500);};
+    f.addEventListener('input',h);f.addEventListener('change',h);
+  });
+}
+async function silentSaveProspect(){
+  if(isNewProspect||!currentProspectId)return;
+  if(!document.getElementById('p-company'))return; // only the main info tab edits the prospect
+  const id=currentProspectId;
+  const body=getProspectBody(allProspects.find(x=>x.Id===id));
+  try{
+    const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error();
+    const idx=allProspects.findIndex(x=>x.Id===id);
+    if(idx>=0)allProspects[idx]={...allProspects[idx],Company:body.company,Contact:body.contact,Role:body.role,Email:body.email,Phone:body.phone,Employees:body.employees,Industry:body.industry,Source:body.source,Owner:body.owner,Stage:body.stage,Score:body.score,Probability:body.probability,Notes:body.notes,RevenueCategory:body.revenueCategory,ExpectedStartMonth:body.expectedStartMonth,WaitingForResponse:body.waitingForResponse,NextActionType:body.nextActionType,NextActionDate:body.nextActionDate,LostReason:body.lostReason};
+    showSaveIndicator('✓ Sparat','#1a7a50');
+  }catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}
+}
 async function addProspectActivity(prospectId){const type=document.getElementById('pa-type').value;const note=document.getElementById('pa-note').value;const date=document.getElementById('pa-date').value;if(!note.trim())return;await apiFetch(`${API}/activities`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectId,type,note,date,createdBy:''})});document.getElementById('pa-note').value='';const r=await apiFetch(`${API}/activities/prospect/${prospectId}`);const acts=await r.json();const p=allProspects.find(x=>x.Id===prospectId);renderProspectBody(p,acts);}
 async function deleteProspect(){if(!currentProspectId)return;if(!confirm('Ta bort prospect?'))return;await apiFetch(`${API}/prospects/${currentProspectId}`,{method:'DELETE'});closeProspectModalDirect();await loadProspects();}
 function convertToCustomer(prospectId){const p=allProspects.find(x=>x.Id===prospectId);if(!p)return;closeProspectModalDirect();isNewCustomer=true;currentModalId=null;currentPage=1;document.getElementById('modal-title').textContent='Ny kund från prospect';document.getElementById('modal-subtitle').textContent=p.Company||'';document.getElementById('btn-delete').style.display='none';renderTabs('Team');const c={Company:p.Company,Contact:p.Contact,ContactRole:p.Role,ContactEmail:p.Email,_owner:p.Owner,LicenseType:'Team',Risk:'Low'};renderModalPage(c,[],[]);document.getElementById('modal-overlay').classList.add('open');}
@@ -2870,6 +2896,9 @@ function renderForecastSection(){
 
 // ─── BUDGET ──────────────────────────────────────────────
 async function loadBudgetVersions(){
+  // Attach the delegated budget-row autosave once (the #budget-content element
+  // persists across renders, so a single delegated listener survives).
+  if(!window._budgetAutoSaveAttached){const bc=document.getElementById('budget-content');if(bc){bc.addEventListener('input',budgetAutoSaveHandler);window._budgetAutoSaveAttached=true;}}
   try{
     const r=await apiFetch(`${API}/budget-versions`);
     budgetVersions=await r.json();
@@ -2948,8 +2977,91 @@ async function loadBudgetVersion(){
   }
 }
 
+// Resultatbudget — egen struktur med periodiserade intäkter, nyförsäljning,
+// rörelsens intäkter/kostnader och resultat före avskrivningar. Bladrader är
+// manuell inmatning (sparas som vanliga budgetRows via Category/SubCategory);
+// summa- och resultatrader är beräknade.
+function renderResultatBudgetTable(){
+  const versionYear=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId))?.Year;
+  const year=versionYear||new Date().getFullYear();
+  const editableRowMap={};
+  budgetRows.filter(r=>!r.Source).forEach(r=>{editableRowMap[`${r.Category}__${r.SubCategory}`]=r;});
+  const sum=arr=>arr.reduce((a,b)=>a+b,0);
+  const fmtK=v=>v===0?'-':Math.round(v/1000)+'k';
+  const getVal=(cat,sub,mi)=>{const s=editableRowMap[`${cat}__${sub}`]||{};return s[MONTHS[mi]]||0;};
+  const rowMonthly=(cat,sub)=>MONTHS.map((_,mi)=>getVal(cat,sub,mi));
+  const sumRowsMonthly=(rows)=>MONTHS.map((_,mi)=>rows.reduce((s,r)=>s+getVal(r.cat,r.sub,mi),0));
+  const dotHtml=(sub,mi)=>{const key=`${sub}__${MONTHS[mi]}`;const has=!!budgetNotes[key];const t=has?budgetNotes[key].replace(/"/g,'&quot;').replace(/'/g,'&#39;'):'';return `<span class="ndot ${has?'nfilled':'nempty'}" data-key="${key}" data-sub="${sub.replace(/"/g,'&quot;')}" data-mi="${mi}" onclick="openNotePopup(this)" title="${t}"></span>`;};
+  const inputCell=(cat,sub,mi)=>{const val=getVal(cat,sub,mi);return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;position:relative;"><input class="budget-input" type="number" data-cat="${cat}" data-sub="${sub}" data-month="${MONTHS[mi]}" value="${val||''}" placeholder="0" oninput="updateBudgetTotals()">${dotHtml(sub,mi)}</div></td>`;};
+  const headerRow=(label,bg,color)=>`<tr><td colspan="${MONTHS.length+2}" style="background:${bg};color:${color||'white'};font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">${label}</td></tr>`;
+  const inputRow=(cat,sub,pad)=>`<tr><td style="padding-left:${pad||24}px;font-size:12px;">${sub}</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(cat,sub)))}</td></tr>`;
+  const calcRow=(label,monthly,total,bg,strong)=>`<tr style="background:${bg||'var(--surface2)'};"><td style="font-weight:${strong?700:600};padding-left:10px;${strong?'color:white;':''}">${label}</td>${monthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:${strong?700:600};${strong?(v>=0?'color:#6fcf97;':'color:#ff9b9b;'):''}">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;border-left:1px solid var(--border);${strong?(total>=0?'color:#6fcf97;':'color:#ff9b9b;'):''}">${fmtK(total)}</td></tr>`;
+  const groupSumRow=(label,monthly,total,pad)=>`<tr style="background:var(--surface2);"><td style="font-weight:600;padding-left:${pad||16}px;">${label}</td>${monthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;border-left:1px solid var(--border);">${fmtK(total)}</td></tr>`;
+
+  const ORANGE='#7a3a1a', NEUTRAL='#3a3f6a', DARK='#1e2140';
+  let html=`<div class="budget-table-wrap"><table class="budget-table"><thead><tr><th style="text-align:left;min-width:240px;padding-left:10px;">Rad</th>${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th style="border-left:1px solid var(--border);">Total år</th></tr></thead><tbody>`;
+
+  // Periodiserade intäkter (orange)
+  const periodRows=[{cat:'Revenue',sub:'Licens (prenumeration)'},{cat:'Revenue',sub:'Licens (fast pris)'},{cat:'Revenue',sub:'Utbildning'},{cat:'Revenue',sub:'Consulting'}];
+  html+=headerRow('▸ Periodiserade intäkter',ORANGE);
+  periodRows.forEach(r=>html+=inputRow(r.cat,r.sub,24));
+  const periodMonthly=sumRowsMonthly(periodRows);
+  html+=groupSumRow('Summa periodiserade intäkter',periodMonthly,sum(periodMonthly),10);
+
+  // Nyförsäljning (orange)
+  const nyRows=[{cat:'Nyförsäljning',sub:'Licens (prenumeration)'},{cat:'Nyförsäljning',sub:'Licens (fast pris)'},{cat:'Nyförsäljning',sub:'Utbildning'},{cat:'Nyförsäljning',sub:'Consulting'},{cat:'Nyförsäljning',sub:'Okvalificerat/okänt'}];
+  html+=headerRow('▸ Nyförsäljning',ORANGE);
+  nyRows.forEach(r=>html+=inputRow(r.cat,r.sub,24));
+  const nyMonthly=sumRowsMonthly(nyRows);
+  html+=groupSumRow('Summa nyförsäljning',nyMonthly,sum(nyMonthly),10);
+
+  // Rörelsens intäkter
+  const nettoMonthly=MONTHS.map((_,i)=>periodMonthly[i]+nyMonthly[i]);
+  html+=headerRow('▸ Rörelsens intäkter',NEUTRAL);
+  html+=calcRow('Nettoomsättning',nettoMonthly,sum(nettoMonthly));
+  html+=calcRow('Summa rörelsens intäkter',nettoMonthly,sum(nettoMonthly));
+
+  // Aktiverade kostnader
+  html+=headerRow('▸ Aktiverade kostnader',NEUTRAL);
+  html+=inputRow('Aktiverade kostnader','Kostnader utveckling & personal',24);
+  const aktiveradeMonthly=sumRowsMonthly([{cat:'Aktiverade kostnader',sub:'Kostnader utveckling & personal'}]);
+  html+=calcRow('Summa aktiverade kostnader',aktiveradeMonthly,sum(aktiveradeMonthly));
+
+  // Rörelsens kostnader (mörk)
+  html+=headerRow('▸ Rörelsens kostnader',DARK);
+  html+=inputRow('Rörelsens kostnader','Direkta kostnader',24);
+  const persRows=[{cat:'Personalkostnader',sub:'Soc avg'},{cat:'Personalkostnader',sub:'Pension'},{cat:'Personalkostnader',sub:'Löneskatt'},{cat:'Personalkostnader',sub:'Övriga personalkostnader'}];
+  const persMonthly=sumRowsMonthly(persRows);
+  html+=groupSumRow('Personalkostnader',persMonthly,sum(persMonthly),16);
+  persRows.forEach(r=>html+=inputRow(r.cat,r.sub,36));
+  html+=inputRow('Rörelsens kostnader','Marknadsföring',24);
+  html+=inputRow('Rörelsens kostnader','Produktutveckling, delvis ej aktiverad del',24);
+  html+=inputRow('Rörelsens kostnader','Övriga kostnader',24);
+  html+=inputRow('Rörelsens kostnader','Service Fee',24);
+  const kostnaderRows=[{cat:'Rörelsens kostnader',sub:'Direkta kostnader'},...persRows,{cat:'Rörelsens kostnader',sub:'Marknadsföring'},{cat:'Rörelsens kostnader',sub:'Produktutveckling, delvis ej aktiverad del'},{cat:'Rörelsens kostnader',sub:'Övriga kostnader'},{cat:'Rörelsens kostnader',sub:'Service Fee'}];
+  const kostnaderMonthly=sumRowsMonthly(kostnaderRows);
+  html+=calcRow('Summa rörelsens kostnader',kostnaderMonthly,sum(kostnaderMonthly));
+
+  // Resultat före avskrivningar
+  const resultatMonthly=MONTHS.map((_,i)=>nettoMonthly[i]-kostnaderMonthly[i]+aktiveradeMonthly[i]);
+  const resultatTotal=sum(resultatMonthly);
+  html+=calcRow('Resultat före avskrivningar',resultatMonthly,resultatTotal,DARK,true);
+
+  html+='</tbody></table></div>';
+  document.getElementById('budget-content').innerHTML=html;
+
+  document.getElementById('budget-kpi').style.gridTemplateColumns='repeat(4,minmax(0,1fr))';
+  document.getElementById('budget-kpi').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Nettoomsättning</div><div class="kpi-value" style="color:var(--accent)">${fmtKr(sum(nettoMonthly))}</div><div class="kpi-delta neu">Helår ${year}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Aktiverade kostnader</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(sum(aktiveradeMonthly))}</div><div class="kpi-delta neu">utveckling & personal</div></div>
+    <div class="kpi-card"><div class="kpi-label">Rörelsens kostnader</div><div class="kpi-value" style="color:var(--red)">${fmtKr(sum(kostnaderMonthly))}</div><div class="kpi-delta neu">totalt</div></div>
+    <div class="kpi-card"><div class="kpi-label">Resultat före avskrivn.</div><div class="kpi-value" style="color:${resultatTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatTotal)}</div><div class="kpi-delta neu">helår ${year}</div></div>`;
+  restoreNoteDots();
+}
 function renderBudgetTable(){
   if(!Array.isArray(budgetRows))budgetRows=[];
+  // Resultat-läget har en helt egen struktur (item: resultatbudget).
+  if(currentBudgetMode==='resultat'){renderResultatBudgetTable();return;}
   const versionYear=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId))?.Year;
   const year=versionYear||new Date().getFullYear();
 
@@ -3076,6 +3188,19 @@ function renderBudgetTable(){
       <th style="border-left:1px solid var(--border);">Total år</th>
     </tr></thead><tbody>`;
 
+  // KASSAFLÖDESSAMMANSTÄLLNING (endast Likviditet-läget) — högst upp.
+  if(currentBudgetMode==='likviditet'){
+    const cashOutMonthly=MONTHS.map((_,i)=>cogsMonthly[i]+opexMonthly[i]+smMonthly[i]);
+    const cashOutTotal=cogsTotal+opexTotal+smTotal;
+    const netMonthly=revMonthly.map((v,i)=>v-cashOutMonthly[i]);
+    const netTotal=revTotal-cashOutTotal;
+    const cfRow=(label,arr,total,color)=>`<tr style="background:var(--surface2);"><td style="font-weight:600;padding-left:10px;color:${color};">${label}</td>${arr.map(v=>`<td style="text-align:center;font-size:11px;font-weight:500;color:${color};">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:600;border-left:1px solid var(--border);color:${color};">${fmtK(total)}</td></tr>`;
+    html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#14532d;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ KASSAFLÖDE</td></tr>`;
+    html+=cfRow('Cash in (intäkter)',revMonthly,revTotal,'#1a7a50');
+    html+=cfRow('Cash out (kostnader)',cashOutMonthly,cashOutTotal,'#a32d2d');
+    html+=`<tr style="background:#14532d;"><td style="font-weight:700;padding-left:10px;color:white;">Netto kassaflöde</td>${netMonthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;color:${v>=0?'#6fcf97':'#ff9b9b'};">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;border-left:1px solid #444;color:${netTotal>=0?'#6fcf97':'#ff9b9b'};">${fmtK(netTotal)}</td></tr>`;
+  }
+
   // REVENUE
   html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#7a3a1a;color:white;font-weight:500;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ REVENUE <span style="font-weight:400;font-size:10px;opacity:0.8;margin-left:8px;">· ${currentBudgetMode==='likviditet'?'Kassaflöde (NET30)':'Periodiserat'}</span></td></tr>`;
   allBudgetRows().filter(r=>r.section==='REVENUE').forEach(rd=>{
@@ -3090,7 +3215,6 @@ function renderBudgetTable(){
       html+=importedRowHtml(ir,'#fef7f1','#fae0cc');
     });
   });
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#fdf0e8;padding:4px 10px;text-align:left;"><button class="btn-sm" onclick="addBudgetRow('REVENUE')" style="background:none;color:var(--accent);font-size:11px;border:1px dashed var(--accent);">+ Lägg till rad</button></td></tr>`;
   html+=sumRow('Total Revenue',revMonthly,revTotal,'#fae0cc');
 
   // COGS
@@ -3104,7 +3228,6 @@ function renderBudgetTable(){
       <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
     </tr>`;
   });
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="padding:4px 10px;text-align:left;"><button class="btn-sm" onclick="addBudgetRow('COGS')" style="background:none;color:var(--accent);font-size:11px;border:1px dashed var(--accent);">+ Lägg till rad</button></td></tr>`;
   html+=sumRow('Total COGS',cogsMonthly,cogsTotal);
   html+=tbRow('TB1 – Gross Profit',tb1Monthly,tb1Total);
   html+=pctRow('Gross Margin %',tb1Monthly,tb1Total,revMonthly,revTotal);
@@ -3131,7 +3254,6 @@ function renderBudgetTable(){
       </tr>`;
     });
   });
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="padding:4px 10px;text-align:left;"><button class="btn-sm" onclick="addBudgetRow('OPEX')" style="background:none;color:var(--accent);font-size:11px;border:1px dashed var(--accent);">+ Lägg till rad</button></td></tr>`;
   html+=sumRow('Total OPEX',opexMonthly,opexTotal);
   html+=tbRow('TB2 – EBITDA / Operating Profit',tb2Monthly,tb2Total);
   html+=pctRow('OPEX %',opexMonthly,opexTotal,revMonthly,revTotal);
@@ -3180,6 +3302,19 @@ function toggleBudgetPrimary(){
   const primBtn=document.getElementById('btn-primary-budget');
   if(primBtn)primBtn.textContent=String(currentBudgetVersionId)===String(currentPrimaryBudgetVersionId)?'★ Primär':'☆ Sätt som primär';
   loadBudgetVersions();
+}
+// Click the type badge to flip the version between Likviditet and Resultat.
+async function toggleBudgetType(){
+  if(!currentBudgetVersionId)return;
+  const v=budgetVersions.find(x=>String(x.Id)===String(currentBudgetVersionId));
+  if(!v)return;
+  const next=v.BudgetType==='Resultatbudget'?'Likviditetsbudget':'Resultatbudget';
+  try{
+    await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:v.Name,year:v.Year,createdBy:v.CreatedBy,budgetType:next})});
+    v.BudgetType=next;
+    await loadBudgetVersions();
+    showSaveIndicator('✓ Budgettyp: '+budgetTypeLabel(next),'#1a7a50');
+  }catch(e){showSaveIndicator('⚠ Kunde inte byta typ','#a32d2d');}
 }
 function setBudgetMode(mode,btn){
   currentBudgetMode=mode;
@@ -3553,37 +3688,50 @@ function deleteImportedBudgetRow(category,subCategory,source){
   showSaveIndicator('✓ Rad borttagen — kom ihåg att Spara','#1a7a50');
 }
 
-async function saveBudget(){
+async function saveBudget(silent){
   if(!currentBudgetVersionId)return;
   const inputs=document.querySelectorAll('.budget-input');
   const rowData={};
-  // Build a lookup so we can carry over ImportedAt from the in-memory row state.
-  const importedAtByKey={};
-  budgetRows.filter(r=>r.Source).forEach(r=>{importedAtByKey[`${r.Category}__${r.SubCategory}__${r.Source}`]=r.ImportedAt?String(r.ImportedAt).substring(0,10):null;});
+  // Seed from the in-memory rows so rows that are NOT currently rendered (the
+  // other view's exclusive rows, imported rows for the inactive mode) are
+  // preserved instead of being wiped — the save POST replaces all rows.
+  budgetRows.forEach(r=>{
+    const source=r.Source||'';
+    const key=`${r.Category}__${r.SubCategory}__${source}`;
+    const obj={category:r.Category,subCategory:r.SubCategory};
+    if(source){obj.source=source;if(r.ImportedAt)obj.importedAt=String(r.ImportedAt).substring(0,10);}
+    MONTHS.forEach(m=>{obj[m]=r[m]||0;});
+    rowData[key]=obj;
+  });
+  // Overlay DOM input values — authoritative for the rows currently shown.
+  const seenDom=new Set();
   inputs.forEach(inp=>{
-    const cat=inp.dataset.cat;
-    const sub=inp.dataset.sub;
-    const source=inp.dataset.source||'';
-    const month=inp.dataset.month;
-    const val=parseInt(inp.value)||0;
+    const cat=inp.dataset.cat,sub=inp.dataset.sub,source=inp.dataset.source||'',month=inp.dataset.month;
     const key=`${cat}__${sub}__${source}`;
-    if(!rowData[key]){
-      rowData[key]={category:cat,subCategory:sub};
-      if(source){
-        rowData[key].source=source;
-        if(importedAtByKey[key])rowData[key].importedAt=importedAtByKey[key];
-      }
-    }
-    rowData[key][month]=val;
+    if(!rowData[key]){rowData[key]={category:cat,subCategory:sub};if(source)rowData[key].source=source;}
+    if(!seenDom.has(key)){MONTHS.forEach(m=>{rowData[key][m]=0;});seenDom.add(key);}
+    rowData[key][month]=parseInt(inp.value)||0;
   });
   const rows=Object.values(rowData);
   try{
+    if(!silent)showSaveIndicator('Sparar...');
     await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rows)});
     const reload=await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`);
     budgetRows=await reload.json();
-    renderBudgetTable();
-    showSaveIndicator('✓ Budget sparad','#1a7a50');
+    // Silent (autosave) keeps the DOM intact so typing isn't interrupted.
+    if(!silent)renderBudgetTable();
+    showSaveIndicator('✓ Sparat','#1a7a50');
   }catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}
+}
+// Debounced autosave for budget inputs (delegated, attached once in loadBudgetVersions).
+let budgetAutoSaveTimer=null;
+function budgetAutoSaveHandler(e){
+  const t=e.target;
+  if(!t||!t.classList||!t.classList.contains('budget-input'))return;
+  if(!currentBudgetVersionId)return;
+  clearTimeout(budgetAutoSaveTimer);
+  showSaveIndicator('Sparar...');
+  budgetAutoSaveTimer=setTimeout(()=>saveBudget(true),1500);
 }
 
 function openNewBudgetVersion(){
