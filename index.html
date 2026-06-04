@@ -126,12 +126,12 @@
   .ka-contract .contract-dates { color:var(--text3); font-size:12px; flex:1; }
   .forecast-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-bottom:18px; box-shadow:var(--shadow); }
   .forecast-chart-wrap { background:var(--surface2); border-radius:10px; padding:14px 16px; }
-  .fc-scenario-groups { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
-  .fc-group { background:var(--surface2); border-radius:8px; padding:12px 14px 14px; border-top:3px solid var(--border); }
+  .fc-scenario-groups { display:flex; gap:14px; margin-bottom:14px; align-items:stretch; }
+  .fc-group { flex:1; min-width:0; background:var(--surface2); border-radius:8px; padding:12px 14px 14px; border-top:3px solid var(--border); display:flex; flex-direction:column; }
   .fc-group-title { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--text3); margin-bottom:10px; }
-  .fc-group-cards { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .fc-group-cards.solo { grid-template-columns:1fr; }
-  .fc-mini-kpi { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:8px 10px; }
+  .fc-group-cards { display:flex; gap:8px; flex:1; align-items:stretch; }
+  .fc-group-cards > * { flex:1; min-width:0; }
+  .fc-mini-kpi { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:8px 10px; display:flex; flex-direction:column; }
   .fc-mini-kpi .lbl { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:3px; }
   .fc-mini-kpi .val { font-size:15px; font-weight:600; }
   .fc-mini-kpi .sub { font-size:10px; color:var(--text3); margin-top:2px; line-height:1.3; }
@@ -267,6 +267,10 @@
   .period-table td:first-child { text-align: left; font-weight: 500; }
   .period-table tr:last-child td { border-bottom: none; }
   .period-table tr:hover td { background: var(--surface2); }
+  /* Totalt-kolumnen alltid synlig längst till höger även vid horisontell scroll. */
+  .period-table th:last-child { position: sticky; right: 0; background: var(--surface2); border-left: 1px solid var(--border); z-index: 2; }
+  .period-table td:last-child { position: sticky; right: 0; background: var(--surface); border-left: 1px solid var(--border); }
+  .period-table tr:hover td:last-child { background: var(--surface2); }
   .p-arr { background: var(--green-bg); color: var(--green); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
   .p-fast { background: var(--blue-bg); color: var(--blue); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
   .p-utb { background: var(--amber-bg); color: var(--amber); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
@@ -2651,17 +2655,23 @@ function renderPeriodisering(){
     {label:'Consulting',type:'Consulting',on:useCons},
     {label:'Utbildning',type:'Utbildning',on:useUtb},
   ];
+  // Viktning följer churn-läget: Historisk churn → ×(1−churnrate) (samma för alla),
+  // Riskbaserad → renewalProb per kund från calculateRiskScore().
+  const churnedCustsP=allCustomers.filter(c=>c._days!==null&&c._days<0);
+  const churnHistoricP=allCustomers.length>0?churnedCustsP.length/allCustomers.length:0;
+  const churnRateP=(typeof fcChurnOverride!=='undefined'&&fcChurnOverride!==null)?fcChurnOverride:churnHistoricP;
+  const isRiskMode=typeof fcMode!=='undefined'&&fcMode==='risk';
   const renewByType={};renewTypes.forEach(rt=>{renewByType[rt.type]=months.map(()=>0);});
   allCustomers.forEach(c=>{
-    const prob=(calculateRiskScoreClient(c).renewalProb||0)/100;
-    if(!prob)return;
+    const factor=isRiskMode?((calculateRiskScoreClient(c).renewalProb||0)/100):(1-churnRateP);
+    if(factor<=0)return;
     (kaRevCache[c.Id]||[]).forEach(it=>{
       if(!renewByType[it.Type]||!it.DateTo)return;
       const end=new Date(it.DateTo);
       const target=isLiq?new Date(end.getTime()+30*86400000):end;
       const idx=months.findIndex(m=>m.getFullYear()===target.getFullYear()&&m.getMonth()===target.getMonth());
       if(idx<0)return;
-      renewByType[it.Type][idx]+=Math.round((it.Amount||0)*prob);
+      renewByType[it.Type][idx]+=Math.round((it.Amount||0)*factor);
     });
   });
   // Total respekterar källfiltret (endast påslagna typer räknas).
@@ -2686,14 +2696,14 @@ function renderPeriodisering(){
   const gapTotal=gapMonth.reduce((a,b)=>a+b,0);
   const gapPct=budgetTotal>0?Math.round(gapTotal/budgetTotal*100):null;
   const cell=(v,c)=>`<td style="text-align:center;font-size:11px;font-weight:500;color:${c||'inherit'};">${v?fmtK(v):'–'}</td>`;
-  const sepRow=label=>`<tr style="background:transparent;"><td colspan="${months.length+2}" style="border-top:1px solid var(--border);padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);">${label}</td></tr>`;
+  const sepRow=label=>`<tr style="background:transparent;"><td colspan="${months.length+2}" style="border-top:1px solid var(--border);padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);position:static;">${label}</td></tr>`;
   const budgetRow=`<tr style="background:#fdf0e8;"><td style="font-weight:600;color:#7a3a1a;">Budget (primär)</td>${budgetByMonth.map(v=>cell(v,'#7a3a1a')).join('')}<td style="text-align:center;font-weight:600;color:#7a3a1a;">${fmtKKr(budgetTotal)}</td></tr>`;
   const gapColor=v=>v>=0?'var(--green)':'var(--red)';
   const gapRow=`<tr style="background:var(--surface2);"><td style="font-weight:600;">Gap mot budget${gapPct!==null?` <span style="font-size:10px;color:var(--text3);font-weight:400;">(${gapPct>=0?'+':''}${gapPct}%)</span>`:''}</td>${gapMonth.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;color:${gapColor(v)};">${v?(v>=0?'+':'')+fmtK(v):'–'}</td>`).join('')}<td style="text-align:center;font-weight:600;color:${gapColor(gapTotal)};">${gapTotal?(gapTotal>=0?'+':'')+fmtKKr(gapTotal):'–'}</td></tr>`;
   const pipeRow=pipeTotal>0?`<tr style="background:var(--blue-bg);"><td style="font-weight:600;color:var(--blue);">Viktat pipeline <span class="badge b-blue" style="font-size:10px;margin-left:4px;">prognos</span></td>${pipeMonth.map(v=>cell(v,'var(--blue)')).join('')}<td style="text-align:center;font-weight:600;color:var(--blue);">${fmtKKr(pipeTotal)}</td></tr>`:'';
   // Rubrikrad med "viktad"-badge + en rad per påslagen intäktstyp.
   const renewHeaderRow=`<tr style="background:var(--purple-bg);"><td style="font-weight:600;color:var(--purple);">Förnyelsepotential (viktad) <span class="badge b-purple" style="font-size:10px;margin-left:4px;">viktad</span></td>${renewMonth.map(v=>cell(v,'var(--purple)')).join('')}<td style="text-align:center;font-weight:600;color:var(--purple);">${fmtKKr(renewTotal)}</td></tr>`;
-  const renewTypeRows=renewTypes.filter(rt=>rt.on).map(rt=>{const arr=renewByType[rt.type];const tot=arr.reduce((a,b)=>a+b,0);return `<tr><td style="padding-left:24px;font-size:12px;color:var(--text2);">${rt.label}</td>${arr.map(v=>cell(v,'var(--purple)')).join('')}<td style="text-align:center;font-weight:500;color:var(--purple);font-size:11px;">${tot?fmtKKr(tot):'–'}</td></tr>`;}).join('');
+  const renewTypeRows=renewTypes.filter(rt=>rt.on).map(rt=>{const arr=renewByType[rt.type];const tot=arr.reduce((a,b)=>a+b,0);return `<tr style="background:#f0effe;"><td style="padding-left:24px;font-size:12px;color:var(--text2);">${rt.label}</td>${arr.map(v=>cell(v,'var(--purple)')).join('')}<td style="text-align:center;font-weight:500;color:var(--purple);font-size:11px;">${tot?fmtKKr(tot):'–'}</td></tr>`;}).join('');
   const renewBlock=renewTotal>0?(renewHeaderRow+renewTypeRows):'';
   const totalActiveRow=`<tr style="background:var(--surface2);"><td style="font-weight:600;">Totalt aktiva avtal</td>${activeMonth.map(t=>`<td style="text-align:center;font-weight:600;font-size:11px;">${fmtK(t)}</td>`).join('')}<td style="text-align:center;font-weight:600;">${fmtKKr(activeTotal)}</td></tr>`;
   document.getElementById('per-tbody').innerHTML=
@@ -2745,7 +2755,7 @@ async function renderPrognos(){
 }
 function fcToggleDD(e){e.stopPropagation();document.querySelectorAll('.rev-dd-panel').forEach(p=>{if(p.id!=='fc-source-panel')p.style.display='none';});const p=document.getElementById('fc-source-panel');p.style.display=p.style.display==='none'?'block':'none';}
 function fcToggleSource(t){if(fcSources.has(t))fcSources.delete(t);else fcSources.add(t);if(fcSources.size===0)fcSources.add(t);document.getElementById('fc-cb-'+t).classList.toggle('on',fcSources.has(t));renderPrognos();}
-function fcOnChurnChange(v){const n=parseFloat(v);fcChurnOverride=isNaN(n)?null:Math.max(0,Math.min(100,n))/100;renderForecastSection();}
+function fcOnChurnChange(v){const n=parseFloat(v);fcChurnOverride=isNaN(n)?null:Math.max(0,Math.min(100,n))/100;renderForecastSection();renderPeriodisering();}
 function forecastYearRevenue(year){
   const items=Object.values(kaRevCache).flat().filter(i=>fcSources.has(i.Type));
   return items.reduce((s,i)=>{
@@ -2885,60 +2895,33 @@ function renderForecastSection(){
       </div>
     </div>`;
 
-  // The chart below still uses single-version primary budget (legacy) for the
-  // dashed line, but the comparison KPI now follows the dropdown selection.
-  const primaryBudgetTotal=selectedBudgetTotal;
-  const allaFornyas_chart=allaFornyasOut;
-  const medChurn_chart=medChurnOut;
-
-  // Chart — H=200, widened W=840 (+80px right for forecast labels)
-  const years=[forecastYear-4,forecastYear-3,forecastYear-2,forecastYear-1];
-  // Historic actuals scaled to the same period slice as the scenarios.
-  const historic=years.map(y=>sc(forecastYearRevenue(y)));
-  const last=historic[historic.length-1];
-  const scenarios=[
-    {label:'Alla förnyas',val:sc(allaFornyas_chart),color:'#1a4f7a'},
-    {label:midLabel,val:sc(midVal),color:'#b85a00'},
-    {label:'Bästa scenario (full)',val:sc(bestScenario),color:'#5eb98f'},
-    {label:'Realistisk',val:sc(realistic),color:'#1a7a50'}
-  ];
-  if(primaryBudgetTotal>0)scenarios.push({label:'Budget',val:sc(primaryBudgetTotal),color:'#5a1a7a'});
-  const allVals=[...historic,...scenarios.map(s=>s.val),last];
-  const maxV=Math.max(...allVals,1);
-  const W=840,H=200,PL=46,PR=108,PT=22,PB=28;
-  const xs=[...years,forecastYear];
-  const xFor=y=>PL+((y-years[0])/(forecastYear-years[0]))*(W-PL-PR);
+  // Chart — månadsvy som zoomar in på vald period. X-axeln visar månader (Q1 →
+  // jan–mar) i stället för år. Linjer: månatlig faktisk intäkt (periodiserat,
+  // följer källfiltret) + primärbudget per månad.
+  const mNamesC=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const chartMonths=[];{let curM=new Date(periodStart.getFullYear(),periodStart.getMonth(),1);while(curM<=periodEnd){chartMonths.push(new Date(curM));curM=new Date(curM.getFullYear(),curM.getMonth()+1,1);}}
+  if(!chartMonths.length)chartMonths.push(new Date(periodStart.getFullYear(),periodStart.getMonth(),1));
+  const srcBucket={ARR:'arr',Fastpris:'fast',Consulting:'cons',Utbildning:'utb'};
+  const enabledBuckets=[...fcSources].map(s=>srcBucket[s]).filter(Boolean);
+  const actualMonthly=chartMonths.map(m=>{let t=0;allCustomers.forEach(c=>{const v=monthlyValue(c,m);enabledBuckets.forEach(k=>{t+=v[k]||0;});});return Math.round(t);});
+  const budgetMonthly=chartMonths.map(m=>{const mn=mNamesC[m.getMonth()];return budgetRevenueRows(primaryBudgetRows).reduce((s,r)=>s+(r[mn]||0),0);});
+  const actualTotal=actualMonthly.reduce((a,b)=>a+b,0);
+  const budgetTotalC=budgetMonthly.reduce((a,b)=>a+b,0);
+  const W=840,H=200,PL=46,PR=24,PT=22,PB=30;
+  const n=chartMonths.length;
+  const xAt=i=>PL+(n===1?(W-PL-PR)/2:i/(n-1)*(W-PL-PR));
+  const maxV=Math.max(...actualMonthly,...budgetMonthly,1);
   const yFor=v=>H-PB-(v/maxV)*(H-PT-PB);
   const gridLines=[0,0.25,0.5,0.75,1].map(f=>{const y=H-PB-f*(H-PT-PB);return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="${f===0?'0':'3 3'}"/><text x="${PL-6}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--text3)">${Math.round(maxV*f/1000)}k</text>`;}).join('');
-  const xLabels=xs.map(y=>`<text x="${xFor(y)}" y="${H-PB+15}" text-anchor="middle" font-size="11" fill="var(--text3)" font-weight="500">${y}</text>`).join('');
+  const xLabels=chartMonths.map((m,i)=>`<text x="${xAt(i)}" y="${H-PB+15}" text-anchor="middle" font-size="10" fill="var(--text3)" font-weight="500">${mNamesC[m.getMonth()]}${n>12?` ${String(m.getFullYear()).slice(2)}`:''}</text>`).join('');
+  const linePts=arr=>arr.map((v,i)=>`${xAt(i)},${yFor(v)}`).join(' ');
+  const budgetLine=budgetTotalC>0?`<polyline points="${linePts(budgetMonthly)}" fill="none" stroke="#5a1a7a" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="round"/>${budgetMonthly.map((v,i)=>`<circle cx="${xAt(i)}" cy="${yFor(v)}" r="3" fill="#5a1a7a"/>`).join('')}`:'';
+  const actualLine=`<polyline points="${linePts(actualMonthly)}" fill="none" stroke="#1a7a50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>${actualMonthly.map((v,i)=>{const lblY=Math.max(yFor(v)-7,PT+8);return `<circle cx="${xAt(i)}" cy="${yFor(v)}" r="3.5" fill="#1a7a50" stroke="#fff" stroke-width="1.5"/>${n<=12?`<text x="${xAt(i)}" y="${lblY}" text-anchor="middle" font-size="9" fill="#1a7a50" font-weight="600">${Math.round(v/1000)}k</text>`:''}`;}).join('')}`;
+  document.getElementById('forecast-chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;max-height:200px;">${gridLines}${xLabels}${budgetLine}${actualLine}</svg>`;
 
-  // Historic line + dots + data labels (clamped inside viewBox)
-  const histPoints=years.map((y,i)=>`${xFor(y)},${yFor(historic[i])}`).join(' ');
-  const histLine=`<polyline points="${histPoints}" fill="none" stroke="#1a7a50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-  const histDots=years.map((y,i)=>{const v=historic[i];const lblY=Math.max(yFor(v)-7,PT+8);return `<circle cx="${xFor(y)}" cy="${yFor(v)}" r="4" fill="#1a7a50" stroke="#fff" stroke-width="1.5"/><text x="${xFor(y)}" y="${lblY}" text-anchor="middle" font-size="10" fill="#1a7a50" font-weight="600">${Math.round(v/1000)}k</text>`;}).join('');
-
-  // Shaded area between min and max forecast
-  const fcVals=scenarios.map(s=>s.val);
-  const minFc=Math.min(...fcVals);
-  const maxFc=Math.max(...fcVals);
-  const lastYear=years[years.length-1];
-  const shade=`<polygon points="${xFor(lastYear)},${yFor(last)} ${xFor(forecastYear)},${yFor(maxFc)} ${xFor(forecastYear)},${yFor(minFc)}" fill="#1a7a50" fill-opacity="0.08"/>`;
-
-  // Forecast dashed lines + endpoint dots
-  const fcLines=scenarios.map(s=>`<line x1="${xFor(lastYear)}" y1="${yFor(last)}" x2="${xFor(forecastYear)}" y2="${yFor(s.val)}" stroke="${s.color}" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="round"/><circle cx="${xFor(forecastYear)}" cy="${yFor(s.val)}" r="3.5" fill="${s.color}"/>`).join('');
-
-  // Endpoint labels — distributed vertically to avoid overlap, all clamped inside viewBox
-  const labelXBase=xFor(forecastYear)+8;
-  const sortedByY=scenarios.map(s=>({s,y:yFor(s.val)})).sort((a,b)=>a.y-b.y);
-  for(let i=1;i<sortedByY.length;i++){if(sortedByY[i].y-sortedByY[i-1].y<13)sortedByY[i].y=sortedByY[i-1].y+13;}
-  sortedByY.forEach(o=>{o.y=Math.max(PT+8,Math.min(H-PB-2,o.y));});
-  const fcLabels=sortedByY.map(o=>`<text x="${labelXBase}" y="${o.y+3}" font-size="10" fill="${o.s.color}" font-weight="600">${Math.round(o.s.val/1000)}k</text>`).join('');
-
-  document.getElementById('forecast-chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;max-height:200px;">${gridLines}${xLabels}${shade}${histLine}${histDots}${fcLines}${fcLabels}</svg>`;
-
-  // Legend with scenario values below chart
+  // Legend
   const fmt=v=>Math.round(v/1000)+'k';
-  document.getElementById('forecast-legend').innerHTML=`<div class="fc-legend-item"><span class="line" style="color:#1a7a50;"></span>Faktisk: <span class="val">${fmt(last)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#1a4f7a;"></span>Alla förnyas: <span class="val">${fmt(sc(allaFornyas_chart))}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#b85a00;"></span>${midLabel}: <span class="val">${fmt(sc(midVal))}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#5eb98f;"></span>Bästa scenario (full): <span class="val">${fmt(sc(bestScenario))}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#1a7a50;"></span>Realistisk: <span class="val">${fmt(sc(realistic))}</span></div><div class="fc-legend-divider"></div><div class="fc-legend-stat"><span class="lbl">Utgångna:</span> ${churnedCusts.length} st</div><div class="fc-legend-stat"><span class="lbl">Viktat pipe:</span> ${sc(pipeWeightedOut).toLocaleString('sv-SE')} kr</div>`;
+  document.getElementById('forecast-legend').innerHTML=`<div class="fc-legend-item"><span class="line" style="color:#1a7a50;"></span>Faktisk intäkt (period): <span class="val">${fmt(actualTotal)}</span></div><div class="fc-legend-item"><span class="line dashed" style="color:#5a1a7a;"></span>Primärbudget (period): <span class="val">${fmt(budgetTotalC)}</span></div><div class="fc-legend-divider"></div><div class="fc-legend-stat"><span class="lbl">Realistisk prognos:</span> ${sc(realistic).toLocaleString('sv-SE')} kr</div><div class="fc-legend-stat"><span class="lbl">Viktat pipe:</span> ${sc(pipeWeightedOut).toLocaleString('sv-SE')} kr</div>`;
 }
 
 // ─── BUDGET ──────────────────────────────────────────────
@@ -3068,7 +3051,8 @@ function renderResultatBudgetTable(){
 
   // Palette: intäktsrubriker = varm ljusbeige med mörkbrun text; kostnads-
   // sektioner = mörkblå; intäktsrader = beige.
-  const WARM_BG='#fdf0e8', WARM_TEXT='#7a3e1a', DARK='#1a1a2e', BEIGE='#fdf0e8';
+  // Orange intäktsrubriker med vit text, mörkblå kostnadssektioner, vita datarader.
+  const WARM_BG='#E8823A', WARM_TEXT='white', DARK='#1a1a2e', BEIGE='var(--surface)';
   let html=`<div class="budget-table-wrap"><table class="budget-table"><thead><tr><th style="text-align:left;min-width:240px;padding-left:10px;">Rad</th>${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th style="border-left:1px solid var(--border);">Total år</th></tr></thead><tbody>`;
 
   // Periodiserade intäkter (orange). Egna nycklar (Category='Periodiserade
@@ -3261,14 +3245,15 @@ function renderBudgetTable(){
     const cashOutTotal=cogsTotal+opexTotal+smTotal;
     const netMonthly=revMonthly.map((v,i)=>v-cashOutMonthly[i]);
     const netTotal=revTotal-cashOutTotal;
-    const cfHead=`<th style="min-width:140px;"></th>${MONTHS.map(m=>`<th style="text-align:center;font-size:10px;color:#7a3e1a;font-weight:500;padding:3px 4px;">${m}</th>`).join('')}<th style="text-align:center;font-size:10px;color:#7a3e1a;font-weight:600;padding:3px 6px;border-left:1px solid #e8c9b0;">Totalt</th>`;
-    const cfRow=(label,arr,total,color,strong)=>`<tr${strong?' style="border-top:1px solid #e8c9b0;"':''}><td style="font-weight:${strong?700:600};font-size:12px;color:${color};padding:4px 6px;">${label}</td>${arr.map(v=>`<td style="text-align:center;font-size:11px;font-weight:${strong?700:500};color:${color};padding:3px 4px;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;font-size:12px;color:${color};border-left:1px solid #e8c9b0;padding:3px 6px;">${fmtK(total)}</td></tr>`;
-    cashflowCard=`<div style="background:#fae0cc;border:1px solid #e0b894;border-radius:10px;padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow);">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#7a3e1a;margin-bottom:8px;">Kassaflöde</div>
+    const cfHead=`<th style="min-width:140px;"></th>${MONTHS.map(m=>`<th style="text-align:center;font-size:10px;color:var(--text3);font-weight:500;padding:3px 4px;">${m}</th>`).join('')}<th style="text-align:center;font-size:10px;color:var(--text3);font-weight:600;padding:3px 6px;border-left:1px solid var(--border);">Totalt</th>`;
+    // Tydlig färgkodning per rad: ljusgrön (Cash in), ljusröd (Cash out), neutral (Netto).
+    const cfRow=(label,arr,total,color,bg,strong)=>`<tr style="background:${bg};">${`<td style="font-weight:${strong?700:600};font-size:12px;color:${color};padding:5px 6px;">${label}</td>`}${arr.map(v=>`<td style="text-align:center;font-size:11px;font-weight:${strong?700:500};color:${color};padding:4px;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;font-size:12px;color:${color};border-left:1px solid var(--border);padding:4px 6px;">${fmtK(total)}</td></tr>`;
+    cashflowCard=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text2);margin-bottom:8px;">Kassaflöde</div>
       <table style="width:100%;border-collapse:collapse;"><thead><tr>${cfHead}</tr></thead><tbody>
-        ${cfRow('Cash in (intäkter)',revMonthly,revTotal,'#1a7a50')}
-        ${cfRow('Cash out (kostnader)',cashOutMonthly,cashOutTotal,'#a32d2d')}
-        ${cfRow('Netto kassaflöde',netMonthly,netTotal,netTotal>=0?'#1a7a50':'#a32d2d',true)}
+        ${cfRow('Cash in (intäkter)',revMonthly,revTotal,'#1a7a50','#e8f5ee')}
+        ${cfRow('Cash out (kostnader)',cashOutMonthly,cashOutTotal,'#a32d2d','#fbeaea')}
+        ${cfRow('Netto kassaflöde',netMonthly,netTotal,netTotal>=0?'#1a7a50':'#a32d2d','#eef0f6',true)}
       </tbody></table>
     </div>`;
   }
@@ -3280,21 +3265,21 @@ function renderBudgetTable(){
       <th style="border-left:1px solid var(--border);">Total år</th>
     </tr></thead><tbody>`;
 
-  // REVENUE — varm beige intäktsrubrik med mörkbrun text.
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#fdf0e8;color:#7a3e1a;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ REVENUE <span style="font-weight:400;font-size:10px;color:#a06a3a;margin-left:8px;">· Kassaflöde (NET30)</span></td></tr>`;
+  // REVENUE — orange intäktsrubrik med vit text; datarader vita.
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#E8823A;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ REVENUE <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,0.85);margin-left:8px;">· Kassaflöde (NET30)</span></td></tr>`;
   allBudgetRows().filter(r=>r.section==='REVENUE').forEach(rd=>{
     const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
     const total=sum(vals);
-    html+=`<tr style="background:#fdf0e8;">
+    html+=`<tr style="background:var(--surface);">
       ${subCell(rd)}
       ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
-      <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:#fae0cc;">${fmtK(total)}</td>
+      <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface);">${fmtK(total)}</td>
     </tr>`;
     visibleImportedRows.filter(ir=>ir.Category===rd.category&&ir.SubCategory===rd.subCategory).forEach(ir=>{
-      html+=importedRowHtml(ir,'#fef7f1','#fae0cc');
+      html+=importedRowHtml(ir,'#fef7f1','var(--surface)');
     });
   });
-  html+=sumRow('Total Revenue',revMonthly,revTotal,'#fae0cc');
+  html+=sumRow('Total Revenue',revMonthly,revTotal,'#fde7d6');
 
   // COGS
   html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:500;font-size:11px;padding:5px 10px;">▸ DIRECT COSTS (COGS)</td></tr>`;
