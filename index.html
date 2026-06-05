@@ -212,6 +212,28 @@
   .start-row:hover { background: var(--surface2); }
   .start-empty { padding: 14px 4px; font-size: 13px; color: var(--text3); }
   .start-subhead { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin: 10px 0 4px; }
+  .ka-mode-btn { padding: 6px 14px; border: none; background: var(--surface); color: var(--text2); font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; }
+  .ka-mode-btn.active { background: var(--accent); color: #fff; }
+  .start-banner { background: #1E2340; border-radius: 14px; padding: 22px 26px; margin-bottom: 14px; color: #fff; }
+  .start-banner-inner { display: flex; align-items: center; gap: 20px; }
+  .start-lumi { width: 72px; height: 72px; object-fit: contain; flex: 0 0 auto; }
+  .start-welcome { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+  .start-slogan { font-size: 13px; color: rgba(255,255,255,0.72); margin-top: 4px; }
+  .start-summary { display: flex; gap: 22px; flex: 0 0 auto; text-align: center; }
+  .start-summary > div { font-size: 12px; color: rgba(255,255,255,0.72); }
+  .start-sum-num { display: block; font-size: 26px; font-weight: 600; color: #E8956D; line-height: 1.1; }
+  .start-weekstrip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 16px; }
+  .start-day { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 4px 8px; text-align: center; }
+  .start-day.today { border: 2px solid #E8956D; }
+  .start-day-name { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
+  .start-day-num { font-size: 18px; font-weight: 600; margin-top: 2px; }
+  .start-day-dots { display: flex; gap: 3px; justify-content: center; height: 8px; margin-top: 4px; }
+  .start-day-dots .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .start-bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; align-items: start; }
+  .start-highlight-card { background: #B5BDE7; border-color: #a3abd6; }
+  .start-highlight-input { width: 100%; min-height: 120px; resize: vertical; border: 1px solid #a3abd6; border-radius: 8px; padding: 10px 12px; font-family: 'Poppins', sans-serif; font-size: 13px; background: rgba(255,255,255,0.55); color: #26215C; }
+  .start-highlight-input::placeholder { color: #5a548f; }
+  @media (max-width:860px){ .start-grid, .start-bottom-grid, .start-summary { grid-template-columns: 1fr; } .start-banner-inner { flex-wrap: wrap; } }
   .gantt-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .gantt-header { display: flex; border-bottom: 1px solid var(--border); background: var(--surface2); padding: 8px 14px; }
   .gantt-name-col { width: 160px; flex-shrink: 0; padding-right: 10px; box-sizing: border-box; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
@@ -287,7 +309,7 @@
   .p-total { background: var(--surface2); font-weight: 600; border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; }
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(3px); z-index: 200; display: none; align-items: center; justify-content: flex-end; }
   .modal-overlay.open { display: flex; }
-  .modal { background: var(--surface); width: 480px; height: 100vh; overflow-y: auto; box-shadow: var(--shadow-md); animation: slideIn 0.2s ease; display: flex; flex-direction: column; }
+  .modal { background: var(--surface); width: 620px; max-width: 100vw; height: 100vh; overflow-y: auto; box-shadow: var(--shadow-md); animation: slideIn 0.2s ease; display: flex; flex-direction: column; }
   @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
   .modal-header { padding: 16px 20px 0; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 1; }
   .modal-header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
@@ -511,26 +533,43 @@
 <div class="sub-tabs-bar" id="subtabs-pipeline">
   <button class="sub-tab active" onclick="switchSub('pipeline','oversikt',this)">Översikt</button>
   <button class="sub-tab" onclick="switchSub('pipeline','analys',this)">Pipelineanalys</button>
+  <button class="sub-tab" onclick="switchSub('pipeline','stangda',this)">Stängda affärer</button>
 </div>
 
 <div class="page active" id="page-start">
   <div class="main">
+    <div id="start-banner" class="start-banner"></div>
+    <div id="start-weekstrip" class="start-weekstrip"></div>
     <div class="start-grid">
       <div class="action-card">
         <div class="action-card-title">Att göra <span class="badge b-amber" id="start-todo-count">-</span></div>
-        <div id="start-todo-list" style="max-height:340px;overflow:auto;"><div class="loading"><div class="spinner"></div></div></div>
+        <div id="start-todo-list" style="max-height:300px;overflow:auto;"><div class="loading"><div class="spinner"></div></div></div>
       </div>
       <div class="action-card">
         <div class="action-card-title">Kräver action <span class="badge b-red" id="start-action-count">-</span></div>
-        <div id="start-action-list" style="max-height:340px;overflow:auto;"><div class="loading"><div class="spinner"></div></div></div>
+        <div id="start-action-list" style="max-height:300px;overflow:auto;"><div class="loading"><div class="spinner"></div></div></div>
       </div>
       <div class="action-card">
         <div class="action-card-title">Kommande förnyelser <span class="badge b-amber" id="start-renew-count">-</span></div>
-        <div id="start-renew-list" style="max-height:340px;overflow:auto;"><div class="loading"><div class="spinner"></div></div></div>
+        <div id="start-renew-list" style="max-height:300px;overflow:auto;"><div class="loading"><div class="spinner"></div></div></div>
       </div>
       <div class="action-card">
         <div class="action-card-title">Senaste aktivitet</div>
-        <div id="start-activity-list" style="max-height:340px;overflow:auto;"><div class="loading"><div class="spinner"></div></div></div>
+        <div id="start-activity-list" style="max-height:300px;overflow:auto;"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+    <div class="start-bottom-grid">
+      <div class="action-card start-highlight-card">
+        <div class="action-card-title" style="color:#26215C;">Veckans höjdpunkt <span style="text-transform:none;letter-spacing:0;font-weight:400;color:#4a4490;">delas med alla</span></div>
+        <textarea id="start-highlight" class="start-highlight-input" placeholder="Skriv veckans höjdpunkt – synlig för alla inloggade…" oninput="window._hlTimer&&clearTimeout(window._hlTimer);window._hlTimer=setTimeout(saveWeeklyHighlight,900);"></textarea>
+      </div>
+      <div class="action-card">
+        <div class="action-card-title">Mina anteckningar <span style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--text3);">privat</span></div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
+          <input id="mynote-input" class="edit-input" placeholder="Ny anteckning…" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addMyNote();}">
+          <button class="btn-sm" onclick="addMyNote()">+ Lägg till</button>
+        </div>
+        <div id="mynotes-list" style="max-height:240px;overflow:auto;"></div>
       </div>
     </div>
   </div>
@@ -538,6 +577,7 @@
 
 <div class="page" id="page-pipeline-oversikt">
   <div class="main">
+    <div class="kpi-grid" id="pipe-overview-kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;"></div>
     <div class="filters" id="pipe-filters-bar" style="margin-bottom:12px;">
       <select id="filter-source" onchange="renderKanban()" style="font-size:12px;">
         <option value="">Alla källor</option>
@@ -564,6 +604,10 @@
   <div class="main" id="pipeline-analys-content"><div class="loading"><div class="spinner"></div> Laddar...</div></div>
 </div>
 
+<div class="page" id="page-pipeline-stangda">
+  <div class="main" id="stangda-content"><div class="loading"><div class="spinner"></div> Laddar...</div></div>
+</div>
+
 <div class="stats-bar" id="stats-bar" style="display:none;">
   <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-total">-</div><div class="stat-label">Aktiva kunder</div></div>
   <div class="stat-divider"></div>
@@ -576,8 +620,6 @@
   <div class="stat"><div class="stat-val" style="color:var(--red)" id="stat-risk">-</div><div class="stat-label">High risk</div></div>
   <div class="stat-divider"></div>
   <div class="stat"><div class="stat-val" style="color:var(--gray)" id="stat-expired">-</div><div class="stat-label">Utgångna</div></div>
-  <div class="stat-divider"></div>
-  <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-total-val">-</div><div class="stat-label" id="stat-total-val-label">Total ARR</div></div>
 </div>
 
 <div class="stats-bar" id="stats-trialpilot" style="display:none;">
@@ -721,6 +763,10 @@
         <option>Matilda Olsson</option>
         <option>Alexandra Henningson</option>
       </select>
+      <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-left:auto;">
+        <button id="ka-mode-per" class="ka-mode-btn" onclick="kaSetMode('periodiserat')">Periodiserat</button>
+        <button id="ka-mode-liq" class="ka-mode-btn" onclick="kaSetMode('likviditet')">Likviditet</button>
+      </div>
     </div>
     <div class="kpi-grid" id="ka-kpi-grid"></div>
     <div class="ka-content-grid">
@@ -1368,6 +1414,7 @@ function switchSub(main,sub,el){
   showPage(`${main}-${sub}`);
   if(main==='pipeline'&&sub==='oversikt')renderKanban();
   if(main==='pipeline'&&sub==='analys')renderPipelineAnalys();
+  if(main==='pipeline'&&sub==='stangda')renderStangdaAffarer();
   if(main==='kunder'&&sub==='licenstidslinje')renderLicenstidslinje();
   if(main==='kunder'&&sub==='kundanalys')renderKundanalys();
   if(main==='finansiellt'&&sub==='dashboard')renderFinDashboard();
@@ -1395,16 +1442,12 @@ function renderPipelineAnalys(){
   const winPct=(won+lost)?Math.round(won/(won+lost)*100):0;
   const lostReasons={};allProspects.filter(p=>p.Stage==='Closed Lost'&&p.LostReason).forEach(p=>{lostReasons[p.LostReason]=(lostReasons[p.LostReason]||0)+1;});
   const lossRows=Object.entries(lostReasons).sort((a,b)=>b[1]-a[1]).map(([r,n])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid var(--border);"><span>${r}</span><span style="font-weight:500;color:var(--red);">${n}</span></div>`).join('')||'<div style="color:var(--text3);font-size:13px;">Inga förlorade prospects ännu.</div>';
-  // Pipeline-värden (flyttade hit från Finansiell analys).
+  // Pipeline viktat/total visas nu på Översikt-fliken (flyttade dit).
   const openP=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost');
-  const pipeFull=openP.reduce((s,p)=>s+(p.ValueMax||p.ValueMin||p.Value||0),0);
-  const pipeWeighted=openP.reduce((s,p)=>s+Math.round((p.ValueMax||p.ValueMin||p.Value||0)*(p.Probability||0)/100),0);
-  el.innerHTML=`<div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px;">
+  el.innerHTML=`<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
     <div class="kpi-card"><div class="kpi-label">Win rate</div><div class="kpi-value" style="color:var(--green);">${winPct}%</div><div class="kpi-delta neu">${won} won / ${lost} lost</div></div>
     <div class="kpi-card"><div class="kpi-label">Aktiva prospects</div><div class="kpi-value" style="color:var(--accent);">${openP.length}</div><div class="kpi-delta neu">i pipeline</div></div>
     <div class="kpi-card"><div class="kpi-label">Antal källor</div><div class="kpi-value" style="color:var(--blue);">${Object.keys(sources).length}</div><div class="kpi-delta neu">aktiva</div></div>
-    <div class="kpi-card"><div class="kpi-label">Pipeline viktat</div><div class="kpi-value" style="color:var(--blue);">${pipeWeighted?fmtKr(pipeWeighted):'–'}</div><div class="kpi-delta neu">sannolikhetsviktat</div></div>
-    <div class="kpi-card"><div class="kpi-label">Pipeline total</div><div class="kpi-value" style="color:var(--purple);">${pipeFull?fmtKr(pipeFull):'–'}</div><div class="kpi-delta neu">ej viktat</div></div>
     <div class="kpi-card"><div class="kpi-label">Stages</div><div class="kpi-value" style="color:var(--purple);">${STAGES.length}</div><div class="kpi-delta neu">i flödet</div></div>
   </div>
   <div class="fin-grid">
@@ -1413,11 +1456,25 @@ function renderPipelineAnalys(){
   </div>
   <div class="fin-card" style="margin-top:14px;"><div class="fin-card-title">Win / Loss – orsaksfördelning</div>${lossRows}</div>`;
 }
+function renderStangdaAffarer(){
+  const el=document.getElementById('stangda-content');if(!el)return;
+  const won=allProspects.filter(p=>p.Stage==='Closed Won');
+  const lost=allProspects.filter(p=>p.Stage==='Closed Lost');
+  const byDate=(a,b)=>new Date(b.UpdatedAt||b.CreatedAt||0)-new Date(a.UpdatedAt||a.CreatedAt||0);
+  won.sort(byDate);lost.sort(byDate);
+  const fmtVal=p=>{const v=p.ValueMax||p.ValueMin||p.Value||0;return v?fmtKr(v):'–';};
+  const row=(p,isWon)=>`<div class="start-row" onclick="openProspectModal(${p.Id})"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${(p.Company||'-').replace(/</g,'&lt;')}</div><div style="font-size:11px;color:var(--text3);">${(p.Contact||'').replace(/</g,'&lt;')}${p.Owner?' · '+p.Owner:''}${!isWon&&p.LostReason?' · '+p.LostReason:''}</div></div><div style="text-align:right;flex:0 0 auto;"><div style="font-size:12px;font-weight:600;color:${isWon?'var(--green)':'var(--red)'};">${fmtVal(p)}</div><div style="font-size:10px;color:var(--text3);">${p.UpdatedAt||p.CreatedAt?new Date(p.UpdatedAt||p.CreatedAt).toLocaleDateString('sv-SE'):''}</div></div></div>`;
+  const wonVal=won.reduce((s,p)=>s+(p.ValueMax||p.ValueMin||p.Value||0),0);
+  el.innerHTML=`<div class="fin-grid">
+    <div class="fin-card"><div class="fin-card-title">Closed won <span class="badge b-green">${won.length}</span><span style="margin-left:auto;font-weight:600;color:var(--green);">${wonVal?fmtKr(wonVal):''}</span></div>${won.length?won.map(p=>row(p,true)).join(''):'<div class="start-empty">Inga vunna affärer.</div>'}</div>
+    <div class="fin-card"><div class="fin-card-title">Closed lost <span class="badge b-red">${lost.length}</span></div>${lost.length?lost.map(p=>row(p,false)).join(''):'<div class="start-empty">Inga förlorade affärer.</div>'}</div>
+  </div>`;
+}
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(`page-${id}`)?.classList.add('active');}
 
 // ─── PIPELINE ────────────────────────────────────────────
 async function loadProspects(){
-  try{const r=await apiFetch(`${API}/prospects`);allProspects=await r.json();renderKanban();updatePipeKpi();if(currentMain==='start'){allActivitiesCache=null;renderStart();}loadAllProspectRevenueTotals().then(renderKanban);}
+  try{const r=await apiFetch(`${API}/prospects`);allProspects=await r.json();applyFieldOverlay('prospect',allProspects);renderKanban();updatePipeKpi();if(currentMain==='start'){allActivitiesCache=null;renderStart();}loadAllProspectRevenueTotals().then(renderKanban);}
   catch(e){document.getElementById('kanban-board').innerHTML='<div class="empty">Kunde inte ladda pipeline</div>';}
 }
 function updatePipeKpi(){
@@ -1435,7 +1492,25 @@ function updatePipeKpi(){
   el.textContent=overdue;
   el.style.color=overdue>0?'var(--red)':'var(--green)';
 }
+function renderPipeOverviewKpis(){
+  const el=document.getElementById('pipe-overview-kpis');if(!el)return;
+  const open=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost');
+  const pipeFull=open.reduce((s,p)=>s+(p.ValueMax||p.ValueMin||p.Value||0),0);
+  const pipeWeighted=open.reduce((s,p)=>s+Math.round((p.ValueMax||p.ValueMin||p.Value||0)*(p.Probability||0)/100),0);
+  const now=Date.now();
+  const inStage=open.map(p=>{const s=p.UpdatedAt||p.CreatedAt;return s?Math.max(0,Math.round((now-new Date(s))/86400000)):null;}).filter(v=>v!=null);
+  const avgStage=inStage.length?Math.round(inStage.reduce((a,b)=>a+b,0)/inStage.length):0;
+  const closed=allProspects.filter(p=>p.Stage==='Closed Won'||p.Stage==='Closed Lost');
+  const decDays=closed.map(p=>{const c=p.CreatedAt,u=p.UpdatedAt;if(!c||!u)return null;const d=Math.round((new Date(u)-new Date(c))/86400000);return d>=0?d:null;}).filter(v=>v!=null);
+  const avgDec=decDays.length?Math.round(decDays.reduce((a,b)=>a+b,0)/decDays.length):0;
+  el.innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Pipeline viktat</div><div class="kpi-value" style="color:var(--blue);">${pipeWeighted?fmtKr(pipeWeighted):'–'}</div><div class="kpi-delta neu">sannolikhetsviktat</div></div>
+    <div class="kpi-card"><div class="kpi-label">Pipeline total</div><div class="kpi-value" style="color:var(--purple);">${pipeFull?fmtKr(pipeFull):'–'}</div><div class="kpi-delta neu">ej viktat</div></div>
+    <div class="kpi-card"><div class="kpi-label">Snitt dagar per stage</div><div class="kpi-value" style="color:var(--accent);">${avgStage} d</div><div class="kpi-delta neu">aktiva prospekt</div></div>
+    <div class="kpi-card"><div class="kpi-label">Snitt dagar till beslut</div><div class="kpi-value" style="color:var(--green);">${avgDec} d</div><div class="kpi-delta neu">första kontakt → won/lost</div></div>`;
+}
 function renderKanban(){
+  renderPipeOverviewKpis();
   const srcFilter=document.getElementById('filter-source')?.value||'';
   const ownerFilter=document.getElementById('filter-pipe-owner')?.value||'';
   const indFilter=document.getElementById('filter-pipe-industry')?.value||'';
@@ -1483,6 +1558,11 @@ function renderKanban(){
   }).join('');
 }
 function prospectToBody(p){return{company:p.Company||'',contact:p.Contact||'',role:p.Role||'',email:p.Email||'',phone:p.Phone||'',employees:p.Employees||null,industry:p.Industry||'',source:p.Source||'',owner:p.Owner||'',stage:p.Stage||'',score:p.Score||0,nextActionType:p.NextActionType||null,nextActionDate:p.NextActionDate||null,valueMin:p.ValueMin||null,valueMax:p.ValueMax||null,value:p.Value||0,probability:p.Probability||null,lostReason:p.LostReason||null,notes:p.Notes||'',revenueCategory:p.RevenueCategory||null,expectedStartMonth:p.ExpectedStartMonth||null,waitingForResponse:p.WaitingForResponse?1:0,subName:p.SubName||'',parentCompany:p.ParentCompany||''};}
+// Lokal fält-overlay: säkerställer att alla kort-fält består över omladdningar
+// även om API:et inte returnerar dem. Lagras per id och läggs över API-datat.
+function getFieldOverlay(kind){try{return JSON.parse(localStorage.getItem('fieldoverlay-'+kind)||'{}');}catch(e){return{};}}
+function saveFieldOverlay(kind,id,obj){if(id==null)return;const m=getFieldOverlay(kind);const cur=m[String(id)]||{};const next={...cur};Object.keys(obj||{}).forEach(k=>{const v=obj[k];if(v!==undefined&&v!==null&&v!=='')next[k]=v;});m[String(id)]=next;localStorage.setItem('fieldoverlay-'+kind,JSON.stringify(m));}
+function applyFieldOverlay(kind,list){const m=getFieldOverlay(kind);(list||[]).forEach(o=>{const ov=m[String(o.Id)];if(ov)Object.keys(ov).forEach(k=>{if(o[k]===undefined||o[k]===null||o[k]==='')o[k]=ov[k];});});return list;}
 function getPipelineOrder(){try{return JSON.parse(localStorage.getItem('pipelineOrder')||'{}');}catch(e){return{};}}
 function setPipelineOrder(o){localStorage.setItem('pipelineOrder',JSON.stringify(o));}
 function pipeOrderedIds(stage,allCards){
@@ -1523,6 +1603,7 @@ async function onCardDrop(e,targetId,stage){
     try{const r=await apiFetch(`${API}/prospects/${draggedId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});if(!r.ok)console.error('Stage drop PUT failed:',r.status);}
     catch(err){console.error('Stage drop error:',err);}
   }
+  if(stageChanged&&(stage==='Closed Won'||stage==='Closed Lost'))onProspectClosed(p,stage);
 }
 async function onColDrop(e,stage){
   e.preventDefault();
@@ -1540,6 +1621,20 @@ async function onColDrop(e,stage){
   if(stageChanged){
     try{const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});if(!r.ok)console.error('Stage drop PUT failed:',r.status);}
     catch(err){console.error('Stage drop error:',err);}
+  }
+  if(stageChanged&&(stage==='Closed Won'||stage==='Closed Lost'))onProspectClosed(p,stage);
+}
+// Popup när ett prospekt dras till Closed won/lost.
+function onProspectClosed(p,stage){
+  if(stage==='Closed Won'){
+    showDialog('Closed won 🎉',
+      `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">Grattis! Vill du konvertera <strong>${(p.Company||'prospektet').replace(/</g,'&lt;')}</strong> till en kund?</div><div style="font-size:12px;color:var(--text3);">All information (organisation, kontaktperson, värde, anteckningar och kontaktlogg) kopieras till ett nytt kundkort som du kan redigera direkt.</div>`,
+      async()=>{await convertToCustomer(p.Id);return true;},'Ja, konvertera','Inte nu');
+  } else if(stage==='Closed Lost'){
+    const opts=['Budget','Konkurrent','Timing','Behov förändrat','Ingen respons','Annat'];
+    showDialog('Closed lost',
+      `<div class="modal-field"><label>Varför förlorades affären?</label><select id="cl-reason" class="edit-input">${opts.map(o=>`<option ${p.LostReason===o?'selected':''}>${o}</option>`).join('')}</select></div>`,
+      async()=>{p.LostReason=document.getElementById('cl-reason').value;try{await apiFetch(`${API}/prospects/${p.Id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});}catch(e){}renderKanban();return true;},'Spara orsak');
   }
 }
 // ─── PROSPECT MODAL ──────────────────────────────────────
@@ -1563,6 +1658,9 @@ function renderProspectTabs(p){
   document.getElementById('prospect-tabs').innerHTML=tabs.map((t,i)=>`<button class="modal-tab ${currentProspectTab===t.n?'active':''}" onclick="switchProspectTab(${t.n})">${i+1}. ${t.label}</button>`).join('');
 }
 async function switchProspectTab(tab){
+  // Spara pågående ändringar på nuvarande flik innan vi byter (annars hinner
+  // autosave-timern inte fyra och fält som Team/Koncern/Bransch tappas bort).
+  if(!isNewProspect&&currentProspectId){clearTimeout(prospectAutoSaveTimer);await silentSaveProspect();}
   currentProspectTab=tab;
   const p=allProspects.find(x=>x.Id===currentProspectId);
   renderProspectTabs(p);
@@ -2114,7 +2212,7 @@ function renderCustomerActivationHtml(c){
         </div>
       </div></div>
     <div class="modal-section"><div class="modal-section-label">Aktiveringssteg (${lt})</div>
-      <div class="modal-card"><div class="tp-tprog" style="margin:8px 0;">${stepsHtml}</div></div></div>
+      <div class="modal-card" style="overflow-x:auto;"><div class="tp-tprog" style="margin:8px 0;grid-template-columns:repeat(${stepLabels.length},minmax(0,1fr));min-width:${stepLabels.length*72}px;">${stepsHtml}</div></div></div>
     <div class="modal-section"><div class="modal-section-label">Upplevd nöjdhet</div>
       <div class="modal-card"><div style="display:flex;gap:8px;flex-wrap:wrap;">${satHtml}</div>${sat?`<button class="btn-sm" style="margin-top:10px;background:var(--surface2);color:var(--text);" onclick="setSatisfaction(${c.Id},0)">Rensa</button>`:''}</div></div>
     <div class="modal-section"><div class="modal-section-label">Aktivitetsnivå (senaste 90 dagar)</div>
@@ -2238,33 +2336,36 @@ async function addKontakt(type,id){
   const next=document.getElementById(`${formId}-next`)?.value||'';
   const nextDate=document.getElementById(`${formId}-nextdate`)?.value;
   const waiting=document.getElementById(`${formId}-waiting`)?.checked;
-  if(!note.trim()&&!next.trim())return;
-  const act={Type:t,Date:d||new Date().toISOString().substring(0,10),Note:note,CreatedBy:'Matilda Olsson',CreatedAt:new Date().toISOString()};
+  const hasNote=note.trim().length>0;
   const hasNext=!!(next.trim()||nextDate);
+  if(!hasNote&&!hasNext)return;
+  // Endast ett verkligt möte/samtal (med anteckning) skapar en aktivitet i
+  // tidslinjen. "Nästa steg" sparas alltid som ett eget objekt kopplat till
+  // mötet (orange pill) — det blir aldrig en egen Möte-rad.
+  const act={Type:t,Date:d||new Date().toISOString().substring(0,10),Note:note,CreatedBy:'Matilda Olsson',CreatedAt:new Date().toISOString()};
+  const newestKey=list=>{const a=(Array.isArray(list)?list:[]).slice().sort((x,y)=>new Date(y.CreatedAt||y.Date||0)-new Date(x.CreatedAt||x.Date||0))[0];return a?(a.Id??a.CreatedAt):null;};
   allActivitiesCache=null; // tvinga omläsning av "Senaste aktivitet" på startsidan
   if(type==='prospect'){
     let createdId=null;
-    try{const r=await apiFetch(`${API}/activities`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectId:id,type:t,note,date:d,createdBy:'Matilda Olsson'})});if(r.ok){try{const cj=await r.json();createdId=cj?.Id??cj?.id??null;}catch(e){}}}catch(e){}
+    if(hasNote){try{const r=await apiFetch(`${API}/activities`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectId:id,type:t,note,date:d,createdBy:'Matilda Olsson'})});if(r.ok){try{const cj=await r.json();createdId=cj?.Id??cj?.id??null;}catch(e){}}}catch(e){}}
     const p=allProspects.find(x=>x.Id===id);
-    // Anteckningen sparas som aktivitetens not; "Nästa steg" är ett separat fält
-    // och uppdateras bara när det fylls i (en ren anteckning rensar inte nästa steg).
     if(p){if(hasNext){p.NextActionType=next||null;p.NextActionDate=nextDate||null;}p.WaitingForResponse=waiting?1:0;
       try{await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});}catch(e){}}
     let acts=[];try{const r=await apiFetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}
-    if(hasNext){let key=createdId;if(!key){const newest=(Array.isArray(acts)?acts:[]).slice().sort((a,b)=>new Date(b.CreatedAt||b.Date||0)-new Date(a.CreatedAt||a.Date||0))[0];key=newest?(newest.Id??newest.CreatedAt):act.CreatedAt;}setActNextEntry('prospect',id,key,{text:next,date:nextDate||'',waiting});}
+    if(hasNext){const key=createdId||newestKey(acts)||('ns-'+act.CreatedAt);setActNextEntry('prospect',id,key,{text:next,date:nextDate||'',waiting});}
     renderProspectBody(p,acts);renderKanban();
   } else if(type==='trial'||type==='pilot'){
-    const key=`${type}-activities-${id}`;
-    const list=JSON.parse(localStorage.getItem(key)||'[]');list.push(act);localStorage.setItem(key,JSON.stringify(list));
-    if(hasNext)setActNextEntry(type,id,act.CreatedAt,{text:next,date:nextDate||'',waiting});
+    const lkey=`${type}-activities-${id}`;
+    let list=JSON.parse(localStorage.getItem(lkey)||'[]');
+    if(hasNote){list.push(act);localStorage.setItem(lkey,JSON.stringify(list));}
+    if(hasNext){const key=hasNote?act.CreatedAt:(newestKey(list)||('ns-'+act.CreatedAt));setActNextEntry(type,id,key,{text:next,date:nextDate||'',waiting});}
     renderTpModalBody();
   } else if(type==='customer'){
-    let saved=false,createdId=null;
-    try{const r=await apiFetch(`${API}/activities/customer/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:t,note,date:d,createdBy:'Matilda Olsson'})});if(r.ok){saved=true;try{const cj=await r.json();createdId=cj?.Id??cj?.id??null;}catch(e){}}}catch(e){}
-    if(!saved){const key=`customer-activities-${id}`;const list=JSON.parse(localStorage.getItem(key)||'[]');list.push(act);localStorage.setItem(key,JSON.stringify(list));}
-    if(hasNext){let key=createdId;if(!key&&saved){let acts2=[];try{const rr=await apiFetch(`${API}/activities/customer/${id}`);if(rr.ok)acts2=await rr.json();}catch(e){}const newest=(Array.isArray(acts2)?acts2:[]).slice().sort((a,b)=>new Date(b.CreatedAt||b.Date||0)-new Date(a.CreatedAt||a.Date||0))[0];key=newest?(newest.Id??newest.CreatedAt):act.CreatedAt;}if(!key)key=act.CreatedAt;setActNextEntry('customer',id,key,{text:next,date:nextDate||'',waiting});}
-    showSaveIndicator('✓ Kontakt sparad','#1a7a50');
-    // Hämta om från servern och rita tidslinjen.
+    let createdId=null;
+    if(hasNote){let saved=false;try{const r=await apiFetch(`${API}/activities/customer/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:t,note,date:d,createdBy:'Matilda Olsson'})});if(r.ok){saved=true;try{const cj=await r.json();createdId=cj?.Id??cj?.id??null;}catch(e){}}}catch(e){}
+      if(!saved){const lkey=`customer-activities-${id}`;const list=JSON.parse(localStorage.getItem(lkey)||'[]');list.push(act);localStorage.setItem(lkey,JSON.stringify(list));createdId=act.CreatedAt;}}
+    if(hasNext){let key=createdId;if(!key){let acts2=[];try{const rr=await apiFetch(`${API}/activities/customer/${id}`);if(rr.ok)acts2=await rr.json();}catch(e){}let local=[];try{local=JSON.parse(localStorage.getItem(`customer-activities-${id}`)||'[]');}catch(e){}key=newestKey([...(Array.isArray(acts2)?acts2:[]),...local])||('ns-'+act.CreatedAt);}setActNextEntry('customer',id,key,{text:next,date:nextDate||'',waiting});}
+    showSaveIndicator(hasNote?'✓ Kontakt sparad':'✓ Nästa steg sparat','#1a7a50');
     loadCustomerKontakt(id);
     if(currentMain==='start')renderStart();
   }
@@ -2393,16 +2494,39 @@ async function silentSaveProspect(){
     if(!r.ok){const t=await r.clone().text().catch(()=>'');console.error('[silentSaveProspect] felsvar:',t);throw new Error();}
     const idx=allProspects.findIndex(x=>x.Id===id);
     if(idx>=0)allProspects[idx]={...allProspects[idx],Company:body.company,Contact:body.contact,Role:body.role,Email:body.email,Phone:body.phone,Employees:body.employees,Industry:body.industry,SubName:body.subName,ParentCompany:body.parentCompany,Source:body.source,Owner:body.owner,Stage:body.stage,Score:body.score,Probability:body.probability,Notes:body.notes,RevenueCategory:body.revenueCategory,ExpectedStartMonth:body.expectedStartMonth,WaitingForResponse:body.waitingForResponse,NextActionType:body.nextActionType,NextActionDate:body.nextActionDate,LostReason:body.lostReason};
+    // Spegla statiska info-fält i lokal overlay så de aldrig tappas vid omladdning.
+    saveFieldOverlay('prospect',id,{Company:body.company,Contact:body.contact,Role:body.role,Email:body.email,Phone:body.phone,Employees:body.employees,Industry:body.industry,SubName:body.subName,ParentCompany:body.parentCompany,Source:body.source,Owner:body.owner,Score:body.score,Notes:body.notes});
     showSaveIndicator('✓ Sparat','#1a7a50');
   }catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}
 }
 async function addProspectActivity(prospectId){const type=document.getElementById('pa-type').value;const note=document.getElementById('pa-note').value;const date=document.getElementById('pa-date').value;if(!note.trim())return;await apiFetch(`${API}/activities`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectId,type,note,date,createdBy:''})});document.getElementById('pa-note').value='';const r=await apiFetch(`${API}/activities/prospect/${prospectId}`);const acts=await r.json();const p=allProspects.find(x=>x.Id===prospectId);renderProspectBody(p,acts);}
 async function deleteProspect(){if(!currentProspectId)return;if(!confirm('Ta bort prospect?'))return;await apiFetch(`${API}/prospects/${currentProspectId}`,{method:'DELETE'});closeProspectModalDirect();await loadProspects();}
-function convertToCustomer(prospectId){const p=allProspects.find(x=>x.Id===prospectId);if(!p)return;closeProspectModalDirect();isNewCustomer=true;currentModalId=null;currentPage=1;document.getElementById('modal-title').textContent='Ny kund från prospect';document.getElementById('modal-subtitle').textContent=p.Company||'';document.getElementById('btn-delete').style.display='none';renderTabs('Team');const c={Company:p.Company,Contact:p.Contact,ContactRole:p.Role,ContactEmail:p.Email,_owner:p.Owner,LicenseType:'Team',Risk:'Low'};renderModalPage(c,[],[]);document.getElementById('modal-overlay').classList.add('open');}
+let _convertData=null;
+async function convertToCustomer(prospectId){
+  const p=allProspects.find(x=>x.Id===prospectId);if(!p)return;
+  // Hämta prospektets kontaktlogg + intäktsposter så de kan kopieras till kunden
+  // efter att kundkortet skapats (kunden får ett Id först då).
+  let acts=[],revs=[];
+  try{const r=await apiFetch(`${API}/activities/prospect/${prospectId}`);if(r.ok)acts=await r.json();}catch(e){}
+  try{revs=await loadProspectRevenues(prospectId);}catch(e){}
+  _convertData={fromProspectId:prospectId,acts:Array.isArray(acts)?acts:[],revs:Array.isArray(revs)?revs:[]};
+  closeProspectModalDirect();
+  isNewCustomer=true;currentModalId=null;currentPage=1;
+  document.getElementById('modal-title').textContent='Ny kund från prospect';
+  document.getElementById('modal-subtitle').textContent=p.Company||'';
+  document.getElementById('btn-delete').style.display='none';
+  renderTabs('Team');
+  const c={Company:p.Company,SubName:p.SubName,ParentCompany:p.ParentCompany,Employees:p.Employees,Industry:p.Industry,Contact:p.Contact,ContactRole:p.Role,ContactEmail:p.Email,ContactPhone:p.Phone,_owner:p.Owner,LicenseType:'Team',Risk:'Low',Notes:p.Notes};
+  renderModalPage(c,[],[]);
+  document.getElementById('modal-overlay').classList.add('open');
+}
 function closeProspectModal(e){if(e.target===document.getElementById('prospect-overlay'))closeProspectModalDirect();}
-function closeProspectModalDirect(){document.getElementById('prospect-overlay').classList.remove('open');}
+function closeProspectModalDirect(){if(!isNewProspect&&currentProspectId){clearTimeout(prospectAutoSaveTimer);silentSaveProspect();}document.getElementById('prospect-overlay').classList.remove('open');}
 // ─── KUNDANALYS (rebuild) ────────────────────────────────
-let kaSelectedCust=null,kaTypes=new Set(['ARR','Fastpris','Consulting','Utbildning']),kaYearSet=new Set([0]),kaOwner='',kaExpanded=new Set(),kaTableSort={col:'v26',asc:false},kaRowExpanded=new Set();
+let kaSelectedCust=null,kaTypes=new Set(['ARR','Fastpris','Consulting','Utbildning']),kaYearSet=new Set([0]),kaOwner='',kaExpanded=new Set(),kaTableSort={col:'v26',asc:false},kaRowExpanded=new Set(),kaMode='periodiserat';
+// Kassaflödesdatum för en intäktspost: fakturadatum + 30 dagar (NET30).
+function kaCashflowDate(item){const base=item.InvoiceDate||item.DateFrom||item.DateTo;if(!base)return null;const d=new Date(base);d.setDate(d.getDate()+30);return d;}
+function kaSetMode(m){kaMode=m;const per=document.getElementById('ka-mode-per'),liq=document.getElementById('ka-mode-liq');if(per)per.classList.toggle('active',m==='periodiserat');if(liq)liq.classList.toggle('active',m==='likviditet');renderKundanalys();}
 let kaCache={aggEntries:[],kpiYear:new Date().getFullYear()};
 let kaAllSort={col:'cur',asc:false};
 function openKaAllModal(mode){
@@ -2433,9 +2557,9 @@ function renderKaAllModalBody(mode){
 }
 let kaRevCache={};
 async function kaFetchAll(){const missing=allCustomers.filter(c=>!kaRevCache[c.Id]);await Promise.all(missing.map(c=>apiFetch(`${API}/customers/${c.Id}/revenues`).then(r=>r.json()).then(items=>{kaRevCache[c.Id]=items;}).catch(()=>{kaRevCache[c.Id]=[];})));}
-function kaCalcYear(items,year){if(year===0)return items.filter(i=>kaTypes.has(i.Type)).reduce((s,i)=>s+(i.Amount||0),0);return items.filter(i=>kaTypes.has(i.Type)).reduce((s,i)=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yS=new Date(year,0,1),yE=new Date(year,11,31);if(!from&&!to)return s+(i.Amount||0);if(!from||!to)return s+(i.Amount||0);if(from>yE||to<yS)return s;const td=Math.max(1,Math.round((to-from)/86400000));const oS=from>yS?from:yS,oE=to<yE?to:yE;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);return s+Math.round((i.Amount||0)*od/td);},0);}
-function kaCalcYearAll(items,year){if(year===0)return items.reduce((s,i)=>s+(i.Amount||0),0);return items.reduce((s,i)=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yS=new Date(year,0,1),yE=new Date(year,11,31);if(!from&&!to)return s+(i.Amount||0);if(!from||!to)return s+(i.Amount||0);if(from>yE||to<yS)return s;const td=Math.max(1,Math.round((to-from)/86400000));const oS=from>yS?from:yS,oE=to<yE?to:yE;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);return s+Math.round((i.Amount||0)*od/td);},0);}
-function kaMonthlyDist(item,year){const months=Array(12).fill(0);const from=item.DateFrom?new Date(item.DateFrom):null;const to=item.DateTo?new Date(item.DateTo):null;if(!from&&!to)return months;if(!from||!to){const d=from||to;if(d.getFullYear()===year)months[d.getMonth()]=item.Amount||0;return months;}const yS=new Date(year,0,1),yE=new Date(year,11,31);if(from>yE||to<yS)return months;const td=Math.max(1,Math.round((to-from)/86400000));for(let m=0;m<12;m++){const mS=new Date(year,m,1),mE=new Date(year,m+1,0);if(mE<from||mS>to)continue;const oS=mS>from?mS:from;const oE=mE<to?mE:to;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);months[m]=Math.round((item.Amount||0)*od/td);}return months;}
+function kaCalcYear(items,year){const f=items.filter(i=>kaTypes.has(i.Type));if(kaMode==='likviditet'){return f.reduce((s,i)=>{const cf=kaCashflowDate(i);if(!cf)return s;if(year!==0&&cf.getFullYear()!==year)return s;return s+(i.Amount||0);},0);}if(year===0)return f.reduce((s,i)=>s+(i.Amount||0),0);return f.reduce((s,i)=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yS=new Date(year,0,1),yE=new Date(year,11,31);if(!from&&!to)return s+(i.Amount||0);if(!from||!to)return s+(i.Amount||0);if(from>yE||to<yS)return s;const td=Math.max(1,Math.round((to-from)/86400000));const oS=from>yS?from:yS,oE=to<yE?to:yE;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);return s+Math.round((i.Amount||0)*od/td);},0);}
+function kaCalcYearAll(items,year){if(kaMode==='likviditet'){return (items||[]).reduce((s,i)=>{const cf=kaCashflowDate(i);if(!cf)return s;if(year!==0&&cf.getFullYear()!==year)return s;return s+(i.Amount||0);},0);}if(year===0)return items.reduce((s,i)=>s+(i.Amount||0),0);return items.reduce((s,i)=>{const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yS=new Date(year,0,1),yE=new Date(year,11,31);if(!from&&!to)return s+(i.Amount||0);if(!from||!to)return s+(i.Amount||0);if(from>yE||to<yS)return s;const td=Math.max(1,Math.round((to-from)/86400000));const oS=from>yS?from:yS,oE=to<yE?to:yE;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);return s+Math.round((i.Amount||0)*od/td);},0);}
+function kaMonthlyDist(item,year){const months=Array(12).fill(0);if(kaMode==='likviditet'){const cf=kaCashflowDate(item);if(cf&&cf.getFullYear()===year)months[cf.getMonth()]=item.Amount||0;return months;}const from=item.DateFrom?new Date(item.DateFrom):null;const to=item.DateTo?new Date(item.DateTo):null;if(!from&&!to)return months;if(!from||!to){const d=from||to;if(d.getFullYear()===year)months[d.getMonth()]=item.Amount||0;return months;}const yS=new Date(year,0,1),yE=new Date(year,11,31);if(from>yE||to<yS)return months;const td=Math.max(1,Math.round((to-from)/86400000));for(let m=0;m<12;m++){const mS=new Date(year,m,1),mE=new Date(year,m+1,0);if(mE<from||mS>to)continue;const oS=mS>from?mS:from;const oE=mE<to?mE:to;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);months[m]=Math.round((item.Amount||0)*od/td);}return months;}
 function kaToggleDD(panelId,e){e.stopPropagation();document.querySelectorAll('.rev-dd-panel').forEach(p=>{if(p.id!==panelId)p.style.display='none';});const p=document.getElementById(panelId);p.style.display=p.style.display==='none'?'block':'none';}
 function kaToggleType(t){if(kaTypes.has(t))kaTypes.delete(t);else kaTypes.add(t);document.getElementById('ka-cb-'+t).classList.toggle('on',kaTypes.has(t));renderKundanalys();}
 function kaToggleYear(y){if(y===0){kaYearSet=new Set([0]);}else{if(kaYearSet.has(0))kaYearSet.delete(0);if(kaYearSet.has(y))kaYearSet.delete(y);else kaYearSet.add(y);if(kaYearSet.size===0)kaYearSet.add(0);}[0,2023,2024,2025,2026].forEach(yy=>{const cb=document.getElementById('ka-cb-y'+yy);if(cb)cb.classList.toggle('on',kaYearSet.has(yy));});renderKundanalys();}
@@ -2529,6 +2653,9 @@ function kaKpiYear(){return kaYearSet.has(0)?2026:Math.max(...kaYearSet);}
 
 async function renderKundanalys(){
   await kaFetchAll();
+  const _pm=document.getElementById('ka-mode-per'),_lm=document.getElementById('ka-mode-liq');
+  if(_pm)_pm.classList.toggle('active',kaMode==='periodiserat');
+  if(_lm)_lm.classList.toggle('active',kaMode==='likviditet');
   const custSel=document.getElementById('ka-cust-select');
   if(custSel.options.length<=1)custSel.innerHTML=kaBuildCustOptions();
   if(custSel.value!==(kaSelectedCust||''))custSel.value=kaSelectedCust||'';
@@ -2721,7 +2848,7 @@ function kaRenderChart(items,years,types,TC,extraHtml){
 // ─── KUNDER ──────────────────────────────────────────────
 async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();if(currentMain==='start')renderStart();prefetchAllCustomerRevenues();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="9"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
 async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
-function updateStats(){const active=allCustomers.filter(c=>c._days!==null&&c._days>=0);document.getElementById('stat-total').textContent=active.length;document.getElementById('tab-count').textContent=allCustomers.length;document.getElementById('stat-enterprise').textContent=allCustomers.filter(c=>c.LicenseType==='Enterprise').length;document.getElementById('stat-team').textContent=allCustomers.filter(c=>c.LicenseType==='Team').length;document.getElementById('stat-expiring').textContent=allCustomers.filter(c=>c._days!==null&&c._days>=0&&c._days<=30).length;document.getElementById('stat-risk').textContent=allCustomers.filter(c=>c.Risk==='High').length;document.getElementById('stat-expired').textContent=allCustomers.filter(c=>c._days!==null&&c._days<0).length;const totalVal=allCustomers.reduce((s,c)=>s+customerValue(c),0);document.getElementById('stat-total-val').textContent=totalVal>0?totalVal.toLocaleString('sv-SE')+' kr':'-';const labels=[revSources.arr?'ARR':'',revSources.fast?'Fast':'',revSources.utb?'Utb':'',revSources.cons?'Cons':''].filter(Boolean);document.getElementById('stat-total-val-label').textContent=labels.length?labels.join('+'):'Värde';}
+function updateStats(){const active=allCustomers.filter(c=>c._days!==null&&c._days>=0);document.getElementById('stat-total').textContent=active.length;document.getElementById('tab-count').textContent=allCustomers.length;document.getElementById('stat-enterprise').textContent=allCustomers.filter(c=>c.LicenseType==='Enterprise').length;document.getElementById('stat-team').textContent=allCustomers.filter(c=>c.LicenseType==='Team').length;document.getElementById('stat-expiring').textContent=allCustomers.filter(c=>c._days!==null&&c._days>=0&&c._days<=30).length;document.getElementById('stat-risk').textContent=allCustomers.filter(c=>c.Risk==='High').length;document.getElementById('stat-expired').textContent=allCustomers.filter(c=>c._days!==null&&c._days<0).length;}
 // Intäktstabellen (ARR/Fastpris/Utbildning/Consulting) ovanför kundlistan.
 // Hämtar värden från värdefliken (custTypeValues) och speglar aktuell filtrering
 // så att den även visar en enskild kunds fördelning när man filtrerat ned dit.
@@ -2740,23 +2867,83 @@ function renderLicenstidslinje(){const now=new Date();const urgent=allCustomers.
 
 // ─── STARTSIDA ───────────────────────────────────────────
 let allActivitiesCache=null;
+let _userInfo=null;
+async function getUserInfo(){if(_userInfo)return _userInfo;try{const r=await fetch('/.auth/me');const d=await r.json();const cp=d?.clientPrincipal;_userInfo={name:cp?.userDetails||''};}catch(e){_userInfo={name:''};}return _userInfo;}
+function startFirstName(){let n=(_userInfo&&_userInfo.name)||'';if(!n)return '';if(n.includes('@'))n=n.split('@')[0].split(/[._]/)[0];else n=n.split(' ')[0];return n?n.charAt(0).toUpperCase()+n.slice(1):'';}
+function startWeekRange(){const now=new Date();const day=(now.getDay()+6)%7;const mon=new Date(now);mon.setHours(0,0,0,0);mon.setDate(now.getDate()-day);const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);return[mon,sun];}
 function renderStart(){
+  renderStartBanner();
+  renderStartWeekStrip();
   renderStartTodo();
   renderStartAction();
   renderStartRenewals();
   renderStartActivity();
+  renderWeeklyHighlight();
+  renderMyNotes();
 }
-// Block 1 — Att göra: alla nästa steg från kunder (per möte) och prospekt.
-function renderStartTodo(){
-  const el=document.getElementById('start-todo-list');if(!el)return;
-  const today=new Date();today.setHours(0,0,0,0);
+// Samlar alla nästa steg från kunder (per möte) och prospekt, sorterade på datum.
+function startTodos(){
   const todos=[];
   (allProspects||[]).forEach(p=>{if(p.NextActionType||p.NextActionDate)todos.push({id:p.Id,kind:'Prospekt',name:p.Company||'Prospekt',text:p.NextActionType||'',date:p.NextActionDate||'',waiting:!!p.WaitingForResponse});});
   (allCustomers||[]).forEach(c=>{const m=getActNext('customer',c.Id);Object.values(m).forEach(ns=>{if(ns.text||ns.date)todos.push({id:c.Id,kind:'Kund',name:c.Company||'Kund',text:ns.text||'',date:ns.date||'',waiting:!!ns.waiting});});});
   todos.sort((a,b)=>{const ad=a.date?new Date(a.date).getTime():Infinity;const bd=b.date?new Date(b.date).getTime():Infinity;return ad-bd;});
+  return todos;
+}
+// Välkomstbanner med inloggad användare, slogan och sammanfattning.
+function renderStartBanner(){
+  const el=document.getElementById('start-banner');if(!el)return;
+  getUserInfo().then(()=>{
+    if(currentMain!=='start')return;
+    const days=['söndag','måndag','tisdag','onsdag','torsdag','fredag','lördag'];
+    const months=['januari','februari','mars','april','maj','juni','juli','augusti','september','oktober','november','december'];
+    const now=new Date();
+    const dateStr=`${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+    const fn=startFirstName();
+    const todoCount=startTodos().length;
+    const renewCount=(allCustomers||[]).filter(c=>c._days!==null&&c._days>=0&&c._days<=60).length;
+    el.innerHTML=`<div class="start-banner-inner">
+      <img src="lumi.png" alt="Lumi" class="start-lumi" onerror="this.style.display='none'">
+      <div style="flex:1;min-width:0;">
+        <div class="start-welcome">Välkommen${fn?', '+fn:''}!</div>
+        <div class="start-slogan">Redo att ta CIBoost till nya höjder? Här är läget — ${dateStr}.</div>
+      </div>
+      <div class="start-summary">
+        <div><span class="start-sum-num" id="start-sum-meet">0</span> möten</div>
+        <div><span class="start-sum-num">${todoCount}</span> att göra</div>
+        <div><span class="start-sum-num">${renewCount}</span> förnyelser</div>
+      </div>
+    </div>`;
+    loadAllActivities().then(acts=>{const[mon,sun]=startWeekRange();const meet=(acts||[]).filter(a=>{if(a.Type!=='Möte')return false;const d=new Date(a.Date||a.CreatedAt||0);return d>=mon&&d<=sun;}).length;const m=document.getElementById('start-sum-meet');if(m)m.textContent=meet;});
+  });
+}
+// Veckostripe: mån–sön, dagens markerad, prickar för aktiviteter (orange) / egna anteckningar (blå).
+function renderStartWeekStrip(){
+  const el=document.getElementById('start-weekstrip');if(!el)return;
+  const[mon]=startWeekRange();
+  const labels=['Mån','Tis','Ons','Tor','Fre','Lör','Sön'];
+  const today=new Date();today.setHours(0,0,0,0);
+  const render=(actDays,noteDays)=>{let html='';for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);d.setHours(0,0,0,0);const t=d.getTime();const isToday=t===today.getTime();html+=`<div class="start-day ${isToday?'today':''}"><div class="start-day-name">${labels[i]}</div><div class="start-day-num">${d.getDate()}</div><div class="start-day-dots">${actDays.has(t)?'<span class="dot" style="background:#E8956D;"></span>':''}${noteDays.has(t)?'<span class="dot" style="background:#1a4f7a;"></span>':''}</div></div>`;}el.innerHTML=html;};
+  const noteDays=new Set();getMyNotes().forEach(n=>{if(n.date){const dd=new Date(n.date);dd.setHours(0,0,0,0);noteDays.add(dd.getTime());}});
+  render(new Set(),noteDays);
+  loadAllActivities().then(acts=>{if(currentMain!=='start')return;const actDays=new Set();(acts||[]).forEach(a=>{const d=a.Date||a.CreatedAt;if(d){const dd=new Date(d);dd.setHours(0,0,0,0);actDays.add(dd.getTime());}});render(actDays,noteDays);});
+}
+// Block 1 — Att göra.
+function renderStartTodo(){
+  const el=document.getElementById('start-todo-list');if(!el)return;
+  const today=new Date();today.setHours(0,0,0,0);
+  const todos=startTodos();
   const cnt=document.getElementById('start-todo-count');if(cnt)cnt.textContent=todos.length;
   el.innerHTML=todos.length?todos.map(t=>{const d=t.date?new Date(t.date):null;if(d)d.setHours(0,0,0,0);const overdue=d&&d<today;const dateStr=d?d.toLocaleDateString('sv-SE'):'–';const open=t.kind==='Kund'?`openModal(${t.id})`:`openProspectModal(${t.id})`;return`<div class="start-row" onclick="${open}"><span class="badge ${t.kind==='Kund'?'b-blue':'b-amber'}" style="font-size:9px;">${t.kind}</span><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.name}</div><div style="font-size:12px;color:var(--text2);">${(t.text||'–').replace(/</g,'&lt;')}</div></div>${t.waiting?'<span class="badge b-blue" style="font-size:9px;flex:0 0 auto;">INVÄNTAR</span>':''}<span style="font-size:11px;font-weight:600;color:${overdue?'var(--red)':'var(--text3)'};white-space:nowrap;flex:0 0 auto;">${overdue?'Försenad '+dateStr:dateStr}</span></div>`;}).join(''):'<div class="start-empty">Inga nästa steg.</div>';
 }
+// Veckans höjdpunkt (delas via localStorage) + Mina anteckningar (privat per användare).
+function renderWeeklyHighlight(){const el=document.getElementById('start-highlight');if(el)el.value=localStorage.getItem('weekly-highlight')||'';}
+function saveWeeklyHighlight(){const el=document.getElementById('start-highlight');if(el){localStorage.setItem('weekly-highlight',el.value);showSaveIndicator('✓ Sparat','#1a7a50');}}
+function myNotesKey(){return 'mynotes-'+((_userInfo&&_userInfo.name)||'me');}
+function getMyNotes(){try{return JSON.parse(localStorage.getItem(myNotesKey())||'[]');}catch(e){return[];}}
+function saveMyNotes(list){localStorage.setItem(myNotesKey(),JSON.stringify(list));}
+function renderMyNotes(){const el=document.getElementById('mynotes-list');if(!el)return;const notes=getMyNotes().slice().sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));el.innerHTML=notes.length?notes.map(n=>`<div class="start-row" style="cursor:default;align-items:flex-start;"><div style="flex:1;min-width:0;"><div style="font-size:12px;color:var(--text2);white-space:pre-wrap;word-break:break-word;">${(n.text||'').replace(/</g,'&lt;')}</div><div style="font-size:10px;color:var(--text3);margin-top:2px;">${n.date?new Date(n.date).toLocaleDateString('sv-SE'):''}</div></div><button onclick="deleteMyNote('${n.id}')" title="Ta bort" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1;flex:0 0 auto;">×</button></div>`).join(''):'<div class="start-empty">Inga anteckningar ännu.</div>';}
+function addMyNote(){const inp=document.getElementById('mynote-input');const v=(inp?.value||'').trim();if(!v)return;const notes=getMyNotes();notes.push({id:String(Date.now())+Math.round(Math.random()*1000),text:v,date:new Date().toISOString().substring(0,10)});saveMyNotes(notes);if(inp)inp.value='';renderMyNotes();renderStartWeekStrip();}
+function deleteMyNote(id){let notes=getMyNotes().filter(n=>String(n.id)!==String(id));saveMyNotes(notes);renderMyNotes();renderStartWeekStrip();}
 // Block 2 — Kräver action: utgångna eller hög risk.
 function renderStartAction(){
   const el=document.getElementById('start-action-list');if(!el)return;
@@ -4305,7 +4492,7 @@ function updateRevDialogDates(licStart,licEnd,prefix){prefix=prefix||'di';const 
 function updateRevDialogHeaders(prefix){prefix=prefix||'di';const t=document.getElementById(prefix+'-type')?.value;const h=document.getElementById(prefix+'-period-header');if(h)h.textContent=(t==='Consulting'||t==='Utbildning')?'Leveransperiod':'Licensperiod';}
 function openAddCommission(revenueId,customerId,baseAmount){const recipientOptions=allRecipients.map(r=>`<option>${r}</option>`).join('');showDialog('Lägg till provision',`<div class="modal-field"><label>Mottagare</label><select id="ci-recipient" class="edit-input">${recipientOptions}<option value="__new__">+ Lägg till ny...</option></select></div><div id="ci-new-recipient-wrap" style="display:none;margin-top:8px;"><div class="modal-field"><label>Nytt namn</label><input id="ci-new-recipient" class="edit-input" placeholder="Namn"></div></div><div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end;"><div class="modal-field" style="flex:1;"><label>Procent (%)</label><input id="ci-percent" class="edit-input" type="number" step="0.1" placeholder="t.ex. 10" oninput="calcCommFromPercent(${baseAmount})"></div><span style="padding-bottom:8px;color:var(--text3);">eller</span><div class="modal-field" style="flex:1;"><label>Belopp (kr)</label><input id="ci-amount" class="edit-input" type="number" placeholder="t.ex. 5000"></div></div><div style="margin-top:6px;font-size:12px;color:var(--text3);">Basbelopp: ${baseAmount.toLocaleString('sv-SE')} kr</div>`,async()=>{let recipient=document.getElementById('ci-recipient').value;if(recipient==='__new__'){const newName=document.getElementById('ci-new-recipient')?.value?.trim();if(!newName)return false;await apiFetch(`${API}/commission-recipients`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName})});allRecipients.push(newName);allRecipients.sort();recipient=newName;}const pct=parseFloat(document.getElementById('ci-percent')?.value)||null;const amt=parseInt(document.getElementById('ci-amount')?.value)||(pct?Math.round(baseAmount*pct/100):0);if(!amt)return false;await apiFetch(`${API}/revenues/${revenueId}/commissions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId,recipient,commissionPercent:pct,amount:amt})});loadRevCommissions(revenueId,customerId);return true;});setTimeout(()=>{document.getElementById('ci-recipient')?.addEventListener('change',function(){document.getElementById('ci-new-recipient-wrap').style.display=this.value==='__new__'?'block':'none';});},50);}
 function calcCommFromPercent(base){const pct=parseFloat(document.getElementById('ci-percent')?.value)||0;const el=document.getElementById('ci-amount');if(el&&pct>0)el.value=Math.round(base*pct/100);}
-function showDialog(title,bodyHtml,onSave){const existing=document.getElementById('dialog-overlay');if(existing)existing.remove();const overlay=document.createElement('div');overlay.id='dialog-overlay';overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';overlay.innerHTML=`<div style="background:var(--surface);border-radius:12px;padding:24px;width:360px;box-shadow:var(--shadow-md);"><h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">${title}</h3><div style="display:flex;flex-direction:column;gap:0;">${bodyHtml}</div><div style="display:flex;gap:8px;margin-top:16px;"><button onclick="document.getElementById('dialog-overlay').remove();" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="dialog-save-btn" class="btn-primary" style="flex:1;" onclick="handleDialogSave()">Spara</button></div></div>`;document.body.appendChild(overlay);window._dialogSave=onSave;}
+function showDialog(title,bodyHtml,onSave,saveLabel,cancelLabel){const existing=document.getElementById('dialog-overlay');if(existing)existing.remove();const overlay=document.createElement('div');overlay.id='dialog-overlay';overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';overlay.innerHTML=`<div style="background:var(--surface);border-radius:12px;padding:24px;width:360px;box-shadow:var(--shadow-md);"><h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">${title}</h3><div style="display:flex;flex-direction:column;gap:0;">${bodyHtml}</div><div style="display:flex;gap:8px;margin-top:16px;"><button onclick="document.getElementById('dialog-overlay').remove();" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">${cancelLabel||'Avbryt'}</button><button id="dialog-save-btn" class="btn-primary" style="flex:1;" onclick="handleDialogSave()">${saveLabel||'Spara'}</button></div></div>`;document.body.appendChild(overlay);window._dialogSave=onSave;}
 async function handleDialogSave(){if(window._dialogSave){const ok=await window._dialogSave();if(ok!==false)document.getElementById('dialog-overlay')?.remove();}}
 
 // ─── AKTIVITETER ─────────────────────────────────────────
@@ -4322,7 +4509,7 @@ const merged={company:gv('edit-company')||c.Company,contact:gv('edit-contact')||
 console.log('[silentSave] ParentCompany field:',document.getElementById('edit-parent-company')?.value,'→ merged.parentCompany:',merged.parentCompany,'| cached c.ParentCompany:',c.ParentCompany,'| merged:',merged);
 try{const r=await apiFetch(`${API}/customers/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(merged)});console.log('[silentSave] PUT /customers/'+id+' → status',r.status,r.ok?'OK':'FAIL');if(!r.ok){const t=await r.clone().text().catch(()=>'<no body>');console.error('[silentSave] error body:',t);}if(r.ok){const idx=allCustomers.findIndex(x=>x.Id===id);if(idx!==-1)allCustomers[idx]={...allCustomers[idx],Company:merged.company,Contact:merged.contact,ContactRole:merged.contactRole,ContactEmail:merged.contactEmail,ContactPhone:merged.contactPhone,CustomerSince:merged.customerSince,LicenseType:merged.licenseType,LicenseStart:merged.licenseStart,LicenseEnd:merged.licenseEnd,ARR:merged.arr,ARR_Fixed:merged.arrFixed,Risk:merged.risk,SubName:merged.subName,ParentCompany:merged.parentCompany,Employees:merged.employees,Industry:merged.industry,Notes:merged.notes,_owner:merged.owner,_days:daysLeft(merged.licenseEnd)};showSaveIndicator('✓ Sparat','#1a7a50');if(lt==='Team'&&document.getElementById('edit-team-count')){await apiFetch(`${API}/customers/${id}/teams`,{method:'DELETE',headers:{'Content-Type':'application/json'}});const count=parseInt(document.getElementById('edit-team-count')?.value)||0;for(let i=0;i<count;i++)await apiFetch(`${API}/customers/${id}/teams`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({teamName:document.getElementById(`team-name-${i}`)?.value||'',meetingLeader1:document.getElementById(`team-ml1-${i}`)?.value||'',meetingLeader1Email:document.getElementById(`team-ml1-email-${i}`)?.value||'',meetingLeader2:document.getElementById(`team-ml2-${i}`)?.value||'',meetingLeader2Email:document.getElementById(`team-ml2-email-${i}`)?.value||''})});}if(lt==='Enterprise'&&document.getElementById('edit-admin-count')){await apiFetch(`${API}/customers/${id}/admins`,{method:'DELETE',headers:{'Content-Type':'application/json'}});const count=parseInt(document.getElementById('edit-admin-count')?.value)||0;for(let i=0;i<count;i++)await apiFetch(`${API}/customers/${id}/admins`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById(`admin-name-${i}`)?.value||'',email:document.getElementById(`admin-email-${i}`)?.value||'',phone:document.getElementById(`admin-phone-${i}`)?.value||''})});}}else{showSaveIndicator('⚠ Fel','#a32d2d');}}catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}}
 
-async function createCustomer(){const body={company:document.getElementById('edit-company')?.value||'Ny kund',contact:document.getElementById('edit-contact')?.value||'',contactRole:document.getElementById('edit-contact-role')?.value||'',contactEmail:document.getElementById('edit-contact-email')?.value||'',contactPhone:document.getElementById('edit-contact-phone')?.value||'',customerSince:document.getElementById('edit-customer-since')?.value||null,owner:document.getElementById('edit-owner')?.value||'Matilda Olsson',licenseStart:document.getElementById('edit-start')?.value||null,licenseEnd:document.getElementById('edit-end')?.value||null,licenseType:document.getElementById('edit-type')?.value||'Team',arr:null,arrFixed:null,revenueTraining:null,revenueConsulting:null,risk:document.getElementById('edit-risk')?.value||'Low',subName:document.getElementById('edit-subname')?.value||null,parentCompany:document.getElementById('edit-parent-company')?.value||null,employees:parseInt(document.getElementById('edit-employees')?.value)||null,industry:document.getElementById('edit-industry')?.value||null,notes:document.getElementById('edit-notes')?.value||null};try{const r=await apiFetch(`${API}/customers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeModalDirect();await loadCustomers();}catch(e){alert('Kunde inte skapa kund.');}}
+async function createCustomer(){const body={company:document.getElementById('edit-company')?.value||'Ny kund',contact:document.getElementById('edit-contact')?.value||'',contactRole:document.getElementById('edit-contact-role')?.value||'',contactEmail:document.getElementById('edit-contact-email')?.value||'',contactPhone:document.getElementById('edit-contact-phone')?.value||'',customerSince:document.getElementById('edit-customer-since')?.value||null,owner:document.getElementById('edit-owner')?.value||'Matilda Olsson',licenseStart:document.getElementById('edit-start')?.value||null,licenseEnd:document.getElementById('edit-end')?.value||null,licenseType:document.getElementById('edit-type')?.value||'Team',arr:null,arrFixed:null,revenueTraining:null,revenueConsulting:null,risk:document.getElementById('edit-risk')?.value||'Low',subName:document.getElementById('edit-subname')?.value||null,parentCompany:document.getElementById('edit-parent-company')?.value||null,employees:parseInt(document.getElementById('edit-employees')?.value)||null,industry:document.getElementById('edit-industry')?.value||null,notes:document.getElementById('edit-notes')?.value||null};try{const r=await apiFetch(`${API}/customers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();let created=null;try{created=await r.json();}catch(e){}const newId=created?.Id??created?.id??null;if(_convertData&&newId){for(const a of _convertData.acts){try{await apiFetch(`${API}/activities/customer/${newId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:a.Type||'Annat',note:a.Note||'',date:(a.Date||a.CreatedAt||'').toString().substring(0,10)||null,createdBy:a.CreatedBy||''})});}catch(e){}}for(const it of _convertData.revs){try{await apiFetch(`${API}/customers/${newId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:it.Type||'ARR',amount:it.Amount||0,dateFrom:it.DateFrom||null,dateTo:it.DateTo||null,description:it.Description||null,invoiceDate:it.InvoiceDate||null})});}catch(e){}}}_convertData=null;closeModalDirect();await loadCustomers();}catch(e){alert('Kunde inte skapa kund.');}}
 function updateTeamBlocks(count,et){const n=Math.max(1,Math.min(20,parseInt(count)||1));let h='';for(let i=0;i<n;i++){const t=et[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Team ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field" style="grid-column:span 2"><label>Teamnamn</label><input class="edit-input" id="team-name-${i}" value="${t.TeamName||''}"></div><div class="modal-field"><label>ML 1</label><input class="edit-input" id="team-ml1-${i}" value="${t.MeetingLeader1||''}"></div><div class="modal-field"><label>E-post ML1</label><input class="edit-input" id="team-ml1-email-${i}" type="email" value="${t.MeetingLeader1Email||''}"></div><div class="modal-field"><label>ML 2</label><input class="edit-input" id="team-ml2-${i}" value="${t.MeetingLeader2||''}"></div><div class="modal-field"><label>E-post ML2</label><input class="edit-input" id="team-ml2-email-${i}" type="email" value="${t.MeetingLeader2Email||''}"></div></div></div></div>`;}document.getElementById('team-blocks').innerHTML=h;}
 function updateAdminBlocks(count,ea){const n=Math.max(1,Math.min(20,parseInt(count)||1));let h='';for(let i=0;i<n;i++){const a=ea[i]||{};h+=`<div class="modal-section"><div class="modal-section-label">Admin ${i+1}</div><div class="modal-card"><div class="modal-grid"><div class="modal-field"><label>Namn</label><input class="edit-input" id="admin-name-${i}" value="${a.Name||''}"></div><div class="modal-field"><label>E-post</label><input class="edit-input" id="admin-email-${i}" type="email" value="${a.Email||''}"></div><div class="modal-field"><label>Telefon</label><input class="edit-input" id="admin-phone-${i}" value="${a.Phone||''}"></div></div></div></div>`;}document.getElementById('admin-blocks').innerHTML=h;}
 
@@ -4345,11 +4532,13 @@ document.getElementById('filter-industry')?.addEventListener('change',()=>render
 async function loadTrials(){
   try{const r=await apiFetch(`${API}/trials`);if(!r.ok)throw new Error();const data=await r.json();allTrials=Array.isArray(data)&&data.length?data:mockTrials;}
   catch(e){allTrials=mockTrials;}
+  applyFieldOverlay('trial',allTrials);
   updateTpNavCount();if(currentMain==='trialpilot')renderTrialPilot();
 }
 async function loadPilots(){
   try{const r=await apiFetch(`${API}/pilots`);if(!r.ok)throw new Error();const data=await r.json();allPilots=Array.isArray(data)&&data.length?data:mockPilots;}
   catch(e){allPilots=mockPilots;}
+  applyFieldOverlay('pilot',allPilots);
   updateTpNavCount();if(currentMain==='trialpilot')renderTrialPilot();
 }
 async function saveTrialProgress(id,stepIndex,value){
@@ -4731,6 +4920,8 @@ async function saveTpFromModal(){
     const inv=parseInt(v('tpm-invited'));item.InvitedCount=isNaN(inv)?null:inv;
   }
   const ep=currentTpType==='trial'?'trials':'pilots';
+  // Spegla alla fält i lokal overlay så de aldrig tappas vid omladdning.
+  saveFieldOverlay(currentTpType,currentTpId,{Company:item.Company,Contact:item.Contact,Role:item.Role,Email:item.Email,Phone:item.Phone,Employees:item.Employees,Industry:item.Industry,Source:item.Source,Owner:item.Owner,StartDate:item.StartDate,EndDate:item.EndDate,Notes:item.Notes,Sessions:item.Sessions,LastActive:item.LastActive,InvitedCount:item.InvitedCount,Participants:item.Participants,ExpectedARR:item.ExpectedARR,DecisionDate:item.DecisionDate});
   try{await apiFetch(`${API}/${ep}/${currentTpId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(item)});}catch(e){}
 }
 function deleteTpFromModal(){
