@@ -1528,12 +1528,12 @@ function openAddProspectRevenue(id){
   showDialog('Lägg till intäktspost',
     `<div class="modal-field"><label>Typ</label><select id="pr-type" class="edit-input" onchange="updateRevDialogHeaders('pr')"><option value="ARR">Licens (prenumeration)</option><option value="Fastpris">Licens (fast pris)</option><option value="Utbildning">Utbildning</option><option value="Consulting">Consulting</option></select></div>
     <div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="pr-amount" type="number" class="edit-input" placeholder="0"></div>
+    <div class="modal-field" style="margin-top:10px;"><label>Sannolikhet (viktning)</label><select id="pr-prob-weight" class="edit-input">${[...Array(21)].map((_,k)=>k*5).map(v=>`<option value="${v}">${v}%</option>`).join('')}</select></div>
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">Fakturering</div>
     <div class="modal-field"><label>Faktureringsdatum</label><input id="pr-invoice-date" type="date" class="edit-input" oninput="updateRiPaymentExpected('pr')"></div>
     <div class="modal-field" style="margin-top:6px;font-size:11px;color:var(--text3);">Betalning förväntas: <span id="pr-payment-expected">–</span></div>
     <div style="margin-top:10px;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="pr-paid" style="width:16px;height:16px;" onchange="document.getElementById('pr-payment-date-wrap').style.display=this.checked?'block':'none';"><span>Betalt</span></label></div>
     <div class="modal-field" id="pr-payment-date-wrap" style="margin-top:10px;display:none;"><label>Betalningsdatum</label><input id="pr-payment-date" type="date" class="edit-input"></div>
-    <div class="modal-field" style="margin-top:10px;"><label>Sannolikhet (viktning)</label><select id="pr-prob-weight" class="edit-input">${[...Array(21)].map((_,k)=>k*5).map(v=>`<option value="${v}">${v}%</option>`).join('')}</select></div>
     <div id="pr-period-header" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">Licensperiod</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div class="modal-field"><label>Från datum</label><input id="pr-from" type="date" class="edit-input"></div>
@@ -1558,10 +1558,16 @@ function updateRiPaymentExpected(prefix){
 async function editProspectRevItem(id,itemId){
   const items=await loadProspectRevenues(id);
   const it=items.find(x=>x.Id===itemId);if(!it)return;
+  const invExp=it.InvoiceDate?(()=>{const d=new Date(it.InvoiceDate);d.setDate(d.getDate()+30);return d.toLocaleDateString('sv-SE')+' (+30 dagar)';})():'–';
   showDialog('Redigera intäktspost',
     `<div class="modal-field"><label>Typ</label><select id="pr-type" class="edit-input" onchange="updateRevDialogHeaders('pr')"><option value="ARR" ${it.Type==='ARR'?'selected':''}>Licens (prenumeration)</option><option value="Fastpris" ${it.Type==='Fastpris'?'selected':''}>Licens (fast pris)</option><option value="Utbildning" ${it.Type==='Utbildning'?'selected':''}>Utbildning</option><option value="Consulting" ${it.Type==='Consulting'?'selected':''}>Consulting</option></select></div>
     <div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="pr-amount" type="number" class="edit-input" value="${it.Amount||0}"></div>
     <div class="modal-field" style="margin-top:10px;"><label>Sannolikhet (viktning)</label><select id="pr-prob-weight" class="edit-input">${[...Array(21)].map((_,k)=>k*5).map(v=>`<option value="${v}" ${(it.Probability||0)===v?'selected':''}>${v}%</option>`).join('')}</select></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">Fakturering</div>
+    <div class="modal-field"><label>Faktureringsdatum</label><input id="pr-invoice-date" type="date" class="edit-input" value="${it.InvoiceDate?it.InvoiceDate.substring(0,10):''}" oninput="updateRiPaymentExpected('pr')"></div>
+    <div class="modal-field" style="margin-top:6px;font-size:11px;color:var(--text3);">Betalning förväntas: <span id="pr-payment-expected">${invExp}</span></div>
+    <div style="margin-top:10px;"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="pr-paid" ${it.Paid?'checked':''} style="width:16px;height:16px;" onchange="document.getElementById('pr-payment-date-wrap').style.display=this.checked?'block':'none';"><span>Betalt</span></label></div>
+    <div class="modal-field" id="pr-payment-date-wrap" style="margin-top:10px;display:${it.Paid?'block':'none'};"><label>Betalningsdatum</label><input id="pr-payment-date" type="date" class="edit-input" value="${it.PaymentDate?it.PaymentDate.substring(0,10):''}"></div>
     <div id="pr-period-header" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">${(it.Type==='Consulting'||it.Type==='Utbildning')?'Leveransperiod':'Licensperiod'}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div class="modal-field"><label>Från datum</label><input id="pr-from" type="date" class="edit-input" value="${it.DateFrom?it.DateFrom.substring(0,10):''}"></div>
@@ -1569,7 +1575,7 @@ async function editProspectRevItem(id,itemId){
     </div>
     <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="pr-desc" class="edit-input" value="${(it.Description||'').replace(/"/g,'&quot;')}"></div>`,
     async()=>{
-      await saveProspectRevenue(id,{Id:itemId,Type:document.getElementById('pr-type').value,Amount:parseInt(document.getElementById('pr-amount').value)||0,Probability:parseInt(document.getElementById('pr-prob-weight').value)||0,DateFrom:document.getElementById('pr-from').value||null,DateTo:document.getElementById('pr-to').value||null,Description:document.getElementById('pr-desc').value||null});
+      await saveProspectRevenue(id,{Id:itemId,Type:document.getElementById('pr-type').value,Amount:parseInt(document.getElementById('pr-amount').value)||0,Probability:parseInt(document.getElementById('pr-prob-weight').value)||0,DateFrom:document.getElementById('pr-from').value||null,DateTo:document.getElementById('pr-to').value||null,Description:document.getElementById('pr-desc').value||null,InvoiceDate:document.getElementById('pr-invoice-date').value||null,Paid:document.getElementById('pr-paid').checked?1:0,PaymentDate:document.getElementById('pr-payment-date').value||null});
       loadProspectRevenuesUI(id);renderKanban();
       return true;
     }
@@ -2076,8 +2082,11 @@ function renderKontaktloggHtml(type,id,item,acts){
           <div class="modal-field"><label>Typ</label><select id="${formId}-type" class="edit-input">${ACTION_TYPES.map(a=>`<option>${a}</option>`).join('')}</select></div>
           <div class="modal-field"><label>Datum</label><input id="${formId}-date" type="date" class="edit-input" value="${new Date().toISOString().substring(0,10)}"></div>
         </div>
-        <div class="modal-field" style="margin-top:8px;"><label>Anteckning</label><textarea id="${formId}-note" class="edit-input" style="height:60px;resize:vertical;"></textarea></div>
-        <div class="modal-field" style="margin-top:8px;"><label>Nästa steg datum</label><input id="${formId}-nextdate" type="date" class="edit-input"></div>
+        <div class="modal-field" style="margin-top:8px;"><label>Anteckningar</label><textarea id="${formId}-note" class="edit-input" style="height:60px;resize:vertical;" placeholder="Minnesanteckningar från aktiviteten"></textarea></div>
+        <div class="modal-grid" style="margin-top:8px;">
+          <div class="modal-field"><label>Nästa steg</label><input id="${formId}-next" class="edit-input" placeholder="Vad ska göras härnäst?"></div>
+          <div class="modal-field"><label>Nästa steg datum</label><input id="${formId}-nextdate" type="date" class="edit-input"></div>
+        </div>
         <div style="margin-top:8px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="checkbox" id="${formId}-waiting" style="width:16px;height:16px;cursor:pointer;"> Inväntar svar</label></div>
         <button class="btn-sm" style="margin-top:10px;" onclick="addKontakt('${type}',${id})">+ Lägg till</button>
       </div>
@@ -2089,15 +2098,17 @@ async function addKontakt(type,id){
   const t=document.getElementById(`${formId}-type`)?.value;
   const d=document.getElementById(`${formId}-date`)?.value;
   const note=document.getElementById(`${formId}-note`)?.value||'';
+  const next=document.getElementById(`${formId}-next`)?.value||'';
   const nextDate=document.getElementById(`${formId}-nextdate`)?.value;
   const waiting=document.getElementById(`${formId}-waiting`)?.checked;
-  if(!note.trim())return;
+  if(!note.trim()&&!next.trim())return;
   const act={Type:t,Date:d||new Date().toISOString().substring(0,10),Note:note,CreatedBy:'Matilda Olsson',CreatedAt:new Date().toISOString()};
   if(type==='prospect'){
     try{await apiFetch(`${API}/activities`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectId:id,type:t,note,date:d,createdBy:'Matilda Olsson'})});}catch(e){}
     const p=allProspects.find(x=>x.Id===id);
-    // Aktivitetens typ blir prospektets "nästa steg"; datum + inväntar-status uppdateras.
-    if(p){if(t)p.NextActionType=t;if(nextDate)p.NextActionDate=nextDate;p.WaitingForResponse=waiting?1:0;
+    // Anteckningen sparas som aktivitetens not; "Nästa steg" är ett separat fält
+    // och uppdateras bara när det fylls i (en ren anteckning rensar inte nästa steg).
+    if(p){if(next.trim()||nextDate){p.NextActionType=next||null;p.NextActionDate=nextDate||null;}p.WaitingForResponse=waiting?1:0;
       try{await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});}catch(e){}}
     let acts=[];try{const r=await apiFetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}
     renderProspectBody(p,acts);renderKanban();
