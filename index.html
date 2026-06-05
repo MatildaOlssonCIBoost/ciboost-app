@@ -2073,7 +2073,7 @@ function renderKontaktloggHtml(type,id,item,acts){
   if(type==='trial'||type==='pilot'){try{localActs=JSON.parse(localStorage.getItem(`${type}-activities-${id}`)||'[]');}catch(e){}}
   if(type==='customer'){try{localActs=JSON.parse(localStorage.getItem(`customer-activities-${id}`)||'[]');}catch(e){}}
   const allActs=[...(acts||[]),...localActs].sort((a,b)=>{const ad=new Date(a.Date||a.CreatedAt||0);const bd=new Date(b.Date||b.CreatedAt||0);return bd-ad;});
-  const timeline=allActs.length?`<div style="position:relative;">${allActs.map((a,i)=>{const kind=KONTAKT_KIND[a.Type]||{color:'#888'};const d=a.Date||a.CreatedAt;return`<div style="position:relative;padding:0 0 14px 24px;${i<allActs.length-1?'border-left:2px solid var(--border);margin-left:5px;padding-left:18px;':'margin-left:5px;padding-left:18px;'}"><span style="position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:${kind.color};border:2px solid var(--surface);"></span><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:${kind.color};text-transform:uppercase;">${a.Type||'Annat'}</span><span style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:var(--text3);">${d?new Date(d).toLocaleDateString('sv-SE'):''}</span>${(type==='prospect'&&a.Id)?`<button onclick="deleteTimelineActivity('${type}',${id},${a.Id})" title="Ta bort aktivitet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;">×</button>`:''}</span></div>${a.Note?`<div style="font-size:12px;color:var(--text2);">${a.Note}</div>`:''}${a.CreatedBy?`<div style="font-size:10px;color:var(--text3);margin-top:2px;">— ${a.CreatedBy}</div>`:''}</div>`;}).join('')}</div>`:'<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px;">Inga kontakter loggade ännu.</div>';
+  const timeline=allActs.length?`<div style="position:relative;">${allActs.map((a,i)=>{const kind=KONTAKT_KIND[a.Type]||{color:'#888'};const d=a.Date||a.CreatedAt;return`<div style="position:relative;padding:0 0 14px 24px;${i<allActs.length-1?'border-left:2px solid var(--border);margin-left:5px;padding-left:18px;':'margin-left:5px;padding-left:18px;'}"><span style="position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:${kind.color};border:2px solid var(--surface);"></span><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:${kind.color};text-transform:uppercase;">${a.Type||'Annat'}</span><span style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:var(--text3);">${d?new Date(d).toLocaleDateString('sv-SE'):''}</span>${((type==='prospect'||type==='customer')&&a.Id)?`<button onclick="editTimelineActivity('${type}',${id},${a.Id})" title="Redigera aktivitet" style="border:none;background:none;color:var(--accent);cursor:pointer;font-size:12px;line-height:1;padding:0 2px;">✎</button><button onclick="deleteTimelineActivity('${type}',${id},${a.Id})" title="Ta bort aktivitet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;">×</button>`:''}</span></div>${a.Note?`<div style="font-size:12px;color:var(--text2);">${a.Note}</div>`:''}${a.CreatedBy?`<div style="font-size:10px;color:var(--text3);margin-top:2px;">— ${a.CreatedBy}</div>`:''}</div>`;}).join('')}</div>`:'<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px;">Inga kontakter loggade ännu.</div>';
   const formId=`kontakt-${type}-${id}`;
   return`${stepBox}
     <div class="modal-section"><div class="modal-section-label">Lägg till kontakt</div>
@@ -2128,13 +2128,54 @@ async function addKontakt(type,id){
 // Ta bort en enskild aktivitet från tidslinjen (DELETE /activities/:id).
 async function deleteTimelineActivity(type,id,activityId){
   if(!confirm('Ta bort aktiviteten?'))return;
-  try{await apiFetch(`${API}/activities/${activityId}`,{method:'DELETE'});}
+  const url=type==='customer'?`${API}/activities/customer/${id}/${activityId}`:`${API}/activities/${activityId}`;
+  try{await apiFetch(url,{method:'DELETE'});}
   catch(e){showSaveIndicator('⚠ Kunde inte ta bort','#a32d2d');return;}
   showSaveIndicator('✓ Aktivitet borttagen','#1a7a50');
   if(type==='prospect'){
     let acts=[];try{const r=await apiFetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}
     const p=allProspects.find(x=>x.Id===id);renderProspectBody(p,acts);renderKanban();
+  } else if(type==='customer'){
+    loadCustomerKontakt(id);
   }
+}
+// Redigera en aktivitet i tidslinjen (penna-ikon). Öppnar förifyllt formulär.
+async function editTimelineActivity(type,id,activityId){
+  let acts=[];
+  const listUrl=type==='customer'?`${API}/activities/customer/${id}`:`${API}/activities/prospect/${id}`;
+  try{const r=await apiFetch(listUrl);if(r.ok)acts=await r.json();}catch(e){}
+  const a=(Array.isArray(acts)?acts:[]).find(x=>String(x.Id)===String(activityId));
+  if(!a){showSaveIndicator('⚠ Hittade inte aktiviteten','#a32d2d');return;}
+  const isP=type==='prospect';
+  const p=isP?allProspects.find(x=>x.Id===id):null;
+  const dStr=(a.Date||a.CreatedAt)?String(a.Date||a.CreatedAt).substring(0,10):'';
+  const typeOpts=ACTION_TYPES.map(t=>`<option ${a.Type===t?'selected':''}>${t}</option>`).join('');
+  const nextStepHtml=isP?`
+    <div class="modal-grid" style="margin-top:8px;">
+      <div class="modal-field"><label>Nästa steg</label><input id="eta-next" class="edit-input" value="${(p?.NextActionType||'').replace(/"/g,'&quot;')}"></div>
+      <div class="modal-field"><label>Nästa steg datum</label><input id="eta-nextdate" type="date" class="edit-input" value="${p?.NextActionDate?String(p.NextActionDate).substring(0,10):''}"></div>
+    </div>
+    <div style="margin-top:8px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer;"><input type="checkbox" id="eta-waiting" ${p?.WaitingForResponse?'checked':''} style="width:16px;height:16px;cursor:pointer;"> Inväntar svar</label></div>`:'';
+  showDialog('Redigera aktivitet',
+    `<div class="modal-grid">
+      <div class="modal-field"><label>Typ</label><select id="eta-type" class="edit-input">${typeOpts}</select></div>
+      <div class="modal-field"><label>Datum</label><input id="eta-date" type="date" class="edit-input" value="${dStr}"></div>
+    </div>
+    <div class="modal-field" style="margin-top:8px;"><label>Anteckningar</label><textarea id="eta-note" class="edit-input" style="height:60px;resize:vertical;">${(a.Note||'').replace(/</g,'&lt;')}</textarea></div>
+    ${nextStepHtml}`,
+    async()=>{
+      const body={type:document.getElementById('eta-type').value,note:document.getElementById('eta-note').value||'',date:document.getElementById('eta-date').value||null};
+      const url=type==='customer'?`${API}/activities/customer/${id}/${activityId}`:`${API}/activities/${activityId}`;
+      try{await apiFetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
+      catch(e){showSaveIndicator('⚠ Kunde inte spara','#a32d2d');return false;}
+      if(isP&&p){const next=document.getElementById('eta-next')?.value||'';const nd=document.getElementById('eta-nextdate')?.value||'';p.NextActionType=next||null;p.NextActionDate=nd||null;p.WaitingForResponse=document.getElementById('eta-waiting')?.checked?1:0;
+        try{await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});}catch(e){}}
+      showSaveIndicator('✓ Aktivitet uppdaterad','#1a7a50');
+      if(isP){let na=[];try{const r=await apiFetch(`${API}/activities/prospect/${id}`);na=await r.json();}catch(e){}renderProspectBody(p,na);renderKanban();}
+      else{loadCustomerKontakt(id);}
+      return true;
+    }
+  );
 }
 function onStageChange(){
   const stage=document.getElementById('p-stage')?.value;
