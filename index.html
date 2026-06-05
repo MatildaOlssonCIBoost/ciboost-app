@@ -1583,6 +1583,7 @@ function renderKanban(){
       }
       const stageDate=p.UpdatedAt||p.CreatedAt;
       const daysInStage=stageDate?Math.max(0,Math.round((new Date()-new Date(stageDate))/86400000)):0;
+      const daysInPipe=p.CreatedAt?Math.max(0,Math.round((new Date()-new Date(p.CreatedAt))/86400000)):daysInStage;
       const revTotal=prospectRevenueTotals[p.Id]||0;
       const totalVal=revTotal||p.ValueMax||p.ValueMin||p.Value||0;
       const totalValStr=totalVal?Math.round(totalVal/1000)+'k kr':'';
@@ -1597,7 +1598,7 @@ function renderKanban(){
         ${probHtml?`<div style="margin-bottom:3px;">${probHtml}</div>`:''}
         ${actionHtml}
         ${isLost&&p.LostReason?`<div class="kc-lost-reason">Orsak: ${p.LostReason}</div>`:''}
-        <div class="kc-days">I stage: ${daysInStage}d</div>
+        <div class="kc-days">Pipe: ${daysInPipe}d · Steg: ${daysInStage}d</div>
       </div>`;
     }).join(''):`<div style="border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:11px;color:var(--text3);">Tom</div>`;
     return`<div class="kanban-col" data-stage="${stage}" ondragover="onColDragOver(event)" ondragleave="onColDragLeave(event)" ondrop="onColDrop(event,'${stage.replace(/'/g,"\\'")}')"><div class="kanban-col-header"><span class="kanban-col-title" style="${isWon?'color:var(--green)':isLost?'color:var(--red)':''}">${stage}</span><span class="kanban-col-count">${cards.length}</span></div>${cardsHtml}</div>`;
@@ -2070,6 +2071,11 @@ function valueChurnPct(){
   });
   return base>0?Math.max(0,Math.min(1,churned/base)):0;
 }
+const CHURN_REASONS=['Budget','Dåligt utnyttjande','Kundnöjdhet','Behov förändrat','Teamkonstellation','Annat','Vet ej'];
+// Churnade kunder (markerade via Förnyelse-sektionen) flyttas till Arkiv → Tidigare
+// kunder via en lokal markering med anledning + datum.
+function getChurnedCustomers(){try{return JSON.parse(localStorage.getItem('churned-customers')||'{}');}catch(e){return{};}}
+function setCustomerChurned(id,reason){const m=getChurnedCustomers();m[String(id)]={reason:reason||'Ej förnyat',date:new Date().toISOString().substring(0,10)};localStorage.setItem('churned-customers',JSON.stringify(m));}
 function renderRenewalSectionHtml(c){
   const urgent=c._days!==null&&c._days<0;
   const col=urgent?'var(--red)':'var(--amber)';
@@ -2100,20 +2106,28 @@ async function loadRenewalItems(id){
         ${status}
       </div>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
-        <div class="modal-field" style="flex:1;min-width:140px;"><label>Utfall</label><select id="renewal-outcome-${i}" class="edit-input"><option>Ej registrerat</option><option>Förnyade</option><option>Churnade</option><option>Pausad</option></select></div>
+        <div class="modal-field" style="flex:1;min-width:140px;"><label>Utfall</label><select id="renewal-outcome-${i}" class="edit-input" onchange="document.getElementById('renewal-reason-wrap-${i}').style.display=this.value==='Churnade'?'block':'none';"><option>Ej registrerat</option><option>Förnyade</option><option>Churnade</option><option>Pausad</option></select></div>
         <div class="modal-field"><label>Beslutsdatum</label><input id="renewal-date-${i}" type="date" class="edit-input" value="${todayStr}"></div>
         <button class="btn-sm" onclick="saveRenewalOutcomeItem(${id},${i},${amount})">Spara</button>
       </div>
+      <div class="modal-field" id="renewal-reason-wrap-${i}" style="display:none;margin-top:8px;"><label>Anledning (flyttas till arkiv)</label><select id="renewal-reason-${i}" class="edit-input">${CHURN_REASONS.map(r=>`<option>${r}</option>`).join('')}</select></div>
     </div>`;
   }).join('');
 }
 async function saveRenewalOutcomeItem(id,i,amount){
   const outcome=document.getElementById(`renewal-outcome-${i}`)?.value;
   const decisionDate=document.getElementById(`renewal-date-${i}`)?.value||null;
-  if(!outcome)return;
+  if(!outcome||outcome==='Ej registrerat')return;
+  const churnReason=outcome==='Churnade'?(document.getElementById(`renewal-reason-${i}`)?.value||'Vet ej'):null;
   try{
-    const r=await apiFetch(`${API}/renewalOutcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:id,outcome,decisionDate,amount})});
-    showSaveIndicator(r.ok?'✓ Förnyelseutfall sparat':'⚠ Kunde inte spara',r.ok?'#1a7a50':'#a32d2d');
+    const r=await apiFetch(`${API}/renewalOutcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:id,outcome,decisionDate,amount,churnReason})});
+    if(outcome==='Churnade'){
+      setCustomerChurned(id,churnReason);
+      showSaveIndicator('✓ Kund churnad – flyttad till arkiv','#1a7a50');
+      closeModalDirect();updateArkivStatsBar();if(currentMain==='arkiv')renderArkivCurrent();
+    } else {
+      showSaveIndicator(r.ok?'✓ Förnyelseutfall sparat':'⚠ Kunde inte spara',r.ok?'#1a7a50':'#a32d2d');
+    }
   }catch(e){console.error('saveRenewalOutcomeItem',e);showSaveIndicator('⚠ Nätverksfel','#a32d2d');}
 }
 function getCustomerRiskFactors(c){
@@ -2894,12 +2908,12 @@ function kaRenderChart(items,years,types,TC,extraHtml){
 // ─── KUNDER ──────────────────────────────────────────────
 async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();if(currentMain==='start')renderStart();prefetchAllCustomerRevenues();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="10"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
 async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
-function updateStats(){const active=allCustomers.filter(c=>c._days!==null&&c._days>=0);document.getElementById('stat-total').textContent=active.length;document.getElementById('tab-count').textContent=allCustomers.length;document.getElementById('stat-enterprise').textContent=allCustomers.filter(c=>c.LicenseType==='Enterprise').length;document.getElementById('stat-team').textContent=allCustomers.filter(c=>c.LicenseType==='Team').length;document.getElementById('stat-expiring').textContent=allCustomers.filter(c=>c._days!==null&&c._days>=0&&c._days<=30).length;document.getElementById('stat-risk').textContent=allCustomers.filter(c=>c.Risk==='High').length;document.getElementById('stat-expired').textContent=allCustomers.filter(c=>c._days!==null&&c._days<0).length;}
+function updateStats(){const churned=getChurnedCustomers();const cs=allCustomers.filter(c=>!churned[c.Id]);const active=cs.filter(c=>c._days!==null&&c._days>=0);document.getElementById('stat-total').textContent=active.length;document.getElementById('tab-count').textContent=cs.length;document.getElementById('stat-enterprise').textContent=cs.filter(c=>c.LicenseType==='Enterprise').length;document.getElementById('stat-team').textContent=cs.filter(c=>c.LicenseType==='Team').length;document.getElementById('stat-expiring').textContent=cs.filter(c=>c._days!==null&&c._days>=0&&c._days<=30).length;document.getElementById('stat-risk').textContent=cs.filter(c=>c.Risk==='High').length;document.getElementById('stat-expired').textContent=cs.filter(c=>c._days!==null&&c._days<0).length;}
 // Intäktstabellen (ARR/Fastpris/Utbildning/Consulting) ovanför kundlistan.
 // Hämtar värden från värdefliken (custTypeValues) och speglar aktuell filtrering
 // så att den även visar en enskild kunds fördelning när man filtrerat ned dit.
 function renderRevSummary(){const el=document.getElementById('rev-summary');if(!el)return;const data=(typeof getFiltered==='function')?getFiltered():allCustomers;const sum=k=>data.reduce((s,c)=>s+custTypeValues(c)[k],0);const totArr=sum('arr'),totFast=sum('fast'),totUtb=sum('utb'),totCons=sum('cons');const scoped=data.length!==allCustomers.length;const heading=scoped?(data.length===1?` · ${data[0].Company||''}`:` · ${data.length} kunder`):'';el.innerHTML=`<div class="kpi-card"><div class="kpi-label">ARR totalt${heading}</div><div class="kpi-value" style="color:var(--green)">${fmtKr(totArr)}</div></div><div class="kpi-card"><div class="kpi-label">Fastpris</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(totFast)}</div></div><div class="kpi-card"><div class="kpi-label">Utbildning</div><div class="kpi-value" style="color:var(--amber)">${fmtKr(totUtb)}</div></div><div class="kpi-card"><div class="kpi-label">Consulting</div><div class="kpi-value" style="color:var(--purple)">${fmtKr(totCons)}</div></div>`;}
-function getFiltered(){const q=(document.getElementById('search')?.value||'').toLowerCase();const owner=document.getElementById('filter-owner')?.value||'';const license=document.getElementById('filter-license')?.value||'';const risk=document.getElementById('filter-risk')?.value||'';const industry=document.getElementById('filter-industry')?.value||'';return allCustomers.filter(c=>{const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk)&&(!industry||c.Industry===industry);});}
+function getFiltered(){const q=(document.getElementById('search')?.value||'').toLowerCase();const owner=document.getElementById('filter-owner')?.value||'';const license=document.getElementById('filter-license')?.value||'';const risk=document.getElementById('filter-risk')?.value||'';const industry=document.getElementById('filter-industry')?.value||'';const churned=getChurnedCustomers();return allCustomers.filter(c=>{if(churned[c.Id])return false;const mq=!q||(c.Company||'').toLowerCase().includes(q)||(c.Contact||'').toLowerCase().includes(q);return mq&&(!owner||c._owner===owner)&&(!license||c.LicenseType===license)&&(!risk||c.Risk===risk)&&(!industry||c.Industry===industry);});}
 function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderTable();}
 function sortData(data){const pick=c=>{if(sortCol==='days')return c._licDays??99999;if(sortCol==='ARR')return customerValue(c);if(sortCol==='LicenseEnd')return c._licEnd||'';if(sortCol==='avtal')return c._avtalEnd||'';return c[sortCol]||'';};return [...data].sort((a,b)=>{let va=pick(a),vb=pick(b);if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;});}
 function renderTable(){const data=sortData(getFiltered());document.getElementById('filter-count').textContent=`${data.length} kund${data.length!==1?'er':''}`;renderRevSummary();if(!data.length){document.getElementById('table-body').innerHTML=`<tr><td colspan="10"><div class="empty">Inga kunder matchar</div></td></tr>`;return;}document.getElementById('table-body').innerHTML=data.map(c=>{const tv=custTypeValues(c);const _s=revSources;const arr=_s.arr?tv.arr:0,fast=_s.fast?tv.fast:0,utb=_s.utb?tv.utb:0,cons=_s.cons?tv.cons:0;const tot=arr+fast+utb+cons||1;const val=arr+fast+utb+cons;const bars=[arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;"></div>`:'',fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;"></div>`:'',utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;"></div>`:'',cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;"></div>`:''].filter(Boolean).join('');return`<tr onclick="openModal(${c.Id})"><td><div class="company-name">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td><td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td><td><span class="owner-tag">${c._owner}</span></td><td><span class="license-type lt-${c.LicenseType}">${c.LicenseType||'-'}</span></td><td style="font-weight:500;font-size:13px;">${val>0?val.toLocaleString('sv-SE')+' kr':'-'}</td><td><div style="display:flex;gap:2px;align-items:center;">${bars}</div></td><td style="font-size:13px;color:var(--text2);">${c._licEnd?formatDate(c._licEnd):'<span style="color:var(--text3);">–</span>'}</td><td style="font-size:13px;color:var(--text2);">${c._avtalEnd?formatDate(c._avtalEnd):'<span style="color:var(--text3);">–</span>'}</td><td>${daysPill(c._licDays)}</td><td><span class="risk-dot risk-${c.Risk}">${c.Risk||'-'}</span>${(()=>{const f=getCustomerRiskFactors(c);return f.length?`<div style="font-size:10px;color:var(--text3);margin-top:3px;line-height:1.3;">${f.join(' · ')}</div>`:'';})()}</td></tr>`;}).join('');}
@@ -2953,7 +2967,16 @@ function renderStart(){
 }
 // Veckonyckel (måndagens datum) — används för "avklarade denna vecka" + rollover.
 function startWeekKey(){return startWeekRange()[0].toISOString().slice(0,10);}
-function todoKey(t){return `${t.kind}:${t.id}:${t.text||''}:${t.date||''}`;}
+// Stabil nyckel (oberoende av text/datum) så att avbockning/tilldelning överlever
+// redigering av uppgiften.
+function todoKey(t){
+  if(t.manual||t.src==='manual')return 'manual:'+t.mid;
+  if(t.src==='cust')return 'cust:'+t.cid+':'+t.ak;
+  if(t.src==='prospect')return 'prospect:'+t.pid;
+  return `${t.kind}:${t.id}:${t.text||''}:${t.date||''}`;
+}
+// "Alexandra Henningson" → "Alexandra H." (full förnamn + efternamnsinitial).
+function abbrevName(n){if(!n)return'';const p=n.trim().split(/\s+/);return p.length>1?`${p[0]} ${p[p.length-1][0]}.`:p[0];}
 function tdState(k){try{return JSON.parse(localStorage.getItem(k)||'{}');}catch(e){return{};}}
 function toggleTodoDone(key,done){const m=tdState('todo-done');if(done)m[key]=startWeekKey();else delete m[key];localStorage.setItem('todo-done',JSON.stringify(m));renderStartTodo();}
 function assignTodo(key,who){const m=tdState('todo-assign');if(who)m[key]=who;else delete m[key];localStorage.setItem('todo-assign',JSON.stringify(m));renderStartTodo();}
@@ -2968,16 +2991,41 @@ function addManualTodoFromForm(){
   const who=document.getElementById('mt-assignee')?.value||'';
   const id='m'+Date.now()+Math.round(Math.random()*1000);
   const list=manualTodos();list.push({id,text,date});saveManualTodos(list);
-  if(who){const m=tdState('todo-assign');m[todoKey({kind:'Uppgift',id,text:'',date})]=who;localStorage.setItem('todo-assign',JSON.stringify(m));}
+  if(who){const m=tdState('todo-assign');m[todoKey({manual:true,mid:id})]=who;localStorage.setItem('todo-assign',JSON.stringify(m));}
   toggleStartTodoForm(false);renderStartTodo();
 }
 function deleteManualTodo(id){const list=manualTodos().filter(m=>String(m.id)!==String(id));saveManualTodos(list);renderStartTodo();}
+// Penna-redigering av en uppgift (samma fält som vid skapande). Funkar för
+// manuella uppgifter, kund-nästa-steg och prospekt-nästa-steg.
+function editStartTodo(key){
+  const t=startTodos().find(x=>todoKey(x)===key);if(!t)return;
+  const cur=t.manual?t.name:t.text;
+  const who=tdState('todo-assign')[key]||'';
+  const ownerOpts=OWNERS.map(o=>`<option ${who===o?'selected':''}>${o}</option>`).join('');
+  showDialog('Redigera uppgift',
+    `<div class="modal-field"><label>Vad ska göras</label><input id="eu-text" class="edit-input" value="${(cur||'').replace(/"/g,'&quot;')}"></div>
+     <div class="modal-grid" style="margin-top:8px;">
+       <div class="modal-field"><label>Datum</label><input id="eu-date" type="date" class="edit-input" value="${t.date||''}"></div>
+       <div class="modal-field"><label>Tilldela</label><select id="eu-assignee" class="edit-input"><option value="">Ingen</option>${ownerOpts}</select></div>
+     </div>`,
+    async()=>{
+      const text=(document.getElementById('eu-text')?.value||'').trim();if(!text)return false;
+      const date=document.getElementById('eu-date')?.value||'';
+      const assignee=document.getElementById('eu-assignee')?.value||'';
+      if(t.src==='manual'){const list=manualTodos();const it=list.find(m=>String(m.id)===String(t.mid));if(it){it.text=text;it.date=date;}saveManualTodos(list);}
+      else if(t.src==='cust'){const m=getActNext('customer',t.cid);if(m[t.ak]){m[t.ak]={...m[t.ak],text,date};localStorage.setItem(actNextKey('customer',t.cid),JSON.stringify(m));}}
+      else if(t.src==='prospect'){const p=allProspects.find(x=>x.Id===t.pid);if(p){p.NextActionType=text;p.NextActionDate=date||null;try{await apiFetch(`${API}/prospects/${t.pid}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});}catch(e){}renderKanban&&renderKanban();}}
+      const am=tdState('todo-assign');if(assignee)am[key]=assignee;else delete am[key];localStorage.setItem('todo-assign',JSON.stringify(am));
+      renderStartTodo();
+      return true;
+    });
+}
 // Samlar alla nästa steg från kunder (per möte) och prospekt, sorterade på datum.
 function startTodos(){
   const todos=[];
-  (allProspects||[]).forEach(p=>{if(p.NextActionType||p.NextActionDate)todos.push({id:p.Id,kind:'Prospekt',name:p.Company||'Prospekt',text:p.NextActionType||'',date:p.NextActionDate||'',waiting:!!p.WaitingForResponse});});
-  (allCustomers||[]).forEach(c=>{const m=getActNext('customer',c.Id);Object.values(m).forEach(ns=>{if(ns.text||ns.date)todos.push({id:c.Id,kind:'Kund',name:c.Company||'Kund',text:ns.text||'',date:ns.date||'',waiting:!!ns.waiting});});});
-  manualTodos().forEach(m=>todos.push({id:m.id,kind:'Uppgift',name:m.text,text:'',date:m.date||'',waiting:false,manual:true}));
+  (allProspects||[]).forEach(p=>{if(p.NextActionType||p.NextActionDate)todos.push({id:p.Id,kind:'Prospekt',name:p.Company||'Prospekt',text:p.NextActionType||'',date:p.NextActionDate||'',waiting:!!p.WaitingForResponse,src:'prospect',pid:p.Id});});
+  (allCustomers||[]).forEach(c=>{const m=getActNext('customer',c.Id);Object.entries(m).forEach(([ak,ns])=>{if(ns.text||ns.date)todos.push({id:c.Id,kind:'Kund',name:c.Company||'Kund',text:ns.text||'',date:ns.date||'',waiting:!!ns.waiting,src:'cust',cid:c.Id,ak});});});
+  manualTodos().forEach(m=>todos.push({id:m.id,kind:'Uppgift',name:m.text,text:'',date:m.date||'',waiting:false,manual:true,src:'manual',mid:m.id}));
   todos.sort((a,b)=>{const ad=a.date?new Date(a.date).getTime():Infinity;const bd=b.date?new Date(b.date).getTime():Infinity;return ad-bd;});
   return todos;
 }
@@ -3032,8 +3080,8 @@ function renderStartTodo(){
   startTodos().forEach(t=>{const key=todoKey(t);(doneMap[key]===wk?done:active).push({t,key});});
   const cnt=document.getElementById('start-todo-count');if(cnt)cnt.textContent=active.length;
   const esc=s=>String(s).replace(/'/g,"\\'");
-  const ownerOpts=who=>OWNERS.map(o=>`<option ${who===o?'selected':''}>${o}</option>`).join('');
-  el.innerHTML=active.length?active.map(({t,key})=>{const d=t.date?new Date(t.date):null;if(d)d.setHours(0,0,0,0);const overdue=d&&d<today;const dateStr=d?d.toLocaleDateString('sv-SE'):'';const open=t.manual?'':(t.kind==='Kund'?`openModal(${t.id})`:`openProspectModal(${t.id})`);const who=assignMap[key]||'';return`<div class="start-todo-row"><input type="checkbox" title="Bocka av" onclick="event.stopPropagation();toggleTodoDone('${esc(key)}',this.checked)" style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;"><div style="flex:1;min-width:0;${open?'cursor:pointer;':''}" ${open?`onclick="${open}"`:''}><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.name} <span style="font-size:10px;color:var(--text3);">· ${t.kind}</span></div>${t.text?`<div style="font-size:12px;color:var(--text2);">${t.text.replace(/</g,'&lt;')}</div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto;">${dateStr?`<span style="font-size:11px;font-weight:600;color:${overdue?'var(--red)':'var(--text3)'};white-space:nowrap;">${overdue?'Försenad '+dateStr:dateStr}</span>`:''}<div style="display:flex;gap:4px;align-items:center;">${t.waiting?'<span class="badge b-blue" style="font-size:8px;">INVÄNTAR</span>':''}<select class="assign-pill ${who?'assigned':'unassigned'}" onchange="assignTodo('${esc(key)}',this.value)" onclick="event.stopPropagation();" title="Delegera"><option value="">Tilldela…</option>${ownerOpts(who)}</select></div></div>${t.manual?`<button onclick="event.stopPropagation();deleteManualTodo('${esc(String(t.id))}')" title="Ta bort uppgift" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:16px;line-height:1;flex:0 0 auto;align-self:flex-start;">×</button>`:''}</div>`;}).join(''):'<div class="start-empty">Inga öppna nästa steg. 🎉</div>';
+  const ownerOpts=who=>OWNERS.map(o=>`<option value="${o}" ${who===o?'selected':''}>${abbrevName(o)}</option>`).join('');
+  el.innerHTML=active.length?active.map(({t,key})=>{const d=t.date?new Date(t.date):null;if(d)d.setHours(0,0,0,0);const overdue=d&&d<today;const dateStr=d?d.toLocaleDateString('sv-SE'):'';const open=t.manual?'':(t.kind==='Kund'?`openModal(${t.id})`:`openProspectModal(${t.id})`);const who=assignMap[key]||'';return`<div class="start-todo-row"><input type="checkbox" title="Bocka av" onclick="event.stopPropagation();toggleTodoDone('${esc(key)}',this.checked)" style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;"><div style="flex:1;min-width:0;${open?'cursor:pointer;':''}" ${open?`onclick="${open}"`:''}><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.name} <span style="font-size:10px;color:var(--text3);">· ${t.kind}</span></div>${t.text?`<div style="font-size:12px;color:var(--text2);">${t.text.replace(/</g,'&lt;')}</div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto;">${dateStr?`<span style="font-size:11px;font-weight:600;color:${overdue?'var(--red)':'var(--text3)'};white-space:nowrap;">${overdue?'Försenad '+dateStr:dateStr}</span>`:''}<div style="display:flex;gap:4px;align-items:center;">${t.waiting?'<span class="badge b-blue" style="font-size:8px;">INVÄNTAR</span>':''}<select class="assign-pill ${who?'assigned':'unassigned'}" onchange="assignTodo('${esc(key)}',this.value)" onclick="event.stopPropagation();" title="Delegera"><option value="">Tilldela…</option>${ownerOpts(who)}</select></div></div><button onclick="event.stopPropagation();editStartTodo('${esc(key)}')" title="Redigera uppgift" style="border:none;background:none;color:var(--accent);cursor:pointer;font-size:13px;line-height:1;flex:0 0 auto;align-self:flex-start;margin-top:1px;">✎</button>${t.manual?`<button onclick="event.stopPropagation();deleteManualTodo('${esc(String(t.id))}')" title="Ta bort uppgift" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:16px;line-height:1;flex:0 0 auto;align-self:flex-start;">×</button>`:''}</div>`;}).join(''):'<div class="start-empty">Inga öppna nästa steg. 🎉</div>';
   const doneEl=document.getElementById('start-done-list');
   if(doneEl)doneEl.innerHTML=done.length?done.map(({t,key})=>`<div class="start-todo-row" style="opacity:0.6;padding:5px 2px;"><input type="checkbox" checked title="Ångra" onclick="toggleTodoDone('${esc(key)}',this.checked)" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;"><div style="flex:1;min-width:0;font-size:12px;text-decoration:line-through;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.name}: ${(t.text||'').replace(/</g,'&lt;')}</div></div>`).join(''):'<div class="start-empty" style="padding:4px 2px;">Inget avklarat ännu.</div>';
 }
@@ -5116,7 +5164,7 @@ function openNewTrialPilot(){
 }
 
 // ─── ARKIV ───────────────────────────────────────────────
-function arkivedCustomers(){return allCustomers.filter(c=>c._days!==null&&c._days<-30);}
+function arkivedCustomers(){const churned=getChurnedCustomers();return allCustomers.filter(c=>(c._days!==null&&c._days<-30)||churned[c.Id]);}
 function endedTests(){return [...allTrials.filter(t=>t.Status==='avslutad').map(t=>({...t,_type:'Trial'})),...allPilots.filter(p=>p.Status==='avslutad').map(p=>({...p,_type:'Pilot'}))];}
 function updateArkivStatsBar(){
   const setV=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
@@ -5147,7 +5195,8 @@ function renderArkivTidigare(){
     const years=[...new Set(arkivedCustomers().map(c=>c.LicenseEnd?new Date(c.LicenseEnd).getFullYear():null).filter(Boolean))].sort();
     years.forEach(y=>yearSel.insertAdjacentHTML('beforeend',`<option>${y}</option>`));
   }
-  const reasonOf=c=>c.LostReason||'Ej förnyat';
+  const churned=getChurnedCustomers();
+  const reasonOf=c=>{const ch=churned[c.Id];return ch?ch.reason:(c.LostReason||'Ej förnyat');};
   const items=arkivedCustomers().filter(c=>(!q||(c.Company||'').toLowerCase().includes(q))&&(!owner||c._owner===owner)&&(!ind||c.Industry===ind)&&(!reason||reasonOf(c)===reason)&&(!year||(c.LicenseEnd&&new Date(c.LicenseEnd).getFullYear()==year)));
   const tbody=document.getElementById('ark-tid-body');if(!tbody)return;
   if(!items.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text3);font-size:13px;">Inga arkiverade kunder matchar.</td></tr>';return;}
