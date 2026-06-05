@@ -1063,12 +1063,14 @@ let allCustomers=[], allProspects=[], allRecipients=[...DEFAULT_RECIPIENTS];
 let allTrials=[], allPilots=[];
 let prospectRevenueTotals={};
 const PROSPECT_REV_KEY=id=>`prospect-revenues-${id}`;
-function loadAllProspectRevenueTotals(){
+async function loadAllProspectRevenueTotals(){
   prospectRevenueTotals={};
-  allProspects.forEach(p=>{
-    const items=JSON.parse(localStorage.getItem(PROSPECT_REV_KEY(p.Id))||'[]');
+  await Promise.all(allProspects.map(async p=>{
+    let items=null;
+    try{const r=await apiFetch(`${API}/prospects/${p.Id}/revenues`);if(r.ok){const d=await r.json();if(Array.isArray(d))items=d;}}catch(e){}
+    if(!items)items=JSON.parse(localStorage.getItem(PROSPECT_REV_KEY(p.Id))||'[]');
     prospectRevenueTotals[p.Id]=items.reduce((s,i)=>s+(i.Amount||0),0);
-  });
+  }));
 }
 let sortCol='days', sortAsc=true;
 let currentModalId=null, currentPage=1, isNewCustomer=false;
@@ -1327,7 +1329,7 @@ function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.
 
 // ─── PIPELINE ────────────────────────────────────────────
 async function loadProspects(){
-  try{const r=await apiFetch(`${API}/prospects`);allProspects=await r.json();loadAllProspectRevenueTotals();renderKanban();updatePipeKpi();}
+  try{const r=await apiFetch(`${API}/prospects`);allProspects=await r.json();renderKanban();updatePipeKpi();loadAllProspectRevenueTotals().then(renderKanban);}
   catch(e){document.getElementById('kanban-board').innerHTML='<div class="empty">Kunde inte ladda pipeline</div>';}
 }
 function updatePipeKpi(){
