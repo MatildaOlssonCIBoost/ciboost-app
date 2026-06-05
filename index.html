@@ -2234,11 +2234,13 @@ async function silentSaveProspect(){
   if(!document.getElementById('p-company'))return; // only the main info tab edits the prospect
   const id=currentProspectId;
   const body=getProspectBody(allProspects.find(x=>x.Id===id));
+  console.log('[silentSaveProspect] PUT /prospects/'+id+' body:',JSON.stringify({subName:body.subName,parentCompany:body.parentCompany,employees:body.employees,industry:body.industry}),'full:',body);
   try{
     const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok)throw new Error();
+    console.log('[silentSaveProspect] svar status',r.status,r.ok?'OK':'FAIL');
+    if(!r.ok){const t=await r.clone().text().catch(()=>'');console.error('[silentSaveProspect] felsvar:',t);throw new Error();}
     const idx=allProspects.findIndex(x=>x.Id===id);
-    if(idx>=0)allProspects[idx]={...allProspects[idx],Company:body.company,Contact:body.contact,Role:body.role,Email:body.email,Phone:body.phone,Employees:body.employees,Industry:body.industry,Source:body.source,Owner:body.owner,Stage:body.stage,Score:body.score,Probability:body.probability,Notes:body.notes,RevenueCategory:body.revenueCategory,ExpectedStartMonth:body.expectedStartMonth,WaitingForResponse:body.waitingForResponse,NextActionType:body.nextActionType,NextActionDate:body.nextActionDate,LostReason:body.lostReason};
+    if(idx>=0)allProspects[idx]={...allProspects[idx],Company:body.company,Contact:body.contact,Role:body.role,Email:body.email,Phone:body.phone,Employees:body.employees,Industry:body.industry,SubName:body.subName,ParentCompany:body.parentCompany,Source:body.source,Owner:body.owner,Stage:body.stage,Score:body.score,Probability:body.probability,Notes:body.notes,RevenueCategory:body.revenueCategory,ExpectedStartMonth:body.expectedStartMonth,WaitingForResponse:body.waitingForResponse,NextActionType:body.nextActionType,NextActionDate:body.nextActionDate,LostReason:body.lostReason};
     showSaveIndicator('✓ Sparat','#1a7a50');
   }catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}
 }
