@@ -216,7 +216,13 @@
   .ka-mode-btn.active { background: var(--accent); color: #fff; }
   .start-banner { background: #1E2340; border-radius: 14px; padding: 22px 26px; margin-bottom: 14px; color: #fff; }
   .start-banner-inner { display: flex; align-items: center; gap: 20px; }
-  .start-lumi { width: 72px; height: 72px; object-fit: contain; flex: 0 0 auto; }
+  .start-lumi { width: 140px; height: 140px; object-fit: contain; flex: 0 0 auto; }
+  .start-add-btn { margin: 0 0 8px; padding: 5px 10px; border: 1px dashed var(--border); border-radius: 7px; background: none; color: var(--text2); font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; align-self: flex-start; }
+  .start-add-btn:hover { background: var(--surface2); color: var(--text); }
+  .assign-pill { appearance: none; -webkit-appearance: none; border: none; border-radius: 11px; padding: 3px 10px; font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; max-width: 130px; text-align: center; }
+  .assign-pill.assigned { background: #F5EDE3; color: #E8845A; }
+  .assign-pill.unassigned { background: var(--surface2); color: var(--text3); font-weight: 500; }
+  .assign-pill.unassigned:hover { background: #F5EDE3; color: #E8845A; }
   .start-welcome { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
   .start-slogan { font-size: 13px; color: rgba(255,255,255,0.72); margin-top: 4px; }
   .start-summary { display: flex; gap: 22px; flex: 0 0 auto; text-align: center; }
@@ -550,6 +556,18 @@
     <div class="start-grid">
       <div class="action-card start-maincard">
         <div class="action-card-title">Att göra <span class="badge b-amber" id="start-todo-count">-</span></div>
+        <button class="start-add-btn" onclick="toggleStartTodoForm(true)">+ Lägg till uppgift</button>
+        <div id="start-todo-form" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;">
+          <input id="mt-text" class="edit-input" placeholder="Vad ska göras?" style="width:100%;margin-bottom:6px;" onkeydown="if(event.key==='Enter'){event.preventDefault();addManualTodoFromForm();}">
+          <div style="display:flex;gap:6px;">
+            <input id="mt-date" type="date" class="edit-input" style="flex:1;">
+            <select id="mt-assignee" class="edit-input" style="flex:1;"><option value="">Tilldela…</option></select>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end;">
+            <button class="btn-sm" style="background:var(--surface);color:var(--text2);border:1px solid var(--border);" onclick="toggleStartTodoForm(false)">Avbryt</button>
+            <button class="btn-sm" onclick="addManualTodoFromForm()">Lägg till</button>
+          </div>
+        </div>
         <div id="start-todo-list" class="start-scroll"><div class="loading"><div class="spinner"></div></div></div>
         <div class="start-done-wrap">
           <div class="start-subhead" style="color:var(--text3);margin:0 0 4px;">Avklarade denna vecka</div>
@@ -2923,7 +2941,7 @@ const LUMI_IMG="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKkAAAD+CAYAAABBXi
 async function getUserInfo(){if(_userInfo)return _userInfo;try{const r=await fetch('/.auth/me');const d=await r.json();const cp=d?.clientPrincipal;_userInfo={name:cp?.userDetails||''};}catch(e){_userInfo={name:''};}return _userInfo;}
 function startFirstName(){let n=(_userInfo&&_userInfo.name)||'';if(!n)return '';if(n.includes('@'))n=n.split('@')[0].split(/[._]/)[0];else n=n.split(' ')[0];return n?n.charAt(0).toUpperCase()+n.slice(1):'';}
 function startWeekRange(){const now=new Date();const day=(now.getDay()+6)%7;const mon=new Date(now);mon.setHours(0,0,0,0);mon.setDate(now.getDate()-day);const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);return[mon,sun];}
-function lumiFallback(img){try{img.outerHTML='<div class="start-lumi" style="display:flex;align-items:center;justify-content:center;font-size:42px;background:rgba(255,255,255,0.08);border-radius:16px;">🤖</div>';}catch(e){}}
+function lumiFallback(img){try{img.outerHTML='<div class="start-lumi" style="display:flex;align-items:center;justify-content:center;font-size:80px;background:rgba(255,255,255,0.08);border-radius:16px;">🤖</div>';}catch(e){}}
 function renderStart(){
   renderStartBanner();
   renderStartWeekStrip();
@@ -2939,11 +2957,27 @@ function todoKey(t){return `${t.kind}:${t.id}:${t.text||''}:${t.date||''}`;}
 function tdState(k){try{return JSON.parse(localStorage.getItem(k)||'{}');}catch(e){return{};}}
 function toggleTodoDone(key,done){const m=tdState('todo-done');if(done)m[key]=startWeekKey();else delete m[key];localStorage.setItem('todo-done',JSON.stringify(m));renderStartTodo();}
 function assignTodo(key,who){const m=tdState('todo-assign');if(who)m[key]=who;else delete m[key];localStorage.setItem('todo-assign',JSON.stringify(m));renderStartTodo();}
+// Manuellt tillagda uppgifter (lagras i localStorage, visas i Att göra precis som
+// nästa-steg-uppgifterna från kundkorten).
+function manualTodos(){try{return JSON.parse(localStorage.getItem('manual-todos')||'[]');}catch(e){return[];}}
+function saveManualTodos(list){localStorage.setItem('manual-todos',JSON.stringify(list));}
+function toggleStartTodoForm(show){const f=document.getElementById('start-todo-form');if(!f)return;const open=show!==undefined?show:f.style.display==='none';f.style.display=open?'block':'none';if(open){const inp=document.getElementById('mt-text');if(inp){inp.value='';inp.focus();}const dt=document.getElementById('mt-date');if(dt)dt.value='';const as=document.getElementById('mt-assignee');if(as)as.value='';}}
+function addManualTodoFromForm(){
+  const text=(document.getElementById('mt-text')?.value||'').trim();if(!text)return;
+  const date=document.getElementById('mt-date')?.value||'';
+  const who=document.getElementById('mt-assignee')?.value||'';
+  const id='m'+Date.now()+Math.round(Math.random()*1000);
+  const list=manualTodos();list.push({id,text,date});saveManualTodos(list);
+  if(who){const m=tdState('todo-assign');m[todoKey({kind:'Uppgift',id,text:'',date})]=who;localStorage.setItem('todo-assign',JSON.stringify(m));}
+  toggleStartTodoForm(false);renderStartTodo();
+}
+function deleteManualTodo(id){const list=manualTodos().filter(m=>String(m.id)!==String(id));saveManualTodos(list);renderStartTodo();}
 // Samlar alla nästa steg från kunder (per möte) och prospekt, sorterade på datum.
 function startTodos(){
   const todos=[];
   (allProspects||[]).forEach(p=>{if(p.NextActionType||p.NextActionDate)todos.push({id:p.Id,kind:'Prospekt',name:p.Company||'Prospekt',text:p.NextActionType||'',date:p.NextActionDate||'',waiting:!!p.WaitingForResponse});});
   (allCustomers||[]).forEach(c=>{const m=getActNext('customer',c.Id);Object.values(m).forEach(ns=>{if(ns.text||ns.date)todos.push({id:c.Id,kind:'Kund',name:c.Company||'Kund',text:ns.text||'',date:ns.date||'',waiting:!!ns.waiting});});});
+  manualTodos().forEach(m=>todos.push({id:m.id,kind:'Uppgift',name:m.text,text:'',date:m.date||'',waiting:false,manual:true}));
   todos.sort((a,b)=>{const ad=a.date?new Date(a.date).getTime():Infinity;const bd=b.date?new Date(b.date).getTime():Infinity;return ad-bd;});
   return todos;
 }
@@ -2999,7 +3033,7 @@ function renderStartTodo(){
   const cnt=document.getElementById('start-todo-count');if(cnt)cnt.textContent=active.length;
   const esc=s=>String(s).replace(/'/g,"\\'");
   const ownerOpts=who=>OWNERS.map(o=>`<option ${who===o?'selected':''}>${o}</option>`).join('');
-  el.innerHTML=active.length?active.map(({t,key})=>{const d=t.date?new Date(t.date):null;if(d)d.setHours(0,0,0,0);const overdue=d&&d<today;const dateStr=d?d.toLocaleDateString('sv-SE'):'–';const open=t.kind==='Kund'?`openModal(${t.id})`:`openProspectModal(${t.id})`;const who=assignMap[key]||'';return`<div class="start-todo-row"><input type="checkbox" title="Bocka av" onclick="event.stopPropagation();toggleTodoDone('${esc(key)}',this.checked)" style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;"><div style="flex:1;min-width:0;cursor:pointer;" onclick="${open}"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.name} <span style="font-size:10px;color:var(--text3);">· ${t.kind}</span></div><div style="font-size:12px;color:var(--text2);">${(t.text||'–').replace(/</g,'&lt;')}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto;"><span style="font-size:11px;font-weight:600;color:${overdue?'var(--red)':'var(--text3)'};white-space:nowrap;">${overdue?'Försenad '+dateStr:dateStr}</span><div style="display:flex;gap:4px;align-items:center;">${t.waiting?'<span class="badge b-blue" style="font-size:8px;">INVÄNTAR</span>':''}<select onchange="assignTodo('${esc(key)}',this.value)" onclick="event.stopPropagation();" title="Delegera" style="font-size:10px;padding:1px 4px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text2);max-width:120px;"><option value="">Tilldela…</option>${ownerOpts(who)}</select></div></div></div>`;}).join(''):'<div class="start-empty">Inga öppna nästa steg. 🎉</div>';
+  el.innerHTML=active.length?active.map(({t,key})=>{const d=t.date?new Date(t.date):null;if(d)d.setHours(0,0,0,0);const overdue=d&&d<today;const dateStr=d?d.toLocaleDateString('sv-SE'):'';const open=t.manual?'':(t.kind==='Kund'?`openModal(${t.id})`:`openProspectModal(${t.id})`);const who=assignMap[key]||'';return`<div class="start-todo-row"><input type="checkbox" title="Bocka av" onclick="event.stopPropagation();toggleTodoDone('${esc(key)}',this.checked)" style="width:15px;height:15px;cursor:pointer;flex:0 0 auto;margin-top:3px;"><div style="flex:1;min-width:0;${open?'cursor:pointer;':''}" ${open?`onclick="${open}"`:''}><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.name} <span style="font-size:10px;color:var(--text3);">· ${t.kind}</span></div>${t.text?`<div style="font-size:12px;color:var(--text2);">${t.text.replace(/</g,'&lt;')}</div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto;">${dateStr?`<span style="font-size:11px;font-weight:600;color:${overdue?'var(--red)':'var(--text3)'};white-space:nowrap;">${overdue?'Försenad '+dateStr:dateStr}</span>`:''}<div style="display:flex;gap:4px;align-items:center;">${t.waiting?'<span class="badge b-blue" style="font-size:8px;">INVÄNTAR</span>':''}<select class="assign-pill ${who?'assigned':'unassigned'}" onchange="assignTodo('${esc(key)}',this.value)" onclick="event.stopPropagation();" title="Delegera"><option value="">Tilldela…</option>${ownerOpts(who)}</select></div></div>${t.manual?`<button onclick="event.stopPropagation();deleteManualTodo('${esc(String(t.id))}')" title="Ta bort uppgift" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:16px;line-height:1;flex:0 0 auto;align-self:flex-start;">×</button>`:''}</div>`;}).join(''):'<div class="start-empty">Inga öppna nästa steg. 🎉</div>';
   const doneEl=document.getElementById('start-done-list');
   if(doneEl)doneEl.innerHTML=done.length?done.map(({t,key})=>`<div class="start-todo-row" style="opacity:0.6;padding:5px 2px;"><input type="checkbox" checked title="Ångra" onclick="toggleTodoDone('${esc(key)}',this.checked)" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;"><div style="flex:1;min-width:0;font-size:12px;text-decoration:line-through;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.name}: ${(t.text||'').replace(/</g,'&lt;')}</div></div>`).join(''):'<div class="start-empty" style="padding:4px 2px;">Inget avklarat ännu.</div>';
 }
@@ -5387,6 +5421,8 @@ function populateIndustryDropdowns(){
   });
 }
 populateIndustryDropdowns();
+// Fyll "Tilldela"-dropdownen i Att göra-formuläret med teammedlemmar.
+(()=>{const sel=document.getElementById('mt-assignee');if(sel)sel.insertAdjacentHTML('beforeend',OWNERS.map(o=>`<option>${o}</option>`).join(''));})();
 updateArkivStatsBar();
 startKpiObserver();
 // Startsidan är första vyn — dölj pipeline-statistik/underflikar som visas i default-markup.
