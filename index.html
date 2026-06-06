@@ -1705,13 +1705,14 @@ function openNewProspect(){isNewProspect=true;currentProspectId=null;currentPros
 async function openProspectModal(id){
   isNewProspect=false;currentProspectId=id;currentProspectTab=1;
   const p=allProspects.find(x=>x.Id===id);if(!p)return;
+  document.getElementById('prospect-overlay').classList.add('open');
   document.getElementById('prospect-title').textContent=p.Company||'Prospect';
   document.getElementById('prospect-subtitle').textContent=`${p.Stage||''} · ${p.Source||''}`;
   document.getElementById('prospect-delete-btn').style.display='flex';
-  renderProspectTabs(p);
+  try{renderProspectTabs(p);}catch(e){console.error('renderProspectTabs',e);}
   let acts=[];
   try{const r=await apiFetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}
-  renderProspectBody(p,acts);
+  try{renderProspectBody(p,acts);}catch(e){console.error('renderProspectBody',e);}
   document.getElementById('prospect-overlay').classList.add('open');
 }
 function renderProspectTabs(p){
@@ -4716,7 +4717,7 @@ function renderTabs(lt){
   document.getElementById('modal-tabs').innerHTML=['Översikt',tab2,'Värde','Aktivitet','Kontaktlogg'].map((t,i)=>`<button class="modal-tab ${currentPage===i+1?'active':''}" onclick="goToPage(${i+1})">${i+1}. ${t}</button>`).join('');
 }
 function openNewModal(){isNewCustomer=true;currentModalId=null;currentPage=1;document.getElementById('modal-title').textContent='Ny kund';document.getElementById('modal-subtitle').textContent='';document.getElementById('btn-delete').style.display='none';renderTabs('Team');renderModalPage(null,[],[]);document.getElementById('modal-overlay').classList.add('open');}
-async function openModal(id){isNewCustomer=false;currentModalId=id;currentPage=1;const c=allCustomers.find(x=>x.Id===id);if(!c)return;let teams=[],admins=[];try{const r=await apiFetch(`${API}/customers/${id}/teams`);teams=await r.json();}catch(e){}try{const r=await apiFetch(`${API}/customers/${id}/admins`);admins=await r.json();}catch(e){}document.getElementById('modal-title').textContent=c.Company||'–';document.getElementById('modal-subtitle').textContent=`${c.LicenseType||''} · ${c._owner}`;document.getElementById('btn-delete').style.display='flex';renderTabs(c.LicenseType);renderModalPage(c,teams,admins);document.getElementById('modal-overlay').classList.add('open');}
+async function openModal(id){isNewCustomer=false;currentModalId=id;currentPage=1;const c=allCustomers.find(x=>x.Id===id);if(!c)return;document.getElementById('modal-overlay').classList.add('open');let teams=[],admins=[];try{const r=await apiFetch(`${API}/customers/${id}/teams`);teams=await r.json();}catch(e){}try{const r=await apiFetch(`${API}/customers/${id}/admins`);admins=await r.json();}catch(e){}document.getElementById('modal-title').textContent=c.Company||'–';document.getElementById('modal-subtitle').textContent=`${c.LicenseType||''} · ${c._owner}`;document.getElementById('btn-delete').style.display='flex';renderTabs(c.LicenseType);try{renderModalPage(c,teams,admins);}catch(e){console.error('renderModalPage',e);}document.getElementById('modal-overlay').classList.add('open');}
 
 function renderModalPage(c,teams,admins){
   const is='class="edit-input"';let html='';
@@ -5014,10 +5015,10 @@ function openTpModal(type,id){
   currentTpType=type;currentTpId=id;currentTpModalTab=1;
   const arr=type==='trial'?allTrials:allPilots;
   const item=arr.find(x=>x.Id===id);if(!item)return;
+  document.getElementById('tp-overlay').classList.add('open');
   document.getElementById('tp-modal-title').textContent=item.Company||'–';
   document.getElementById('tp-modal-subtitle').textContent=`${type==='trial'?'Trial':'Pilot'} · ${item.Owner||'–'}`;
-  renderTpModalTabs();renderTpModalBody();
-  document.getElementById('tp-overlay').classList.add('open');
+  try{renderTpModalTabs();renderTpModalBody();}catch(e){console.error('renderTpModal',e);}
 }
 function renderTpModalTabs(){
   document.getElementById('tp-modal-tabs').innerHTML=['Översikt','Aktivering','Kontaktlogg'].map((t,i)=>`<button class="modal-tab ${currentTpModalTab===i+1?'active':''}" onclick="goToTpModalTab(${i+1})">${i+1}. ${t}</button>`).join('');
