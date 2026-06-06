@@ -331,8 +331,15 @@
   .p-utb { background: var(--amber-bg); color: var(--amber); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
   .p-cons { background: var(--purple-bg); color: var(--purple); border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; margin: 1px; }
   .p-total { background: var(--surface2); font-weight: 600; border-radius: 3px; padding: 1px 5px; font-size: 11px; display: inline-block; }
-  .modal-overlay { position: fixed; inset: 0; overflow: hidden; background: rgba(0,0,0,0.35); backdrop-filter: blur(3px); z-index: 200; display: none; align-items: center; justify-content: flex-end; }
-  .modal-overlay.open { display: flex; }
+  /* Overlay = bara dim+blur-bakgrund (ingen flex, positionerar inte panelen).
+     Blur ligger på ::before så att SJÄLVA overlay-elementet inte har backdrop-filter —
+     annars skapar backdrop-filter ett "containing block" som gör .modal:s fixed-
+     positionering relativ till overlayn i stället för viewporten. */
+  .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; background: rgba(0,0,0,0.35); z-index: 200; display: none; }
+  .modal-overlay::before { content: ''; position: absolute; inset: 0; backdrop-filter: blur(3px); pointer-events: none; }
+  .modal-overlay.open { display: block; }
+  /* Panelen pinnas direkt mot viewportens högerkant (right:0), helt fristående från
+     overlay-containerns bredd och flex. position:fixed utan CB-skapande förälder. */
   .modal { background: var(--surface); width: 620px; max-width: 100%; height: 100vh; overflow-y: auto; box-shadow: var(--shadow-md); animation: slideIn 0.2s ease; display: flex; flex-direction: column; position: fixed; top: 0; right: 0; z-index: 1; }
   @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
   .modal-header { padding: 16px 20px 0; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 1; }
