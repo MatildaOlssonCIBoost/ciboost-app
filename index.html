@@ -20,12 +20,13 @@
     --shadow: 0 1px 3px rgba(30,33,64,0.08); --shadow-md: 0 4px 12px rgba(30,33,64,0.12);
   }
   body { font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
-  /* Inget (breda tabeller, fasta px-bredder eller den inglidande panelen) får bredda
-     sidan förbi viewporten. overflow-x: hidden på root propagerar till viewporten och
-     klipper horisontell overflow tillförlitligt, vilket bryter loopen
-     "bredare sida -> panel utanför -> ännu bredare". max-width:100% (ej 100vw) undviker
-     scrollbar-overshoot. Sticky .topnav påverkas inte (viewporten är kvar scroll-container). */
-  html, body { overflow-x: hidden; max-width: 100%; }
+  /* Klipp horisontell overflow (breda tabeller etc.) men med overflow-x: CLIP, inte
+     hidden. hidden tvingar overflow-y till auto -> gör html OCH body till
+     scroll-containers, vilket reserverar en extra scrollbar-gutter och krymper
+     clientWidth (panelens right:0 hamnade då ~60px in från kanten). clip klipper
+     UTAN scroll-container och påverkar inte clientWidth. Panelen är position:fixed
+     så den behöver ingen propagering till viewporten. */
+  html, body { overflow-x: clip; max-width: 100%; }
   .topnav { background: #1e2140; border-bottom: 1px solid #2a2f5a; padding: 0 24px; display: flex; align-items: center; gap: 32px; height: 52px; position: sticky; top: 0; z-index: 100; }
   .nav-tabs { display: flex; gap: 2px; flex: 1; }
   .nav-tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.65); cursor: pointer; border: none; background: none; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
