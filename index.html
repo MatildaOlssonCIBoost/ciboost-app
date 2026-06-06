@@ -178,7 +178,10 @@
   .rev-cb.on::after { content: '✓'; font-size: 9px; color: white; font-weight: 600; }
   .rev-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
-  table { width: 100%; border-collapse: collapse; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  /* Period- och budgettabellen har många kolumner och egen horisontell scroll i sin
+     wrapper (overflow:auto) - behåll auto-layout så de inte squishas ihop. */
+  .period-table, .budget-table { table-layout: auto; }
   thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
   thead th:hover { color: var(--text); }
   tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
@@ -335,7 +338,7 @@
      Blur ligger på ::before så att SJÄLVA overlay-elementet inte har backdrop-filter —
      annars skapar backdrop-filter ett "containing block" som gör .modal:s fixed-
      positionering relativ till overlayn i stället för viewporten. */
-  .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; background: rgba(0,0,0,0.35); z-index: 200; display: none; }
+  .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; overflow: hidden; background: rgba(0,0,0,0.35); z-index: 200; display: none; }
   .modal-overlay::before { content: ''; position: absolute; inset: 0; backdrop-filter: blur(3px); pointer-events: none; }
   .modal-overlay.open { display: block; }
   /* Panelen pinnas direkt mot viewportens högerkant (right:0), helt fristående från
