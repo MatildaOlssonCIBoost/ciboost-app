@@ -20,13 +20,6 @@
     --shadow: 0 1px 3px rgba(30,33,64,0.08); --shadow-md: 0 4px 12px rgba(30,33,64,0.12);
   }
   body { font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
-  /* Klipp horisontell overflow (breda tabeller etc.) men med overflow-x: CLIP, inte
-     hidden. hidden tvingar overflow-y till auto -> gör html OCH body till
-     scroll-containers, vilket reserverar en extra scrollbar-gutter och krymper
-     clientWidth (panelens right:0 hamnade då ~60px in från kanten). clip klipper
-     UTAN scroll-container och påverkar inte clientWidth. Panelen är position:fixed
-     så den behöver ingen propagering till viewporten. */
-  html, body { overflow-x: clip; max-width: 100%; }
   .topnav { background: #1e2140; border-bottom: 1px solid #2a2f5a; padding: 0 24px; display: flex; align-items: center; gap: 32px; height: 52px; position: sticky; top: 0; z-index: 100; }
   .nav-tabs { display: flex; gap: 2px; flex: 1; }
   .nav-tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.65); cursor: pointer; border: none; background: none; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
@@ -179,10 +172,7 @@
   .rev-cb.on::after { content: '✓'; font-size: 9px; color: white; font-weight: 600; }
   .rev-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
-  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  /* Period- och budgettabellen har många kolumner och egen horisontell scroll i sin
-     wrapper (overflow:auto) - behåll auto-layout så de inte squishas ihop. */
-  .period-table, .budget-table { table-layout: auto; }
+  table { width: 100%; border-collapse: collapse; }
   thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
   thead th:hover { color: var(--text); }
   tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
