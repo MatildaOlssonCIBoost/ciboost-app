@@ -1357,6 +1357,16 @@ function customerValue(c,src){const s=src||revSources;const v=custTypeValues(c);
 // över årsgränser) — samma logik som värdeflikens calcYearTotal.
 function calcYearTotalItems(items,year){return (items||[]).reduce((s,i)=>{if(!i.DateFrom&&!i.DateTo)return s+(i.Amount||0);const from=i.DateFrom?new Date(i.DateFrom):null;const to=i.DateTo?new Date(i.DateTo):null;const yStart=new Date(year,0,1),yEnd=new Date(year,11,31);if(!from||!to)return s+(i.Amount||0);if(from>yEnd||to<yStart)return s;const totalDays=Math.max(1,Math.round((to-from)/86400000)+1);const oS=from>yStart?from:yStart,oE=to<yEnd?to:yEnd;const od=Math.max(0,Math.round((oE-oS)/86400000)+1);return s+Math.round((i.Amount||0)*od/totalDays);},0);}
 let custRevCache={};
+// Steg 2b: cache av RevenueLinks (M:N förnyelselänkar). Fylls vid samma tillfälle
+// som custRevCache (prefetchAllCustomerRevenues) och nollställs när en länkrelation ändras.
+let linksCache=null;
+async function prefetchRevenueLinks(force){
+  if(linksCache!==null&&!force)return linksCache;
+  try{const r=await apiFetch(`${API}/revenues/links`);const j=await r.json();linksCache=Array.isArray(j)?j:[];}
+  catch(e){linksCache=linksCache||[];}
+  return linksCache;
+}
+function invalidateLinksCache(){linksCache=null;}
 // Beräknar härledda fält på en kund från dess intäktsposter (värdefliken):
 //  • Licens start/slut = perioden för den senast slutande licensraden
 //    (Licens prenumeration = ARR, Licens fast pris = Fastpris).
@@ -1409,6 +1419,7 @@ async function prefetchAllCustomerRevenues(){
   const missing=allCustomers.filter(c=>!custRevCache[c.Id]);
   await Promise.all(missing.map(c=>apiFetch(`${API}/customers/${c.Id}/revenues`).then(r=>r.json()).then(items=>{custRevCache[c.Id]=Array.isArray(items)?items:[];}).catch(()=>{custRevCache[c.Id]=[];})));
   allCustomers.forEach(c=>applyDerivedFromRevenues(c,custRevCache[c.Id]||[]));
+  await prefetchRevenueLinks(true);   // håll länk-cachen i synk med intäktsdatan
   updateStats();renderTable();
   if(currentMain==='kunder'&&currentSub.kunder==='licenstidslinje')renderLicenstidslinje();
   if(currentMain==='start')renderStart();
@@ -2051,7 +2062,7 @@ async function setRenewLink(customerId,itemId,parentId){
   const r=await apiFetch(`${API}/customers/${customerId}/revenues`);const items=await r.json();
   const it=items.find(x=>x.Id===itemId);if(!it)return;
   await apiFetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:it.Type,amount:it.Amount,dateFrom:it.DateFrom?it.DateFrom.substring(0,10):null,dateTo:it.DateTo?it.DateTo.substring(0,10):null,description:it.Description||null,invoiceDate:it.InvoiceDate?it.InvoiceDate.substring(0,10):null,paid:it.Paid?1:0,paymentDate:it.PaymentDate?it.PaymentDate.substring(0,10):null,renewedFromId:parentId})});
-  loadRevenueItems(customerId);
+  invalidateLinksCache();loadRevenueItems(customerId);
 }
 async function openRenewLinkPicker(customerId,itemId){
   const r=await apiFetch(`${API}/customers/${customerId}/revenues`);const items=await r.json();
@@ -2091,7 +2102,7 @@ function openRenewRevenue(customerId,itemId){
         const relation=document.getElementById('rn-relation')?.value||'renewal';
         setRevRelation(customerId,itemId,relation);
         await apiFetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('rn-type').value,amount,dateFrom:document.getElementById('rn-from').value||null,dateTo:document.getElementById('rn-to').value||null,description:document.getElementById('rn-desc').value||null,invoiceDate:document.getElementById('rn-invoice-date')?.value||null,renewedFromId:itemId})});
-        loadRevenueItems(customerId);
+        invalidateLinksCache();loadRevenueItems(customerId);
         return true;
       }
     );
@@ -3441,6 +3452,70 @@ function computeRenewalChurn({from,to,includeFastpris=false,now}={}){
   const logoBase=baseCusts.size,logoChurned=churnedCustomerIds.length;
   return{baseRevenue,churnRevenue,expansionRevenue,churnRevenuePct:baseRevenue>0?churnRevenue/baseRevenue:0,logoBase,logoChurned,logoChurnPct:logoBase>0?logoChurned/logoBase:0,nrr:baseRevenue>0?(baseRevenue-churnRevenue+expansionRevenue)/baseRevenue:0,pending,churnedCustomerIds,churnByCustomer:byCust};
 }
+// ── Steg 2b: NY churn-modell på RevenueLinks (M:N) — verifierad isolerat (node-sim).
+// Revenue-churn via bipartita roll-komponenter (union-find) → ingen post dubbelräknas vid
+// förgrening/konsolidering. Logo på org-nivå (koncern normaliserad; tomt = eget kort); en post
+// som är From (har fortsättning) räknas ALDRIG som churn (länken vinner, oavsett typ/koncern).
+// Pilot exkl, 30-dgr respit, pending exkl, fönster på senaste förälder-DateTo (23:59-fix på to).
+// Per-typ-uppdelning. Ren funktion med injicerad data — computeRenewalChurn lämnas orörd.
+function computeRenewalChurnLinks({from,to,includeFastpris=false,now,customers=[],revenuesByCust={},links=[]}={}){
+  const today=now?new Date(now):new Date();today.setHours(0,0,0,0);
+  const f=from instanceof Date?new Date(from):new Date(from);
+  const t=to instanceof Date?new Date(to):new Date(to);
+  const GRACE=30;
+  const types=includeFastpris?{ARR:1,Fastpris:1}:{ARR:1};
+  const custById={};customers.forEach(c=>{custById[c.Id]=c;});
+  const orgKeyOf=(custId)=>{const c=custById[custId];const k=(c&&c.ParentCompany?String(c.ParentCompany):'').trim().toLowerCase();return k?'org:'+k:'cust:'+custId;};
+  const all=[],byId={};
+  Object.entries(revenuesByCust||{}).forEach(([cid,items])=>{
+    if(!Array.isArray(items))return;
+    const custId=Number(cid),c=custById[custId];
+    items.forEach(it=>{const p={...it,_custId:custId,_org:orgKeyOf(custId),_licenseType:c?c.LicenseType:null};all.push(p);byId[it.Id]=p;});
+  });
+  const childrenOf={},isFrom=new Set();
+  (links||[]).forEach(l=>{const a=l.FromRevenueId,b=l.ToRevenueId;if(a==null||b==null)return;(childrenOf[a]=childrenOf[a]||[]).push(b);isFrom.add(a);});
+  const measured=(id)=>{const p=byId[id];return !!p&&!!types[p.Type]&&p._licenseType!=='Pilot';};
+  // Bipartit roll-komponenter: P:<id> (förälder-roll), C:<id> (barn-roll). Union-find.
+  const parent={};
+  const find=(x)=>{if(parent[x]===undefined){parent[x]=x;return x;}let r=x;while(parent[r]!==r)r=parent[r];while(parent[x]!==r){const n=parent[x];parent[x]=r;x=n;}return r;};
+  const union=(a,b)=>{const ra=find(a),rb=find(b);if(ra!==rb)parent[ra]=rb;};
+  [...isFrom].filter(measured).forEach(pid=>{find('P:'+pid);(childrenOf[pid]||[]).forEach(cid=>{if(measured(cid))union('P:'+pid,'C:'+cid);});});
+  const comps={};
+  Object.keys(parent).forEach(node=>{const r=find(node);(comps[r]=comps[r]||{parents:new Set(),children:new Set()});if(node[0]==='P')comps[r].parents.add(Number(node.slice(2)));else comps[r].children.add(Number(node.slice(2)));});
+  let baseRevenue=0,churnRevenue=0,expansionRevenue=0,pending=0;
+  const churnByType={},expansionByType={},baseByType={};
+  const addT=(m,k,v)=>{m[k]=(m[k]||0)+v;};
+  Object.values(comps).forEach(comp=>{
+    const parents=[...comp.parents],children=[...comp.children];
+    if(!parents.length)return;
+    let maxDateTo=null;
+    parents.forEach(pid=>{const d=byId[pid].DateTo?new Date(byId[pid].DateTo):null;if(d&&(!maxDateTo||d>maxDateTo))maxDateTo=d;});
+    if(!maxDateTo||maxDateTo<f||maxDateTo>t)return;
+    const parentSum=parents.reduce((s,pid)=>s+(byId[pid].Amount||0),0);
+    const childSum=children.reduce((s,cid)=>s+(byId[cid].Amount||0),0);
+    baseRevenue+=parentSum;
+    parents.forEach(pid=>addT(baseByType,byId[pid].Type,byId[pid].Amount||0));
+    const net=childSum-parentSum;
+    if(net!==0){
+      const v=Math.abs(net),M=net<0?churnByType:expansionByType;
+      if(net<0)churnRevenue+=v;else expansionRevenue+=v;
+      parents.forEach(pid=>{const share=parentSum>0?(byId[pid].Amount||0)/parentSum:0;addT(M,byId[pid].Type,v*share);});
+    }
+  });
+  const orgCont={},orgChurn={};
+  all.forEach(p=>{
+    if(!types[p.Type]||p._licenseType==='Pilot'||!p.DateTo)return;
+    const dto=new Date(p.DateTo);if(dto<f||dto>t)return;
+    if(isFrom.has(p.Id)){orgCont[p._org]=true;return;}
+    const graceEnd=new Date(dto);graceEnd.setDate(graceEnd.getDate()+GRACE);
+    if(graceEnd<today){churnRevenue+=(p.Amount||0);baseRevenue+=(p.Amount||0);addT(churnByType,p.Type,p.Amount||0);addT(baseByType,p.Type,p.Amount||0);orgChurn[p._org]=true;}
+    else pending++;
+  });
+  const baseOrgs=new Set([...Object.keys(orgCont),...Object.keys(orgChurn)]);
+  const churnedOrgs=[...baseOrgs].filter(o=>!orgCont[o]&&orgChurn[o]);
+  const logoBase=baseOrgs.size,logoChurned=churnedOrgs.length;
+  return{baseRevenue,churnRevenue,expansionRevenue,churnRevenuePct:baseRevenue>0?churnRevenue/baseRevenue:0,nrr:baseRevenue>0?(baseRevenue-churnRevenue+expansionRevenue)/baseRevenue:0,churnByType,expansionByType,baseByType,logoBase,logoChurned,logoChurnPct:logoBase>0?logoChurned/logoBase:0,churnedOrgs,pending};
+}
 var faChurnMode='value';
 function setFaChurnMode(m){faChurnMode=m;renderFinChurn();}
 // Steg 4d: växlare som tar med Fastpris-licenser i churn-modellen (default AV = bara ARR).
@@ -3453,6 +3528,7 @@ async function renderFinChurn(){
   // Steg 4b: KPI:erna räknas på kedje-modellen (computeRenewalChurn), som läser
   // custRevCache. Säkra att den är laddad annars blir KPI:erna 0 vid första render.
   if(!Object.keys(custRevCache||{}).length){el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">Laddar intäktsdata…</div>';try{await prefetchAllCustomerRevenues();}catch(e){}}
+  if(linksCache===null){try{await prefetchRevenueLinks();}catch(e){}}   // steg 2b: säkra länk-cachen
   const today=new Date();const yNow=today.getFullYear();const isVol=faChurnMode==='volume';
   const churnedMap=getChurnedCustomers();
   const isChurned=c=>!!churnedMap[c.Id]||(c._days!==null&&c._days<0); // endast för activeCusts/Snitt tid
@@ -3470,7 +3546,9 @@ async function renderFinChurn(){
   const fmtSv=v=>v?Math.round(v).toLocaleString('sv-SE')+' kr':'–';
   // Tidsserie 2023-2026 via kedje-modellen — EN beräkning per år, återanvänd för båda graferna.
   const years=[yNow-3,yNow-2,yNow-1,yNow];
-  const churnY=years.map(Y=>computeRenewalChurn({from:new Date(Y,0,1),to:new Date(Y,11,31,23,59,59,999),includeFastpris:faChurnInclFastpris}));
+  // Steg 2b: KPI:er + grafer på NYA länk-modellen (RevenueLinks, M:N, org-logo, per-typ).
+  const _lnk={customers:all,revenuesByCust:custRevCache,links:linksCache||[]};
+  const churnY=years.map(Y=>computeRenewalChurnLinks({from:new Date(Y,0,1),to:new Date(Y,11,31,23,59,59,999),includeFastpris:faChurnInclFastpris,..._lnk}));
   const rateY=churnY.map(r=>isVol?Math.round(r.logoChurnPct*1000)/10:Math.round(r.churnRevenuePct*1000)/10);
   const nrrY=churnY.map(r=>Math.round(r.nrr*100));
   const expY=churnY.map(r=>Math.round(r.expansionRevenue));
@@ -3478,10 +3556,13 @@ async function renderFinChurn(){
   // Rullande 12 mån via den nya kedje-modellen (steg 4b). OBS: graferna och
   // churnade-listan/anledningarna ligger KVAR på legacy tills 4c/4d.
   const _w365=new Date(today);_w365.setDate(_w365.getDate()-365);
-  const churn12=computeRenewalChurn({from:_w365,to:today,includeFastpris:faChurnInclFastpris});
+  const churn12=computeRenewalChurnLinks({from:_w365,to:today,includeFastpris:faChurnInclFastpris,..._lnk});
+  // Gamla kedje-modellen (RenewedFromId) lever kvar: driver kund-nivå-listan/anledningarna
+  // nedan + fungerar som live-jämförelse tills nya länk-modellen är verifierad i drift.
+  const churn12legacy=computeRenewalChurn({from:_w365,to:today,includeFastpris:faChurnInclFastpris});
   const churnRate12=isVol?Math.round(churn12.logoChurnPct*1000)/10:Math.round(churn12.churnRevenuePct*1000)/10;
   const nrr12=Math.round(churn12.nrr*100);
-  const logoTxt=`${churn12.logoChurned} kund${churn12.logoChurned!==1?'er':''}`;
+  const logoTxt=`${churn12.logoChurned} org`;
   // KPI-kort
   const kpiCard=(label,val,sub,color)=>`<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value" style="color:${color};font-size:18px;">${val}</div><div class="kpi-delta neu">${sub}</div></div>`;
   const kpis=kpiCard('Churn rate',`${churnRate12}%`,isVol?logoTxt:fmtSv(churn12.churnRevenue),'var(--red)')
@@ -3498,8 +3579,8 @@ async function renderFinChurn(){
   const mMax=Math.max(...expY,...chArrY,1);const mid=ch/2;
   const chart2=`<svg viewBox="0 0 ${cw} ${ch+18}" width="100%" style="overflow:visible;"><line x1="0" y1="${mid}" x2="${cw}" y2="${mid}" stroke="var(--border)" stroke-width="0.5"/>${years.map((Y,i)=>{const eh=Math.round(expY[i]/mMax*(mid-10));const chh=Math.round(chArrY[i]/mMax*(mid-10));return`<rect x="${Math.round(bx(i))}" y="${mid-eh}" width="${Math.round(bw)}" height="${eh}" rx="2" fill="#1a7a50" opacity="0.8"/><rect x="${Math.round(bx(i))}" y="${mid}" width="${Math.round(bw)}" height="${chh}" rx="2" fill="#a32d2d" opacity="0.8"/><text x="${Math.round(bx(i)+bw/2)}" y="${ch+10}" font-size="9" fill="var(--text3)" text-anchor="middle">${Y}</text>`;}).join('')}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;"><span><span style="display:inline-block;width:10px;height:10px;background:#1a7a50;vertical-align:middle;"></span> Expansion</span><span><span style="display:inline-block;width:10px;height:10px;background:#a32d2d;vertical-align:middle;"></span> Churnat ARR</span></div>`;
   // Churnade kunder (kedje-modellen, rullande 12 mån) + tappad revenue per kund.
-  const churnedList=churn12.churnedCustomerIds.map(id=>all.find(c=>c.Id===id)).filter(Boolean);
-  const lostOf=c=>churn12.churnByCustomer[c.Id]||0;
+  const churnedList=churn12legacy.churnedCustomerIds.map(id=>all.find(c=>c.Id===id)).filter(Boolean);
+  const lostOf=c=>churn12legacy.churnByCustomer[c.Id]||0;
   // Churnanledningar — kedje-modellen avgör VILKA, gamla källan (RenewalOutcomes/localStorage) säger VARFÖR.
   const reasonOf=c=>(churnedMap[c.Id]&&churnedMap[c.Id].reason)||c.LostReason||'Ej förnyat';
   const rc={};churnedList.forEach(c=>{const r=reasonOf(c);rc[r]=(rc[r]||0)+(isVol?1:lostOf(c));});
@@ -3507,9 +3588,17 @@ async function renderFinChurn(){
   const reasonsHtml=rEntries.length?rEntries.map(([r,v])=>`<div style="margin-bottom:7px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;"><span>${r}</span><span style="color:var(--text3);">${isVol?v+' st':fmtSv(v)}</span></div><div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.round(v/rMaxV*100)}%;background:#a32d2d;opacity:0.7;"></div></div></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
   // Churnade kunder
   const listHtml=churnedList.length?churnedList.slice().sort((a,b)=>lostOf(b)-lostOf(a)).map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer;" onclick="openModal(${c.Id})"><div style="min-width:0;"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||'-'}</div><div style="font-size:11px;color:var(--text3);">${reasonOf(c)}</div></div><span style="font-weight:600;color:var(--red);white-space:nowrap;flex:0 0 auto;">${fmtSv(lostOf(c))}</span></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
+  // Steg 2b: per-typ-uppdelning (rullande 12 mån, nya modellen) — diskret rad under KPI:erna.
+  const _pt=m=>faChurnInclFastpris?`ARR ${fmtSv(m.ARR||0)} · Fastpris ${fmtSv(m.Fastpris||0)}`:`ARR ${fmtSv(m.ARR||0)}`;
+  const perTypeHtml=`<div style="font-size:11px;color:var(--text3);margin:-6px 0 14px;">Churn per typ: <strong style="color:var(--text2);">${_pt(churn12.churnByType)}</strong> &nbsp;·&nbsp; Expansion per typ: <strong style="color:var(--text2);">${_pt(churn12.expansionByType)}</strong></div>`;
+  // Logo-churn på org-nivå (nya modellen): läsbara namn ur koncern/kortnamn.
+  const orgLabel=key=>{if(key.indexOf('cust:')===0){const id=Number(key.slice(5));const c=all.find(x=>x.Id===id);return c?(c.Company||('Kund '+id)):('Kund '+id);}const k=key.slice(4);const c=all.find(x=>x.ParentCompany&&String(x.ParentCompany).trim().toLowerCase()===k);return c?c.ParentCompany:k;};
+  const orgList=(churn12.churnedOrgs||[]).map(orgLabel).sort((a,b)=>a.localeCompare(b,'sv'));
+  const orgHtml=orgList.length?orgList.map(n=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;font-weight:500;">${n}</div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga logo-churnade organisationer.</div>';
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div class="result-toggle"><button class="result-btn ${faChurnInclFastpris?'active':''}" onclick="setFaChurnInclFastpris(${!faChurnInclFastpris})">Inkludera fast pris</button></div><div class="result-toggle"><button class="result-btn ${!isVol?'active':''}" onclick="setFaChurnMode('value')">Värde (kr)</button><button class="result-btn ${isVol?'active':''}" onclick="setFaChurnMode('volume')">Volym (antal)</button></div></div>
     <div class="kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px;">${kpis}</div>
+    ${perTypeHtml}
     <div class="fin-grid" style="margin-bottom:14px;">
       <div class="fin-card"><div class="fin-card-title">Churn rate & NRR över tid</div>${chart1}</div>
       <div class="fin-card"><div class="fin-card-title">Expansion vs churnat ARR</div>${chart2}</div>
@@ -3517,6 +3606,9 @@ async function renderFinChurn(){
     <div class="fin-grid">
       <div class="fin-card"><div class="fin-card-title">Churnanledningar</div>${reasonsHtml}</div>
       <div class="fin-card"><div class="fin-card-title">Churnade kunder <span class="badge b-red">${churnedList.length}</span></div><div style="max-height:240px;overflow:auto;">${listHtml}</div></div>
+    </div>
+    <div class="fin-grid" style="margin-top:14px;">
+      <div class="fin-card"><div class="fin-card-title">Logo-churn · organisationer (ny modell) <span class="badge b-red">${orgList.length}</span></div><div style="max-height:200px;overflow:auto;">${orgHtml}</div></div>
     </div>`;
 }
 var currentFaMode='resultat';
