@@ -2143,10 +2143,11 @@ function rlpToggle(pid,on){const S=window._rlp;if(!S)return;if(on)S.selected.add
 // Bekräfta kort-övergång: varje vald förälder → denna post som barn. BARA RevenueLinks.
 async function rlpConfirm(){
   const S=window._rlp;if(!S||!S.selected.size)return;
-  for(const pid of [...S.selected]){await postRevenueLink(pid,S.itemId);}
+  const ids=[...S.selected],itemId=S.itemId,customerId=S.customerId;
+  document.getElementById('dialog-overlay')?.remove();   // stäng väljaren FÖRST (som samma-kort) — annars hinner kort-backdropens closeModal trigga
+  for(const pid of ids){await postRevenueLink(pid,itemId);}
   invalidateLinksCache();
-  document.getElementById('dialog-overlay')?.remove();
-  loadRevenueItems(S.customerId);
+  loadRevenueItems(customerId);
 }
 function openRenewRevenue(customerId,itemId){
   apiFetch(`${API}/customers/${customerId}/revenues`).then(r=>r.json()).then(items=>{
