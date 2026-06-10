@@ -1704,7 +1704,13 @@ function onProspectClosed(p,stage){
   }
 }
 // ─── PROSPECT MODAL ──────────────────────────────────────
-function openNewProspect(){isNewProspect=true;currentProspectId=null;currentProspectTab=1;document.getElementById('prospect-title').textContent='Ny prospect';document.getElementById('prospect-subtitle').textContent='';document.getElementById('prospect-delete-btn').style.display='none';renderProspectTabs(null);renderProspectBody(null,[]);document.getElementById('prospect-overlay').classList.add('open');}
+// Ny prospect: håll inmatade flik-1-fält i minnet över flikbyten (en ny prospect
+// har inget id att autospara mot, och modalen ritas om vid flikbyte → annars tappas
+// flik 1). Speglar pendingNewCustomer.
+let pendingNewProspect={fields:{}};
+function captureProspectPage(){if(!isNewProspect)return;const p=pendingNewProspect,g=id=>document.getElementById(id);['p-owner','p-company','p-subname','p-parent-company','p-employees','p-industry','p-contact','p-role','p-email','p-phone','p-stage','p-source','p-score','p-prob','p-lostreason','p-notes','p-action-type','p-action-date','p-revenue-category','p-expected-start'].forEach(id=>{const e=g(id);if(e)p.fields[id]=e.value;});}
+function applyPendingToProspectDom(){if(!isNewProspect)return;const F=pendingNewProspect.fields;Object.keys(F).forEach(id=>{const e=document.getElementById(id);if(e)e.value=F[id];});}
+function openNewProspect(){isNewProspect=true;currentProspectId=null;currentProspectTab=1;pendingNewProspect={fields:{}};document.getElementById('prospect-title').textContent='Ny prospect';document.getElementById('prospect-subtitle').textContent='';document.getElementById('prospect-delete-btn').style.display='none';renderProspectTabs(null);renderProspectBody(null,[]);document.getElementById('prospect-overlay').classList.add('open');}
 async function openProspectModal(id){
   isNewProspect=false;currentProspectId=id;currentProspectTab=1;
   const p=allProspects.find(x=>x.Id===id);if(!p)return;
@@ -1727,7 +1733,7 @@ function renderProspectTabs(p){
 async function switchProspectTab(tab){
   // Spara pågående ändringar på nuvarande flik innan vi byter (annars hinner
   // autosave-timern inte fyra och fält som Team/Koncern/Bransch tappas bort).
-  if(!isNewProspect&&currentProspectId){clearTimeout(prospectAutoSaveTimer);await silentSaveProspect();}
+  if(isNewProspect)captureProspectPage();else if(currentProspectId){clearTimeout(prospectAutoSaveTimer);await silentSaveProspect();}
   currentProspectTab=tab;
   const p=allProspects.find(x=>x.Id===currentProspectId);
   renderProspectTabs(p);
@@ -1907,6 +1913,7 @@ function renderProspectBody(p,acts){
   if(currentProspectTab===5){
     document.getElementById('prospect-body').innerHTML=renderKontaktloggHtml('prospect',p?.Id,p,acts);
   }
+  if(isNewProspect)applyPendingToProspectDom();
   // Autosave the main info tab fields (existing prospects only).
   if(!isNewProspect&&currentProspectId&&currentProspectTab===1)setTimeout(()=>setupProspectAutoSave(),100);
 }
@@ -2540,8 +2547,10 @@ function getProspectBody(p){
   // Läs varje fält från DOM om elementet finns, annars behåll befintligt värde
   // från p — så att sparning från en flik inte nollar fält som ligger på en annan.
   const has=id=>document.getElementById(id)!=null;
-  const sval=(id,fb)=>has(id)?document.getElementById(id).value:fb;
-  const snum=(id,fb)=>has(id)?(parseInt(document.getElementById(id).value)||null):fb;
+  // För ny prospect: om fältet inte finns i DOM (annan flik), läs från pending.
+  const pend=id=>(isNewProspect&&pendingNewProspect.fields[id]!=null)?pendingNewProspect.fields[id]:undefined;
+  const sval=(id,fb)=>has(id)?document.getElementById(id).value:(pend(id)!==undefined?pend(id):fb);
+  const snum=(id,fb)=>has(id)?(parseInt(document.getElementById(id).value)||null):(pend(id)!==undefined?(parseInt(pend(id))||null):fb);
   const exp=sval('p-expected-start',null);
   return{
     company:sval('p-company',p.Company||''),
@@ -2568,10 +2577,10 @@ function getProspectBody(p){
     parentCompany:sval('p-parent-company',p.ParentCompany||'')
   };
 }
-async function createProspect(){const body=getProspectBody(null);try{const r=await apiFetch(`${API}/prospects`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte skapa prospect.');}}
+async function createProspect(){captureProspectPage();const body=getProspectBody(null);try{const r=await apiFetch(`${API}/prospects`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte skapa prospect.');}}
 async function saveProspect(id){const body=getProspectBody(allProspects.find(x=>x.Id===id));try{const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error();closeProspectModalDirect();await loadProspects();}catch(e){alert('Kunde inte spara.');}}
 // Autosave for the prospect modal (mirror of the customer modal's silentSave).
-let prospectAutoSaveTimer=null;
+let prospectAutoSaveTimer=null;let prospectSaveSeq={},prospectSaveChain={};
 function setupProspectAutoSave(){
   if(isNewProspect||!currentProspectId)return;
   const body=document.getElementById('prospect-body');if(!body)return;
@@ -2580,22 +2589,58 @@ function setupProspectAutoSave(){
     f.addEventListener('input',h);f.addEventListener('change',h);
   });
 }
+// Racefri prospect-autospar (speglar kund-flödets silentSave/performSave):
+// enqueue rör DOM EN gång (ögonblicksbild av närvarande p-*-fält), bumpar en
+// per-prospect sekvens och köar performProspectSave i en serialiseringskedja.
+// performProspectSave är ren: bygger PUT-kropp från {...färsk cache, ...snapshot},
+// hoppar över om omsprungen, rör cache/indikator endast om fortfarande nyast.
 async function silentSaveProspect(){
   if(isNewProspect||!currentProspectId)return;
   if(!document.getElementById('p-company'))return; // only the main info tab edits the prospect
   const id=currentProspectId;
-  const body=getProspectBody(allProspects.find(x=>x.Id===id));
-  console.log('[silentSaveProspect] PUT /prospects/'+id+' body:',JSON.stringify({subName:body.subName,parentCompany:body.parentCompany,employees:body.employees,industry:body.industry}),'full:',body);
+  const g=eid=>document.getElementById(eid);const has=eid=>g(eid)!=null;const sv=eid=>g(eid).value;const sn=eid=>parseInt(g(eid).value)||null;
+  const snap={};
+  if(has('p-company'))snap.company=sv('p-company');
+  if(has('p-contact'))snap.contact=sv('p-contact');
+  if(has('p-role'))snap.role=sv('p-role');
+  if(has('p-email'))snap.email=sv('p-email');
+  if(has('p-phone'))snap.phone=sv('p-phone');
+  if(has('p-employees'))snap.employees=sn('p-employees');
+  if(has('p-industry'))snap.industry=sv('p-industry');
+  if(has('p-source'))snap.source=sv('p-source');
+  if(has('p-owner'))snap.owner=sv('p-owner');
+  if(has('p-stage'))snap.stage=sv('p-stage');
+  if(has('p-score'))snap.score=sn('p-score')||0;
+  if(has('p-action-type'))snap.nextActionType=sv('p-action-type')||null;
+  if(has('p-action-date'))snap.nextActionDate=sv('p-action-date')||null;
+  if(has('p-prob'))snap.probability=sn('p-prob');
+  if(has('p-lostreason'))snap.lostReason=sv('p-lostreason')||null;
+  if(has('p-notes'))snap.notes=sv('p-notes');
+  if(has('p-revenue-category'))snap.revenueCategory=sv('p-revenue-category')||null;
+  if(has('p-expected-start')){const e=sv('p-expected-start');snap.expectedStartMonth=e?(e.length===7?e+'-01':e):null;}
+  if(has('p-subname'))snap.subName=sv('p-subname');
+  if(has('p-parent-company'))snap.parentCompany=sv('p-parent-company');
+  const mySeq=(prospectSaveSeq[id]=(prospectSaveSeq[id]||0)+1);
+  prospectSaveChain[id]=(prospectSaveChain[id]||Promise.resolve()).then(()=>performProspectSave(id,snap,mySeq)).catch(()=>{});
+  return prospectSaveChain[id];
+}
+async function performProspectSave(id,snap,mySeq){
+  if(mySeq!==prospectSaveSeq[id])return;
+  const c=allProspects.find(x=>x.Id===id);if(!c)return;
+  const base={company:c.Company||'',contact:c.Contact||'',role:c.Role||'',email:c.Email||'',phone:c.Phone||'',employees:c.Employees??null,industry:c.Industry||'',source:c.Source||'',owner:c.Owner||'Matilda Olsson',stage:c.Stage||'Prospect Identified',score:c.Score??0,nextActionType:c.NextActionType||null,nextActionDate:c.NextActionDate||null,valueMin:c.ValueMin??null,valueMax:c.ValueMax??null,value:c.Value||c.ValueMax||c.ValueMin||0,probability:c.Probability??null,lostReason:c.LostReason||null,notes:c.Notes||'',revenueCategory:c.RevenueCategory||null,expectedStartMonth:c.ExpectedStartMonth||null,waitingForResponse:c.WaitingForResponse?1:0,subName:c.SubName||'',parentCompany:c.ParentCompany||''};
+  const body={...base,...snap};
+  const fail=()=>{if(mySeq===prospectSaveSeq[id])showSaveIndicator('⚠ Kunde inte spara – försök igen','#a32d2d');};
   try{
     const r=await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    console.log('[silentSaveProspect] svar status',r.status,r.ok?'OK':'FAIL');
-    if(!r.ok){const t=await r.clone().text().catch(()=>'');console.error('[silentSaveProspect] felsvar:',t);throw new Error();}
-    const idx=allProspects.findIndex(x=>x.Id===id);
-    if(idx>=0)allProspects[idx]={...allProspects[idx],Company:body.company,Contact:body.contact,Role:body.role,Email:body.email,Phone:body.phone,Employees:body.employees,Industry:body.industry,SubName:body.subName,ParentCompany:body.parentCompany,Source:body.source,Owner:body.owner,Stage:body.stage,Score:body.score,Probability:body.probability,Notes:body.notes,RevenueCategory:body.revenueCategory,ExpectedStartMonth:body.expectedStartMonth,WaitingForResponse:body.waitingForResponse,NextActionType:body.nextActionType,NextActionDate:body.nextActionDate,LostReason:body.lostReason};
-    // Spegla statiska info-fält i lokal overlay så de aldrig tappas vid omladdning.
-    saveFieldOverlay('prospect',id,{Company:body.company,Contact:body.contact,Role:body.role,Email:body.email,Phone:body.phone,Employees:body.employees,Industry:body.industry,SubName:body.subName,ParentCompany:body.parentCompany,Source:body.source,Owner:body.owner,Score:body.score,Notes:body.notes});
-    showSaveIndicator('✓ Sparat','#1a7a50');
-  }catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}
+    if(!r.ok){fail();return;}
+    if(mySeq===prospectSaveSeq[id]){
+      const idx=allProspects.findIndex(x=>x.Id===id);
+      if(idx>=0)allProspects[idx]={...allProspects[idx],Company:body.company,Contact:body.contact,Role:body.role,Email:body.email,Phone:body.phone,Employees:body.employees,Industry:body.industry,SubName:body.subName,ParentCompany:body.parentCompany,Source:body.source,Owner:body.owner,Stage:body.stage,Score:body.score,Probability:body.probability,Notes:body.notes,RevenueCategory:body.revenueCategory,ExpectedStartMonth:body.expectedStartMonth,WaitingForResponse:body.waitingForResponse,NextActionType:body.nextActionType,NextActionDate:body.nextActionDate,LostReason:body.lostReason};
+      // Spegla statiska info-fält i lokal overlay så de aldrig tappas vid omladdning.
+      saveFieldOverlay('prospect',id,{Company:body.company,Contact:body.contact,Role:body.role,Email:body.email,Phone:body.phone,Employees:body.employees,Industry:body.industry,SubName:body.subName,ParentCompany:body.parentCompany,Source:body.source,Owner:body.owner,Score:body.score,Notes:body.notes});
+      showSaveIndicator('✓ Sparat','#1a7a50');
+    }
+  }catch(e){fail();}
 }
 async function addProspectActivity(prospectId){const type=document.getElementById('pa-type').value;const note=document.getElementById('pa-note').value;const date=document.getElementById('pa-date').value;if(!note.trim())return;await apiFetch(`${API}/activities`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectId,type,note,date,createdBy:''})});document.getElementById('pa-note').value='';const r=await apiFetch(`${API}/activities/prospect/${prospectId}`);const acts=await r.json();const p=allProspects.find(x=>x.Id===prospectId);renderProspectBody(p,acts);}
 async function deleteProspect(){if(!currentProspectId)return;if(!confirm('Ta bort prospect?'))return;await apiFetch(`${API}/prospects/${currentProspectId}`,{method:'DELETE'});closeProspectModalDirect();await loadProspects();}
