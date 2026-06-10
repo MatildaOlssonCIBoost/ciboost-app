@@ -3399,25 +3399,65 @@ async function renderFinDashboard(){
   loadCommissions();
   loadModelAnalysis();
 }
+// ─── STEG 4a: ren churn-beräkning på förnyelsekedjor (ej inkopplad i UI än) ───
+// Räknar churn/NRR/expansion på RenewedFromId-kedjorna + posternas belopp/period
+// i custRevCache — INTE legacy-ARR och INTE localStorage-flaggan.
+//   from/to          = tidsfönster på licensens DateTo (Date eller datumsträng)
+//   includeFastpris  = ta med Type 'Fastpris' (default endast 'ARR')
+//   now              = "idag" (default new Date()) — injicerbar för test
+// Pilot-kunder (LicenseType==='Pilot') exkluderas; Consulting/Utbildning ingår ej.
+// Relation härleds ur belopp (barn>förälder=upp, <=ned, =förnyelse). 30 dgr respit:
+// licens utan barn räknas som full churn först när DateTo+30 < idag, annars pending
+// (exkluderas helt). Logo = kunder som lämnade HELT (full churn + 0 förnyelse i fönstret).
+function computeRenewalChurn({from,to,includeFastpris=false,now}={}){
+  const today=now?new Date(now):new Date();today.setHours(0,0,0,0);
+  const f=from instanceof Date?from:new Date(from);
+  const t=to instanceof Date?to:new Date(to);
+  const GRACE=30;
+  const types=includeFastpris?{ARR:1,Fastpris:1}:{ARR:1};
+  const ltById={};(allCustomers||[]).forEach(c=>{ltById[c.Id]=c.LicenseType;});
+  const all=[];
+  Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(Array.isArray(items))items.forEach(it=>all.push({...it,_custId:Number(cid),_licenseType:ltById[Number(cid)]}));});
+  const childByParent={};all.forEach(it=>{if(it.RenewedFromId!=null)childByParent[it.RenewedFromId]=it;});
+  let baseRevenue=0,churnRevenue=0,expansionRevenue=0,pending=0;
+  const baseCusts=new Set(),renewedCusts=new Set(),fullChurnCusts=new Set();
+  const byCust={}; // tappad revenue per kund (nedgradering + full churn)
+  all.forEach(L=>{
+    if(!types[L.Type]||L._licenseType==='Pilot'||!L.DateTo)return;
+    const dto=new Date(L.DateTo);if(dto<f||dto>t)return;
+    const amt=L.Amount||0;const child=childByParent[L.Id];
+    if(child){
+      const camt=child.Amount||0;
+      baseRevenue+=amt;baseCusts.add(L._custId);renewedCusts.add(L._custId);
+      if(camt<amt){churnRevenue+=amt-camt;byCust[L._custId]=(byCust[L._custId]||0)+(amt-camt);} // nedgradering
+      else if(camt>amt)expansionRevenue+=camt-amt;   // uppgradering → expansion
+    }else{
+      const graceEnd=new Date(dto);graceEnd.setDate(graceEnd.getDate()+GRACE);
+      if(graceEnd<today){baseRevenue+=amt;baseCusts.add(L._custId);churnRevenue+=amt;fullChurnCusts.add(L._custId);byCust[L._custId]=(byCust[L._custId]||0)+amt;}
+      else pending++;
+    }
+  });
+  const churnedCustomerIds=[...fullChurnCusts].filter(id=>!renewedCusts.has(id));
+  const logoBase=baseCusts.size,logoChurned=churnedCustomerIds.length;
+  return{baseRevenue,churnRevenue,expansionRevenue,churnRevenuePct:baseRevenue>0?churnRevenue/baseRevenue:0,logoBase,logoChurned,logoChurnPct:logoBase>0?logoChurned/logoBase:0,nrr:baseRevenue>0?(baseRevenue-churnRevenue+expansionRevenue)/baseRevenue:0,pending,churnedCustomerIds,churnByCustomer:byCust};
+}
 var faChurnMode='value';
 function setFaChurnMode(m){faChurnMode=m;renderFinChurn();}
+// Steg 4d: växlare som tar med Fastpris-licenser i churn-modellen (default AV = bara ARR).
+var faChurnInclFastpris=false;
+function setFaChurnInclFastpris(v){faChurnInclFastpris=!!v;renderFinChurn();}
 // Churn-sektionen i finansiell analys: KPI:er, churn/NRR över tid, expansion vs
 // churnat ARR, churnanledningar och lista över churnade kunder. Värde/Volym-toggle.
-function renderFinChurn(){
+async function renderFinChurn(){
   const el=document.getElementById('fa-churn');if(!el)return;
+  // Steg 4b: KPI:erna räknas på kedje-modellen (computeRenewalChurn), som läser
+  // custRevCache. Säkra att den är laddad annars blir KPI:erna 0 vid första render.
+  if(!Object.keys(custRevCache||{}).length){el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">Laddar intäktsdata…</div>';try{await prefetchAllCustomerRevenues();}catch(e){}}
   const today=new Date();const yNow=today.getFullYear();const isVol=faChurnMode==='volume';
   const churnedMap=getChurnedCustomers();
-  const arrOf=c=>(c.ARR||0)+(c.ARR_Fixed||0);
-  const isChurned=c=>!!churnedMap[c.Id]||(c._days!==null&&c._days<0);
+  const isChurned=c=>!!churnedMap[c.Id]||(c._days!==null&&c._days<0); // endast för activeCusts/Snitt tid
   const all=allCustomers||[];
-  const churnedCusts=all.filter(isChurned);
-  const totalCusts=all.length||1;
-  const totalArr=all.reduce((s,c)=>s+arrOf(c),0)||1;
-  const churnedArr=churnedCusts.reduce((s,c)=>s+arrOf(c),0);
   const activeCusts=all.filter(c=>!isChurned(c));
-  const expansion=all.reduce((s,c)=>s+(c.Revenue_Training||0)+(c.Revenue_Consulting||0),0);
-  const nrr=totalArr>0?Math.round((totalArr-churnedArr+expansion)/totalArr*100):0;
-  const churnRate=isVol?(Math.round(churnedCusts.length/totalCusts*1000)/10):(Math.round(churnedArr/totalArr*1000)/10);
   // Snitt tid som kund (mån) + delta vs ett år sedan.
   const tenM=(c,at)=>{if(!c.CustomerSince)return null;const d=(at-new Date(c.CustomerSince))/86400000;return d>0?d/30.44:0;};
   const tNow=activeCusts.map(c=>tenM(c,today)).filter(v=>v!=null);
@@ -3428,20 +3468,25 @@ function renderFinChurn(){
   const avgTenLast=tLast.length?Math.round(tLast.reduce((a,b)=>a+b,0)/tLast.length):0;
   const tenDelta=avgTen-avgTenLast;
   const fmtSv=v=>v?Math.round(v).toLocaleString('sv-SE')+' kr':'–';
-  // Tidsserie senaste 4 åren.
+  // Tidsserie 2023-2026 via kedje-modellen — EN beräkning per år, återanvänd för båda graferna.
   const years=[yNow-3,yNow-2,yNow-1,yNow];
-  const endOf=c=>c._avtalEnd||c._licEnd||c.LicenseEnd;
-  const chY=years.map(Y=>{const list=all.filter(c=>{const e=endOf(c);return e&&new Date(e).getFullYear()===Y&&new Date(e)<today;});return{cnt:list.length,arr:list.reduce((s,c)=>s+arrOf(c),0)};});
-  const expY=years.map(Y=>{let t=0;all.forEach(c=>{for(let m=0;m<12;m++){const mv=monthlyValue(c,new Date(Y,m,1));t+=mv.utb+mv.cons;}});return Math.round(t);});
-  const startCnt=years.map(Y=>{const s=new Date(Y,0,1);return all.filter(c=>c.CustomerSince&&new Date(c.CustomerSince)<s).length;});
-  const startArr=years.map(Y=>{const s=new Date(Y,0,1);return all.filter(c=>c.CustomerSince&&new Date(c.CustomerSince)<s).reduce((sum,c)=>sum+arrOf(c),0);});
-  const rateY=years.map((Y,i)=>{const d=isVol?startCnt[i]:startArr[i];const num=isVol?chY[i].cnt:chY[i].arr;return d>0?Math.round(num/d*1000)/10:0;});
-  const nrrY=years.map((Y,i)=>{const b=startArr[i]||totalArr;return b>0?Math.round((b-chY[i].arr+expY[i])/b*100):0;});
+  const churnY=years.map(Y=>computeRenewalChurn({from:new Date(Y,0,1),to:new Date(Y,11,31,23,59,59,999),includeFastpris:faChurnInclFastpris}));
+  const rateY=churnY.map(r=>isVol?Math.round(r.logoChurnPct*1000)/10:Math.round(r.churnRevenuePct*1000)/10);
+  const nrrY=churnY.map(r=>Math.round(r.nrr*100));
+  const expY=churnY.map(r=>Math.round(r.expansionRevenue));
+  const chArrY=churnY.map(r=>Math.round(r.churnRevenue));
+  // Rullande 12 mån via den nya kedje-modellen (steg 4b). OBS: graferna och
+  // churnade-listan/anledningarna ligger KVAR på legacy tills 4c/4d.
+  const _w365=new Date(today);_w365.setDate(_w365.getDate()-365);
+  const churn12=computeRenewalChurn({from:_w365,to:today,includeFastpris:faChurnInclFastpris});
+  const churnRate12=isVol?Math.round(churn12.logoChurnPct*1000)/10:Math.round(churn12.churnRevenuePct*1000)/10;
+  const nrr12=Math.round(churn12.nrr*100);
+  const logoTxt=`${churn12.logoChurned} kund${churn12.logoChurned!==1?'er':''}`;
   // KPI-kort
   const kpiCard=(label,val,sub,color)=>`<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value" style="color:${color};font-size:18px;">${val}</div><div class="kpi-delta neu">${sub}</div></div>`;
-  const kpis=kpiCard('Churn rate',`${churnRate}%`,isVol?`${churnedCusts.length} kunder`:fmtSv(churnedArr),'var(--red)')
-    +kpiCard('Churnat ARR',fmtSv(churnedArr),`${churnedCusts.length} kunder`,'var(--red)')
-    +kpiCard('NRR',`${nrr}%`,'Net Revenue Retention',nrr>=100?'var(--green)':'var(--amber)')
+  const kpis=kpiCard('Churn rate',`${churnRate12}%`,isVol?logoTxt:fmtSv(churn12.churnRevenue),'var(--red)')
+    +kpiCard('Churnat ARR',isVol?`${churn12.logoChurned}`:fmtSv(churn12.churnRevenue),`${logoTxt} · 12 mån`,'var(--red)')
+    +kpiCard('NRR',`${nrr12}%`,'Net Revenue Retention (12 mån)',nrr12>=100?'var(--green)':'var(--amber)')
     +kpiCard('Snitt tid som kund',`${avgTen} mån`,`${tenDelta>=0?'+':''}${tenDelta} mån vs föreg. år`,tenDelta>=0?'var(--green)':'var(--red)');
   // Chart 1: churn rate (staplar) + NRR (linje).
   const cw=400,ch=110;const rMax=Math.max(...rateY,1);const nMin=Math.min(...nrrY,90),nMax=Math.max(...nrrY,110);
@@ -3450,17 +3495,20 @@ function renderFinChurn(){
   const nrrPts=nrrY.map((v,i)=>`${Math.round(bx(i)+bw/2)},${Math.round(ny(v))}`).join(' ');
   const chart1=`<svg viewBox="0 0 ${cw} ${ch+18}" width="100%" style="overflow:visible;">${rateY.map((v,i)=>{const h=Math.round(v/rMax*(ch-20));return`<rect x="${Math.round(bx(i))}" y="${ch-h-6}" width="${Math.round(bw)}" height="${h}" rx="2" fill="#a32d2d" opacity="0.75"/><text x="${Math.round(bx(i)+bw/2)}" y="${ch-h-9}" font-size="8" fill="#a32d2d" text-anchor="middle">${v}%</text><text x="${Math.round(bx(i)+bw/2)}" y="${ch+10}" font-size="9" fill="var(--text3)" text-anchor="middle">${years[i]}</text>`;}).join('')}<polyline points="${nrrPts}" fill="none" stroke="#1a7a50" stroke-width="2"/>${nrrY.map((v,i)=>`<circle cx="${Math.round(bx(i)+bw/2)}" cy="${Math.round(ny(v))}" r="2.5" fill="#1a7a50"/>`).join('')}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;"><span><span style="display:inline-block;width:10px;height:10px;background:#a32d2d;opacity:0.75;vertical-align:middle;"></span> Churn rate</span><span><span style="display:inline-block;width:12px;height:2px;background:#1a7a50;vertical-align:middle;"></span> NRR</span></div>`;
   // Chart 2: expansion (upp) vs churnat ARR (ned), speglade staplar.
-  const mMax=Math.max(...expY,...chY.map(c=>c.arr),1);const mid=ch/2;
-  const chart2=`<svg viewBox="0 0 ${cw} ${ch+18}" width="100%" style="overflow:visible;"><line x1="0" y1="${mid}" x2="${cw}" y2="${mid}" stroke="var(--border)" stroke-width="0.5"/>${years.map((Y,i)=>{const eh=Math.round(expY[i]/mMax*(mid-10));const chh=Math.round(chY[i].arr/mMax*(mid-10));return`<rect x="${Math.round(bx(i))}" y="${mid-eh}" width="${Math.round(bw)}" height="${eh}" rx="2" fill="#1a7a50" opacity="0.8"/><rect x="${Math.round(bx(i))}" y="${mid}" width="${Math.round(bw)}" height="${chh}" rx="2" fill="#a32d2d" opacity="0.8"/><text x="${Math.round(bx(i)+bw/2)}" y="${ch+10}" font-size="9" fill="var(--text3)" text-anchor="middle">${Y}</text>`;}).join('')}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;"><span><span style="display:inline-block;width:10px;height:10px;background:#1a7a50;vertical-align:middle;"></span> Expansion</span><span><span style="display:inline-block;width:10px;height:10px;background:#a32d2d;vertical-align:middle;"></span> Churnat ARR</span></div>`;
-  // Churnanledningar
+  const mMax=Math.max(...expY,...chArrY,1);const mid=ch/2;
+  const chart2=`<svg viewBox="0 0 ${cw} ${ch+18}" width="100%" style="overflow:visible;"><line x1="0" y1="${mid}" x2="${cw}" y2="${mid}" stroke="var(--border)" stroke-width="0.5"/>${years.map((Y,i)=>{const eh=Math.round(expY[i]/mMax*(mid-10));const chh=Math.round(chArrY[i]/mMax*(mid-10));return`<rect x="${Math.round(bx(i))}" y="${mid-eh}" width="${Math.round(bw)}" height="${eh}" rx="2" fill="#1a7a50" opacity="0.8"/><rect x="${Math.round(bx(i))}" y="${mid}" width="${Math.round(bw)}" height="${chh}" rx="2" fill="#a32d2d" opacity="0.8"/><text x="${Math.round(bx(i)+bw/2)}" y="${ch+10}" font-size="9" fill="var(--text3)" text-anchor="middle">${Y}</text>`;}).join('')}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;"><span><span style="display:inline-block;width:10px;height:10px;background:#1a7a50;vertical-align:middle;"></span> Expansion</span><span><span style="display:inline-block;width:10px;height:10px;background:#a32d2d;vertical-align:middle;"></span> Churnat ARR</span></div>`;
+  // Churnade kunder (kedje-modellen, rullande 12 mån) + tappad revenue per kund.
+  const churnedList=churn12.churnedCustomerIds.map(id=>all.find(c=>c.Id===id)).filter(Boolean);
+  const lostOf=c=>churn12.churnByCustomer[c.Id]||0;
+  // Churnanledningar — kedje-modellen avgör VILKA, gamla källan (RenewalOutcomes/localStorage) säger VARFÖR.
   const reasonOf=c=>(churnedMap[c.Id]&&churnedMap[c.Id].reason)||c.LostReason||'Ej förnyat';
-  const rc={};churnedCusts.forEach(c=>{const r=reasonOf(c);rc[r]=(rc[r]||0)+(isVol?1:arrOf(c));});
+  const rc={};churnedList.forEach(c=>{const r=reasonOf(c);rc[r]=(rc[r]||0)+(isVol?1:lostOf(c));});
   const rEntries=Object.entries(rc).sort((a,b)=>b[1]-a[1]);const rMaxV=Math.max(...rEntries.map(e=>e[1]),1);
   const reasonsHtml=rEntries.length?rEntries.map(([r,v])=>`<div style="margin-bottom:7px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;"><span>${r}</span><span style="color:var(--text3);">${isVol?v+' st':fmtSv(v)}</span></div><div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.round(v/rMaxV*100)}%;background:#a32d2d;opacity:0.7;"></div></div></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
   // Churnade kunder
-  const listHtml=churnedCusts.length?churnedCusts.slice().sort((a,b)=>arrOf(b)-arrOf(a)).map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer;" onclick="openModal(${c.Id})"><div style="min-width:0;"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||'-'}</div><div style="font-size:11px;color:var(--text3);">${reasonOf(c)}</div></div><span style="font-weight:600;color:var(--red);white-space:nowrap;flex:0 0 auto;">${fmtSv(arrOf(c))}</span></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
+  const listHtml=churnedList.length?churnedList.slice().sort((a,b)=>lostOf(b)-lostOf(a)).map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer;" onclick="openModal(${c.Id})"><div style="min-width:0;"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||'-'}</div><div style="font-size:11px;color:var(--text3);">${reasonOf(c)}</div></div><span style="font-weight:600;color:var(--red);white-space:nowrap;flex:0 0 auto;">${fmtSv(lostOf(c))}</span></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
   el.innerHTML=`
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><div class="result-toggle"><button class="result-btn ${!isVol?'active':''}" onclick="setFaChurnMode('value')">Värde (kr)</button><button class="result-btn ${isVol?'active':''}" onclick="setFaChurnMode('volume')">Volym (antal)</button></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div class="result-toggle"><button class="result-btn ${faChurnInclFastpris?'active':''}" onclick="setFaChurnInclFastpris(${!faChurnInclFastpris})">Inkludera fast pris</button></div><div class="result-toggle"><button class="result-btn ${!isVol?'active':''}" onclick="setFaChurnMode('value')">Värde (kr)</button><button class="result-btn ${isVol?'active':''}" onclick="setFaChurnMode('volume')">Volym (antal)</button></div></div>
     <div class="kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px;">${kpis}</div>
     <div class="fin-grid" style="margin-bottom:14px;">
       <div class="fin-card"><div class="fin-card-title">Churn rate & NRR över tid</div>${chart1}</div>
@@ -3468,7 +3516,7 @@ function renderFinChurn(){
     </div>
     <div class="fin-grid">
       <div class="fin-card"><div class="fin-card-title">Churnanledningar</div>${reasonsHtml}</div>
-      <div class="fin-card"><div class="fin-card-title">Churnade kunder <span class="badge b-red">${churnedCusts.length}</span></div><div style="max-height:240px;overflow:auto;">${listHtml}</div></div>
+      <div class="fin-card"><div class="fin-card-title">Churnade kunder <span class="badge b-red">${churnedList.length}</span></div><div style="max-height:240px;overflow:auto;">${listHtml}</div></div>
     </div>`;
 }
 var currentFaMode='resultat';
