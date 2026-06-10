@@ -2076,6 +2076,7 @@ async function setRenewLink(customerId,itemId,parentId){
   if(parentId!=null)await postRevenueLink(parentId,itemId);
   invalidateLinksCache();loadRevenueItems(customerId);
 }
+function rlpFmtItem(x){return `${x.Type} · ${x.DateFrom?x.DateFrom.substring(0,10):'?'} – ${x.DateTo?x.DateTo.substring(0,10):'?'} · ${Math.round(x.Amount||0).toLocaleString('sv-SE')} kr${x.Description?' · '+x.Description:''}`;}
 async function openRenewLinkPicker(customerId,itemId){
   const r=await apiFetch(`${API}/customers/${customerId}/revenues`);const items=await r.json();
   const it=items.find(x=>x.Id===itemId);if(!it){alert('Posten hittades inte.');return;}
@@ -2084,11 +2085,68 @@ async function openRenewLinkPicker(customerId,itemId){
   const candidates=items.filter(x=>!banned.has(x.Id)&&(x.Type==='ARR'||x.Type==='Fastpris'));
   let suggested=null;
   if(it.DateFrom){const from=new Date(it.DateFrom);const st=candidates.filter(x=>x.Type===it.Type&&x.DateTo&&new Date(x.DateTo)<=from);st.sort((a,b)=>new Date(b.DateTo)-new Date(a.DateTo));suggested=st[0]||null;}
-  const fmtItem=x=>`${x.Type} · ${x.DateFrom?x.DateFrom.substring(0,10):'?'} – ${x.DateTo?x.DateTo.substring(0,10):'?'} · ${Math.round(x.Amount||0).toLocaleString('sv-SE')} kr${x.Description?' · '+x.Description:''}`;
-  const row=(x,hi)=>`<div onclick="setRenewLink(${customerId},${itemId},${x.Id});document.getElementById('dialog-overlay')?.remove();" style="padding:8px 10px;border:1px solid ${hi?'#E8845A':'var(--border)'};border-radius:6px;margin-bottom:6px;cursor:pointer;font-size:12px;${hi?'background:#FAECE7;':''}">${hi?'<div style="font-size:10px;font-weight:600;color:#993C1D;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px;">Föreslagen förälder</div>':''}<span style="color:var(--text2);">${fmtItem(x)}</span></div>`;
   const others=candidates.filter(x=>!suggested||x.Id!==suggested.Id).sort((a,b)=>{const ad=a.DateTo||a.DateFrom||'';const bd=b.DateTo||b.DateFrom||'';return bd.localeCompare(ad);});
-  const body=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Koppla denna post som <strong>förnyelse av</strong> en tidigare post:<div style="margin-top:4px;color:var(--text2);">${fmtItem(it)}</div></div>${suggested?row(suggested,true):''}${others.length?others.map(x=>row(x,false)).join(''):(suggested?'':'<div style="font-size:12px;color:var(--text3);">Inga andra poster att koppla till.</div>')}`;
-  showDialog('Koppla till föregående avtal',body,()=>true,'Stäng');
+  const cur=(allCustomers||[]).find(c=>c.Id===customerId);
+  const orgKey=(cur&&cur.ParentCompany?String(cur.ParentCompany):'').trim().toLowerCase();
+  // Steg 3: state-driven väljare med två lägen (samma kort / annat kundkort + flerval).
+  window._rlp={customerId,itemId,it,suggested,others,mode:'same',orgKey,search:'',selCust:null,selected:new Set()};
+  showDialog('Länka till tidigare avtal','<div id="rlp-body"></div>',()=>true,'Stäng');
+  rlpRender();
+}
+// Renderar väljarens kropp utifrån window._rlp.mode.
+function rlpRender(){
+  const S=window._rlp;if(!S)return;const box=document.getElementById('rlp-body');if(!box)return;
+  if(S.mode==='same'){
+    const row=(x,hi)=>`<div onclick="setRenewLink(${S.customerId},${S.itemId},${x.Id});document.getElementById('dialog-overlay')?.remove();" style="padding:8px 10px;border:1px solid ${hi?'#E8845A':'var(--border)'};border-radius:6px;margin-bottom:6px;cursor:pointer;font-size:12px;${hi?'background:#FAECE7;':''}">${hi?'<div style="font-size:10px;font-weight:600;color:#993C1D;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px;">Föreslagen förälder</div>':''}<span style="color:var(--text2);">${rlpFmtItem(x)}</span></div>`;
+    box.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Länka denna post som <strong>förnyelse av</strong> en tidigare post:<div style="margin-top:4px;color:var(--text2);">${rlpFmtItem(S.it)}</div></div>`
+      +(S.suggested?row(S.suggested,true):'')
+      +(S.others.length?S.others.map(x=>row(x,false)).join(''):(S.suggested?'':'<div style="font-size:12px;color:var(--text3);">Inga andra poster på detta kort.</div>'))
+      +`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;"><span onclick="rlpMode('other')" style="font-size:12px;color:var(--accent);cursor:pointer;text-decoration:underline;">↥ Koppla till ett annat kundkort istället</span></div>`;
+  }else{
+    box.innerHTML=`<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Länka till poster på ANDRA kundkort — t.ex. när teamlicenser går upp i en enterpriselicens (konsolidering) eller en licens delas upp på flera team (förgrening). Välj de tidigare poster som denna post ersätter. Flera tillåtet. Skrivs som länk.</div>
+      <input id="rlp-search" placeholder="Sök kundnamn…" oninput="rlpSearch(this.value)" value="${(S.search||'').replace(/"/g,'&quot;')}" style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;margin-bottom:8px;">
+      <div id="rlp-cust-list" style="max-height:140px;overflow:auto;margin-bottom:8px;"></div>
+      <div id="rlp-posts" style="max-height:160px;overflow:auto;"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;align-items:center;"><span onclick="rlpMode('same')" style="font-size:12px;color:var(--text3);cursor:pointer;text-decoration:underline;">← Tillbaka</span><button id="rlp-confirm" onclick="rlpConfirm()" class="btn-primary" style="margin-left:auto;" ${S.selected.size?'':'disabled'}>Länka valda (${S.selected.size})</button></div>`;
+    rlpRenderCustList();rlpRenderPosts();
+  }
+}
+function rlpMode(m){const S=window._rlp;if(!S)return;S.mode=m;rlpRender();if(m==='other'){const i=document.getElementById('rlp-search');if(i)i.focus();}}
+function rlpSearch(v){const S=window._rlp;if(!S)return;S.search=v;rlpRenderCustList();}
+// Kundlista (filtrerad på sök), "samma koncern"-badge, markerar vald kund.
+function rlpRenderCustList(){
+  const S=window._rlp;const el=document.getElementById('rlp-cust-list');if(!el)return;
+  const q=(S.search||'').trim().toLowerCase();
+  let list=(allCustomers||[]).filter(c=>c.Id!==S.customerId);
+  if(q)list=list.filter(c=>(c.Company||'').toLowerCase().includes(q)||(c.SubName||'').toLowerCase().includes(q));
+  list=list.slice().sort((a,b)=>(a.Company||'').localeCompare(b.Company||'','sv')).slice(0,40);
+  el.innerHTML=list.length?list.map(c=>{
+    const same=S.orgKey&&(c.ParentCompany?String(c.ParentCompany):'').trim().toLowerCase()===S.orgKey;
+    const sel=S.selCust===c.Id;
+    return `<div onclick="rlpSelCust(${c.Id})" style="padding:6px 9px;border:1px solid ${sel?'var(--accent)':'var(--border)'};border-radius:6px;margin-bottom:5px;cursor:pointer;font-size:12px;${sel?'background:var(--accent-bg);':''}display:flex;justify-content:space-between;align-items:center;gap:6px;"><span style="font-weight:500;">${c.Company||'-'}${c.SubName?' · '+c.SubName:''}</span>${same?'<span class="badge b-green" style="font-size:10px;flex:0 0 auto;">samma koncern</span>':''}</div>`;
+  }).join(''):'<div style="font-size:12px;color:var(--text3);">Inga kunder matchar.</div>';
+}
+// Väljer kund → laddar dess poster (cache vid behov) och renderar checkbox-listan.
+async function rlpSelCust(cid){
+  const S=window._rlp;if(!S)return;S.selCust=cid;
+  if(!custRevCache[cid]){try{const r=await apiFetch(`${API}/customers/${cid}/revenues`);custRevCache[cid]=await r.json();}catch(e){custRevCache[cid]=[];}}
+  rlpRenderCustList();rlpRenderPosts();
+}
+function rlpRenderPosts(){
+  const S=window._rlp;const el=document.getElementById('rlp-posts');if(!el)return;
+  if(S.selCust==null){el.innerHTML='';return;}
+  const posts=(custRevCache[S.selCust]||[]).filter(x=>(x.Type==='ARR'||x.Type==='Fastpris')&&x.Id!==S.itemId);
+  posts.sort((a,b)=>{const ad=a.DateTo||a.DateFrom||'';const bd=b.DateTo||b.DateFrom||'';return bd.localeCompare(ad);});
+  el.innerHTML=posts.length?posts.map(p=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid var(--border);border-radius:6px;margin-bottom:5px;cursor:pointer;font-size:12px;"><input type="checkbox" ${S.selected.has(p.Id)?'checked':''} onchange="rlpToggle(${p.Id},this.checked)" style="width:15px;height:15px;flex:0 0 auto;cursor:pointer;"><span style="color:var(--text2);">${rlpFmtItem(p)}</span></label>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga ARR/Fastpris-poster på den kunden.</div>';
+}
+function rlpToggle(pid,on){const S=window._rlp;if(!S)return;if(on)S.selected.add(pid);else S.selected.delete(pid);const b=document.getElementById('rlp-confirm');if(b){b.textContent=`Länka valda (${S.selected.size})`;b.disabled=S.selected.size===0;}}
+// Bekräfta kort-övergång: varje vald förälder → denna post som barn. BARA RevenueLinks.
+async function rlpConfirm(){
+  const S=window._rlp;if(!S||!S.selected.size)return;
+  for(const pid of [...S.selected]){await postRevenueLink(pid,S.itemId);}
+  invalidateLinksCache();
+  document.getElementById('dialog-overlay')?.remove();
+  loadRevenueItems(S.customerId);
 }
 function openRenewRevenue(customerId,itemId){
   apiFetch(`${API}/customers/${customerId}/revenues`).then(r=>r.json()).then(items=>{
@@ -2098,7 +2156,8 @@ function openRenewRevenue(customerId,itemId){
     const origLabel=`${orig.Type} · ${fmtRenewPeriod(orig.DateFrom,orig.DateTo)}`;
     const relPrev=getRevRelations(customerId)[String(itemId)]||'renewal';
     showDialog('Avsluta / förnya intäktspost',
-      `<div style="background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:12px;color:var(--text2);">Länkas till: <strong>${origLabel}</strong> (${Math.round(orig.Amount||0).toLocaleString('sv-SE')} kr)</div>
+      `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Förnya skapar en ny period på <strong>samma kund</strong>. För övergångar mellan kundkort, använd 'Länka till tidigare avtal' på den nya posten istället.</div>
+      <div style="background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:12px;color:var(--text2);">Länkas till: <strong>${origLabel}</strong> (${Math.round(orig.Amount||0).toLocaleString('sv-SE')} kr)</div>
       <div class="modal-field"><label>Typ av förändring</label><select id="rn-relation" class="edit-input" onchange="document.getElementById('rn-relation-note').textContent=this.value==='upgrade'?'Uppgradering räknas inte som churn.':this.value==='downgrade'?'Endast mellanskillnaden i värde räknas som churn.':'Förnyelse på samma nivå.';"><option value="renewal" ${relPrev==='renewal'?'selected':''}>Förnyelse (samma nivå)</option><option value="upgrade" ${relPrev==='upgrade'?'selected':''}>Uppgraderad till (ingen churn)</option><option value="downgrade" ${relPrev==='downgrade'?'selected':''}>Nedgraderad till (churn = mellanskillnad)</option></select></div>
       <div id="rn-relation-note" style="font-size:11px;color:var(--text3);margin-top:4px;">${relPrev==='upgrade'?'Uppgradering räknas inte som churn.':relPrev==='downgrade'?'Endast mellanskillnaden i värde räknas som churn.':'Förnyelse på samma nivå.'}</div>
       <div class="modal-field" style="margin-top:10px;"><label>Typ</label><select id="rn-type" class="edit-input"><option value="ARR" ${orig.Type==='ARR'?'selected':''}>Licens (prenumeration)</option><option value="Fastpris" ${orig.Type==='Fastpris'?'selected':''}>Licens (fast pris)</option><option value="Utbildning" ${orig.Type==='Utbildning'?'selected':''}>Utbildning</option><option value="Consulting" ${orig.Type==='Consulting'?'selected':''}>Consulting</option></select></div>
@@ -5005,7 +5064,7 @@ async function deleteRevItem(customerId,itemId){await apiFetch(`${API}/customers
 // hämtar postens befintliga fält och PUT:ar dem oförändrade + ny paid/paymentDate.
 // paid=1 → paymentDate sätts till InvoiceDate+30 (inte dagens datum). paid=0 → null.
 async function setRevenuePaid(customerId,itemId,paid){const r=await apiFetch(`${API}/customers/${customerId}/revenues`);const items=await r.json();const it=items.find(x=>x.Id===itemId);if(!it)return;let paymentDate=null;if(paid&&it.InvoiceDate){const due=new Date(it.InvoiceDate);due.setDate(due.getDate()+30);const p=n=>String(n).padStart(2,'0');paymentDate=`${due.getFullYear()}-${p(due.getMonth()+1)}-${p(due.getDate())}`;}await apiFetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:it.Type,amount:it.Amount,dateFrom:it.DateFrom?it.DateFrom.substring(0,10):null,dateTo:it.DateTo?it.DateTo.substring(0,10):null,description:it.Description||null,invoiceDate:it.InvoiceDate?it.InvoiceDate.substring(0,10):null,paid:paid?1:0,paymentDate})});loadRevenueItems(customerId);}
-function editRevenueItem(customerId,itemId){apiFetch(`${API}/customers/${customerId}/revenues`).then(r=>r.json()).then(items=>{const item=items.find(i=>i.Id===itemId);if(!item)return;const c=allCustomers.find(x=>x.Id===customerId);const licStart=c?.LicenseStart?c.LicenseStart.substring(0,10):'';const licEnd=c?.LicenseEnd?c.LicenseEnd.substring(0,10):'';const v={type:item.Type,amount:item.Amount!=null?item.Amount:'',from:item.DateFrom?item.DateFrom.substring(0,10):'',to:item.DateTo?item.DateTo.substring(0,10):'',desc:item.Description||'',invoiceDate:item.InvoiceDate?item.InvoiceDate.substring(0,10):'',paid:!!item.Paid,paymentDate:item.PaymentDate?item.PaymentDate.substring(0,10):''};const _isLic=item.Type==='ARR'||item.Type==='Fastpris';let _linkCtrl='';if(_isLic){if(item.RenewedFromId){const _p=items.find(x=>x.Id===item.RenewedFromId);const _pl=_p?`${_p.Type} ${fmtRenewPeriod(_p.DateFrom,_p.DateTo)}`:'tidigare avtal';_linkCtrl=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;gap:5px;">↶ Förnyelse av <strong>${_pl}</strong></span><button onclick="(async()=>{const ok=await window._dialogSave();if(ok!==false){setRenewLink(${customerId},${itemId},null);document.getElementById('dialog-overlay')?.remove();}})()" style="background:none;border:none;padding:0;color:var(--text3);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:11px;">avlänka</button></div>`;}else{_linkCtrl=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"><button onclick="(async()=>{const ok=await window._dialogSave();if(ok!==false)openRenewLinkPicker(${customerId},${itemId});})()" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:0.5px solid var(--border);border-radius:5px;background:none;font-family:inherit;font-size:12px;color:var(--text2);cursor:pointer;" title="Koppla till föregående avtal"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 0 1 4-4h3a4 4 0 0 1 0 8h-1"/><path d="M15 12a4 4 0 0 1-4 4H8a4 4 0 0 1 0-8h1"/></svg>Koppla till föregående</button></div>`;}}showDialog('Redigera intäkt',revFieldsHtml('ei',v,licStart,licEnd)+_linkCtrl,async()=>{const amount=parseInt(document.getElementById('ei-amount').value)||0;if(!amount)return false;await apiFetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('ei-type').value,amount,dateFrom:document.getElementById('ei-from').value||null,dateTo:document.getElementById('ei-to').value||null,description:document.getElementById('ei-desc').value||null,invoiceDate:document.getElementById('ei-invoice-date')?.value||null,paid:document.getElementById('ei-paid')?.checked?1:0,paymentDate:document.getElementById('ei-payment-date')?.value||null})});loadRevenueItems(customerId);return true;});updateRiPaymentExpected('ei');});}
+function editRevenueItem(customerId,itemId){apiFetch(`${API}/customers/${customerId}/revenues`).then(r=>r.json()).then(items=>{const item=items.find(i=>i.Id===itemId);if(!item)return;const c=allCustomers.find(x=>x.Id===customerId);const licStart=c?.LicenseStart?c.LicenseStart.substring(0,10):'';const licEnd=c?.LicenseEnd?c.LicenseEnd.substring(0,10):'';const v={type:item.Type,amount:item.Amount!=null?item.Amount:'',from:item.DateFrom?item.DateFrom.substring(0,10):'',to:item.DateTo?item.DateTo.substring(0,10):'',desc:item.Description||'',invoiceDate:item.InvoiceDate?item.InvoiceDate.substring(0,10):'',paid:!!item.Paid,paymentDate:item.PaymentDate?item.PaymentDate.substring(0,10):''};const _isLic=item.Type==='ARR'||item.Type==='Fastpris';let _linkCtrl='';if(_isLic){if(item.RenewedFromId){const _p=items.find(x=>x.Id===item.RenewedFromId);const _pl=_p?`${_p.Type} ${fmtRenewPeriod(_p.DateFrom,_p.DateTo)}`:'tidigare avtal';_linkCtrl=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;gap:5px;">↶ Förnyelse av <strong>${_pl}</strong></span><button onclick="(async()=>{const ok=await window._dialogSave();if(ok!==false){setRenewLink(${customerId},${itemId},null);document.getElementById('dialog-overlay')?.remove();}})()" style="background:none;border:none;padding:0;color:var(--text3);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:11px;">avlänka</button></div>`;}else{_linkCtrl=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"><button onclick="(async()=>{const ok=await window._dialogSave();if(ok!==false)openRenewLinkPicker(${customerId},${itemId});})()" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:0.5px solid var(--border);border-radius:5px;background:none;font-family:inherit;font-size:12px;color:var(--text2);cursor:pointer;" title="Länka till tidigare avtal"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 0 1 4-4h3a4 4 0 0 1 0 8h-1"/><path d="M15 12a4 4 0 0 1-4 4H8a4 4 0 0 1 0-8h1"/></svg>Länka till tidigare avtal</button></div>`;}}showDialog('Redigera intäkt',revFieldsHtml('ei',v,licStart,licEnd)+_linkCtrl,async()=>{const amount=parseInt(document.getElementById('ei-amount').value)||0;if(!amount)return false;await apiFetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('ei-type').value,amount,dateFrom:document.getElementById('ei-from').value||null,dateTo:document.getElementById('ei-to').value||null,description:document.getElementById('ei-desc').value||null,invoiceDate:document.getElementById('ei-invoice-date')?.value||null,paid:document.getElementById('ei-paid')?.checked?1:0,paymentDate:document.getElementById('ei-payment-date')?.value||null})});loadRevenueItems(customerId);return true;});updateRiPaymentExpected('ei');});}
 async function markCommPaid(commId,revenueId,customerId){await apiFetch(`${API}/commissions/${commId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadRevCommissions(revenueId,customerId);}
 async function deleteComm(commId,revenueId,customerId){await apiFetch(`${API}/commissions/${commId}`,{method:'DELETE'});loadRevCommissions(revenueId,customerId);}
 // Delade fält för intäktsmodalen — används av både "Lägg till intäkt" och
