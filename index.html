@@ -1278,8 +1278,10 @@ function fmtKr(v){if(!v&&v!==0)return'-';return Math.round(v).toLocaleString('sv
 // ─── KPI-FÖRKLARINGAR ────────────────────────────────────
 // Info-ikon (i) på alla KPI-kort; klick visar hur värdet beräknas.
 const KPI_INFO={
-  'NRR':'Net Revenue Retention – mäter hur mycket intäkt vi behåller från befintliga kunder inklusive expansion.',
-  'Churn rate':'Andel kunder som inte förnyat under perioden.',
+  'NRR':'Retention including expansion (licences). Below 100% = shrinking, above 100% = grows.',
+  'Churn rate':'Share of recurring revenue (ARR) that expired without renewing. In volume mode: share of organisations that left entirely.',
+  'Churnat ARR':'SEK (ARR) lost when licenses expired without renewal. In volume mode: number of organisations that left.',
+  'Snitt tid som kund':'Average customer lifetime in months, from first contract. Arrow compares to a year ago.',
   'Gross Profit (TB1)':'Intäkter minus direkta kostnader (COGS).',
   'Gross margin':'Bruttomarginal – bruttovinst (TB1) delat med intäkter.',
   'EBITDA (TB2)':'Rörelseresultat före räntor, skatt och avskrivningar (TB1 minus OPEX).',
@@ -3647,11 +3649,14 @@ async function renderFinChurn(){
   const all=allCustomers||[];
   const activeCusts=all.filter(c=>!isChurned(c));
   // Snitt tid som kund (mån) + delta vs ett år sedan.
-  const tenM=(c,at)=>{if(!c.CustomerSince)return null;const d=(at-new Date(c.CustomerSince))/86400000;return d>0?d/30.44:0;};
+  // Steg 1: livslängd räknas från kundens TIDIGASTE kontrakt (DateFrom på ARR/Fastpris)
+  // i stället för CustomerSince. Saknas daterad post → null → filtreras bort (oförändrad null-hantering).
+  const firstContract=c=>{const items=custRevCache[c.Id]||[];let m=null;items.forEach(it=>{if((it.Type==='ARR'||it.Type==='Fastpris')&&it.DateFrom){const d=new Date(it.DateFrom);if(!m||d<m)m=d;}});return m;};
+  const tenM=(c,at)=>{const s=firstContract(c);if(!s)return null;const d=(at-s)/86400000;return d>0?d/30.44:0;};
   const tNow=activeCusts.map(c=>tenM(c,today)).filter(v=>v!=null);
   const avgTen=tNow.length?Math.round(tNow.reduce((a,b)=>a+b,0)/tNow.length):0;
   const yearAgo=new Date(today);yearAgo.setFullYear(yearAgo.getFullYear()-1);
-  const lyC=all.filter(c=>c.CustomerSince&&new Date(c.CustomerSince)<=yearAgo&&(!c.LicenseEnd||new Date(c.LicenseEnd)>=yearAgo));
+  const lyC=all.filter(c=>{const s=firstContract(c);return s&&s<=yearAgo&&(!c.LicenseEnd||new Date(c.LicenseEnd)>=yearAgo);});
   const tLast=lyC.map(c=>tenM(c,yearAgo)).filter(v=>v!=null);
   const avgTenLast=tLast.length?Math.round(tLast.reduce((a,b)=>a+b,0)/tLast.length):0;
   const tenDelta=avgTen-avgTenLast;
