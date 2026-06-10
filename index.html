@@ -2053,15 +2053,27 @@ function buildRenewalChains(items){
 // 'upgrade' = uppgraderad (ingen churn), 'downgrade' = nedgraderad (churn = mellanskillnad).
 function getRevRelations(customerId){try{return JSON.parse(localStorage.getItem(`revrelation-${customerId}`)||'{}');}catch(e){return{};}}
 function setRevRelation(customerId,parentId,rel){const m=getRevRelations(customerId);if(rel&&rel!=='renewal')m[String(parentId)]=rel;else delete m[String(parentId)];localStorage.setItem(`revrelation-${customerId}`,JSON.stringify(m));}
+// Steg 2c: spegla förnyelselänkningen in i RevenueLinks (M:N) parallellt med
+// RenewedFromId (backup). Best-effort — får ALDRIG bryta den primära sparningen.
+async function postRevenueLink(fromId,toId){
+  try{await apiFetch(`${API}/revenues/links`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fromRevenueId:fromId,toRevenueId:toId})});}catch(e){}
+}
+async function removeIncomingLinks(childId){
+  try{const r=await apiFetch(`${API}/revenues/${childId}/links`);const rows=await r.json();
+    await Promise.all((Array.isArray(rows)?rows:[]).filter(x=>x.ToRevenueId===childId).map(x=>apiFetch(`${API}/revenues/links/${x.Id}`,{method:'DELETE'}).catch(()=>{})));}catch(e){}
+}
 // Retroaktiv förnyelsekoppling (steg 3). setRenewLink PUT:ar postens BEFINTLIGA
 // fält + renewedFromId (revenues-PUT skriver hela raden, så allt måste med);
-// parentId=null avlänkar. openRenewLinkPicker visar en väljare med föreslagen
-// förälder (samma typ, närmast föregående DateTo) + övriga poster, exkl. posten
-// själv och dess barn (cykelskydd).
+// parentId=null avlänkar. Speglas till RevenueLinks (steg 2c): rensa inkommande
+// länkar (single-parent) och lägg ev. ny. openRenewLinkPicker visar en väljare med
+// föreslagen förälder (samma typ, närmast föregående DateTo) + övriga, exkl. cykler.
 async function setRenewLink(customerId,itemId,parentId){
   const r=await apiFetch(`${API}/customers/${customerId}/revenues`);const items=await r.json();
   const it=items.find(x=>x.Id===itemId);if(!it)return;
   await apiFetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:it.Type,amount:it.Amount,dateFrom:it.DateFrom?it.DateFrom.substring(0,10):null,dateTo:it.DateTo?it.DateTo.substring(0,10):null,description:it.Description||null,invoiceDate:it.InvoiceDate?it.InvoiceDate.substring(0,10):null,paid:it.Paid?1:0,paymentDate:it.PaymentDate?it.PaymentDate.substring(0,10):null,renewedFromId:parentId})});
+  // RevenueLinks parallellt (single-parent-spegling): rensa inkommande, lägg ev. ny.
+  await removeIncomingLinks(itemId);
+  if(parentId!=null)await postRevenueLink(parentId,itemId);
   invalidateLinksCache();loadRevenueItems(customerId);
 }
 async function openRenewLinkPicker(customerId,itemId){
@@ -2101,7 +2113,10 @@ function openRenewRevenue(customerId,itemId){
         const amount=parseInt(document.getElementById('rn-amount').value)||0;if(!amount)return false;
         const relation=document.getElementById('rn-relation')?.value||'renewal';
         setRevRelation(customerId,itemId,relation);
-        await apiFetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('rn-type').value,amount,dateFrom:document.getElementById('rn-from').value||null,dateTo:document.getElementById('rn-to').value||null,description:document.getElementById('rn-desc').value||null,invoiceDate:document.getElementById('rn-invoice-date')?.value||null,renewedFromId:itemId})});
+        const resp=await apiFetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('rn-type').value,amount,dateFrom:document.getElementById('rn-from').value||null,dateTo:document.getElementById('rn-to').value||null,description:document.getElementById('rn-desc').value||null,invoiceDate:document.getElementById('rn-invoice-date')?.value||null,renewedFromId:itemId})});
+        // Spegla länken till RevenueLinks (steg 2c) med nya postens Id ur 201-svaret.
+        let newId=null;try{newId=(await resp.json()).id;}catch(e){}
+        if(newId)await postRevenueLink(itemId,newId);
         invalidateLinksCache();loadRevenueItems(customerId);
         return true;
       }
