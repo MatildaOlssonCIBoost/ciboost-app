@@ -2059,12 +2059,13 @@ function openRenewRevenue(customerId,itemId){
         <div class="modal-field"><label>Från datum</label><input id="rn-from" type="date" class="edit-input" value="${newStart}"></div>
         <div class="modal-field"><label>Till datum</label><input id="rn-to" type="date" class="edit-input" value="${newEnd}"></div>
       </div>
+      <div class="modal-field" style="margin-top:10px;"><label>Faktureringsdatum (valfritt)</label><input id="rn-invoice-date" type="date" class="edit-input"></div>
       <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="rn-desc" class="edit-input" value="${(orig.Description||'').replace(/"/g,'&quot;')}"></div>`,
       async()=>{
         const amount=parseInt(document.getElementById('rn-amount').value)||0;if(!amount)return false;
         const relation=document.getElementById('rn-relation')?.value||'renewal';
         setRevRelation(customerId,itemId,relation);
-        await apiFetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('rn-type').value,amount,dateFrom:document.getElementById('rn-from').value||null,dateTo:document.getElementById('rn-to').value||null,description:document.getElementById('rn-desc').value||null,renewedFromId:itemId})});
+        await apiFetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('rn-type').value,amount,dateFrom:document.getElementById('rn-from').value||null,dateTo:document.getElementById('rn-to').value||null,description:document.getElementById('rn-desc').value||null,invoiceDate:document.getElementById('rn-invoice-date')?.value||null,renewedFromId:itemId})});
         loadRevenueItems(customerId);
         return true;
       }
