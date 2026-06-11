@@ -1283,6 +1283,11 @@ const KPI_INFO={
   'Churn rate':'Share of recurring revenue (ARR) that expired without renewing. In volume mode: share of organisations that left entirely.',
   'Churnat ARR':'SEK (ARR) lost when licenses expired without renewal. In volume mode: number of organisations that left.',
   'Snitt tid som kund':'Average customer lifetime in months, from first contract. Arrow compares to a year ago.',
+  'Revenue Churn':'Share of recurring revenue (ARR) up for renewal that was lost. Subtext shows the renewal base. In Estimated: projected to full year.',
+  'Expansion Rate':'Upgrades to larger licences as a share of the renewal base, with SEK gained. Excludes consulting/training; always resolved.',
+  'Customer Churn':'Share of organisations that left entirely (no renewal), counted per organisation.',
+  'Nya kunder':'Total unique organisations ever acquired as customers (all-time; ignores the period selector).',
+  'Churn SEK':'Recurring revenue (ARR) lost to churn — downgrades plus full churn. In Estimated: projected.',
   'Gross Profit (TB1)':'Intäkter minus direkta kostnader (COGS).',
   'Gross margin':'Bruttomarginal – bruttovinst (TB1) delat med intäkter.',
   'EBITDA (TB2)':'Rörelseresultat före räntor, skatt och avskrivningar (TB1 minus OPEX).',
@@ -3640,8 +3645,6 @@ function computeRenewalChurnLinks({from,to,includeFastpris=false,now,customers=[
   const logoBase=baseOrgs.size,logoChurned=churnedOrgs.length;
   return{baseRevenue,churnRevenue,expansionRevenue,churnRevenuePct:baseRevenue>0?churnRevenue/baseRevenue:0,nrr:baseRevenue>0?(baseRevenue-churnRevenue+expansionRevenue)/baseRevenue:0,churnByType,expansionByType,baseByType,logoBase,logoChurned,logoChurnPct:logoBase>0?logoChurned/logoBase:0,churnedOrgs,pending,churnFull,churnDowngrade,churnByOrg,expansionOrgs:_expOrgs.size,churnFullOrgs:_fullOrgs.size,churnDowngradeOrgs:_dgOrgs.size,pendingRevenue,pendingByType};
 }
-var faChurnMode='value';
-function setFaChurnMode(m){faChurnMode=m;renderFinChurn();}
 // Steg 4d: växlare som tar med Fastpris-licenser i churn-modellen (default AV = bara ARR).
 var faChurnInclFastpris=false;
 function setFaChurnInclFastpris(v){faChurnInclFastpris=!!v;renderFinChurn();}
@@ -3659,7 +3662,7 @@ async function renderFinChurn(){
   // custRevCache. Säkra att den är laddad annars blir KPI:erna 0 vid första render.
   if(!Object.keys(custRevCache||{}).length){el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">Laddar intäktsdata…</div>';try{await prefetchAllCustomerRevenues();}catch(e){}}
   if(linksCache===null){try{await prefetchRevenueLinks();}catch(e){}}   // steg 2b: säkra länk-cachen
-  const today=new Date();const yNow=today.getFullYear();const isVol=faChurnMode==='volume';
+  const today=new Date();const yNow=today.getFullYear();
   const churnedMap=getChurnedCustomers();
   const isChurned=c=>!!churnedMap[c.Id]||(c._days!==null&&c._days<0); // endast för activeCusts/Snitt tid
   const all=allCustomers||[];
@@ -3682,7 +3685,6 @@ async function renderFinChurn(){
   // Steg 2b: KPI:er + grafer på NYA länk-modellen (RevenueLinks, M:N, org-logo, per-typ).
   const _lnk={customers:all,revenuesByCust:custRevCache,links:linksCache||[]};
   const churnY=years.map(Y=>computeRenewalChurnLinks({from:new Date(Y,0,1),to:new Date(Y,11,31,23,59,59,999),includeFastpris:faChurnInclFastpris,..._lnk}));
-  const rateY=churnY.map(r=>isVol?Math.round(r.logoChurnPct*1000)/10:Math.round(r.churnRevenuePct*1000)/10);
   const nrrY=churnY.map(r=>Math.round(r.nrr*100));
   const expY=churnY.map(r=>Math.round(r.expansionRevenue));
   const chArrY=churnY.map(r=>Math.round(r.churnRevenue));
@@ -3719,20 +3721,27 @@ async function renderFinChurn(){
   const estChurnRate=estBase>0?estChurn/estBase:0;
   const estGRR=estBase>0?(estBase-estChurn)/estBase:0;
   const estNRR=estBase>0?(estBase-estChurn+churn12.expansionRevenue)/estBase:0;
-  const churnRate12=isVol?Math.round(churn12.logoChurnPct*1000)/10:Math.round(estChurnRate*1000)/10;
+  const churnRate12=Math.round(estChurnRate*1000)/10;
   const nrr12=Math.round(estNRR*100);
   // Steg 2/3: GRR ur est-base/-churn (= resolved när ej est-läge).
   const grr=Math.round(estGRR*100);
   const logoTxt=`${churn12.logoChurned} org`;
-  // KPI-kort
+  // KPI-ombyggnad: härledda mått för nya korten (allt värde/SEK; est-medvetet där tabellen anger).
+  const expRatePct=churn12.baseRevenue>0?Math.round(churn12.expansionRevenue/churn12.baseRevenue*1000)/10:0;
+  const custChurnPct=Math.round(churn12.logoChurnPct*1000)/10;
+  const newOrgs=new Set();all.forEach(c=>{if(firstContract(c)){const k=(c.ParentCompany||'').trim().toLowerCase();newOrgs.add(k?'org:'+k:'cust:'+c.Id);}});const nyaKunder=newOrgs.size;
+  // KPI-kort (2 rader: rad 1 retention, rad 2 kund/belopp)
   const kpiCard=(label,val,sub,color)=>`<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value" style="color:${color};font-size:18px;">${val}</div><div class="kpi-delta neu">${sub}</div></div>`;
-  const kpis=kpiCard('Churn rate',`${isVol?'':_estTag}${churnRate12}%`,isVol?logoTxt:(isEst?`varav resolved ${fmtSv(churn12.churnRevenue)} · oavgjort ${fmtSv(oavgjord)} exponerat`:fmtSv(churn12.churnRevenue)),'var(--red)')
-    +kpiCard('Churnat ARR',isVol?`${churn12.logoChurned}`:`${_estTag}${fmtSv(estChurn)}`,isEst&&!isVol?`varav resolved ${fmtSv(churn12.churnRevenue)} · oavgjort ${fmtSv(oavgjord)} exp.`:`${logoTxt} · ${periodTxt}`,'var(--red)')
+  const kpis=kpiCard('Revenue Churn',`${_estTag}${churnRate12}%`,`av ${fmtSv(estBase)} kr`,'var(--red)')
     +kpiCard('Net Revenue Retention (NRR)',`${_estTag}${nrr12}%`,isEst?`projicerat på ${fmtSv(oavgjord)} oavgjort`:`Net Revenue Retention (${periodTxt})`,nrr12>=100?'var(--green)':'var(--amber)')
     +kpiCard('Gross Revenue Retention (GRR)',`${_estTag}${grr}%`,isEst?`projicerat på ${fmtSv(oavgjord)} oavgjort`:`Gross Revenue Retention (${periodTxt})`,grr>=100?'var(--green)':'var(--amber)')
+    +kpiCard('Expansion Rate',`${expRatePct}%`,fmtSv(churn12.expansionRevenue),'var(--green)')
+    +kpiCard('Customer Churn',`${custChurnPct}%`,`${churn12.logoChurned} org`,'var(--red)')
+    +kpiCard('Nya kunder',`${nyaKunder}`,'unika org · alla år','var(--text)')
+    +kpiCard('Churn SEK',`${_estTag}${fmtSv(estChurn)}`,isEst?`varav resolved ${fmtSv(churn12.churnRevenue)} · oavgjort ${fmtSv(oavgjord)}`:periodTxt,'var(--red)')
     +kpiCard('Snitt tid som kund',`${avgTen} mån`,`${tenDelta>=0?'+':''}${tenDelta} mån vs föreg. år`,tenDelta>=0?'var(--green)':'var(--red)');
   // Steg 4: KOMBOGRAF — expansion upp (grön), churnat ARR ner (röd), NRR-linje (navy, egen %-skala till höger).
-  // rateY (churn-rate %) visas ej i grafen längre — finns kvar som KPI-kort. churnY/expY/chArrY/nrrY oförändrade.
+  // Använder churnY/expY/chArrY/nrrY (per år) — oförändrade.
   const cw=400,ch=140,mid=ch/2,padTop=12,topM=8,botM=18,L=24,R=34;
   const n=years.length,slot=(cw-L-R)/n;
   const bx=i=>L+i*slot;const bw=slot*0.55;const cx=i=>bx(i)+bw/2;
@@ -3754,9 +3763,9 @@ async function renderFinChurn(){
   const lostOf=c=>churn12legacy.churnByCustomer[c.Id]||0;
   // Churnanledningar — kedje-modellen avgör VILKA, gamla källan (RenewalOutcomes/localStorage) säger VARFÖR.
   const reasonOf=c=>(churnedMap[c.Id]&&churnedMap[c.Id].reason)||c.LostReason||'Ej förnyat';
-  const rc={};churnedList.forEach(c=>{const r=reasonOf(c);rc[r]=(rc[r]||0)+(isVol?1:lostOf(c));});
+  const rc={};churnedList.forEach(c=>{const r=reasonOf(c);rc[r]=(rc[r]||0)+lostOf(c);});
   const rEntries=Object.entries(rc).sort((a,b)=>b[1]-a[1]);const rMaxV=Math.max(...rEntries.map(e=>e[1]),1);
-  const reasonsHtml=rEntries.length?rEntries.map(([r,v])=>`<div style="margin-bottom:7px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;"><span>${r}</span><span style="color:var(--text3);">${isVol?v+' st':fmtSv(v)}</span></div><div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.round(v/rMaxV*100)}%;background:#a32d2d;opacity:0.7;"></div></div></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
+  const reasonsHtml=rEntries.length?rEntries.map(([r,v])=>`<div style="margin-bottom:7px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;"><span>${r}</span><span style="color:var(--text3);">${fmtSv(v)}</span></div><div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.round(v/rMaxV*100)}%;background:#a32d2d;opacity:0.7;"></div></div></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
   // Churnade kunder
   const listHtml=churnedList.length?churnedList.slice().sort((a,b)=>lostOf(b)-lostOf(a)).map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer;" onclick="openModal(${c.Id})"><div style="min-width:0;"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||'-'}</div><div style="font-size:11px;color:var(--text3);">${reasonOf(c)}</div></div><span style="font-weight:600;color:var(--red);white-space:nowrap;flex:0 0 auto;">${fmtSv(lostOf(c))}</span></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
   // Logo-churn på org-nivå (nya modellen): läsbara namn ur koncern/kortnamn.
@@ -3796,8 +3805,8 @@ async function renderFinChurn(){
   const arrTrendHtml=`<div style="margin-bottom:16px;"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-bottom:10px;">ARR-trend${faChurnInclFastpris?' (inkl. fast pris)':''}</div><div class="fin-grid"><div class="fin-card"><div class="fin-card-title">Total ARR per år</div>${panel1}</div><div class="fin-card"><div class="fin-card-title">Kunder &amp; ACV per år</div>${panel2}</div></div><div style="font-size:10px;color:var(--text3);margin-top:6px;font-style:italic;">* ${yNow} hittills (snapshot idag). ARR före datastädning — vissa kunder har överlappande poster.</div></div>`;
   el.innerHTML=`
     ${arrTrendHtml}
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnInclFastpris?'active':''}" onclick="setFaChurnInclFastpris(${!faChurnInclFastpris})">Inkludera fast pris</button></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnPeriod==='all'?'active':''}" onclick="setFaChurnPeriod('all')">Alla</button>${years.map(Y=>`<button class="result-btn ${faChurnPeriod===String(Y)?'active':''}" onclick="setFaChurnPeriod('${Y}')">${Y}</button>`).join('')}<button class="result-btn ${faChurnPeriod==='rolling'?'active':''}" onclick="setFaChurnPeriod('rolling')">Rullande 12 mån</button></div>${faChurnPeriod===_curYr?`<div class="result-toggle"><button class="result-btn ${faChurnYearMode==='ytd'?'active':''}" onclick="setFaChurnYearMode('ytd')">YTD</button><button class="result-btn ${faChurnYearMode==='est'?'active':''}" onclick="setFaChurnYearMode('est')">Estimated</button></div>`:''}<div class="result-toggle"><button class="result-btn ${!isVol?'active':''}" onclick="setFaChurnMode('value')">Värde (kr)</button><button class="result-btn ${isVol?'active':''}" onclick="setFaChurnMode('volume')">Volym (antal)</button></div></div></div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:14px;">${kpis}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnInclFastpris?'active':''}" onclick="setFaChurnInclFastpris(${!faChurnInclFastpris})">Inkludera fast pris</button></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnPeriod==='all'?'active':''}" onclick="setFaChurnPeriod('all')">Alla</button>${years.map(Y=>`<button class="result-btn ${faChurnPeriod===String(Y)?'active':''}" onclick="setFaChurnPeriod('${Y}')">${Y}</button>`).join('')}<button class="result-btn ${faChurnPeriod==='rolling'?'active':''}" onclick="setFaChurnPeriod('rolling')">Rullande 12 mån</button></div>${faChurnPeriod===_curYr?`<div class="result-toggle"><button class="result-btn ${faChurnYearMode==='ytd'?'active':''}" onclick="setFaChurnYearMode('ytd')">YTD</button><button class="result-btn ${faChurnYearMode==='est'?'active':''}" onclick="setFaChurnYearMode('est')">Estimated</button></div>`:''}</div></div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px;">${kpis}</div>
     <div class="fin-grid" style="margin-bottom:14px;">
       <div class="fin-card"><div class="fin-card-title">Churn, expansion & NRR över tid</div>${chartCombo}</div>
       <div class="fin-card"><div class="fin-card-title">Kunder kvar vs lämnade</div>${chartLogo}</div>
