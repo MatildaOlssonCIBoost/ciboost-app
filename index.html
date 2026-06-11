@@ -819,6 +819,21 @@
 
 <div class="page" id="page-finansiellt-dashboard">
   <div class="main">
+    <div class="fa-section-title">Finansiell analys</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;">
+      <div class="fin-card" onclick="faOpenView('utfall')" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">Utfall och prognos</div><div style="font-size:12px;color:var(--text3);">Nyckeltal · utfall vs budget · intäktsmix</div></div>
+      <div class="fin-card" onclick="faOpenView('arr')" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">ARR, Churn och Retention</div><div style="font-size:12px;color:var(--text3);">ARR-trend · churn · retention · kunder</div></div>
+      <div class="fin-card" onclick="faOpenView('styrelse')" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">Styrelserapport <span class="badge b-amber">Byggs härnäst</span></div><div style="font-size:12px;color:var(--text3);">Budget vs utfall · likviditetsprognos</div></div>
+      <div class="fin-card" onclick="faOpenView('periodanalys')" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">Periodanalys</div><div style="font-size:12px;color:var(--text3);">Jämför perioder</div></div>
+      <div class="fin-card" onclick="faOpenView('provision')" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">Provision och samarbeten</div><div style="font-size:12px;color:var(--text3);">Utestående provision · samarbeten</div></div>
+      <div class="fin-card" onclick="faGotoModell()" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">Modellanalys</div><div style="font-size:12px;color:var(--text3);">Churn- · förnyelse- · pipeline-modeller</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-finansiellt-utfall">
+  <div class="main">
+    <button onclick="faBackToMeny()" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:0;margin-bottom:14px;display:flex;align-items:center;gap:4px;">← Tillbaka till meny</button>
     <div class="date-filter" id="fa-filters">
       <div class="result-toggle"><button class="result-btn active" onclick="setFaMode('resultat',this)">Resultat</button><button class="result-btn" onclick="setFaMode('likviditet',this)">Likviditet</button></div>
       <span style="font-size:12px;color:var(--text3);margin-left:8px;">Period:</span>
@@ -847,13 +862,37 @@
     <div class="fa-section-title">Utfall och prognos</div>
     <div class="fin-grid" id="fa-utfall-grid" style="margin-bottom:14px;"></div>
     <div id="fa-mixtotal" style="margin-bottom:18px;"></div>
-    <div class="fa-section-title">Churn</div>
-    <div id="fa-churn" style="margin-bottom:18px;"></div>
-    <div class="fa-section-title">Jämför perioder</div>
-    <div class="fin-card" id="fa-period-cmp" style="margin-bottom:18px;"></div>
-    <div class="fa-section-title">Provision</div>
-    <div class="fin-card" style="margin-bottom:14px;"><div class="fin-card-title">Provision – utestående <span class="badge b-amber" id="comm-badge">-</span></div><div id="comm-rows"><div class="loading"><div class="spinner"></div></div></div></div>
     <input type="hidden" id="fin-from"><input type="hidden" id="fin-to">
+  </div>
+</div>
+
+<div class="page" id="page-finansiellt-arr">
+  <div class="main">
+    <button onclick="faBackToMeny()" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:0;margin-bottom:14px;display:flex;align-items:center;gap:4px;">← Tillbaka till meny</button>
+    <div id="fa-churn" style="margin-bottom:18px;"></div>
+  </div>
+</div>
+
+<div class="page" id="page-finansiellt-styrelse">
+  <div class="main">
+    <button onclick="faBackToMeny()" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:0;margin-bottom:14px;display:flex;align-items:center;gap:4px;">← Tillbaka till meny</button>
+    <div class="fa-section-title">Styrelserapport</div>
+    <div class="fin-card" style="text-align:center;color:var(--text3);padding:40px;font-size:14px;">Byggs härnäst (Commit 2) — budget vs utfall + likviditetsprognos.</div>
+  </div>
+</div>
+
+<div class="page" id="page-finansiellt-periodanalys">
+  <div class="main">
+    <button onclick="faBackToMeny()" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:0;margin-bottom:14px;display:flex;align-items:center;gap:4px;">← Tillbaka till meny</button>
+    <div class="fin-card" id="fa-period-cmp" style="margin-bottom:18px;"></div>
+  </div>
+</div>
+
+<div class="page" id="page-finansiellt-provision">
+  <div class="main">
+    <button onclick="faBackToMeny()" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:0;margin-bottom:14px;display:flex;align-items:center;gap:4px;">← Tillbaka till meny</button>
+    <div class="fa-section-title">Provision och samarbeten</div>
+    <div class="fin-card" style="margin-bottom:14px;"><div class="fin-card-title">Provision – utestående <span class="badge b-amber" id="comm-badge">-</span></div><div id="comm-rows"><div class="loading"><div class="spinner"></div></div></div></div>
   </div>
 </div>
 
@@ -1474,7 +1513,6 @@ function switchMain(tab,el){
   else if(tab==='pipeline'){updatePipeKpi();const sub=currentSub.pipeline||'oversikt';showPage(`pipeline-${sub}`);if(sub==='oversikt')renderKanban();else renderPipelineAnalys();}
   else if(tab==='kunder'){updateStats();showPage(`kunder-${currentSub.kunder}`);}
   else if(tab==='finansiellt'){updateFinStatsBar();showPage(`finansiellt-${currentSub.finansiellt}`);
-    if(currentSub.finansiellt==='dashboard')renderFinDashboard();
     if(currentSub.finansiellt==='prognos')renderPrognos();
     if(currentSub.finansiellt==='budget')loadBudgetVersions();
   }
@@ -1501,11 +1539,14 @@ function switchSub(main,sub,el){
   if(main==='pipeline'&&sub==='stangda')renderStangdaAffarer();
   if(main==='kunder'&&sub==='licenstidslinje')renderLicenstidslinje();
   if(main==='kunder'&&sub==='kundanalys')renderKundanalys();
-  if(main==='finansiellt'&&sub==='dashboard')renderFinDashboard();
   if(main==='finansiellt'&&sub==='prognos')renderPrognos();
   if(main==='finansiellt'&&sub==='budget')loadBudgetVersions();
   if(main==='arkiv')renderArkivCurrent();
 }
+// Finansiell analys-meny: kort → fokuserad delvy (showPage-mönstret), + tillbaka till meny.
+function faOpenView(view){showPage('finansiellt-'+view);if(view==='arr')renderFinChurn();else if(view!=='styrelse')renderFinDashboard();}
+function faBackToMeny(){showPage('finansiellt-dashboard');}
+function faGotoModell(){const b=[...document.querySelectorAll('.nav-tab')].find(x=>/switchMain\('modellanalys'/.test(x.getAttribute('onclick')||''));if(b)b.click();}
 function updateFinStatsBar(){
   const arrTotal=allCustomers.reduce((s,c)=>s+(c.ARR||0)+(c.ARR_Fixed||0),0);
   const mrr=Math.round(arrTotal/12);
