@@ -4328,7 +4328,11 @@ function computeCashflow(rows,opening,financing){
 function getFinancing(vId,year){try{const a=JSON.parse(localStorage.getItem('financingByMonth_'+vId+'_'+year)||'[]');return Array.from({length:12},(_,i)=>Math.round(Number(a[i])||0));}catch(e){return Array(12).fill(0);}}
 function setFinancing(vId,year,monthIdx,val){const a=getFinancing(vId,year);a[monthIdx]=Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0);localStorage.setItem('financingByMonth_'+vId+'_'+year,JSON.stringify(a));const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();}
 function getOpeningCash(year){return Math.round(Number(localStorage.getItem('openingCash_'+year))||0);}
-function setOpeningCash(year,val){localStorage.setItem('openingCash_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));const sp=document.getElementById('fa-panel-styrelse');if(sp&&sp.style.display!=='none')renderStyrelse();else renderBudgetCashflow();}
+function setOpeningCash(year,val){localStorage.setItem('openingCash_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));
+  // Re-rendera bara den panel som FAKTISKT syns (offsetParent===null när elementet/förälder är display:none).
+  // Tidigare buggen: styrelse-panelens style.display blev '' efter ett besök och låg kvar → fel panel uppdaterades.
+  const sp=document.getElementById('fa-panel-styrelse');if(sp&&sp.offsetParent!==null)renderStyrelse();
+  const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.offsetParent!==null)renderBudgetCashflow();}
 // Manuell projektion: Licens (prenumeration) vid årets slut (styrelserapportens nyckeltalsbox).
 function getProjectedLicens(year){return Math.round(Number(localStorage.getItem('projectedLicensPren_'+year))||0);}
 function setProjectedLicens(year,val){localStorage.setItem('projectedLicensPren_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));renderStyrelse();}
@@ -4353,38 +4357,40 @@ async function renderBudgetCashflow(){
   const cf=computeCashflow(rows,opening,financing);
   const src=isRollingBudgetVersion(ver)?'Löpande':isPrimaryBudgetVersion(ver)?'Primär':'';
   const verSel=`<select onchange="setCashflowVersion(this.value)" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;max-width:280px;">${liq.map(v=>{const mark=(isPrimaryBudgetVersion(v)?'★ ':'')+(isRollingBudgetVersion(v)?'⟳ ':'');const sel=String(v.Id)===String(ver.Id)?' selected':'';return`<option value="${v.Id}"${sel}>${mark}${v.Name} (${v.Year}) · #${v.Id}</option>`;}).join('')}</select>`;
-  const head=`<th style="min-width:150px;text-align:left;padding:4px 8px;"></th>${cf.months.map(m=>`<th style="text-align:center;font-size:10px;color:var(--text3);font-weight:500;padding:3px 4px;">${m}</th>`).join('')}<th style="text-align:center;font-size:10px;color:var(--text3);font-weight:600;padding:3px 6px;border-left:1px solid var(--border);">Totalt</th>`;
-  const row=(label,arr,total,color,bg,strong)=>`<tr style="background:${bg};"><td style="font-weight:${strong?700:600};font-size:12px;color:${color};padding:5px 8px;">${label}</td>${arr.map(v=>`<td style="text-align:center;font-size:11px;font-weight:${strong?700:500};color:${color};padding:4px;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;font-size:12px;color:${color};border-left:1px solid var(--border);padding:4px 6px;">${total}</td></tr>`;
-  // Finansieringsrad: redigerbara input-celler/månad (som Manuell-raden i budget) → setFinancing.
-  const finRow=(label,arr,total)=>`<tr style="background:#fdf3e0;"><td style="font-weight:600;font-size:12px;color:#7a5a2a;padding:5px 8px;">${label}</td>${arr.map((v,i)=>`<td style="padding:2px 3px;text-align:center;"><input type="text" value="${v?v.toLocaleString('sv-SE'):''}" placeholder="0" onchange="setFinancing(${ver.Id},${year},${i},this.value)" style="width:52px;padding:3px 4px;text-align:right;border:1px solid var(--border);border-radius:4px;font-size:10px;background:var(--surface);"></td>`).join('')}<td style="text-align:center;font-weight:700;font-size:12px;color:#7a5a2a;border-left:1px solid var(--border);padding:4px 6px;">${total}</td></tr>`;
   const inT=cf.cashIn.reduce((a,b)=>a+b,0),outT=cf.cashOut.reduce((a,b)=>a+b,0),netT=inT-outT,finT=financing.reduce((a,b)=>a+b,0);
   // Nyckeltal: max kapitalbehov (lägsta utgående balans), total netto (drift), total finansiering, antal negativa månader.
   const minClosing=Math.min(...cf.closing),minIdx=cf.closing.indexOf(minClosing),minMon=cf.months[minIdx];
   const negMonths=cf.closing.filter(v=>v<0).length;
-  const kapText=minClosing<0?`<span style="color:#a32d2d;font-weight:700;">${fmtSv(Math.abs(minClosing))} kr</span> behövs som mest (lägst i ${minMon})`:`håller positivt — lägsta marginal <span style="color:#1a7a50;font-weight:700;">${fmtSv(minClosing)} kr</span> i ${minMon}`;
-  const stat=(label,val)=>`<div style="display:flex;flex-direction:column;gap:1px;"><span style="font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:#7a5a2a;">${label}</span><span style="font-size:12px;color:var(--text2);">${val}</span></div>`;
-  const nyckelBox=`<div style="background:#FBEEDF;border-radius:10px;padding:12px 16px;margin-top:12px;display:flex;flex-wrap:wrap;gap:22px;align-items:center;">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#7a5a2a;">Nyckeltal</div>
+  // Vänd tabell: en rad/månad, kolumner = posterna. Neutral stil; färg bara på negativ utgående balans (röd).
+  const TH=(t,extra)=>`<th style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.03em;padding:6px 10px;text-align:${t==='Månad'?'left':'right'};border-bottom:1px solid var(--border);${extra||''}">${t}</th>`;
+  const num=(v,extra)=>`<td style="font-size:12px;text-align:right;padding:5px 10px;border-bottom:0.5px solid var(--border);${extra||''}">${fmtK(v)}</td>`;
+  const finCell=mi=>`<td style="padding:3px 6px;text-align:right;border-bottom:0.5px solid var(--border);"><input type="text" value="${financing[mi]?financing[mi].toLocaleString('sv-SE'):''}" placeholder="0" onchange="setFinancing(${ver.Id},${year},${mi},this.value)" style="width:84px;padding:3px 6px;text-align:right;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);"></td>`;
+  const bodyRows=cf.months.map((m,i)=>`<tr><td style="font-size:12px;font-weight:500;color:var(--text2);text-align:left;padding:5px 10px;border-bottom:0.5px solid var(--border);">${m}</td>${num(cf.ingaende[i])}${num(cf.cashIn[i])}${num(cf.cashOut[i])}${num(cf.net[i])}${finCell(i)}${num(cf.closing[i],`font-weight:600;${cf.closing[i]<0?'color:#a32d2d;':''}`)}</tr>`).join('');
+  const totalRow=`<tr><td style="font-size:12px;font-weight:700;text-align:left;padding:7px 10px;border-top:2px solid var(--border);">Totalt</td>${num('-',`font-weight:700;border-top:2px solid var(--border);color:var(--text3);`)}${num(inT,'font-weight:700;border-top:2px solid var(--border);')}${num(outT,'font-weight:700;border-top:2px solid var(--border);')}${num(netT,'font-weight:700;border-top:2px solid var(--border);')}${num(finT,'font-weight:700;border-top:2px solid var(--border);')}${num(cf.closing[11],`font-weight:700;border-top:2px solid var(--border);${cf.closing[11]<0?'color:#a32d2d;':''}`)}</tr>`;
+  const stat=(label,val)=>`<div style="display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:0.5px solid var(--border);"><span style="font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text3);">${label}</span><span style="font-size:13px;color:var(--text)">${val}</span></div>`;
+  const kapText=minClosing<0?`<span style="color:#a32d2d;font-weight:700;">${fmtSv(Math.abs(minClosing))} kr</span><br><span style="font-size:11px;color:var(--text3);">behövs som mest · lägst i ${minMon}</span>`:`<span style="color:#1a7a50;font-weight:700;">+${fmtSv(minClosing)} kr</span><br><span style="font-size:11px;color:var(--text3);">lägsta marginal · ${minMon}</span>`;
+  const nyckelBox=`<div style="min-width:200px;flex:0 0 220px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text2);margin-bottom:4px;">Nyckeltal</div>
       ${stat('Max kapitalbehov',kapText)}
       ${stat('Total netto (drift)',`<strong>${fmtSv(netT)} kr</strong>`)}
       ${stat('Total finansiering',`<strong>${fmtSv(finT)} kr</strong>`)}
-      ${stat('Negativa månader',`<strong style="color:${negMonths>0?'#a32d2d':'#1a7a50'};">${negMonths}</strong>`)}
+      ${stat('Negativa månader',`<strong style="color:${negMonths>0?'#a32d2d':'#1a7a50'};">${negMonths}</strong> av 12`)}
     </div>`;
-  el.innerHTML=`<div class="fin-card" style="overflow:auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+  el.innerHTML=`<div class="fin-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div class="fin-card-title" style="margin-bottom:0;">Kassaflöde (${year})${src?` <span class="badge b-blue">${src}</span>`:''}</div><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Version: ${verSel}</label></div>
       <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Ingående kassa:<input type="text" value="${opening.toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>
     </div>
-    <table style="width:100%;border-collapse:collapse;"><thead><tr>${head}</tr></thead><tbody>
-      ${row('Ingående balans',cf.ingaende,fmtK(cf.ingaende[0]),'#555','#fafafa')}
-      ${row('Cash in (intäkter)',cf.cashIn,fmtK(inT),'#1a7a50','#e8f5ee')}
-      ${row('Cash out (kostnader)',cf.cashOut,fmtK(outT),'#a32d2d','#fbeaea')}
-      ${row('Netto kassaflöde',cf.net,fmtK(netT),netT>=0?'#1a7a50':'#a32d2d','#eef0f6',true)}
-      ${finRow('Finansiering (lån/tillskott)',financing,fmtK(finT))}
-      ${row('Utgående balans',cf.closing,fmtK(cf.closing[11]),cf.closing[11]>=0?'#1a7a50':'#a32d2d','#fff7e6',true)}
-    </tbody></table>
-    ${nyckelBox}
-    <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">Utgående balans = ingående + ackumulerat netto + finansiering. Ingående nästa månad = föregående månads utgående.</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">
+      <div style="flex:1;min-width:560px;overflow:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>${TH('Månad')}${TH('Ingående')}${TH('Cash in')}${TH('Cash out')}${TH('Netto')}${TH('Finansiering')}${TH('Utgående balans')}</tr></thead>
+          <tbody>${bodyRows}${totalRow}</tbody>
+        </table>
+        <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">Utgående balans = ingående + netto + finansiering. Ingående nästa månad = föregående månads utgående.</div>
+      </div>
+      ${nyckelBox}
+    </div>
   </div>`;
 }
 // Importera actuals för EN månad till en versions Importerad-rader (Source='Avtal (likviditet)').
