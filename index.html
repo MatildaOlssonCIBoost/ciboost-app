@@ -3707,17 +3707,29 @@ async function renderFinChurn(){
   // Gamla kedje-modellen (RenewedFromId) lever kvar: driver kund-nivå-listan/anledningarna
   // nedan + fungerar som live-jämförelse tills nya länk-modellen är verifierad i drift.
   const churn12legacy=computeRenewalChurn({from:kpiFrom,to:kpiTo,includeFastpris:faChurnInclFastpris});
-  const churnRate12=isVol?Math.round(churn12.logoChurnPct*1000)/10:Math.round(churn12.churnRevenuePct*1000)/10;
-  const nrr12=Math.round(churn12.nrr*100);
-  // Steg 2: GRR (Gross Revenue Retention) = retention FÖRE expansion, ur churn12 (ej i funktionen).
-  const grr=churn12.baseRevenue>0?Math.round((churn12.baseRevenue-churn12.churnRevenue)/churn12.baseRevenue*100):0;
+  // Steg 3: Estimated-läget — projicera oavgjord ARR på rullande-12-churnrate. Rör ENDAST de fyra revenue-talen.
+  const isEst=faChurnPeriod===_curYr&&faChurnYearMode==='est';
+  let estChurn=churn12.churnRevenue,estBase=churn12.baseRevenue,oavgjord=0;const _estTag=isEst?'≈ ':'';
+  if(isEst){
+    const rolling12=computeRenewalChurnLinks({from:_w365,to:today,includeFastpris:faChurnInclFastpris,..._lnk});
+    oavgjord=churn12.pendingRevenue||0;
+    estChurn=churn12.churnRevenue+oavgjord*rolling12.churnRevenuePct;
+    estBase=churn12.baseRevenue+oavgjord;
+  }
+  const estChurnRate=estBase>0?estChurn/estBase:0;
+  const estGRR=estBase>0?(estBase-estChurn)/estBase:0;
+  const estNRR=estBase>0?(estBase-estChurn+churn12.expansionRevenue)/estBase:0;
+  const churnRate12=isVol?Math.round(churn12.logoChurnPct*1000)/10:Math.round(estChurnRate*1000)/10;
+  const nrr12=Math.round(estNRR*100);
+  // Steg 2/3: GRR ur est-base/-churn (= resolved när ej est-läge).
+  const grr=Math.round(estGRR*100);
   const logoTxt=`${churn12.logoChurned} org`;
   // KPI-kort
   const kpiCard=(label,val,sub,color)=>`<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value" style="color:${color};font-size:18px;">${val}</div><div class="kpi-delta neu">${sub}</div></div>`;
-  const kpis=kpiCard('Churn rate',`${churnRate12}%`,isVol?logoTxt:fmtSv(churn12.churnRevenue),'var(--red)')
-    +kpiCard('Churnat ARR',isVol?`${churn12.logoChurned}`:fmtSv(churn12.churnRevenue),`${logoTxt} · ${periodTxt}`,'var(--red)')
-    +kpiCard('Net Revenue Retention (NRR)',`${nrr12}%`,`Net Revenue Retention (${periodTxt})`,nrr12>=100?'var(--green)':'var(--amber)')
-    +kpiCard('Gross Revenue Retention (GRR)',`${grr}%`,`Gross Revenue Retention (${periodTxt})`,grr>=100?'var(--green)':'var(--amber)')
+  const kpis=kpiCard('Churn rate',`${isVol?'':_estTag}${churnRate12}%`,isVol?logoTxt:(isEst?`varav resolved ${fmtSv(churn12.churnRevenue)} · oavgjort ${fmtSv(oavgjord)} exponerat`:fmtSv(churn12.churnRevenue)),'var(--red)')
+    +kpiCard('Churnat ARR',isVol?`${churn12.logoChurned}`:`${_estTag}${fmtSv(estChurn)}`,isEst&&!isVol?`varav resolved ${fmtSv(churn12.churnRevenue)} · oavgjort ${fmtSv(oavgjord)} exp.`:`${logoTxt} · ${periodTxt}`,'var(--red)')
+    +kpiCard('Net Revenue Retention (NRR)',`${_estTag}${nrr12}%`,isEst?`projicerat på ${fmtSv(oavgjord)} oavgjort`:`Net Revenue Retention (${periodTxt})`,nrr12>=100?'var(--green)':'var(--amber)')
+    +kpiCard('Gross Revenue Retention (GRR)',`${_estTag}${grr}%`,isEst?`projicerat på ${fmtSv(oavgjord)} oavgjort`:`Gross Revenue Retention (${periodTxt})`,grr>=100?'var(--green)':'var(--amber)')
     +kpiCard('Snitt tid som kund',`${avgTen} mån`,`${tenDelta>=0?'+':''}${tenDelta} mån vs föreg. år`,tenDelta>=0?'var(--green)':'var(--red)');
   // Steg 4: KOMBOGRAF — expansion upp (grön), churnat ARR ner (röd), NRR-linje (navy, egen %-skala till höger).
   // rateY (churn-rate %) visas ej i grafen längre — finns kvar som KPI-kort. churnY/expY/chArrY/nrrY oförändrade.
