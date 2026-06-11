@@ -1544,7 +1544,7 @@ function switchSub(main,sub,el){
 }
 // Finansiell analys-landning: kort fäller ut panel under; klick på aktivt kort fäller ihop till tomt.
 function faLandingReset(){document.querySelectorAll('#page-finansiellt-dashboard .fa-panel').forEach(p=>p.style.display='none');document.querySelectorAll('#page-finansiellt-dashboard .fa-card').forEach(c=>c.classList.remove('active'));}
-function faOpenView(view){const card=document.querySelector('#page-finansiellt-dashboard .fa-card[data-faview="'+view+'"]');const wasActive=card&&card.classList.contains('active');faLandingReset();if(wasActive)return;const panel=document.getElementById('fa-panel-'+view);if(panel)panel.style.display='';if(card)card.classList.add('active');if(view==='arr')renderFinChurn();else if(view==='modell')renderModellanalysTab();else if(view!=='styrelse')renderFinDashboard();}
+function faOpenView(view){const card=document.querySelector('#page-finansiellt-dashboard .fa-card[data-faview="'+view+'"]');const wasActive=card&&card.classList.contains('active');faLandingReset();if(wasActive)return;const panel=document.getElementById('fa-panel-'+view);if(panel)panel.style.display='';if(card)card.classList.add('active');if(view==='arr')renderFinChurn();else if(view==='modell')renderModellanalysTab();else if(view==='styrelse')renderStyrelse();else renderFinDashboard();}
 function updateFinStatsBar(){
   const arrTotal=allCustomers.reduce((s,c)=>s+(c.ARR||0)+(c.ARR_Fixed||0),0);
   const mrr=Math.round(arrTotal/12);
@@ -4422,6 +4422,46 @@ async function openImportActualsModal(versionId,preMonth){
   window._iaImport=async()=>{const mi=Number(document.getElementById('ia-month').value);const ids=[...document.querySelectorAll('.ia-cb:checked')].map(c=>Number(c.dataset.id));document.getElementById('ia-import-btn').textContent='Importerar…';await importMonthActuals(versionId,mi,ids);document.getElementById('import-actuals-overlay')?.remove();};
   document.getElementById('ia-month').value=(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
   window._iaRender();
+}
+// ── STYRELSERAPPORT (Finansiell analys → kort "styrelse"). Allt ur likviditetsbudgeten: Budget=Primär, Utfall=Löpande. ──
+let styrelseX=null;
+function setStyrelseX(v){styrelseX=Number(v);renderStyrelse();}
+async function renderStyrelse(){
+  const el=document.getElementById('fa-panel-styrelse');if(!el)return;
+  if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
+  const hdr=`<div class="fa-section-title" style="border:none;margin-bottom:6px;">Styrelserapport</div>`;
+  const primId=getPrimaryBudgetIdForMode('likviditet'),rollId=getRollingBudgetIdForMode('likviditet');
+  if(!primId||!rollId){el.innerHTML=hdr+`<div class="fin-card" style="text-align:center;color:var(--text3);padding:40px;font-size:13px;line-height:1.6;">Sätt en <strong>★ Primär</strong> (plan) och en <strong>⟳ Löpande</strong> (utfall) likviditetsbudget i Budget-vyn för att fylla rapporten.</div>`;return;}
+  let primRows=[],rollRows=[];
+  try{primRows=await (await apiFetch(`${API}/budget-versions/${primId}/rows`)).json();}catch(e){}
+  try{rollRows=await (await apiFetch(`${API}/budget-versions/${rollId}/rows`)).json();}catch(e){}
+  let defX=0;for(let mi=11;mi>=0;mi--){if(rollRows.some(r=>Number(r[MONTHS[mi]])||0)){defX=mi;break;}}
+  const X=(styrelseX!=null?Math.min(styrelseX,11):defX);
+  const fmtSv=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
+  const sumP=(rows,pred)=>{let t=0;for(let mi=0;mi<=X;mi++)rows.filter(pred).forEach(r=>t+=Number(r[MONTHS[mi]])||0);return t;};
+  const inB=sumP(primRows,r=>r.Category==='Revenue'),inU=sumP(rollRows,r=>r.Category==='Revenue');
+  const coB=sumP(primRows,r=>r.Category!=='Revenue'),coU=sumP(rollRows,r=>r.Category!=='Revenue');
+  // BILD 2 — SVG (inkomster upp / utgifter ner kring nollinje), dämpade färger.
+  const cW=420,cH=190,zero=88,maxV=Math.max(inB,inU,coB,coU,1),bh=v=>Math.round(v/maxV*58);
+  const bar=(x,v,up,color)=>`<rect x="${x}" y="${up?zero-bh(v):zero}" width="36" height="${bh(v)}" rx="2" fill="${color}"/><text x="${x+18}" y="${up?zero-bh(v)-4:zero+bh(v)+11}" font-size="8" fill="var(--text3)" text-anchor="middle">${Math.round(v/1000)}k</text>`;
+  const bild2svg=`<svg viewBox="0 0 ${cW} ${cH}" width="100%" style="overflow:visible;"><line x1="20" y1="${zero}" x2="${cW-20}" y2="${zero}" stroke="var(--border)" stroke-width="1"/>${bar(70,inB,1,'#5f8f73')}${bar(112,inU,1,'#9ec3ad')}${bar(252,coB,0,'#9e7b7b')}${bar(294,coU,0,'#c4a9a9')}<text x="100" y="${cH-4}" font-size="10" fill="var(--text2)" text-anchor="middle">Inkomster</text><text x="282" y="${cH-4}" font-size="10" fill="var(--text2)" text-anchor="middle">Utgifter</text></svg><div style="display:flex;gap:16px;font-size:10px;color:var(--text3);margin-top:2px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#5f8f73;vertical-align:middle;border-radius:2px;"></span> Budget (Primär)</span><span><span style="display:inline-block;width:9px;height:9px;background:#9ec3ad;vertical-align:middle;border-radius:2px;"></span> Utfall (Löpande)</span></div>`;
+  // BILD 2 — tabell (Inkomster/Utgifter × Budget/Utfall/Differens). Inkomst under budget=röd; utgift under budget=grön.
+  const dRow=(label,b,u,incomeLike)=>{const diff=u-b;const col=incomeLike?(diff>=0?'var(--green)':'var(--red)'):(diff<=0?'var(--green)':'var(--red)');return `<tr><td style="padding:5px 8px;font-weight:500;">${label}</td><td style="padding:5px 8px;text-align:right;">${fmtSv(b)}</td><td style="padding:5px 8px;text-align:right;">${fmtSv(u)}</td><td style="padding:5px 8px;text-align:right;font-weight:600;color:${col};">${diff>=0?'+':''}${fmtSv(diff)}</td></tr>`;};
+  const bild2tbl=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;"><thead><tr><th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;"></th><th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Budget</th><th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Utfall</th><th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Differens</th></tr></thead><tbody>${dRow('Inkomster',inB,inU,true)}${dRow('Utgifter',coB,coU,false)}</tbody></table>`;
+  // FÖRDELNINGSGRAF — staplade staplar per typ, Budget vs Utfall, dämpade Nordic-färger + grått för okvalificerat.
+  const types=[['Licens (prenumeration)','#7fa98c'],['Licens (fast pris)','#8aa9c4'],['Utbildning','#c9a87e'],['Consulting','#a394c4'],['Okvalificerat/okänt','#b8b8b4']];
+  const sumType=(rows,sub)=>sumP(rows,r=>r.Category==='Revenue'&&r.SubCategory===sub);
+  const segB=types.map(([t])=>sumType(primRows,t)),segU=types.map(([t])=>sumType(rollRows,t));
+  const totB=segB.reduce((a,b)=>a+b,0),totU=segU.reduce((a,b)=>a+b,0),maxT=Math.max(totB,totU,1),fH=170;
+  const stack=(segs,x,label,tot)=>{let acc=0,s='';segs.forEach((v,i)=>{const h=Math.round(v/maxT*(fH-26));if(h<=0)return;s+=`<rect x="${x}" y="${fH-22-acc-h}" width="58" height="${h}" fill="${types[i][1]}"><title>${types[i][0]}: ${fmtSv(v)}</title></rect>`;acc+=h;});s+=`<text x="${x+29}" y="${fH-22-acc-4}" font-size="8" fill="var(--text3)" text-anchor="middle">${Math.round(tot/1000)}k</text><text x="${x+29}" y="${fH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">${label}</text>`;return s;};
+  const fordSvg=`<svg viewBox="0 0 220 ${fH}" width="100%" style="overflow:visible;max-width:260px;">${stack(segB,40,'Budget',totB)}${stack(segU,122,'Utfall',totU)}</svg><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${types.map(([t,c])=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);"><span style="width:9px;height:9px;background:${c};border-radius:2px;"></span>${t}</span>`).join('')}</div>`;
+  // Period-väljare + källrad
+  const periodSel=`<select onchange="setStyrelseX(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;">${MONTHS.map((m,i)=>`<option value="${i}"${i===X?' selected':''}>t.o.m. ${m}</option>`).join('')}</select>`;
+  el.innerHTML=hdr+`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;"><div style="font-size:11px;color:var(--text3);">Budget: Primär likviditet #${primId} · Utfall: Löpande likviditet #${rollId}</div><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Period (jan–): ${periodSel}</label></div>
+    <div class="fin-grid">
+      <div class="fin-card"><div class="fin-card-title">Inkomster vs Utgifter · budget vs utfall</div>${bild2svg}${bild2tbl}</div>
+      <div class="fin-card"><div class="fin-card-title">Intäktsfördelning per typ</div>${fordSvg}</div>
+    </div>`;
 }
 async function loadBudgetVersions(){
   // Attach the delegated budget-row autosave once (the #budget-content element
