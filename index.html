@@ -4310,16 +4310,23 @@ async function faBudgetOpenView(view){
   await loadBudgetVersions();
 }
 // Delad kassaflödes-motor: cash in (Revenue)/mån, cash out (övrigt)/mån, netto, utgående balans (löpande summa).
-function computeCashflow(rows,opening){
+// financing (valfritt): 12-array med manuella tillskott/lån per månad. null/utelämnad → 12×0 → IDENTISK output som utan arg
+// (closing/net/cashIn/cashOut oförändrade). När angiven: net förblir ren drift, closing inkluderar finansiering;
+// closingNoFin = balansen utan finansiering. Befintliga 2-arg-anrop (kort 3, styrelserapport bild 3) är opåverkade.
+function computeCashflow(rows,opening,financing){
   const M=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const fin=M.map((m,i)=>Math.round(Number(financing&&financing[i])||0));
   const sumBy=pred=>M.map(m=>(rows||[]).filter(pred).reduce((s,r)=>s+(Number(r[m])||0),0));
   const cashIn=sumBy(r=>r.Category==='Revenue');
   const cashOut=sumBy(r=>r.Category!=='Revenue');
   const net=cashIn.map((v,i)=>v-cashOut[i]);
-  const closing=[],ingaende=[];let bal=Number(opening)||0;
-  net.forEach(n=>{ingaende.push(bal);bal+=n;closing.push(bal);});
-  return {months:M,cashIn,cashOut,net,closing,ingaende};
+  const closing=[],closingNoFin=[],ingaende=[];let bal=Number(opening)||0,balNF=Number(opening)||0;
+  net.forEach((n,i)=>{ingaende.push(bal);bal+=n+fin[i];closing.push(bal);balNF+=n;closingNoFin.push(balNF);});
+  return {months:M,cashIn,cashOut,net,closing,ingaende,financing:fin,closingNoFin};
 }
+// Finansiering per månad (manuell, frontend-only): lån/aktieägartillskott/kapitaltillskott. Per version+år.
+function getFinancing(vId,year){try{const a=JSON.parse(localStorage.getItem('financingByMonth_'+vId+'_'+year)||'[]');return Array.from({length:12},(_,i)=>Math.round(Number(a[i])||0));}catch(e){return Array(12).fill(0);}}
+function setFinancing(vId,year,monthIdx,val){const a=getFinancing(vId,year);a[monthIdx]=Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0);localStorage.setItem('financingByMonth_'+vId+'_'+year,JSON.stringify(a));const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();}
 function getOpeningCash(year){return Math.round(Number(localStorage.getItem('openingCash_'+year))||0);}
 function setOpeningCash(year,val){localStorage.setItem('openingCash_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));const sp=document.getElementById('fa-panel-styrelse');if(sp&&sp.style.display!=='none')renderStyrelse();else renderBudgetCashflow();}
 // Manuell projektion: Licens (prenumeration) vid årets slut (styrelserapportens nyckeltalsbox).
