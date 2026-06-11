@@ -4321,7 +4321,10 @@ function computeCashflow(rows,opening){
   return {months:M,cashIn,cashOut,net,closing,ingaende};
 }
 function getOpeningCash(year){return Math.round(Number(localStorage.getItem('openingCash_'+year))||0);}
-function setOpeningCash(year,val){localStorage.setItem('openingCash_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));renderBudgetCashflow();}
+function setOpeningCash(year,val){localStorage.setItem('openingCash_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));const sp=document.getElementById('fa-panel-styrelse');if(sp&&sp.style.display!=='none')renderStyrelse();else renderBudgetCashflow();}
+// Manuell projektion: Licens (prenumeration) vid årets slut (styrelserapportens nyckeltalsbox).
+function getProjectedLicens(year){return Math.round(Number(localStorage.getItem('projectedLicensPren_'+year))||0);}
+function setProjectedLicens(year,val){localStorage.setItem('projectedLicensPren_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));renderStyrelse();}
 // Budget Kassaflöde-kort (kort 3): Löpande likviditets-version (fallback Primär/första) + ingående-input → utgående balans.
 async function renderBudgetCashflow(){
   const el=document.getElementById('budget-kassaflode-panel');if(!el)return;
@@ -4455,13 +4458,31 @@ async function renderStyrelse(){
   const totB=segB.reduce((a,b)=>a+b,0),totU=segU.reduce((a,b)=>a+b,0),maxT=Math.max(totB,totU,1),fH=170;
   const stack=(segs,x,label,tot)=>{let acc=0,s='';segs.forEach((v,i)=>{const h=Math.round(v/maxT*(fH-26));if(h<=0)return;s+=`<rect x="${x}" y="${fH-22-acc-h}" width="58" height="${h}" fill="${types[i][1]}"><title>${types[i][0]}: ${fmtSv(v)}</title></rect>`;acc+=h;});s+=`<text x="${x+29}" y="${fH-22-acc-4}" font-size="8" fill="var(--text3)" text-anchor="middle">${Math.round(tot/1000)}k</text><text x="${x+29}" y="${fH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">${label}</text>`;return s;};
   const fordSvg=`<svg viewBox="0 0 220 ${fH}" width="100%" style="overflow:visible;max-width:260px;">${stack(segB,40,'Budget',totB)}${stack(segU,122,'Utfall',totU)}</svg><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${types.map(([t,c])=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);"><span style="width:9px;height:9px;background:${c};border-radius:2px;"></span>${t}</span>`).join('')}</div>`;
+  // BILD 3 — Likviditetsprognos (Primär, plan, helår): computeCashflow + ingående kassa → utgående balans-linje.
+  const primVer=budgetVersions.find(v=>String(v.Id)===String(primId)),year=Number(primVer&&primVer.Year)||new Date().getFullYear();
+  const cf=computeCashflow(primRows,getOpeningCash(year));
+  const c3W=620,c3H=210,c3mid=92,c3padB=22,maxFlow=Math.max(...cf.cashIn,...cf.cashOut,1),fbh=v=>Math.round(v/maxFlow*64);
+  const c3slot=(c3W-44)/12,c3bx=i=>34+i*c3slot,c3bw=c3slot*0.46;
+  const bMin=Math.min(...cf.closing,0),bMax=Math.max(...cf.closing,1),bY=v=>Math.round(12+(1-(v-bMin)/Math.max(1,bMax-bMin))*(c3H-c3padB-12));
+  const c3bars=cf.months.map((m,i)=>`<rect x="${Math.round(c3bx(i))}" y="${c3mid-fbh(cf.cashIn[i])}" width="${Math.round(c3bw)}" height="${fbh(cf.cashIn[i])}" rx="1" fill="#1E2340" opacity="0.88"/><rect x="${Math.round(c3bx(i))}" y="${c3mid}" width="${Math.round(c3bw)}" height="${fbh(cf.cashOut[i])}" rx="1" fill="#7c8bbf" opacity="0.9"/><text x="${Math.round(c3bx(i)+c3bw/2)}" y="${c3H-5}" font-size="8" fill="var(--text3)" text-anchor="middle">${m}</text>`).join('');
+  const balPts=cf.closing.map((v,i)=>`${Math.round(c3bx(i)+c3bw/2)},${bY(v)}`).join(' ');
+  const balDots=cf.closing.map((v,i)=>`<circle cx="${Math.round(c3bx(i)+c3bw/2)}" cy="${bY(v)}" r="2.5" fill="#BA7517"/>`).join('');
+  const bAxis=[bMax,0,bMin].filter((v,ix,a)=>a.indexOf(v)===ix).map(v=>`<text x="${c3W-4}" y="${bY(v)+3}" font-size="8" fill="var(--text3)" text-anchor="end">${Math.round(v/1000)}k</text>`).join('');
+  const bild3svg=`<svg viewBox="0 0 ${c3W} ${c3H}" width="100%" style="overflow:visible;"><line x1="28" y1="${c3mid}" x2="${c3W-30}" y2="${c3mid}" stroke="var(--border)" stroke-width="0.75"/><line x1="28" y1="${bY(0)}" x2="${c3W-30}" y2="${bY(0)}" stroke="#BA7517" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.45"/>${c3bars}<polyline points="${balPts}" fill="none" stroke="#BA7517" stroke-width="2"/>${balDots}${bAxis}</svg><div style="display:flex;gap:14px;font-size:10px;color:var(--text3);margin-top:2px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#1E2340;vertical-align:middle;border-radius:2px;"></span> Cash in</span><span><span style="display:inline-block;width:9px;height:9px;background:#7c8bbf;vertical-align:middle;border-radius:2px;"></span> Cash out</span><span><span style="display:inline-block;width:12px;height:2px;background:#BA7517;vertical-align:middle;"></span> Utgående balans (höger skala)</span></div>`;
+  const revFull=cf.cashIn.reduce((a,b)=>a+b,0),costFull=cf.cashOut.reduce((a,b)=>a+b,0),proj=getProjectedLicens(year);
+  const kpiR=(label,val)=>`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid rgba(122,90,42,0.12);"><span style="font-size:11px;color:var(--text2);">${label}</span><span style="font-size:13px;font-weight:600;text-align:right;">${val}</span></div>`;
+  const nyckelBox=`<div style="background:#FBEEDF;border-radius:10px;padding:14px 16px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#7a5a2a;margin-bottom:8px;">Nyckeltal (helår)</div>${kpiR('Försäljning (total)',fmtSv(revFull))}${kpiR('Kostnad (innan avskrivning)',fmtSv(costFull))}${kpiR('Gross burn rate / mån',fmtSv(costFull/12))}<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0 2px;"><span style="font-size:11px;color:var(--text2);">Licens (prenumeration) slutet av året</span><input type="text" value="${proj?proj.toLocaleString('sv-SE'):''}" placeholder="0" onchange="setProjectedLicens(${year},this.value)" style="width:120px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"></div></div>`;
+  const negIdx=cf.closing.findIndex(v=>v<0),minVal=Math.min(...cf.closing),minMon=cf.months[cf.closing.indexOf(minVal)];
+  const kassaText=negIdx>=0?`<div style="background:#fbeaea;border:1px solid #e3b3b3;border-radius:8px;padding:10px 14px;font-size:12px;color:#a32d2d;margin-top:12px;">⚠️ Likviditeten går negativ i <strong>${cf.months[negIdx]}</strong> (${fmtSv(cf.closing[negIdx])}). Lägst ${fmtSv(minVal)} i ${minMon}.</div>`:`<div style="background:#e8f5ee;border:1px solid #bcdcc9;border-radius:8px;padding:10px 14px;font-size:12px;color:#1a7a50;margin-top:12px;">Likviditeten håller sig positiv hela året (lägst ${fmtSv(minVal)} i ${minMon}).</div>`;
+  const openInput=`<label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Ingående kassa:<input type="text" value="${getOpeningCash(year).toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>`;
+  const bild3html=`<div class="fin-grid" style="margin-top:14px;grid-template-columns:2fr 1fr;"><div class="fin-card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;"><div class="fin-card-title" style="margin-bottom:0;">Likviditetsprognos (plan, ${year})</div>${openInput}</div>${bild3svg}${kassaText}</div><div class="fin-card">${nyckelBox}</div></div>`;
   // Period-väljare + källrad
   const periodSel=`<select onchange="setStyrelseX(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;">${MONTHS.map((m,i)=>`<option value="${i}"${i===X?' selected':''}>t.o.m. ${m}</option>`).join('')}</select>`;
   el.innerHTML=hdr+`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;"><div style="font-size:11px;color:var(--text3);">Budget: Primär likviditet #${primId} · Utfall: Löpande likviditet #${rollId}</div><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Period (jan–): ${periodSel}</label></div>
     <div class="fin-grid">
       <div class="fin-card"><div class="fin-card-title">Inkomster vs Utgifter · budget vs utfall</div>${bild2svg}${bild2tbl}</div>
       <div class="fin-card"><div class="fin-card-title">Intäktsfördelning per typ</div>${fordSvg}</div>
-    </div>`;
+    </div>${bild3html}`;
 }
 async function loadBudgetVersions(){
   // Attach the delegated budget-row autosave once (the #budget-content element
