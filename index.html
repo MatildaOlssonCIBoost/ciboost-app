@@ -964,6 +964,7 @@
       <button class="quick-btn" onclick="renameBudgetVersion()" id="btn-rename-budget" style="display:none;">✎ Byt namn</button>
       <button class="quick-btn" onclick="deleteBudgetVersion()" id="btn-delete-budget" style="display:none;color:var(--red);">🗑 Radera</button>
       <button class="quick-btn" onclick="toggleBudgetPrimary()" id="btn-primary-budget" style="display:none;">☆ Sätt som primär</button>
+      <button class="quick-btn" onclick="toggleBudgetRolling()" id="btn-rolling-budget" style="display:none;">⟳ Sätt som löpande</button>
       <span id="budget-autosave-hint" style="margin-left:auto;font-size:11px;color:var(--text3);">Autospar på</span>
     </div>
     <div class="kpi-grid" id="budget-kpi" style="margin-bottom:16px;"></div>
@@ -1234,6 +1235,10 @@ function budgetTypeMode(t){return t==='Resultatbudget'?'resultat':t==='Likvidite
 function primaryBudgetStorageKey(budgetType){return budgetType==='Resultatbudget'?'primaryResultBudgetId':'primaryLiquidityBudgetId';}
 function getPrimaryBudgetIdForMode(mode){return localStorage.getItem(mode==='resultat'?'primaryResultBudgetId':'primaryLiquidityBudgetId')||null;}
 function isPrimaryBudgetVersion(v){return !!v&&!!localStorage.getItem(primaryBudgetStorageKey(v.BudgetType))&&String(localStorage.getItem(primaryBudgetStorageKey(v.BudgetType)))===String(v.Id);}
+// "Löpande" budget per typ (=där aktuella utgifter förs in) — speglar Primär exakt, egen nyckel per typ.
+function rollingBudgetStorageKey(budgetType){return budgetType==='Resultatbudget'?'rollingResultBudgetId':'rollingLiquidityBudgetId';}
+function getRollingBudgetIdForMode(mode){return localStorage.getItem(mode==='resultat'?'rollingResultBudgetId':'rollingLiquidityBudgetId')||null;}
+function isRollingBudgetVersion(v){return !!v&&!!localStorage.getItem(rollingBudgetStorageKey(v.BudgetType))&&String(localStorage.getItem(rollingBudgetStorageKey(v.BudgetType)))===String(v.Id);}
 // Revenue rows in a budget — likviditet uses 'Revenue', resultat uses
 // 'Periodiserade intäkter' + 'Nyförsäljning'. Only one type's rows are present.
 function budgetRevenueRows(rows){return (rows||[]).filter(r=>r.Category==='Revenue'||r.Category==='Periodiserade intäkter'||r.Category==='Nyförsäljning');}
@@ -1245,6 +1250,12 @@ async function loadPrimaryBudget(mode){
   const id=getPrimaryBudgetIdForMode(mode||currentFaMode||'resultat');
   if(!id){primaryBudgetRows=[];return;}
   try{const r=await apiFetch(`${API}/budget-versions/${id}/rows`);primaryBudgetRows=await r.json();}catch(e){primaryBudgetRows=[];}
+}
+let rollingBudgetRows=[];
+async function loadRollingBudget(mode){
+  const id=getRollingBudgetIdForMode(mode||currentFaMode||'resultat');
+  if(!id){rollingBudgetRows=[];return;}
+  try{const r=await apiFetch(`${API}/budget-versions/${id}/rows`);rollingBudgetRows=await r.json();}catch(e){rollingBudgetRows=[];}
 }
 const TP_STEPS=['Loggat in','Valt moduler','Bjudit in medlemmar','Genomfört 1 session','Genomfört fler sessioner','Genomfört pulsmätning'];
 const TP_STEPS_SHORT=['Loggat in','Valt moduler','Bjudit in','1 session','Fler sessioner','Pulsmätning'];
@@ -4282,7 +4293,7 @@ async function loadBudgetVersions(){
     }
     const sel=document.getElementById('budget-version-select');
     // Group versions by budget type under headers in the dropdown.
-    const optHtml=v=>{const prim=isPrimaryBudgetVersion(v);const star=prim?'★ ':'';const tag=prim?' (Primär)':'';const created=v.CreatedAt?` · ${String(v.CreatedAt).substring(0,10)}`:'';return`<option value="${v.Id}">${star}${v.Name} (${v.Year})${created} · #${v.Id}${tag}</option>`;};
+    const optHtml=v=>{const prim=isPrimaryBudgetVersion(v);const roll=isRollingBudgetVersion(v);const star=(prim?'★ ':'')+(roll?'⟳ ':'');const tag=(prim?' (Primär)':'')+(roll?' (Löpande)':'');const created=v.CreatedAt?` · ${String(v.CreatedAt).substring(0,10)}`:'';return`<option value="${v.Id}">${star}${v.Name} (${v.Year})${created} · #${v.Id}${tag}</option>`;};
     const liq=budgetVersions.filter(v=>v.BudgetType==='Likviditetsbudget');
     const res=budgetVersions.filter(v=>v.BudgetType==='Resultatbudget');
     const other=budgetVersions.filter(v=>v.BudgetType!=='Likviditetsbudget'&&v.BudgetType!=='Resultatbudget');
@@ -4343,9 +4354,11 @@ async function loadBudgetVersion(){
     showMessage('<strong>Fel: API returnerade ogiltigt JSON-svar.</strong><br>Kolla att ciboost-api-v2 är uppe och svarar normalt.','var(--red)');
     return;
   }
-  ['btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='flex';});
+  ['btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget','btn-rolling-budget'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='flex';});
   const primBtn=document.getElementById('btn-primary-budget');
   if(primBtn)primBtn.textContent=isPrimaryBudgetVersion(selVersion)?'★ Primär':'☆ Sätt som primär';
+  const rollBtn=document.getElementById('btn-rolling-budget');
+  if(rollBtn)rollBtn.textContent=isRollingBudgetVersion(selVersion)?'⟳ Löpande':'⟳ Sätt som löpande';
   try{renderBudgetTable();}
   catch(e){
     console.error('[loadBudgetVersion] renderBudgetTable threw:',e);
@@ -4708,6 +4721,26 @@ function toggleBudgetPrimary(){
   }
   const primBtn=document.getElementById('btn-primary-budget');
   if(primBtn)primBtn.textContent=isPrimaryBudgetVersion(v)?'★ Primär':'☆ Sätt som primär';
+  loadBudgetVersions();
+}
+// "Löpande" — spegel av toggleBudgetPrimary, egen nyckel per typ. Mjuk varning om samma version som Primär.
+function toggleBudgetRolling(){
+  if(!currentBudgetVersionId)return;
+  const v=budgetVersions.find(x=>String(x.Id)===String(currentBudgetVersionId));
+  if(!v)return;
+  const key=rollingBudgetStorageKey(v.BudgetType);
+  if(String(localStorage.getItem(key))===String(currentBudgetVersionId)){
+    localStorage.removeItem(key);
+  } else {
+    localStorage.setItem(key,currentBudgetVersionId);
+    const mode=v.BudgetType==='Resultatbudget'?'resultat':'likviditet';
+    if(String(getPrimaryBudgetIdForMode(mode))===String(currentBudgetVersionId)){
+      const hint=document.getElementById('budget-autosave-hint');
+      if(hint){hint.textContent='⚠ Samma version är nu både Primär (plan) och Löpande (utfall) — bör vanligtvis vara olika.';hint.style.color='var(--amber)';setTimeout(()=>{hint.textContent='Autospar på';hint.style.color='var(--text3)';},6000);}
+    }
+  }
+  const rollBtn=document.getElementById('btn-rolling-budget');
+  if(rollBtn)rollBtn.textContent=isRollingBudgetVersion(v)?'⟳ Löpande':'⟳ Sätt som löpande';
   loadBudgetVersions();
 }
 // Budget type is fixed at creation and cannot be switched afterwards, so there
