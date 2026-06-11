@@ -3600,6 +3600,11 @@ function computeRenewalChurnLinks({from,to,includeFastpris=false,now,customers=[
   let baseRevenue=0,churnRevenue=0,expansionRevenue=0,pending=0;
   const churnByType={},expansionByType={},baseByType={};
   const addT=(m,k,v)=>{m[k]=(m[k]||0)+v;};
+  // Steg 1 (additivt): split full/nedgradering + per-org + kategori-räkningar. Befintlig logik orörd.
+  let churnFull=0,churnDowngrade=0;
+  const churnByOrg={};
+  const addOrg=(org,fld,v)=>{(churnByOrg[org]=churnByOrg[org]||{base:0,churn:0,full:0,downgrade:0})[fld]+=v;};
+  const _dgOrgs=new Set(),_fullOrgs=new Set(),_expOrgs=new Set();
   Object.values(comps).forEach(comp=>{
     const parents=[...comp.parents],children=[...comp.children];
     if(!parents.length)return;
@@ -3610,11 +3615,14 @@ function computeRenewalChurnLinks({from,to,includeFastpris=false,now,customers=[
     const childSum=children.reduce((s,cid)=>s+(byId[cid].Amount||0),0);
     baseRevenue+=parentSum;
     parents.forEach(pid=>addT(baseByType,byId[pid].Type,byId[pid].Amount||0));
+    parents.forEach(pid=>addOrg(byId[pid]._org,'base',byId[pid].Amount||0));   // additivt: base per org
     const net=childSum-parentSum;
     if(net!==0){
       const v=Math.abs(net),M=net<0?churnByType:expansionByType;
       if(net<0)churnRevenue+=v;else expansionRevenue+=v;
       parents.forEach(pid=>{const share=parentSum>0?(byId[pid].Amount||0)/parentSum:0;addT(M,byId[pid].Type,v*share);});
+      if(net<0){churnDowngrade+=v;parents.forEach(pid=>{const share=parentSum>0?(byId[pid].Amount||0)/parentSum:0;addOrg(byId[pid]._org,'churn',v*share);addOrg(byId[pid]._org,'downgrade',v*share);_dgOrgs.add(byId[pid]._org);});}   // additivt: nedgradering per org
+      else parents.forEach(pid=>_expOrgs.add(byId[pid]._org));   // additivt: expansions-org
     }
   });
   const orgCont={},orgChurn={};
@@ -3623,13 +3631,13 @@ function computeRenewalChurnLinks({from,to,includeFastpris=false,now,customers=[
     const dto=new Date(p.DateTo);if(dto<f||dto>t)return;
     if(isFrom.has(p.Id)){orgCont[p._org]=true;return;}
     const graceEnd=new Date(dto);graceEnd.setDate(graceEnd.getDate()+GRACE);
-    if(graceEnd<today){churnRevenue+=(p.Amount||0);baseRevenue+=(p.Amount||0);addT(churnByType,p.Type,p.Amount||0);addT(baseByType,p.Type,p.Amount||0);orgChurn[p._org]=true;}
+    if(graceEnd<today){churnRevenue+=(p.Amount||0);baseRevenue+=(p.Amount||0);addT(churnByType,p.Type,p.Amount||0);addT(baseByType,p.Type,p.Amount||0);orgChurn[p._org]=true;churnFull+=(p.Amount||0);addOrg(p._org,'base',p.Amount||0);addOrg(p._org,'churn',p.Amount||0);addOrg(p._org,'full',p.Amount||0);_fullOrgs.add(p._org);}   // additivt: full churn per org
     else pending++;
   });
   const baseOrgs=new Set([...Object.keys(orgCont),...Object.keys(orgChurn)]);
   const churnedOrgs=[...baseOrgs].filter(o=>!orgCont[o]&&orgChurn[o]);
   const logoBase=baseOrgs.size,logoChurned=churnedOrgs.length;
-  return{baseRevenue,churnRevenue,expansionRevenue,churnRevenuePct:baseRevenue>0?churnRevenue/baseRevenue:0,nrr:baseRevenue>0?(baseRevenue-churnRevenue+expansionRevenue)/baseRevenue:0,churnByType,expansionByType,baseByType,logoBase,logoChurned,logoChurnPct:logoBase>0?logoChurned/logoBase:0,churnedOrgs,pending};
+  return{baseRevenue,churnRevenue,expansionRevenue,churnRevenuePct:baseRevenue>0?churnRevenue/baseRevenue:0,nrr:baseRevenue>0?(baseRevenue-churnRevenue+expansionRevenue)/baseRevenue:0,churnByType,expansionByType,baseByType,logoBase,logoChurned,logoChurnPct:logoBase>0?logoChurned/logoBase:0,churnedOrgs,pending,churnFull,churnDowngrade,churnByOrg,expansionOrgs:_expOrgs.size,churnFullOrgs:_fullOrgs.size,churnDowngradeOrgs:_dgOrgs.size};
 }
 var faChurnMode='value';
 function setFaChurnMode(m){faChurnMode=m;renderFinChurn();}
