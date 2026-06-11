@@ -3578,6 +3578,16 @@ function computeRenewalChurn({from,to,includeFastpris=false,now}={}){
 // som är From (har fortsättning) räknas ALDRIG som churn (länken vinner, oavsett typ/koncern).
 // Pilot exkl, 30-dgr respit, pending exkl, fönster på senaste förälder-DateTo (23:59-fix på to).
 // Per-typ-uppdelning. Ren funktion med injicerad data — computeRenewalChurn lämnas orörd.
+// Chefens ARR-run-rate: annualisera ARR-poster (Amount/kalendermånader×12, metod B). BARA Type==='ARR' — Fastpris/övrigt rått.
+function annualAmount(it){
+  const a=it.Amount||0;
+  if(it.Type!=='ARR'||!it.DateFrom||!it.DateTo)return a;
+  const df=new Date(it.DateFrom),dt=new Date(it.DateTo);
+  const end=new Date(dt);end.setDate(end.getDate()+1);
+  let m=(end.getFullYear()-df.getFullYear())*12+(end.getMonth()-df.getMonth());
+  if(end.getDate()<df.getDate())m-=1;
+  return a/Math.max(1,m)*12;
+}
 function computeRenewalChurnLinks({from,to,includeFastpris=false,now,customers=[],revenuesByCust={},links=[]}={}){
   const today=now?new Date(now):new Date();today.setHours(0,0,0,0);
   const f=from instanceof Date?new Date(from):new Date(from);
@@ -3590,7 +3600,7 @@ function computeRenewalChurnLinks({from,to,includeFastpris=false,now,customers=[
   Object.entries(revenuesByCust||{}).forEach(([cid,items])=>{
     if(!Array.isArray(items))return;
     const custId=Number(cid),c=custById[custId];
-    items.forEach(it=>{const p={...it,_custId:custId,_org:orgKeyOf(custId),_licenseType:c?c.LicenseType:null};all.push(p);byId[it.Id]=p;});
+    items.forEach(it=>{const p={...it,Amount:annualAmount(it),_custId:custId,_org:orgKeyOf(custId),_licenseType:c?c.LicenseType:null};all.push(p);byId[it.Id]=p;});
   });
   const childrenOf={},isFrom=new Set();
   (links||[]).forEach(l=>{const a=l.FromRevenueId,b=l.ToRevenueId;if(a==null||b==null)return;(childrenOf[a]=childrenOf[a]||[]).push(b);isFrom.add(a);});
@@ -3761,7 +3771,7 @@ async function renderFinChurn(){
   const _orgKeyOf=c=>{const k=(c&&c.ParentCompany?String(c.ParentCompany):'').trim().toLowerCase();return k?'org:'+k:'cust:'+c.Id;};
   const totalARRat=(T,inclF)=>{const types=inclF?{ARR:1,Fastpris:1}:{ARR:1};let total=0;const orgs=new Set();
     Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;const c=_custById[Number(cid)];const ok=c?_orgKeyOf(c):('cust:'+cid);let act=false;
-      items.forEach(it=>{if(!types[it.Type]||!it.DateFrom||!it.DateTo)return;const df=new Date(it.DateFrom),dt=new Date(it.DateTo);if(df<=T&&dt>=T){total+=(it.Amount||0);act=true;}});
+      items.forEach(it=>{if(!types[it.Type]||!it.DateFrom||!it.DateTo)return;const df=new Date(it.DateFrom),dt=new Date(it.DateTo);if(df<=T&&dt>=T){total+=annualAmount(it);act=true;}});
       if(act)orgs.add(ok);});
     return{total,orgCount:orgs.size};};
   const _arrSnap=Y=>Y<yNow?new Date(Y,11,15):today;
@@ -3829,7 +3839,7 @@ async function renderFinChurn(){
   const _orgCusts={};all.forEach(c=>{const ok=_orgKeyOf(c);(_orgCusts[ok]=_orgCusts[ok]||[]).push(c);});
   const _orgBiggestId=ok=>{const list=_orgCusts[ok]||[];return list.length?list.reduce((a,b)=>((b.ARR||0)+(b.ARR_Fixed||0))>((a.ARR||0)+(a.ARR_Fixed||0))?b:a).Id:null;};
   const _orgTen=ok=>{const f=_orgFirst[ok];return f?Math.round((today-f)/86400000/30.44):null;};
-  const orgARRat=(ok,T)=>{let tot=0;(_orgCusts[ok]||[]).forEach(c=>{(custRevCache[c.Id]||[]).forEach(it=>{if(!_typesK[it.Type]||!it.DateFrom||!it.DateTo)return;const df=new Date(it.DateFrom),dt=new Date(it.DateTo);if(df<=T&&dt>=T)tot+=(it.Amount||0);});});return tot;};
+  const orgARRat=(ok,T)=>{let tot=0;(_orgCusts[ok]||[]).forEach(c=>{(custRevCache[c.Id]||[]).forEach(it=>{if(!_typesK[it.Type]||!it.DateFrom||!it.DateTo)return;const df=new Date(it.DateFrom),dt=new Date(it.DateTo);if(df<=T&&dt>=T)tot+=annualAmount(it);});});return tot;};
   // Aktiv org = minst ett kort med _days===null||_days>=0. Dagar kvar = minsta numeriska (närmast), annars null.
   const _orgAct={};all.forEach(c=>{const ok=_orgKeyOf(c);const o=_orgAct[ok]||(_orgAct[ok]={any:false,minDays:null,name:null});const d=c._days;if(d===null||d>=0){o.any=true;if(typeof d==='number'&&(o.minDays===null||d<o.minDays))o.minDays=d;}if(!o.name)o.name=(c.ParentCompany&&c.ParentCompany.trim())||c.Company||('Kund '+c.Id);});
   // Förändrings-fönster per period (låsta def): år=Dec31(Y) vs Dec31(Y-1); Alla=nu vs första ARR; Rullande/innevarande=nu vs −365d.
