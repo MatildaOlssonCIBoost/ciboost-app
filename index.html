@@ -3728,34 +3728,20 @@ async function renderFinChurn(){
   // KPI-ombyggnad: härledda mått för nya korten (allt värde/SEK; est-medvetet där tabellen anger).
   const expRatePct=churn12.baseRevenue>0?Math.round(churn12.expansionRevenue/churn12.baseRevenue*1000)/10:0;
   const custChurnPct=Math.round(churn12.logoChurnPct*1000)/10;
-  const newOrgs=new Set();all.forEach(c=>{if(firstContract(c)){const k=(c.ParentCompany||'').trim().toLowerCase();newOrgs.add(k?'org:'+k:'cust:'+c.Id);}});const nyaKunder=newOrgs.size;
-  // KPI-kort (2 rader: rad 1 retention, rad 2 kund/belopp)
+  // KPI-kort: rad 1 (ARR) + rad 2 (churn) byggs längre ned (rad 1 kräver arrY). Helper kvar här.
   const kpiCard=(label,val,sub,color)=>`<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value" style="color:${color};font-size:18px;">${val}</div><div class="kpi-delta neu">${sub}</div></div>`;
-  const kpis=kpiCard('Revenue Churn',`${_estTag}${churnRate12}%`,`av ${fmtSv(estBase)} kr`,'var(--red)')
-    +kpiCard('Net Revenue Retention (NRR)',`${_estTag}${nrr12}%`,isEst?`projicerat på ${fmtSv(oavgjord)} oavgjort`:`Net Revenue Retention (${periodTxt})`,nrr12>=100?'var(--green)':'var(--amber)')
-    +kpiCard('Gross Revenue Retention (GRR)',`${_estTag}${grr}%`,isEst?`projicerat på ${fmtSv(oavgjord)} oavgjort`:`Gross Revenue Retention (${periodTxt})`,grr>=100?'var(--green)':'var(--amber)')
-    +kpiCard('Expansion Rate',`${expRatePct}%`,fmtSv(churn12.expansionRevenue),'var(--green)')
-    +kpiCard('Customer Churn',`${custChurnPct}%`,`${churn12.logoChurned} org`,'var(--red)')
-    +kpiCard('Nya kunder',`${nyaKunder}`,'unika org · alla år','var(--text)')
-    +kpiCard('Churn SEK',`${_estTag}${fmtSv(estChurn)}`,isEst?`varav resolved ${fmtSv(churn12.churnRevenue)} · oavgjort ${fmtSv(oavgjord)}`:periodTxt,'var(--red)')
-    +kpiCard('Snitt tid som kund',`${avgTen} mån`,`${tenDelta>=0?'+':''}${tenDelta} mån vs föreg. år`,tenDelta>=0?'var(--green)':'var(--red)');
   // Steg G: ren churn rate-graf (%) per år. rateY återskapad ur churnRevenuePct (fältet finns; funktionen orörd).
-  // Behåller koordinathjälparna cw/L/R/bx/bw/cx — logo-grafen + graf 3 återanvänder dem.
+  // Behåller koordinathjälparna cw/L/R/bx/bw/cx — graf 3 (nedgradering) återanvänder dem.
   const cw=400,L=24,R=34;
   const n=years.length,slot=(cw-L-R)/n;
   const bx=i=>L+i*slot;const bw=slot*0.55;const cx=i=>bx(i)+bw/2;
-  // Fokusram för bx/bw-grafer (chartRate/chartLogo/chartDownFull). yTop=topp, h=baslinje-topp.
+  // Fokusram för bx/bw-grafer (chartRate/chartDownFull). yTop=topp, h=baslinje-topp.
   const cbFocus=(yTop,h)=>focusIdx>=0?`<rect x="${Math.round(bx(focusIdx))-4}" y="${yTop}" width="${Math.round(bw)+8}" height="${h}" fill="none" stroke="#BA7517" stroke-width="2" rx="3"/>`:'';
   const rateY=churnY.map(r=>Math.round(r.churnRevenuePct*1000)/10);
   const rch=140,rBase=rch-22,rTop=14;
   const rMax=Math.max(...rateY,1);const rH=v=>Math.round(v/rMax*(rBase-rTop));
   const crBars=years.map((Y,i)=>{const h=rH(rateY[i]);return`<g><title>${Y}: ${rateY[i]}% churn · ${fmtSv(churnY[i].churnRevenue)} av ${fmtSv(churnY[i].baseRevenue)}</title><rect x="${Math.round(bx(i))}" y="${rBase-h}" width="${Math.round(bw)}" height="${h}" rx="2" fill="#a32d2d" opacity="0.8"/><text x="${Math.round(cx(i))}" y="${rBase-h-3}" font-size="8" fill="#a32d2d" text-anchor="middle">${rateY[i]}%</text><text x="${Math.round(cx(i))}" y="${rBase+12}" font-size="9" fill="var(--text3)" text-anchor="middle">${Y}</text></g>`;}).join('');
   const chartRate=`<svg viewBox="0 0 ${cw} ${rch}" width="100%" style="overflow:visible;"><line x1="${L-4}" y1="${rBase}" x2="${cw-R+2}" y2="${rBase}" stroke="var(--border)" stroke-width="0.75"/>${crBars}${cbFocus(rTop,rBase-rTop)}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;flex-wrap:wrap;"><span><span style="display:inline-block;width:10px;height:10px;background:#a32d2d;opacity:0.8;vertical-align:middle;"></span> Churn rate (% av bas-ARR)</span></div>`;
-  // Logo-graf (steg 5): behållna (grön) + lämnade (röd) staplade, antal per år. Återanvänder churnY + bx/bw/cx.
-  const lch=140,lbase=lch-22,ltop=10;
-  const lMax=Math.max(...churnY.map(r=>r.logoBase),1);const lH=v=>Math.round(v/lMax*(lbase-ltop));
-  const logoBars=years.map((Y,i)=>{const r=churnY[i];const kh=lH(r.logoBase-r.logoChurned),lh=lH(r.logoChurned);return`<g><title>${Y}: ${r.logoBase-r.logoChurned} behållna / ${r.logoChurned} lämnade (av ${r.logoBase})</title><rect x="${Math.round(bx(i))}" y="${lbase-kh}" width="${Math.round(bw)}" height="${kh}" rx="2" fill="#1a7a50" opacity="0.8"/><rect x="${Math.round(bx(i))}" y="${lbase-kh-lh}" width="${Math.round(bw)}" height="${lh}" rx="2" fill="#a32d2d" opacity="0.8"/><text x="${Math.round(cx(i))}" y="${lbase+12}" font-size="9" fill="var(--text3)" text-anchor="middle">${Y}</text></g>`;}).join('');
-  const chartLogo=`<svg viewBox="0 0 ${cw} ${lch}" width="100%" style="overflow:visible;"><line x1="${L-4}" y1="${lbase}" x2="${cw-R+2}" y2="${lbase}" stroke="var(--border)" stroke-width="0.75"/>${logoBars}${cbFocus(ltop,lbase-ltop)}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;flex-wrap:wrap;"><span><span style="display:inline-block;width:10px;height:10px;background:#1a7a50;opacity:0.8;vertical-align:middle;"></span> Behållna</span><span><span style="display:inline-block;width:10px;height:10px;background:#a32d2d;opacity:0.8;vertical-align:middle;"></span> Lämnade</span></div>`;
   // Graf 3: full churn (mörkröd) underst + nedgradering (ljusröd) ovanpå, kr per år. Total = churnRevenue. Återanvänder bx/bw/cx.
   const dfH=140,dfBase=dfH-22,dfTop=16;
   const dfMax=Math.max(...churnY.map(r=>r.churnRevenue),1);const dfBarH=v=>Math.round(v/dfMax*(dfBase-dfTop));
@@ -3771,10 +3757,6 @@ async function renderFinChurn(){
   const reasonsHtml=rEntries.length?rEntries.map(([r,v])=>`<div style="margin-bottom:7px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;"><span>${r}</span><span style="color:var(--text3);">${fmtSv(v)}</span></div><div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.round(v/rMaxV*100)}%;background:#a32d2d;opacity:0.7;"></div></div></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
   // Churnade kunder
   const listHtml=churnedList.length?churnedList.slice().sort((a,b)=>lostOf(b)-lostOf(a)).map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer;" onclick="openModal(${c.Id})"><div style="min-width:0;"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||'-'}</div><div style="font-size:11px;color:var(--text3);">${reasonOf(c)}</div></div><span style="font-weight:600;color:var(--red);white-space:nowrap;flex:0 0 auto;">${fmtSv(lostOf(c))}</span></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
-  // Logo-churn på org-nivå (nya modellen): läsbara namn ur koncern/kortnamn.
-  const orgLabel=key=>{if(key.indexOf('cust:')===0){const id=Number(key.slice(5));const c=all.find(x=>x.Id===id);return c?(c.Company||('Kund '+id)):('Kund '+id);}const k=key.slice(4);const c=all.find(x=>x.ParentCompany&&String(x.ParentCompany).trim().toLowerCase()===k);return c?c.ParentCompany:k;};
-  const orgList=(churn12.churnedOrgs||[]).map(orgLabel).sort((a,b)=>a.localeCompare(b,'sv'));
-  const orgHtml=orgList.length?orgList.map(n=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;font-weight:500;">${n}</div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga logo-churnade organisationer.</div>';
   // ── ARR-TREND: Total ARR-stock + Kunder/ACV per år. Snapshot 15:e (årsslut historiska, idag innevarande).
   // Org-normaliserat antal. Oberoende av period-väljaren/est. Ren render — rör ej churn-funktionen. ──
   const _custById={};all.forEach(c=>{_custById[c.Id]=c;});
@@ -3823,25 +3805,41 @@ async function renderFinChurn(){
   }).join('');
   const _legB=`<span><span style="display:inline-block;width:9px;height:9px;background:#1D9E75;vertical-align:middle;border-radius:1px;"></span> Behållet</span>`;
   const retentionHtml=`<div style="margin-bottom:14px;">${_secHdr('Retention')}<div class="fin-grid"><div class="fin-card"><div class="fin-card-title">Behållet vs churnat</div>${grrRows}<div style="display:flex;gap:12px;font-size:10px;color:var(--text3);margin-top:6px;flex-wrap:wrap;">${_legB}<span><span style="display:inline-block;width:9px;height:9px;background:#384049;vertical-align:middle;border-radius:1px;"></span> Churnat</span></div></div><div class="fin-card"><div class="fin-card-title">Med expansion (NRR)</div>${nrrRows}<div style="display:flex;gap:12px;font-size:10px;color:var(--text3);margin-top:6px;flex-wrap:wrap;">${_legB}<span><span style="display:inline-block;width:9px;height:9px;background:#97C459;vertical-align:middle;border-radius:1px;"></span> Expansion</span><span><span style="display:inline-block;width:12px;border-top:1px dashed var(--text3);vertical-align:middle;"></span> 100%</span></div></div></div></div>`;
+  // KPI rad 1 (ARR) — kräver arrY (byggt i ARR-trend-blocket ovan) + period-fönstret kpiFrom/kpiTo.
+  const _arrLast=arrY[arrY.length-1],_arrPrev=arrY[arrY.length-2];
+  const _arrNow=_arrLast.total,_arrDelta=_arrNow-(_arrPrev?_arrPrev.total:0);
+  const _arrGrow=_arrLast.growth!=null?Math.round(_arrLast.growth*100):null;
+  const _prevYr=yNow-1;
+  const _deltaTxt=`${_arrDelta>0?'+':''}${fmtSv(_arrDelta)}`;
+  // Nya org per period: org-first-contract (min DateFrom på org-nivå) inom [kpiFrom,kpiTo].
+  const _orgFirst={};all.forEach(c=>{const f=firstContract(c);if(!f)return;const k=(c.ParentCompany||'').trim().toLowerCase();const key=k?'org:'+k:'cust:'+c.Id;if(!_orgFirst[key]||f<_orgFirst[key])_orgFirst[key]=f;});
+  const nyaPeriod=Object.values(_orgFirst).filter(d=>d>=kpiFrom&&d<=kpiTo).length;
+  const totalActiveOrgs=_arrLast.orgCount;
+  const kpisRow1=kpiCard('Total ARR',fmtSv(_arrNow),`${_deltaTxt}${_arrGrow!=null?` · ${_arrGrow>=0?'+':''}${_arrGrow}% vs ${_prevYr}`:''}`,'var(--text)')
+    +kpiCard('ARR-andel av intäkter','–','ARR ÷ totala intäkter · byggs i commit C','var(--text3)')
+    +kpiCard('ARR-tillväxt',`${_arrGrow!=null?`${_arrGrow>=0?'+':''}${_arrGrow}%`:'–'}`,_arrGrow!=null?`${_deltaTxt} vs ${_prevYr}`:'ingen föregående',_arrGrow!=null&&_arrGrow<0?'var(--red)':'var(--green)')
+    +kpiCard('Nya kunder',`${nyaPeriod}`,`${totalActiveOrgs} aktiva org totalt`,'var(--text)')
+    +kpiCard('Snitt avtalstid per kund',`${avgTen} mån`,`${tenDelta>=0?'+':''}${tenDelta} mån vs föreg. år`,tenDelta>=0?'var(--green)':'var(--red)');
+  // KPI rad 2 (churn) — ordning matchar graferna: Revenue Churn · GRR · NRR · Expansion · Customer Churn.
+  const kpisRow2=kpiCard('Revenue Churn',`${_estTag}${churnRate12}%`,`${fmtSv(estChurn)} churnat av ${fmtSv(estBase)} kr${isEst?`<div style="font-size:10px;opacity:0.75;margin-top:1px;">varav resolved ${fmtSv(churn12.churnRevenue)} · oavgjort ${fmtSv(oavgjord)}</div>`:''}`,'var(--red)')
+    +kpiCard('Gross Revenue Retention (GRR)',`${_estTag}${grr}%`,isEst?`projicerat på ${fmtSv(oavgjord)} oavgjort`:`Gross Revenue Retention (${periodTxt})`,grr>=100?'var(--green)':'var(--amber)')
+    +kpiCard('Net Revenue Retention (NRR)',`${_estTag}${nrr12}%`,isEst?`projicerat på ${fmtSv(oavgjord)} oavgjort`:`Net Revenue Retention (${periodTxt})`,nrr12>=100?'var(--green)':'var(--amber)')
+    +kpiCard('Expansion Rate',`${expRatePct}%`,fmtSv(churn12.expansionRevenue),'var(--green)')
+    +kpiCard('Customer Churn',`${custChurnPct}%`,`${churn12.logoChurned} org`,'var(--red)');
   const focusNote=focusIdx>=0?`<div style="font-size:10px;color:var(--text3);font-style:italic;margin-top:10px;">Orange ram = året KPI-korten visar. Graferna visar hela år; KPI följer periodvalet, så tal kan skilja för innevarande år.</div>`:'';
   el.innerHTML=`
     ${arrTrendHtml}
     ${_secHdr('Churn')}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnInclFastpris?'active':''}" onclick="setFaChurnInclFastpris(${!faChurnInclFastpris})">Inkludera fast pris</button></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnPeriod==='all'?'active':''}" onclick="setFaChurnPeriod('all')">Alla</button>${years.map(Y=>`<button class="result-btn ${faChurnPeriod===String(Y)?'active':''}" onclick="setFaChurnPeriod('${Y}')">${Y}</button>`).join('')}<button class="result-btn ${faChurnPeriod==='rolling'?'active':''}" onclick="setFaChurnPeriod('rolling')">Rullande 12 mån</button></div>${faChurnPeriod===_curYr?`<div class="result-toggle"><button class="result-btn ${faChurnYearMode==='ytd'?'active':''}" onclick="setFaChurnYearMode('ytd')">YTD</button><button class="result-btn ${faChurnYearMode==='est'?'active':''}" onclick="setFaChurnYearMode('est')">Estimated</button></div>`:''}</div></div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px;">${kpis}</div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:14px;">${kpisRow1}</div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:14px;">${kpisRow2}</div>
     ${retentionHtml}
-    <div class="fin-grid" style="margin-bottom:14px;">
+    <div class="fin-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px;">
       <div class="fin-card"><div class="fin-card-title">Churn rate över tid</div>${chartRate}</div>
-      <div class="fin-card"><div class="fin-card-title">Kunder kvar vs lämnade</div>${chartLogo}</div>
-    </div>
-    <div class="fin-grid">
-      <div class="fin-card"><div class="fin-card-title">Churnanledningar</div>${reasonsHtml}</div>
-      <div class="fin-card"><div class="fin-card-title">Churnade kunder <span class="badge b-red">${churnedList.length}</span></div><div style="max-height:240px;overflow:auto;">${listHtml}</div></div>
-    </div>
-    <div class="fin-grid" style="margin-top:14px;">
       <div class="fin-card"><div class="fin-card-title">Nedgradering vs helt lämnat</div>${chartDownFull}</div>
-      <div class="fin-card"><div class="fin-card-title">Logo-churn · organisationer (ny modell) <span class="badge b-red">${orgList.length}</span></div><div style="max-height:200px;overflow:auto;">${orgHtml}</div></div>
+      <div class="fin-card"><div class="fin-card-title">Churnanledningar</div>${reasonsHtml}</div>
     </div>
+    <div class="fin-card"><div class="fin-card-title">Churnade kunder <span class="badge b-red">${churnedList.length}</span></div><div style="max-height:240px;overflow:auto;">${listHtml}</div></div>
     ${focusNote}`;
 }
 var currentFaMode='resultat';
