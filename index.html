@@ -975,6 +975,7 @@
       <button class="quick-btn" onclick="deleteBudgetVersion()" id="btn-delete-budget" style="display:none;color:var(--red);">🗑 Radera</button>
       <button class="quick-btn" onclick="toggleBudgetPrimary()" id="btn-primary-budget" style="display:none;">☆ Sätt som primär</button>
       <button class="quick-btn" onclick="toggleBudgetRolling()" id="btn-rolling-budget" style="display:none;">⟳ Sätt som löpande</button>
+      <button class="quick-btn" onclick="openImportActualsModal(currentBudgetVersionId)" id="btn-import-actuals" style="display:none;">⇪ Actuals/mån</button>
       <span id="budget-autosave-hint" style="margin-left:auto;font-size:11px;color:var(--text3);">Autospar på</span>
     </div>
     <div class="kpi-grid" id="budget-kpi" style="margin-bottom:16px;"></div>
@@ -4383,6 +4384,45 @@ async function importMonthActuals(versionId,monthIndex,includedAvtalIds=null){
   const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
   return perType;
 }
+// Avtalsväljar-modal: avtal vars NET30 faller i vald månad, grupperat per typ (värdekort-stil), → importMonthActuals.
+async function openImportActualsModal(versionId){
+  if(!Object.keys(custRevCache||{}).length){try{await prefetchAllCustomerRevenues();}catch(e){}}
+  if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(versionId));if(!ver)return;
+  const year=Number(ver.Year)||new Date().getFullYear();
+  const ex=document.getElementById('import-actuals-overlay');if(ex)ex.remove();
+  const ov=document.createElement('div');ov.id='import-actuals-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:540px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
+    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><h3 style="font-size:16px;font-weight:600;">Importera actuals · <span id="ia-month-lbl"></span> ${year}</h3><select id="ia-month" onchange="window._iaRender()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;">${MONTHS.map((m,i)=>`<option value="${i}">${m}</option>`).join('')}</select></div>
+    <div id="ia-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
+    <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="ia-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-actuals-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="ia-import-btn" class="btn-primary" onclick="window._iaImport()" style="padding:8px 16px;">Importera</button></div></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const _tc={ARR:{bg:'#EAF3DE',color:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5'},Utbildning:{bg:'#FAEEDA',color:'#854F0B'},Consulting:{bg:'#EEEDFE',color:'#3C3489'}};
+  const _tl={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Utbildning:'Utbildning',Consulting:'Consulting'};
+  window._iaSummary=()=>{const cbs=[...document.querySelectorAll('.ia-cb:checked')];const tot=cbs.reduce((s,c)=>s+(Number(c.dataset.amount)||0),0);const e=document.getElementById('ia-summary');if(e)e.textContent=`${cbs.length} avtal ikryssade · ${Math.round(tot).toLocaleString('sv-SE')} kr`;};
+  window._iaRender=()=>{
+    const mi=Number(document.getElementById('ia-month').value);
+    document.getElementById('ia-month-lbl').textContent=MONTHS[mi];
+    document.getElementById('ia-import-btn').textContent='Importera till '+MONTHS[mi];
+    const ik='importedAvtal_'+versionId+'_'+mi;const hasImp=localStorage.getItem(ik)!=null;const impSet=new Set(JSON.parse(localStorage.getItem(ik)||'[]').map(String));
+    const custById={};(allCustomers||[]).forEach(c=>custById[c.Id]=c);
+    const byType={ARR:[],Fastpris:[],Utbildning:[],Consulting:[]};
+    Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!byType[it.Type])return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==year||d.getMonth()!==mi)return;const c=custById[Number(cid)];byType[it.Type].push({id:it.Id,cust:c?(c.Company||('Kund '+cid)):('Kund '+cid),amount:it.Amount||0,desc:it.Description||'',net30:d.toISOString().substring(0,10),paid:!!it.Paid});});});
+    const fk=v=>Math.round(v).toLocaleString('sv-SE');let html='';
+    ['ARR','Fastpris','Utbildning','Consulting'].forEach(t=>{const arr=byType[t];if(!arr.length)return;const tc=_tc[t];
+      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[t]}</div>`;
+      arr.forEach(a=>{const checked=hasImp?impSet.has(String(a.id)):true;const isNew=hasImp&&!impSet.has(String(a.id));
+        html+=`<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid ${isNew?'#d99':'var(--border)'};border-radius:8px;margin-bottom:6px;cursor:pointer;background:${isNew?'#fdf3f3':'var(--surface)'};"><input type="checkbox" class="ia-cb" data-id="${a.id}" data-amount="${a.amount}" ${checked?'checked':''} onchange="window._iaSummary()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.cust}${isNew?' <span style="color:#a32d2d;font-size:10px;font-weight:600;">● Ny</span>':''}</div><div style="font-size:11px;color:var(--text3);">${a.desc?a.desc+' · ':''}NET30 ${a.net30}</div></div><div style="text-align:right;flex:0 0 auto;"><div style="font-size:13px;font-weight:600;">${fk(a.amount)} kr</div><div style="font-size:10px;color:${a.paid?'#1a7a50':'var(--text3)'};">${a.paid?'Betald':'Avtalat'}</div></div></label>`;});
+      html+=`</div>`;});
+    document.getElementById('ia-body').innerHTML=html||'<div style="color:var(--text3);font-size:13px;padding:30px;text-align:center;">Inga avtal med NET30 i denna månad.</div>';
+    window._iaSummary();
+  };
+  window._iaImport=async()=>{const mi=Number(document.getElementById('ia-month').value);const ids=[...document.querySelectorAll('.ia-cb:checked')].map(c=>Number(c.dataset.id));document.getElementById('ia-import-btn').textContent='Importerar…';await importMonthActuals(versionId,mi,ids);document.getElementById('import-actuals-overlay')?.remove();};
+  document.getElementById('ia-month').value=Math.min(new Date().getMonth(),11);
+  window._iaRender();
+}
 async function loadBudgetVersions(){
   // Attach the delegated budget-row autosave once (the #budget-content element
   // persists across renders, so a single delegated listener survives).
@@ -4466,6 +4506,7 @@ async function loadBudgetVersion(){
   if(primBtn)primBtn.textContent=isPrimaryBudgetVersion(selVersion)?'★ Primär':'☆ Sätt som primär';
   const rollBtn=document.getElementById('btn-rolling-budget');
   if(rollBtn)rollBtn.textContent=isRollingBudgetVersion(selVersion)?'⟳ Löpande':'⟳ Sätt som löpande';
+  const iaBtn=document.getElementById('btn-import-actuals');if(iaBtn)iaBtn.style.display=currentBudgetMode==='likviditet'?'flex':'none';
   try{renderBudgetTable();}
   catch(e){
     console.error('[loadBudgetVersion] renderBudgetTable threw:',e);
