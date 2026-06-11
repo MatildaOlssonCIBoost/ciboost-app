@@ -4382,7 +4382,9 @@ async function renderBudgetCashflow(){
   const closingCell=(v,prev,extra)=>`<td style="font-size:11px;text-align:right;padding:3px 6px;border-bottom:0.5px solid var(--border);font-weight:600;${v<0?'color:#a32d2d;':''}${extra||''}">${fmtK(v)}${arrow(v,prev)}</td>`;
   const bodyRows=cf.months.map((m,i)=>`<tr><td style="font-size:11px;font-weight:500;color:var(--text2);text-align:left;padding:3px 6px;border-bottom:0.5px solid var(--border);">${m}</td>${finCell(i)}${num(cf.ingaende[i])}${num(cf.cashIn[i])}${num(cf.cashOut[i])}${num(cf.net[i],'font-style:italic;')}${closingCell(cf.closing[i],i===0?cf.ingaende[0]:cf.closing[i-1])}</tr>`).join('');
   const tEx='font-weight:700;border-top:2px solid var(--border);';
-  const totalRow=`<tr><td style="font-size:11px;font-weight:700;text-align:left;padding:5px 6px;border-top:2px solid var(--border);">Totalt</td>${num(finT,tEx)}${num('-',tEx+'color:var(--text3);')}${num(inT,tEx)}${num(outT,tEx)}${num(netT,tEx+'font-style:italic;')}${num(cf.closing[11],tEx+(cf.closing[11]<0?'color:#a32d2d;':''))}</tr>`;
+  // Ingående har ingen meningsfull årssumma → literal '–' (num('-') skulle ge Math.round('-')=NaN).
+  const dashTd=`<td style="font-size:11px;text-align:right;padding:3px 6px;border-bottom:0.5px solid var(--border);${tEx}color:var(--text3);">–</td>`;
+  const totalRow=`<tr><td style="font-size:11px;font-weight:700;text-align:left;padding:5px 6px;border-top:2px solid var(--border);">Totalt</td>${num(finT,tEx)}${dashTd}${num(inT,tEx)}${num(outT,tEx)}${num(netT,tEx+'font-style:italic;')}${num(cf.closing[11],tEx+(cf.closing[11]<0?'color:#a32d2d;':''))}</tr>`;
   const stat=(label,val)=>`<div style="display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:0.5px solid var(--border);"><span style="font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text3);">${label}</span><span style="font-size:13px;color:var(--text)">${val}</span></div>`;
   const kapText=minClosing<0?`<span style="color:#a32d2d;font-weight:700;">${fmtSv(Math.abs(minClosing))} kr</span><br><span style="font-size:11px;color:var(--text3);">behövs som mest · lägst i ${minMon}</span>`:`<span style="color:#1a7a50;font-weight:700;">+${fmtSv(minClosing)} kr</span><br><span style="font-size:11px;color:var(--text3);">lägsta marginal · ${minMon}</span>`;
   const nyckelBox=`<div style="min-width:200px;flex:0 0 220px;">
@@ -4395,18 +4397,18 @@ async function renderBudgetCashflow(){
   el.innerHTML=`<div class="fin-card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div class="fin-card-title" style="margin-bottom:0;">Kassaflöde (${year})${src?` <span class="badge b-blue">${src}</span>`:''}</div><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Version: ${verSel}</label></div>
-      <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Ingående kassa:<input type="text" value="${opening.toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>
+      <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;">Ingående kassa:<input type="text" value="${opening.toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>
     </div>
-    <div style="max-width:520px;margin-bottom:16px;">${cashflowChartSvg(cf)}</div>
-    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">
-      <div style="overflow:auto;">
-        <table style="border-collapse:collapse;">
-          <thead><tr>${TH('Månad')}${TH('Finansiering')}${TH('Ingående')}${TH('Cash in')}${TH('Cash out')}${TH('Netto')}${TH('Utgående balans')}</tr></thead>
-          <tbody>${bodyRows}${totalRow}</tbody>
-        </table>
-        <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">Utgående balans = ingående + netto + finansiering. Ingående nästa månad = föregående månads utgående.</div>
-      </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-bottom:18px;">
+      <div style="flex:1;min-width:280px;max-width:520px;">${cashflowChartSvg(cf)}</div>
       ${nyckelBox}
+    </div>
+    <div style="overflow:auto;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr>${TH('Månad')}${TH('Finansiering')}${TH('Ingående')}${TH('Cash in')}${TH('Cash out')}${TH('Netto')}${TH('Utgående balans')}</tr></thead>
+        <tbody>${bodyRows}${totalRow}</tbody>
+      </table>
+      <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">Utgående balans = ingående + netto + finansiering. Ingående nästa månad = föregående månads utgående.</div>
     </div>
   </div>`;
 }
