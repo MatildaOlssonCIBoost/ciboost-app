@@ -532,7 +532,6 @@
     <button class="nav-tab" onclick="switchMain('trialpilot',this)">Trial &amp; Pilot <span class="count" id="tp-nav-count">-</span></button>
     <button class="nav-tab" onclick="switchMain('kunder',this)">Kunder <span class="count" id="tab-count">-</span></button>
     <button class="nav-tab" onclick="switchMain('finansiellt',this)">Finansiellt</button>
-    <button class="nav-tab" onclick="switchMain('modellanalys',this)">Modellanalys</button>
     <button class="nav-tab" onclick="switchMain('arkiv',this)">Arkiv <span class="count" id="ark-nav-count">-</span></button>
   </div>
 </nav>
@@ -826,7 +825,7 @@
       <div class="fin-card" onclick="faOpenView('styrelse')" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">Styrelserapport <span class="badge b-amber">Byggs härnäst</span></div><div style="font-size:12px;color:var(--text3);">Budget vs utfall · likviditetsprognos</div></div>
       <div class="fin-card" onclick="faOpenView('periodanalys')" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">Periodanalys</div><div style="font-size:12px;color:var(--text3);">Jämför perioder</div></div>
       <div class="fin-card" onclick="faOpenView('provision')" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">Provision och samarbeten</div><div style="font-size:12px;color:var(--text3);">Utestående provision · samarbeten</div></div>
-      <div class="fin-card" onclick="faGotoModell()" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">Modellanalys</div><div style="font-size:12px;color:var(--text3);">Churn- · förnyelse- · pipeline-modeller</div></div>
+      <div class="fin-card" onclick="faOpenView('modell')" style="cursor:pointer;" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><div class="fin-card-title">Modellanalys</div><div style="font-size:12px;color:var(--text3);">Churn- · förnyelse- · pipeline-modeller</div></div>
     </div>
   </div>
 </div>
@@ -956,8 +955,9 @@
   </div>
 </div>
 
-<div class="page" id="page-modellanalys">
+<div class="page" id="page-finansiellt-modell">
   <div class="main">
+    <button onclick="faBackToMeny()" style="background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:0;margin-bottom:14px;display:flex;align-items:center;gap:4px;">← Tillbaka till meny</button>
     <div class="fin-card" id="fa-modelanalys" style="font-size:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
         <div class="fin-card-title" style="margin-bottom:0;">Modellanalys</div>
@@ -1516,7 +1516,6 @@ function switchMain(tab,el){
     if(currentSub.finansiellt==='prognos')renderPrognos();
     if(currentSub.finansiellt==='budget')loadBudgetVersions();
   }
-  else if(tab==='modellanalys'){showPage('modellanalys');renderModellanalysTab();}
   else if(tab==='trialpilot'){document.getElementById('page-trialpilot').classList.add('active');renderTrialPilot();}
   else if(tab==='arkiv'){updateArkivStatsBar();const sub=currentSub.arkiv||'tidigare';showPage(`arkiv-${sub}`);renderArkivCurrent();}
 }
@@ -1544,9 +1543,8 @@ function switchSub(main,sub,el){
   if(main==='arkiv')renderArkivCurrent();
 }
 // Finansiell analys-meny: kort → fokuserad delvy (showPage-mönstret), + tillbaka till meny.
-function faOpenView(view){showPage('finansiellt-'+view);if(view==='arr')renderFinChurn();else if(view!=='styrelse')renderFinDashboard();}
+function faOpenView(view){showPage('finansiellt-'+view);if(view==='arr')renderFinChurn();else if(view==='modell')renderModellanalysTab();else if(view!=='styrelse')renderFinDashboard();}
 function faBackToMeny(){showPage('finansiellt-dashboard');}
-function faGotoModell(){const b=[...document.querySelectorAll('.nav-tab')].find(x=>/switchMain\('modellanalys'/.test(x.getAttribute('onclick')||''));if(b)b.click();}
 function updateFinStatsBar(){
   const arrTotal=allCustomers.reduce((s,c)=>s+(c.ARR||0)+(c.ARR_Fixed||0),0);
   const mrr=Math.round(arrTotal/12);
