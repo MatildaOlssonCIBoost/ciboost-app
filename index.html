@@ -1278,7 +1278,8 @@ function fmtKr(v){if(!v&&v!==0)return'-';return Math.round(v).toLocaleString('sv
 // ─── KPI-FÖRKLARINGAR ────────────────────────────────────
 // Info-ikon (i) på alla KPI-kort; klick visar hur värdet beräknas.
 const KPI_INFO={
-  'NRR':'Retention including expansion (licences). Below 100% = shrinking, above 100% = grows.',
+  'Net Revenue Retention (NRR)':'Retention including expansion (licences). Below 100% = shrinking, above 100% = grows.',
+  'Gross Revenue Retention (GRR)':'Pure retention before any expansion. Capped at 100%.',
   'Churn rate':'Share of recurring revenue (ARR) that expired without renewing. In volume mode: share of organisations that left entirely.',
   'Churnat ARR':'SEK (ARR) lost when licenses expired without renewal. In volume mode: number of organisations that left.',
   'Snitt tid som kund':'Average customer lifetime in months, from first contract. Arrow compares to a year ago.',
@@ -3679,12 +3680,15 @@ async function renderFinChurn(){
   const churn12legacy=computeRenewalChurn({from:_w365,to:today,includeFastpris:faChurnInclFastpris});
   const churnRate12=isVol?Math.round(churn12.logoChurnPct*1000)/10:Math.round(churn12.churnRevenuePct*1000)/10;
   const nrr12=Math.round(churn12.nrr*100);
+  // Steg 2: GRR (Gross Revenue Retention) = retention FÖRE expansion, ur churn12 (ej i funktionen).
+  const grr=churn12.baseRevenue>0?Math.round((churn12.baseRevenue-churn12.churnRevenue)/churn12.baseRevenue*100):0;
   const logoTxt=`${churn12.logoChurned} org`;
   // KPI-kort
   const kpiCard=(label,val,sub,color)=>`<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value" style="color:${color};font-size:18px;">${val}</div><div class="kpi-delta neu">${sub}</div></div>`;
   const kpis=kpiCard('Churn rate',`${churnRate12}%`,isVol?logoTxt:fmtSv(churn12.churnRevenue),'var(--red)')
     +kpiCard('Churnat ARR',isVol?`${churn12.logoChurned}`:fmtSv(churn12.churnRevenue),`${logoTxt} · 12 mån`,'var(--red)')
-    +kpiCard('NRR',`${nrr12}%`,'Net Revenue Retention (12 mån)',nrr12>=100?'var(--green)':'var(--amber)')
+    +kpiCard('Net Revenue Retention (NRR)',`${nrr12}%`,'Net Revenue Retention (12 mån)',nrr12>=100?'var(--green)':'var(--amber)')
+    +kpiCard('Gross Revenue Retention (GRR)',`${grr}%`,'Gross Revenue Retention (12 mån)',grr>=100?'var(--green)':'var(--amber)')
     +kpiCard('Snitt tid som kund',`${avgTen} mån`,`${tenDelta>=0?'+':''}${tenDelta} mån vs föreg. år`,tenDelta>=0?'var(--green)':'var(--red)');
   // Chart 1: churn rate (staplar) + NRR (linje).
   const cw=400,ch=110;const rMax=Math.max(...rateY,1);const nMin=Math.min(...nrrY,90),nMax=Math.max(...nrrY,110);
@@ -3714,7 +3718,7 @@ async function renderFinChurn(){
   const orgHtml=orgList.length?orgList.map(n=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;font-weight:500;">${n}</div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga logo-churnade organisationer.</div>';
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div class="result-toggle"><button class="result-btn ${faChurnInclFastpris?'active':''}" onclick="setFaChurnInclFastpris(${!faChurnInclFastpris})">Inkludera fast pris</button></div><div class="result-toggle"><button class="result-btn ${!isVol?'active':''}" onclick="setFaChurnMode('value')">Värde (kr)</button><button class="result-btn ${isVol?'active':''}" onclick="setFaChurnMode('volume')">Volym (antal)</button></div></div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px;">${kpis}</div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:14px;">${kpis}</div>
     ${perTypeHtml}
     <div class="fin-grid" style="margin-bottom:14px;">
       <div class="fin-card"><div class="fin-card-title">Churn rate & NRR över tid</div>${chart1}</div>
