@@ -3758,6 +3758,11 @@ async function renderFinChurn(){
   const lMax=Math.max(...churnY.map(r=>r.logoBase),1);const lH=v=>Math.round(v/lMax*(lbase-ltop));
   const logoBars=years.map((Y,i)=>{const r=churnY[i];const kh=lH(r.logoBase-r.logoChurned),lh=lH(r.logoChurned);return`<rect x="${Math.round(bx(i))}" y="${lbase-kh}" width="${Math.round(bw)}" height="${kh}" rx="2" fill="#1a7a50" opacity="0.8"/><rect x="${Math.round(bx(i))}" y="${lbase-kh-lh}" width="${Math.round(bw)}" height="${lh}" rx="2" fill="#a32d2d" opacity="0.8"/><text x="${Math.round(cx(i))}" y="${lbase+12}" font-size="9" fill="var(--text3)" text-anchor="middle">${Y}</text>`;}).join('');
   const chartLogo=`<svg viewBox="0 0 ${cw} ${lch}" width="100%" style="overflow:visible;"><line x1="${L-4}" y1="${lbase}" x2="${cw-R+2}" y2="${lbase}" stroke="var(--border)" stroke-width="0.75"/>${logoBars}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;flex-wrap:wrap;"><span><span style="display:inline-block;width:10px;height:10px;background:#1a7a50;opacity:0.8;vertical-align:middle;"></span> Behållna</span><span><span style="display:inline-block;width:10px;height:10px;background:#a32d2d;opacity:0.8;vertical-align:middle;"></span> Lämnade</span></div>`;
+  // Graf 3: full churn (mörkröd) underst + nedgradering (ljusröd) ovanpå, kr per år. Total = churnRevenue. Återanvänder bx/bw/cx.
+  const dfH=140,dfBase=dfH-22,dfTop=16;
+  const dfMax=Math.max(...churnY.map(r=>r.churnRevenue),1);const dfBarH=v=>Math.round(v/dfMax*(dfBase-dfTop));
+  const dfBars=years.map((Y,i)=>{const r=churnY[i];const fh=dfBarH(r.churnFull),dh=dfBarH(r.churnDowngrade),tot=r.churnRevenue;return`<rect x="${Math.round(bx(i))}" y="${dfBase-fh}" width="${Math.round(bw)}" height="${fh}" rx="2" fill="#A32D2D" opacity="0.85"/><rect x="${Math.round(bx(i))}" y="${dfBase-fh-dh}" width="${Math.round(bw)}" height="${dh}" rx="2" fill="#F09595" opacity="0.9"/><text x="${Math.round(cx(i))}" y="${dfBase-fh-dh-3}" font-size="8" fill="var(--text3)" text-anchor="middle">${tot>0?Math.round(tot/1000)+'k':''}</text><text x="${Math.round(cx(i))}" y="${dfBase+12}" font-size="9" fill="var(--text3)" text-anchor="middle">${Y}</text>`;}).join('');
+  const chartDownFull=`<svg viewBox="0 0 ${cw} ${dfH}" width="100%" style="overflow:visible;"><line x1="${L-4}" y1="${dfBase}" x2="${cw-R+2}" y2="${dfBase}" stroke="var(--border)" stroke-width="0.75"/>${dfBars}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;flex-wrap:wrap;"><span><span style="display:inline-block;width:10px;height:10px;background:#A32D2D;opacity:0.85;vertical-align:middle;"></span> Helt lämnat</span><span><span style="display:inline-block;width:10px;height:10px;background:#F09595;opacity:0.9;vertical-align:middle;"></span> Nedgradering</span></div>`;
   // Churnade kunder (kedje-modellen, rullande 12 mån) + tappad revenue per kund.
   const churnedList=churn12legacy.churnedCustomerIds.map(id=>all.find(c=>c.Id===id)).filter(Boolean);
   const lostOf=c=>churn12legacy.churnByCustomer[c.Id]||0;
@@ -3833,6 +3838,7 @@ async function renderFinChurn(){
       <div class="fin-card"><div class="fin-card-title">Churnade kunder <span class="badge b-red">${churnedList.length}</span></div><div style="max-height:240px;overflow:auto;">${listHtml}</div></div>
     </div>
     <div class="fin-grid" style="margin-top:14px;">
+      <div class="fin-card"><div class="fin-card-title">Nedgradering vs helt lämnat</div>${chartDownFull}</div>
       <div class="fin-card"><div class="fin-card-title">Logo-churn · organisationer (ny modell) <span class="badge b-red">${orgList.length}</span></div><div style="max-height:200px;overflow:auto;">${orgHtml}</div></div>
     </div>`;
 }
