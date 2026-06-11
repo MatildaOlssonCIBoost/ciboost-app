@@ -3605,6 +3605,7 @@ function computeRenewalChurnLinks({from,to,includeFastpris=false,now,customers=[
   const churnByOrg={};
   const addOrg=(org,fld,v)=>{(churnByOrg[org]=churnByOrg[org]||{base:0,churn:0,full:0,downgrade:0})[fld]+=v;};
   const _dgOrgs=new Set(),_fullOrgs=new Set(),_expOrgs=new Set();
+  let pendingRevenue=0;const pendingByType={};   // additivt: oavgjord ARR (Estimated-grund)
   Object.values(comps).forEach(comp=>{
     const parents=[...comp.parents],children=[...comp.children];
     if(!parents.length)return;
@@ -3632,12 +3633,12 @@ function computeRenewalChurnLinks({from,to,includeFastpris=false,now,customers=[
     if(isFrom.has(p.Id)){orgCont[p._org]=true;return;}
     const graceEnd=new Date(dto);graceEnd.setDate(graceEnd.getDate()+GRACE);
     if(graceEnd<today){churnRevenue+=(p.Amount||0);baseRevenue+=(p.Amount||0);addT(churnByType,p.Type,p.Amount||0);addT(baseByType,p.Type,p.Amount||0);orgChurn[p._org]=true;churnFull+=(p.Amount||0);addOrg(p._org,'base',p.Amount||0);addOrg(p._org,'churn',p.Amount||0);addOrg(p._org,'full',p.Amount||0);_fullOrgs.add(p._org);}   // additivt: full churn per org
-    else pending++;
+    else {pending++;pendingRevenue+=(p.Amount||0);addT(pendingByType,p.Type,p.Amount||0);}   // additivt: oavgjord ARR
   });
   const baseOrgs=new Set([...Object.keys(orgCont),...Object.keys(orgChurn)]);
   const churnedOrgs=[...baseOrgs].filter(o=>!orgCont[o]&&orgChurn[o]);
   const logoBase=baseOrgs.size,logoChurned=churnedOrgs.length;
-  return{baseRevenue,churnRevenue,expansionRevenue,churnRevenuePct:baseRevenue>0?churnRevenue/baseRevenue:0,nrr:baseRevenue>0?(baseRevenue-churnRevenue+expansionRevenue)/baseRevenue:0,churnByType,expansionByType,baseByType,logoBase,logoChurned,logoChurnPct:logoBase>0?logoChurned/logoBase:0,churnedOrgs,pending,churnFull,churnDowngrade,churnByOrg,expansionOrgs:_expOrgs.size,churnFullOrgs:_fullOrgs.size,churnDowngradeOrgs:_dgOrgs.size};
+  return{baseRevenue,churnRevenue,expansionRevenue,churnRevenuePct:baseRevenue>0?churnRevenue/baseRevenue:0,nrr:baseRevenue>0?(baseRevenue-churnRevenue+expansionRevenue)/baseRevenue:0,churnByType,expansionByType,baseByType,logoBase,logoChurned,logoChurnPct:logoBase>0?logoChurned/logoBase:0,churnedOrgs,pending,churnFull,churnDowngrade,churnByOrg,expansionOrgs:_expOrgs.size,churnFullOrgs:_fullOrgs.size,churnDowngradeOrgs:_dgOrgs.size,pendingRevenue,pendingByType};
 }
 var faChurnMode='value';
 function setFaChurnMode(m){faChurnMode=m;renderFinChurn();}
