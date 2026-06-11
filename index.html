@@ -3824,7 +3824,7 @@ async function renderFinChurn(){
   const nyaPeriod=Object.values(_orgFirst).filter(d=>d>=kpiFrom&&d<=kpiTo).length;
   const totalActiveOrgs=_arrLast.orgCount;
   const kpisRow1=kpiCard('Total ARR',fmtSv(_arrNow),`${_deltaTxt}${_arrGrow!=null?` · ${_arrGrow>=0?'+':''}${_arrGrow}% vs ${_prevYr}`:''}`,'var(--text)')
-    +kpiCard('ARR-andel av intäkter','–','ARR ÷ totala intäkter · byggs i commit C','var(--text3)')
+    +kpiCard('MRR',fmtSv(_arrNow/12),`av ${fmtSv(_arrNow)} ARR`,'var(--text)')
     +kpiCard('ARR-tillväxt',`${_arrGrow!=null?`${_arrGrow>=0?'+':''}${_arrGrow}%`:'–'}`,_arrGrow!=null?`${_deltaTxt} vs ${_prevYr}`:'ingen föregående',_arrGrow!=null&&_arrGrow<0?'var(--red)':'var(--green)')
     +kpiCard('Nya kunder',`${nyaPeriod}`,`${totalActiveOrgs} aktiva org totalt`,'var(--text)')
     +kpiCard('Snitt avtalstid per kund',`${avgTen} mån`,`${tenDelta>=0?'+':''}${tenDelta} mån vs föreg. år`,tenDelta>=0?'var(--green)':'var(--red)');
