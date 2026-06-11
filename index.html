@@ -3645,9 +3645,12 @@ function setFaChurnMode(m){faChurnMode=m;renderFinChurn();}
 // Steg 4d: växlare som tar med Fastpris-licenser i churn-modellen (default AV = bara ARR).
 var faChurnInclFastpris=false;
 function setFaChurnInclFastpris(v){faChurnInclFastpris=!!v;renderFinChurn();}
-// Steg 3: periodfönster för KPI-korten — rullande 12 mån (default) eller år-till-datum (YTD). Graferna är alltid per år.
-var faChurnPeriod='rolling';
+// Steg 2: period-väljare för KPI-korten — 'all'|'<år>'|innevarande år|'rolling'. Default = innevarande år.
+// faChurnYearMode (YTD/Estimated) gäller bara innevarande år; est-matten byggs i steg 3 (nu === ytd). Graferna alltid per år.
+var faChurnPeriod=String(new Date().getFullYear());
 function setFaChurnPeriod(p){faChurnPeriod=p;renderFinChurn();}
+var faChurnYearMode='ytd';
+function setFaChurnYearMode(m){faChurnYearMode=m;renderFinChurn();}
 // Churn-sektionen i finansiell analys: KPI:er, churn/NRR över tid, expansion vs
 // churnat ARR, churnanledningar och lista över churnade kunder. Värde/Volym-toggle.
 async function renderFinChurn(){
@@ -3686,13 +3689,24 @@ async function renderFinChurn(){
   // Rullande 12 mån via den nya kedje-modellen (steg 4b). OBS: graferna och
   // churnade-listan/anledningarna ligger KVAR på legacy tills 4c/4d.
   const _w365=new Date(today);_w365.setDate(_w365.getDate()-365);
-  // Steg 3: KPI-fönstret styrs av faChurnPeriod (YTD = Jan1→idag, annars rullande 12 mån). Graferna oförändrade.
-  const kpiFrom=faChurnPeriod==='year'?new Date(today.getFullYear(),0,1):_w365;
-  const periodTxt=faChurnPeriod==='year'?'i år':'12 mån';
-  const churn12=computeRenewalChurnLinks({from:kpiFrom,to:today,includeFastpris:faChurnInclFastpris,..._lnk});
+  // Steg 2: KPI-fönstret härleds ur period-väljaren. Graferna (churnY) oförändrade.
+  const _curYr=String(yNow);
+  let kpiFrom,kpiTo=today,periodTxt;
+  if(faChurnPeriod==='all'){
+    let earliest=null;Object.values(custRevCache||{}).forEach(items=>{if(Array.isArray(items))items.forEach(it=>{if((it.Type==='ARR'||it.Type==='Fastpris')&&it.DateFrom){const d=new Date(it.DateFrom);if(!earliest||d<earliest)earliest=d;}});});
+    kpiFrom=earliest||new Date(2000,0,1);periodTxt='Alla';
+  }else if(faChurnPeriod==='rolling'){
+    kpiFrom=_w365;periodTxt='Rullande 12 mån';
+  }else if(faChurnPeriod===_curYr){
+    kpiFrom=new Date(yNow,0,1);kpiTo=today;   // est === ytd-fönster i detta steg (Estimated-matten byggs i steg 3)
+    periodTxt=faChurnYearMode==='est'?`${yNow} (est.)`:`${yNow} (hittills)`;
+  }else{
+    const Y=parseInt(faChurnPeriod);kpiFrom=new Date(Y,0,1);kpiTo=new Date(Y,11,31,23,59,59,999);periodTxt=String(Y);
+  }
+  const churn12=computeRenewalChurnLinks({from:kpiFrom,to:kpiTo,includeFastpris:faChurnInclFastpris,..._lnk});
   // Gamla kedje-modellen (RenewedFromId) lever kvar: driver kund-nivå-listan/anledningarna
   // nedan + fungerar som live-jämförelse tills nya länk-modellen är verifierad i drift.
-  const churn12legacy=computeRenewalChurn({from:kpiFrom,to:today,includeFastpris:faChurnInclFastpris});
+  const churn12legacy=computeRenewalChurn({from:kpiFrom,to:kpiTo,includeFastpris:faChurnInclFastpris});
   const churnRate12=isVol?Math.round(churn12.logoChurnPct*1000)/10:Math.round(churn12.churnRevenuePct*1000)/10;
   const nrr12=Math.round(churn12.nrr*100);
   // Steg 2: GRR (Gross Revenue Retention) = retention FÖRE expansion, ur churn12 (ej i funktionen).
@@ -3738,7 +3752,7 @@ async function renderFinChurn(){
   const orgList=(churn12.churnedOrgs||[]).map(orgLabel).sort((a,b)=>a.localeCompare(b,'sv'));
   const orgHtml=orgList.length?orgList.map(n=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;font-weight:500;">${n}</div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga logo-churnade organisationer.</div>';
   el.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnInclFastpris?'active':''}" onclick="setFaChurnInclFastpris(${!faChurnInclFastpris})">Inkludera fast pris</button></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnPeriod==='rolling'?'active':''}" onclick="setFaChurnPeriod('rolling')">Rullande 12 mån</button><button class="result-btn ${faChurnPeriod==='year'?'active':''}" onclick="setFaChurnPeriod('year')">I år</button></div><div class="result-toggle"><button class="result-btn ${!isVol?'active':''}" onclick="setFaChurnMode('value')">Värde (kr)</button><button class="result-btn ${isVol?'active':''}" onclick="setFaChurnMode('volume')">Volym (antal)</button></div></div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnInclFastpris?'active':''}" onclick="setFaChurnInclFastpris(${!faChurnInclFastpris})">Inkludera fast pris</button></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnPeriod==='all'?'active':''}" onclick="setFaChurnPeriod('all')">Alla</button>${years.map(Y=>`<button class="result-btn ${faChurnPeriod===String(Y)?'active':''}" onclick="setFaChurnPeriod('${Y}')">${Y}</button>`).join('')}<button class="result-btn ${faChurnPeriod==='rolling'?'active':''}" onclick="setFaChurnPeriod('rolling')">Rullande 12 mån</button></div>${faChurnPeriod===_curYr?`<div class="result-toggle"><button class="result-btn ${faChurnYearMode==='ytd'?'active':''}" onclick="setFaChurnYearMode('ytd')">YTD</button><button class="result-btn ${faChurnYearMode==='est'?'active':''}" onclick="setFaChurnYearMode('est')">Estimated</button></div>`:''}<div class="result-toggle"><button class="result-btn ${!isVol?'active':''}" onclick="setFaChurnMode('value')">Värde (kr)</button><button class="result-btn ${isVol?'active':''}" onclick="setFaChurnMode('volume')">Volym (antal)</button></div></div></div>
     <div class="kpi-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:14px;">${kpis}</div>
     <div class="fin-grid" style="margin-bottom:14px;">
       <div class="fin-card"><div class="fin-card-title">Churn, expansion & NRR över tid</div>${chartCombo}</div>
