@@ -3755,8 +3755,6 @@ async function renderFinChurn(){
   const rc={};churnedList.forEach(c=>{const r=reasonOf(c);rc[r]=(rc[r]||0)+lostOf(c);});
   const rEntries=Object.entries(rc).sort((a,b)=>b[1]-a[1]);const rMaxV=Math.max(...rEntries.map(e=>e[1]),1);
   const reasonsHtml=rEntries.length?rEntries.map(([r,v])=>`<div style="margin-bottom:7px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px;"><span>${r}</span><span style="color:var(--text3);">${fmtSv(v)}</span></div><div style="height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.round(v/rMaxV*100)}%;background:#a32d2d;opacity:0.7;"></div></div></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
-  // Churnade kunder
-  const listHtml=churnedList.length?churnedList.slice().sort((a,b)=>lostOf(b)-lostOf(a)).map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer;" onclick="openModal(${c.Id})"><div style="min-width:0;"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||'-'}</div><div style="font-size:11px;color:var(--text3);">${reasonOf(c)}</div></div><span style="font-weight:600;color:var(--red);white-space:nowrap;flex:0 0 auto;">${fmtSv(lostOf(c))}</span></div>`).join(''):'<div style="font-size:12px;color:var(--text3);">Inga churnade kunder.</div>';
   // ── ARR-TREND: Total ARR-stock + Kunder/ACV per år. Snapshot 15:e (årsslut historiska, idag innevarande).
   // Org-normaliserat antal. Oberoende av period-väljaren/est. Ren render — rör ej churn-funktionen. ──
   const _custById={};all.forEach(c=>{_custById[c.Id]=c;});
@@ -3826,6 +3824,30 @@ async function renderFinChurn(){
     +kpiCard('Net Revenue Retention (NRR)',`${_estTag}${nrr12}%`,isEst?`projicerat på ${fmtSv(oavgjord)} oavgjort`:`Net Revenue Retention (${periodTxt})`,nrr12>=100?'var(--green)':'var(--amber)')
     +kpiCard('Expansion Rate',`${expRatePct}%`,fmtSv(churn12.expansionRevenue),'var(--green)')
     +kpiCard('Customer Churn',`${custChurnPct}%`,`${churn12.logoChurned} org`,'var(--red)');
+  // ── KUNDER-lista (org-nivå): alla AKTIVA org, sorterade på dagar till förnyelse (närmast överst). ──
+  const _typesK=faChurnInclFastpris?{ARR:1,Fastpris:1}:{ARR:1};
+  const _orgCusts={};all.forEach(c=>{const ok=_orgKeyOf(c);(_orgCusts[ok]=_orgCusts[ok]||[]).push(c);});
+  const orgARRat=(ok,T)=>{let tot=0;(_orgCusts[ok]||[]).forEach(c=>{(custRevCache[c.Id]||[]).forEach(it=>{if(!_typesK[it.Type]||!it.DateFrom||!it.DateTo)return;const df=new Date(it.DateFrom),dt=new Date(it.DateTo);if(df<=T&&dt>=T)tot+=(it.Amount||0);});});return tot;};
+  // Aktiv org = minst ett kort med _days===null||_days>=0. Dagar kvar = minsta numeriska (närmast), annars null.
+  const _orgAct={};all.forEach(c=>{const ok=_orgKeyOf(c);const o=_orgAct[ok]||(_orgAct[ok]={any:false,minDays:null,name:null});const d=c._days;if(d===null||d>=0){o.any=true;if(typeof d==='number'&&(o.minDays===null||d<o.minDays))o.minDays=d;}if(!o.name)o.name=(c.ParentCompany&&c.ParentCompany.trim())||c.Company||('Kund '+c.Id);});
+  // Förändrings-fönster per period (låsta def): år=Dec31(Y) vs Dec31(Y-1); Alla=nu vs första ARR; Rullande/innevarande=nu vs −365d.
+  let _tN=today,_tP=null,_allM=false;
+  if(faChurnPeriod==='all'){_allM=true;}
+  else if(faChurnPeriod==='rolling'||faChurnPeriod===_curYr){_tP=new Date(today);_tP.setDate(_tP.getDate()-365);}
+  else{const Y=parseInt(faChurnPeriod);_tN=new Date(Y,11,31);_tP=new Date(Y-1,11,31);}
+  const _orgChange=ok=>{const now=orgARRat(ok,_tN);let ref;if(_allM){const f=_orgFirst[ok];ref=f?orgARRat(ok,f):0;}else ref=orgARRat(ok,_tP);if(!(ref>0))return null;return Math.round((now-ref)/ref*1000)/10;};
+  const _daysCol=d=>d===null?'var(--text3)':d<30?'var(--red)':d<90?'var(--amber)':'var(--text2)';
+  const _daysTx=d=>d===null?'–':d<0?'utgången':d+'d';
+  const kunderArr=Object.keys(_orgAct).filter(ok=>_orgAct[ok].any).map(ok=>({name:_orgAct[ok].name,arr:orgARRat(ok,today),change:_orgChange(ok),days:_orgAct[ok].minDays}));
+  kunderArr.sort((a,b)=>(a.days===null?Infinity:a.days)-(b.days===null?Infinity:b.days));
+  const kunderHtml=kunderArr.length?kunderArr.map(o=>{const ch=o.change;const chTxt=ch===null?'<span style="color:var(--text3);">ny</span>':`<span style="color:${ch>=0?'var(--green)':'var(--red)'};">${ch>=0?'+':''}${ch}%</span>`;return`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;"><div style="min-width:0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${o.name}</div><div style="display:flex;gap:10px;align-items:center;flex:0 0 auto;"><span style="color:var(--text2);">${fmtSv(o.arr)}</span><span style="width:48px;text-align:right;">${chTxt}</span><span style="width:56px;text-align:right;color:${_daysCol(o.days)};font-weight:600;">${_daysTx(o.days)}</span></div></div>`;}).join(''):'<div style="font-size:12px;color:var(--text3);">Inga aktiva kunder.</div>';
+  // ── Churnade organisationer (Variant 3): partiell churn via churnByOrg (ej legacy-beloppet). ──
+  const _orgLabel2=k=>{if(k.indexOf('cust:')===0){const id=Number(k.slice(5));const c=_custById[id];return c?(c.Company||('Kund '+id)):('Kund '+id);}const nm=k.slice(4);const c=all.find(x=>x.ParentCompany&&String(x.ParentCompany).trim().toLowerCase()===nm);return c?c.ParentCompany:nm;};
+  // Alt 3: full>0 → faktisk anledning (reasonOf på det helt-churnade kortet, väger tyngst); ren nedgradering → "Nedgradering".
+  const _orgReason=(k,v)=>{if(v.full>0){const c=all.find(x=>_orgKeyOf(x)===k&&(churnedMap[x.Id]||(x._days!==null&&x._days<0)));return c?reasonOf(c):'Ej förnyat';}if(v.downgrade>0)return 'Nedgradering';return 'Ej förnyat';};
+  const _orgTenure=k=>{const f=_orgFirst[k];return f?Math.round((today-f)/86400000/30.44):null;};
+  const churnOrgEntries=Object.entries(churn12.churnByOrg||{}).filter(([k,v])=>v.churn>0).sort((a,b)=>b[1].churn-a[1].churn);
+  const churnDevHtml=churnOrgEntries.length?churnOrgEntries.map(([k,v])=>{const pct=v.base>0?Math.round(v.churn/v.base*100):0;const ten=_orgTenure(k);return`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;"><div style="min-width:0;"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_orgLabel2(k)}</div><div style="font-size:11px;color:var(--text3);">${_orgReason(k,v)}${ten!=null?` · kund i ${ten} mån`:''}</div></div><div style="text-align:right;flex:0 0 auto;"><div style="font-weight:600;color:var(--red);white-space:nowrap;">${fmtSv(v.churn)} av ${fmtSv(v.base)}</div><div style="font-size:11px;color:var(--text3);">${pct}% churnat</div></div></div>`;}).join(''):'<div style="font-size:12px;color:var(--text3);">Ingen churn i perioden.</div>';
   const focusNote=focusIdx>=0?`<div style="font-size:10px;color:var(--text3);font-style:italic;margin-top:10px;">Orange ram = året KPI-korten visar. Graferna visar hela år; KPI följer periodvalet, så tal kan skilja för innevarande år.</div>`:'';
   el.innerHTML=`
     ${arrTrendHtml}
@@ -3839,7 +3861,10 @@ async function renderFinChurn(){
       <div class="fin-card"><div class="fin-card-title">Nedgradering vs helt lämnat</div>${chartDownFull}</div>
       <div class="fin-card"><div class="fin-card-title">Churnanledningar</div>${reasonsHtml}</div>
     </div>
-    <div class="fin-card"><div class="fin-card-title">Churnade kunder <span class="badge b-red">${churnedList.length}</span></div><div style="max-height:240px;overflow:auto;">${listHtml}</div></div>
+    <div class="fin-grid">
+      <div class="fin-card"><div class="fin-card-title">Kunder · närmast förnyelse <span class="badge">${kunderArr.length}</span></div><div style="max-height:320px;overflow:auto;">${kunderHtml}</div></div>
+      <div class="fin-card"><div class="fin-card-title">Churnade organisationer <span class="badge b-red">${churnOrgEntries.length}</span></div><div style="max-height:320px;overflow:auto;">${churnDevHtml}</div></div>
+    </div>
     ${focusNote}`;
 }
 var currentFaMode='resultat';
