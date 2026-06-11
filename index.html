@@ -1330,8 +1330,8 @@ const KPI_INFO={
   'EBITDA (TB2)':'Rörelseresultat före räntor, skatt och avskrivningar (TB1 minus OPEX).',
   'Net (TB3)':'Nettoresultat efter S&M-avgift (TB2 minus Service & Management fee).',
   'Total ARR':'Summan av återkommande licensintäkter (prenumeration + fast pris) per år.',
-  'Budgeterad ARR':'Budgeterade licensintäkter (prenumeration) för helåret.',
-  'Budgeterade intäkter':'Summan av alla budgeterade intäkter för helåret.',
+  'Budgeterad försäljning (total)':'Summan av all budgeterad försäljning för helåret. Subraden visar varav Licens (prenumeration).',
+  'Budgeterade utgifter (totalt)':'Summa budgeterade kostnader för helåret (COGS + OPEX + S&M).',
   'Total försäljning':'Summa periodiserad försäljning under vald period.',
   'Snitt/månad':'Genomsnittlig intäkt per månad i vald period.',
   'Bästa månad':'Månaden med högst intäkt i vald period.',
@@ -4452,7 +4452,7 @@ async function openImportActualsModal(versionId,preMonth){
   const ov=document.createElement('div');ov.id='import-actuals-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';
   ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:540px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
-    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><h3 style="font-size:16px;font-weight:600;">Importera actuals · <span id="ia-month-lbl"></span> ${year}</h3><select id="ia-month" onchange="window._iaRender()" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;">${MONTHS.map((m,i)=>`<option value="${i}">${m}</option>`).join('')}</select></div>
+    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:10px;">Importera actuals · <span id="ia-month-lbl"></span> ${year}</h3><input type="hidden" id="ia-month"><div id="ia-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;">${MONTHS.map((m,i)=>`<button type="button" onclick="window._iaPickMonth(${i})" style="flex:1;min-width:34px;padding:5px 4px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;">${m}</button>`).join('')}</div></div>
     <div id="ia-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
     <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="ia-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-actuals-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="ia-import-btn" class="btn-primary" onclick="window._iaImport()" style="padding:8px 16px;">Importera</button></div></div>
   </div>`;
@@ -4478,8 +4478,9 @@ async function openImportActualsModal(versionId,preMonth){
     window._iaSummary();
   };
   window._iaImport=async()=>{const mi=Number(document.getElementById('ia-month').value);const ids=[...document.querySelectorAll('.ia-cb:checked')].map(c=>Number(c.dataset.id));document.getElementById('ia-import-btn').textContent='Importerar…';await importMonthActuals(versionId,mi,ids);document.getElementById('import-actuals-overlay')?.remove();};
-  document.getElementById('ia-month').value=(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
-  window._iaRender();
+  // Markera vald månadsknapp (navy) + sätt dolt #ia-month + rendera. Ersätter dropdownens onchange.
+  window._iaPickMonth=(mi)=>{document.getElementById('ia-month').value=mi;document.querySelectorAll('#ia-month-btns button').forEach((b,j)=>{const on=j===mi;b.style.background=on?'#1E2340':'transparent';b.style.color=on?'#fff':'var(--text2)';b.style.borderColor=on?'#1E2340':'var(--border)';b.style.fontWeight=on?'600':'400';});window._iaRender();};
+  window._iaPickMonth(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
 }
 // ── STYRELSERAPPORT (Finansiell analys → kort "styrelse"). Allt ur likviditetsbudgeten: Budget=Primär, Utfall=Löpande. ──
 let styrelseX=null;
@@ -4877,11 +4878,11 @@ function renderBudgetTable(){
     html+=`<tr><td colspan="${MONTHS.length+2}" style="background:${tc.bg};color:${tc.color};font-weight:600;font-size:11px;padding:4px 10px;">${sub}</td></tr>`;
     // ↳ Importerad — LÅSTA text-celler (ej .budget-input), klickbar → modal med förvald månad. × radera vid etiketten.
     const delBtn=impRow?`<button onclick="deleteImportedBudgetRow('${cat.replace(/'/g,"\\'")}','${sub.replace(/'/g,"\\'")}','Avtal (likviditet)')" title="Ta bort importerad rad" style="width:16px;height:16px;border:0.5px solid var(--border);border-radius:3px;background:none;cursor:pointer;color:var(--red);font-size:11px;line-height:1;padding:0;margin-left:6px;">×</button>`:'';
-    html+=`<tr style="background:#f2f8f4;"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Importerad${delBtn}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportActualsModal(currentBudgetVersionId,${mi})" title="${(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade — klicka för att importera':'Visa/importera underlag för '+MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:11px;color:#3B6D11;">${impVals[mi]?fmtK(impVals[mi]):'–'}${(_type&&_devCount[_type][mi]>0)?'<span style="color:#d9820a;font-weight:700;">⚠</span>':''}</div></td>`).join('')}<td style="text-align:center;font-size:11px;font-weight:500;color:#3B6D11;border-left:1px solid var(--border);">${fmtK(sum(impVals))}</td></tr>`;
+    html+=`<tr style="background:#f2f8f4;"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Importerad${delBtn}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportActualsModal(currentBudgetVersionId,${mi})" title="${(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade — klicka för att importera':'Visa/importera underlag för '+MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:11px;color:#3B6D11;">${impVals[mi]?fmtK(impVals[mi]):'–'}${(_type&&_devCount[_type][mi]>0)?'<span style="color:#d9820a;font-weight:700;">⚠</span>':''}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#3B6D11;border-left:1px solid var(--border);">${fmtK(sum(impVals))}</td></tr>`;
     // ↳ Manuell — OFÖRÄNDRAD inputCell (.budget-input → autospar intakt)
-    html+=`<tr style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text3);">↳ Manuell</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(manVals))}</td></tr>`;
+    html+=`<tr style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text3);">↳ Manuell</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(manVals))}</td></tr>`;
     // = Summa — ren visning (text, ej .budget-input, ej i budgetRows → sparas aldrig)
-    html+=`<tr style="background:var(--surface2);"><td style="padding-left:24px;font-size:11px;font-weight:700;">= Summa</td>${MONTHS.map((_,mi)=>`<td style="text-align:center;font-size:11px;font-weight:700;">${fmtK(sumVals[mi])}</td>`).join('')}<td style="font-weight:700;text-align:center;border-left:1px solid var(--border);">${fmtK(sum(sumVals))}</td></tr>`;
+    html+=`<tr style="background:var(--surface2);"><td style="padding-left:24px;font-size:11px;font-weight:700;">= Summa</td>${MONTHS.map((_,mi)=>`<td style="text-align:right;font-size:11px;font-weight:700;">${fmtK(sumVals[mi])}</td>`).join('')}<td style="font-weight:700;text-align:right;border-left:1px solid var(--border);">${fmtK(sum(sumVals))}</td></tr>`;
   });
   html+=sumRow('Total Revenue',revMonthly,revTotal,'#fde7d6');
 
@@ -4943,12 +4944,13 @@ function renderBudgetTable(){
   html+='</tbody></table></div>';
   document.getElementById('budget-content').innerHTML=html;
 
-  // KPI — including Budgeterad ARR (Licens prenumeration only)
-  const arrSubSum=allBudgetRows().filter(r=>r.section==='REVENUE'&&r.subCategory==='Licens (prenumeration)').reduce((s,r)=>s+MONTHS.reduce((ms,_m,mi)=>ms+getVal(r.category,r.subCategory,mi),0),0);
+  // KPI — Budgeterad försäljning (total) + utgifter (totalt) + TB1/2/3
+  const licPrenSum=allBudgetRows().filter(r=>r.section==='REVENUE'&&r.subCategory==='Licens (prenumeration)').reduce((s,r)=>s+MONTHS.reduce((ms,_m,mi)=>ms+getVal(r.category,r.subCategory,mi),0),0);
+  const utgifterTotal=cogsTotal+opexTotal+smTotal;
   document.getElementById('budget-kpi').style.gridTemplateColumns='repeat(5,minmax(0,1fr))';
   document.getElementById('budget-kpi').innerHTML=`
-    <div class="kpi-card"><div class="kpi-label">Budgeterade intäkter</div><div class="kpi-value" style="color:var(--accent)">${fmtKr(revTotal)}</div><div class="kpi-delta neu">Helår ${year}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Budgeterad ARR</div><div class="kpi-value" style="color:var(--green)">${fmtKr(arrSubSum)}</div><div class="kpi-delta neu">Licens (prenumeration)</div></div>
+    <div class="kpi-card"><div class="kpi-label">Budgeterad försäljning (total)</div><div class="kpi-value" style="color:var(--accent)">${fmtKr(revTotal)}</div><div class="kpi-delta neu">Varav Licens (prenumeration) ${fmtKr(licPrenSum)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Budgeterade utgifter (totalt)</div><div class="kpi-value" style="color:var(--red)">${fmtKr(utgifterTotal)}</div><div class="kpi-delta neu">COGS + OPEX + S&M · helår ${year}</div></div>
     <div class="kpi-card"><div class="kpi-label">Gross Profit (TB1)</div><div class="kpi-value" style="color:${tb1Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb1Total)}</div><div class="kpi-delta neu">${fmtPct(tb1Total,revTotal)} gross margin</div></div>
     <div class="kpi-card"><div class="kpi-label">EBITDA (TB2)</div><div class="kpi-value" style="color:${tb2Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb2Total)}</div><div class="kpi-delta neu">${fmtPct(tb2Total,revTotal)} av intäkter</div></div>
     <div class="kpi-card"><div class="kpi-label">Net (TB3)</div><div class="kpi-value" style="color:${tb3Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb3Total)}</div><div class="kpi-delta neu">${fmtPct(tb3Total,revTotal)} net margin</div></div>`;
