@@ -3696,15 +3696,19 @@ async function renderFinChurn(){
     +kpiCard('Net Revenue Retention (NRR)',`${nrr12}%`,`Net Revenue Retention (${periodTxt})`,nrr12>=100?'var(--green)':'var(--amber)')
     +kpiCard('Gross Revenue Retention (GRR)',`${grr}%`,`Gross Revenue Retention (${periodTxt})`,grr>=100?'var(--green)':'var(--amber)')
     +kpiCard('Snitt tid som kund',`${avgTen} mån`,`${tenDelta>=0?'+':''}${tenDelta} mån vs föreg. år`,tenDelta>=0?'var(--green)':'var(--red)');
-  // Chart 1: churn rate (staplar) + NRR (linje).
-  const cw=400,ch=110;const rMax=Math.max(...rateY,1);const nMin=Math.min(...nrrY,90),nMax=Math.max(...nrrY,110);
-  const bx=i=>30+i*((cw-40)/years.length);const bw=(cw-40)/years.length*0.5;
-  const ny=v=>ch-((v-nMin)/Math.max(1,nMax-nMin))*(ch-20)-6;
-  const nrrPts=nrrY.map((v,i)=>`${Math.round(bx(i)+bw/2)},${Math.round(ny(v))}`).join(' ');
-  const chart1=`<svg viewBox="0 0 ${cw} ${ch+18}" width="100%" style="overflow:visible;">${rateY.map((v,i)=>{const h=Math.round(v/rMax*(ch-20));return`<rect x="${Math.round(bx(i))}" y="${ch-h-6}" width="${Math.round(bw)}" height="${h}" rx="2" fill="#a32d2d" opacity="0.75"/><text x="${Math.round(bx(i)+bw/2)}" y="${ch-h-9}" font-size="8" fill="#a32d2d" text-anchor="middle">${v}%</text><text x="${Math.round(bx(i)+bw/2)}" y="${ch+10}" font-size="9" fill="var(--text3)" text-anchor="middle">${years[i]}</text>`;}).join('')}<polyline points="${nrrPts}" fill="none" stroke="#1a7a50" stroke-width="2"/>${nrrY.map((v,i)=>`<circle cx="${Math.round(bx(i)+bw/2)}" cy="${Math.round(ny(v))}" r="2.5" fill="#1a7a50"/>`).join('')}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;"><span><span style="display:inline-block;width:10px;height:10px;background:#a32d2d;opacity:0.75;vertical-align:middle;"></span> Churn rate</span><span><span style="display:inline-block;width:12px;height:2px;background:#1a7a50;vertical-align:middle;"></span> NRR</span></div>`;
-  // Chart 2: expansion (upp) vs churnat ARR (ned), speglade staplar.
-  const mMax=Math.max(...expY,...chArrY,1);const mid=ch/2;
-  const chart2=`<svg viewBox="0 0 ${cw} ${ch+18}" width="100%" style="overflow:visible;"><line x1="0" y1="${mid}" x2="${cw}" y2="${mid}" stroke="var(--border)" stroke-width="0.5"/>${years.map((Y,i)=>{const eh=Math.round(expY[i]/mMax*(mid-10));const chh=Math.round(chArrY[i]/mMax*(mid-10));return`<rect x="${Math.round(bx(i))}" y="${mid-eh}" width="${Math.round(bw)}" height="${eh}" rx="2" fill="#1a7a50" opacity="0.8"/><rect x="${Math.round(bx(i))}" y="${mid}" width="${Math.round(bw)}" height="${chh}" rx="2" fill="#a32d2d" opacity="0.8"/><text x="${Math.round(bx(i)+bw/2)}" y="${ch+10}" font-size="9" fill="var(--text3)" text-anchor="middle">${Y}</text>`;}).join('')}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;"><span><span style="display:inline-block;width:10px;height:10px;background:#1a7a50;vertical-align:middle;"></span> Expansion</span><span><span style="display:inline-block;width:10px;height:10px;background:#a32d2d;vertical-align:middle;"></span> Churnat ARR</span></div>`;
+  // Steg 4: KOMBOGRAF — expansion upp (grön), churnat ARR ner (röd), NRR-linje (navy, egen %-skala till höger).
+  // rateY (churn-rate %) visas ej i grafen längre — finns kvar som KPI-kort. churnY/expY/chArrY/nrrY oförändrade.
+  const cw=400,ch=140,mid=ch/2,padTop=12,topM=8,botM=18,L=24,R=34;
+  const n=years.length,slot=(cw-L-R)/n;
+  const bx=i=>L+i*slot;const bw=slot*0.55;const cx=i=>bx(i)+bw/2;
+  const mMax=Math.max(...expY,...chArrY,1);const barH=v=>Math.round(v/mMax*(mid-padTop));
+  const nMin=Math.min(...nrrY,90),nMax=Math.max(...nrrY,110);
+  const nyC=v=>Math.round(topM+(1-(v-nMin)/Math.max(1,nMax-nMin))*(ch-topM-botM));   // NRR → y, egen %-skala över full höjd
+  const cbBars=years.map((Y,i)=>{const eh=barH(expY[i]),chh=barH(chArrY[i]);return`<rect x="${Math.round(bx(i))}" y="${mid-eh}" width="${Math.round(bw)}" height="${eh}" rx="2" fill="#1a7a50" opacity="0.8"/><rect x="${Math.round(bx(i))}" y="${mid}" width="${Math.round(bw)}" height="${chh}" rx="2" fill="#a32d2d" opacity="0.8"/><text x="${Math.round(cx(i))}" y="${ch+12}" font-size="9" fill="var(--text3)" text-anchor="middle">${Y}</text>`;}).join('');
+  const cbNrrPts=nrrY.map((v,i)=>`${Math.round(cx(i))},${nyC(v)}`).join(' ');
+  const cbNrrDots=nrrY.map((v,i)=>`<circle cx="${Math.round(cx(i))}" cy="${nyC(v)}" r="2.5" fill="#1E2340"/>`).join('');
+  const cbAxis=[nMax,100,nMin].filter((v,ix,a)=>a.indexOf(v)===ix).map(v=>`<text x="${cw-4}" y="${nyC(v)+3}" font-size="8" fill="var(--text3)" text-anchor="end">${v}%</text>`).join('');
+  const chartCombo=`<svg viewBox="0 0 ${cw} ${ch+20}" width="100%" style="overflow:visible;"><line x1="${L-4}" y1="${mid}" x2="${cw-R+2}" y2="${mid}" stroke="var(--border)" stroke-width="0.75"/>${cbBars}<line x1="${L-4}" y1="${nyC(100)}" x2="${cw-R+2}" y2="${nyC(100)}" stroke="#1E2340" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.35"/><polyline points="${cbNrrPts}" fill="none" stroke="#1E2340" stroke-width="2"/>${cbNrrDots}${cbAxis}</svg><div style="display:flex;gap:16px;font-size:11px;margin-top:4px;flex-wrap:wrap;"><span><span style="display:inline-block;width:10px;height:10px;background:#1a7a50;opacity:0.8;vertical-align:middle;"></span> Expansion</span><span><span style="display:inline-block;width:10px;height:10px;background:#a32d2d;opacity:0.8;vertical-align:middle;"></span> Churnat ARR</span><span><span style="display:inline-block;width:12px;height:2px;background:#1E2340;vertical-align:middle;"></span> NRR (höger skala)</span></div>`;
   // Churnade kunder (kedje-modellen, rullande 12 mån) + tappad revenue per kund.
   const churnedList=churn12legacy.churnedCustomerIds.map(id=>all.find(c=>c.Id===id)).filter(Boolean);
   const lostOf=c=>churn12legacy.churnByCustomer[c.Id]||0;
@@ -3726,10 +3730,7 @@ async function renderFinChurn(){
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnInclFastpris?'active':''}" onclick="setFaChurnInclFastpris(${!faChurnInclFastpris})">Inkludera fast pris</button></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div class="result-toggle"><button class="result-btn ${faChurnPeriod==='rolling'?'active':''}" onclick="setFaChurnPeriod('rolling')">Rullande 12 mån</button><button class="result-btn ${faChurnPeriod==='year'?'active':''}" onclick="setFaChurnPeriod('year')">I år</button></div><div class="result-toggle"><button class="result-btn ${!isVol?'active':''}" onclick="setFaChurnMode('value')">Värde (kr)</button><button class="result-btn ${isVol?'active':''}" onclick="setFaChurnMode('volume')">Volym (antal)</button></div></div></div>
     <div class="kpi-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:14px;">${kpis}</div>
     ${perTypeHtml}
-    <div class="fin-grid" style="margin-bottom:14px;">
-      <div class="fin-card"><div class="fin-card-title">Churn rate & NRR över tid</div>${chart1}</div>
-      <div class="fin-card"><div class="fin-card-title">Expansion vs churnat ARR</div>${chart2}</div>
-    </div>
+    <div class="fin-card" style="margin-bottom:14px;"><div class="fin-card-title">Churn, expansion & NRR över tid</div>${chartCombo}</div>
     <div class="fin-grid">
       <div class="fin-card"><div class="fin-card-title">Churnanledningar</div>${reasonsHtml}</div>
       <div class="fin-card"><div class="fin-card-title">Churnade kunder <span class="badge b-red">${churnedList.length}</span></div><div style="max-height:240px;overflow:auto;">${listHtml}</div></div>
