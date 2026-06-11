@@ -4332,25 +4332,32 @@ function setOpeningCash(year,val){localStorage.setItem('openingCash_'+year,Strin
 // Manuell projektion: Licens (prenumeration) vid årets slut (styrelserapportens nyckeltalsbox).
 function getProjectedLicens(year){return Math.round(Number(localStorage.getItem('projectedLicensPren_'+year))||0);}
 function setProjectedLicens(year,val){localStorage.setItem('projectedLicensPren_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));renderStyrelse();}
-// Budget Kassaflöde-kort (kort 3): Löpande likviditets-version (fallback Primär/första) + ingående-input → utgående balans.
+// Budget Kassaflöde-kort (kort 3): explicit vald likviditets-version (default Löpande→Primär→första) + ingående → utgående balans.
+let cashflowVersionId=null;
+function setCashflowVersion(id){cashflowVersionId=id||null;renderBudgetCashflow();}
 async function renderBudgetCashflow(){
   const el=document.getElementById('budget-kassaflode-panel');if(!el)return;
   if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
   const liq=(budgetVersions||[]).filter(v=>v.BudgetType==='Likviditetsbudget');
-  const id=getRollingBudgetIdForMode('likviditet')||getPrimaryBudgetIdForMode('likviditet')||(liq[0]&&liq[0].Id);
+  const autoId=getRollingBudgetIdForMode('likviditet')||getPrimaryBudgetIdForMode('likviditet')||(liq[0]&&liq[0].Id);
+  // Explicit val gäller bara om det är en giltig likviditetsversion, annars auto-plock.
+  const id=(cashflowVersionId&&liq.some(v=>String(v.Id)===String(cashflowVersionId)))?cashflowVersionId:autoId;
   const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(id));
   if(!ver){el.innerHTML='<div class="fin-card" style="text-align:center;color:var(--text3);padding:40px;font-size:13px;">Ingen likviditetsbudget hittad — skapa en och märk den som ⟳ Löpande.</div>';return;}
+  const fmtK=v=>v===0?'-':Math.round(v).toLocaleString('sv-SE');
+  const fmtSv=v=>Math.round(v).toLocaleString('sv-SE');
   let rows=[];try{rows=await (await apiFetch(`${API}/budget-versions/${ver.Id}/rows`)).json();}catch(e){rows=[];}
   const year=ver.Year||new Date().getFullYear();
   const opening=getOpeningCash(year);
   const cf=computeCashflow(rows,opening);
   const src=isRollingBudgetVersion(ver)?'Löpande':isPrimaryBudgetVersion(ver)?'Primär':'';
+  const verSel=`<select onchange="setCashflowVersion(this.value)" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;max-width:280px;">${liq.map(v=>{const mark=(isPrimaryBudgetVersion(v)?'★ ':'')+(isRollingBudgetVersion(v)?'⟳ ':'');const sel=String(v.Id)===String(ver.Id)?' selected':'';return`<option value="${v.Id}"${sel}>${mark}${v.Name} (${v.Year}) · #${v.Id}</option>`;}).join('')}</select>`;
   const head=`<th style="min-width:150px;text-align:left;padding:4px 8px;"></th>${cf.months.map(m=>`<th style="text-align:center;font-size:10px;color:var(--text3);font-weight:500;padding:3px 4px;">${m}</th>`).join('')}<th style="text-align:center;font-size:10px;color:var(--text3);font-weight:600;padding:3px 6px;border-left:1px solid var(--border);">Totalt</th>`;
   const row=(label,arr,total,color,bg,strong)=>`<tr style="background:${bg};"><td style="font-weight:${strong?700:600};font-size:12px;color:${color};padding:5px 8px;">${label}</td>${arr.map(v=>`<td style="text-align:center;font-size:11px;font-weight:${strong?700:500};color:${color};padding:4px;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;font-size:12px;color:${color};border-left:1px solid var(--border);padding:4px 6px;">${total}</td></tr>`;
   const inT=cf.cashIn.reduce((a,b)=>a+b,0),outT=cf.cashOut.reduce((a,b)=>a+b,0),netT=inT-outT;
   el.innerHTML=`<div class="fin-card" style="overflow:auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
-      <div class="fin-card-title" style="margin-bottom:0;">Kassaflöde — ${ver.Name} (${year})${src?` <span class="badge b-blue">${src}</span>`:''}</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div class="fin-card-title" style="margin-bottom:0;">Kassaflöde (${year})${src?` <span class="badge b-blue">${src}</span>`:''}</div><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Version: ${verSel}</label></div>
       <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Ingående kassa:<input type="text" value="${opening.toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>
     </div>
     <table style="width:100%;border-collapse:collapse;"><thead><tr>${head}</tr></thead><tbody>
