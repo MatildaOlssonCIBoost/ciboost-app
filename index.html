@@ -4351,6 +4351,38 @@ async function renderBudgetCashflow(){
     <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">Utgående balans = ingående + ackumulerat netto. Ingående nästa månad = föregående månads utgående.</div>
   </div>`;
 }
+// Importera actuals för EN månad till en versions Importerad-rader (Source='Avtal (likviditet)').
+// NET30 per typ (budgetens kaCashflowDate: PaymentDate→InvoiceDate→DateFrom +30). includedAvtalIds=null → alla i månaden.
+// Skriver BARA Importerad-raderna (Revenue, Source='Avtal (likviditet)'); manuella rader + kostnader + andra månader orörda.
+async function importMonthActuals(versionId,monthIndex,includedAvtalIds=null){
+  if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(versionId));
+  if(!ver)return null;
+  const year=Number(ver.Year)||new Date().getFullYear();
+  let rows=[];try{rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();}catch(e){return null;}
+  const incl=includedAvtalIds?new Set(includedAvtalIds.map(String)):null;
+  const perType={ARR:0,Fastpris:0,Utbildning:0,Consulting:0};const importedIds=[];
+  Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{
+    if(!(it.Type in perType))return;
+    if(incl&&!incl.has(String(it.Id)))return;
+    const d=kaCashflowDate(it);
+    if(!d||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
+    perType[it.Type]+=(it.Amount||0);importedIds.push(it.Id);
+  });});
+  const Mkey=MONTHS[monthIndex];const today=new Date().toISOString().substring(0,10);const SRC='Avtal (likviditet)';
+  Object.keys(perType).forEach(type=>{
+    const sub=REV_CAT_TO_SUB[type];if(!sub)return;
+    let row=rows.find(r=>r.Category===REV_CATEGORY&&r.SubCategory===sub&&(r.Source||'')===SRC);
+    if(!row){row={Category:REV_CATEGORY,SubCategory:sub,Source:SRC,ImportedAt:today};MONTHS.forEach(m=>row[m]=0);rows.push(row);}
+    row[Mkey]=Math.round(perType[type]);row.ImportedAt=today;
+  });
+  const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
+  await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  localStorage.setItem('importedAvtal_'+versionId+'_'+monthIndex,JSON.stringify(importedIds));
+  if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
+  const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
+  return perType;
+}
 async function loadBudgetVersions(){
   // Attach the delegated budget-row autosave once (the #budget-content element
   // persists across renders, so a single delegated listener survives).
