@@ -221,7 +221,7 @@
   .fa-section-title { font-size: 15px; font-weight: 600; color: var(--text); margin: 4px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--border); }
   .fa-landing { display:flex; gap:16px; align-items:stretch; margin-bottom:22px; flex-wrap:wrap; }
   .fa-lumi-slot { flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
-  .fa-cards { flex:1; display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; }
+  .fa-cards { flex:1; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,170px)); justify-content:start; gap:12px; }
   .fa-card { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 10px; cursor:pointer; transition:transform .12s, box-shadow .12s, border-color .12s; font-family:'Poppins',sans-serif; font-size:12px; font-weight:500; color:var(--text2); text-align:center; }
   .fa-card img { width:52px; height:52px; }
   .fa-card:hover { transform:translateY(-3px); box-shadow:0 6px 16px rgba(0,0,0,0.09); }
@@ -4299,7 +4299,7 @@ async function faBudgetOpenView(view){
   faBudgetReset();
   if(wasActive)return;
   if(card)card.classList.add('active');
-  if(view==='kassaflode'){const k=document.getElementById('budget-kassaflode-panel');if(k)k.style.display='';return;}
+  if(view==='kassaflode'){const k=document.getElementById('budget-kassaflode-panel');if(k)k.style.display='';renderBudgetCashflow();return;}
   budgetTypeFilter=view==='likviditet'?'Likviditetsbudget':'Resultatbudget';
   const p=document.getElementById('budget-panel');if(p)p.style.display='';
   if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
@@ -4307,6 +4307,49 @@ async function faBudgetOpenView(view){
   const cur=(budgetVersions||[]).find(v=>String(v.Id)===String(currentBudgetVersionId));
   if(!(cur&&cur.BudgetType===budgetTypeFilter))currentBudgetVersionId=String(getPrimaryBudgetIdForMode(view)||(ofType[0]&&ofType[0].Id)||'');
   await loadBudgetVersions();
+}
+// Delad kassaflödes-motor: cash in (Revenue)/mån, cash out (övrigt)/mån, netto, utgående balans (löpande summa).
+function computeCashflow(rows,opening){
+  const M=['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+  const sumBy=pred=>M.map(m=>(rows||[]).filter(pred).reduce((s,r)=>s+(Number(r[m])||0),0));
+  const cashIn=sumBy(r=>r.Category==='Revenue');
+  const cashOut=sumBy(r=>r.Category!=='Revenue');
+  const net=cashIn.map((v,i)=>v-cashOut[i]);
+  const closing=[],ingaende=[];let bal=Number(opening)||0;
+  net.forEach(n=>{ingaende.push(bal);bal+=n;closing.push(bal);});
+  return {months:M,cashIn,cashOut,net,closing,ingaende};
+}
+function getOpeningCash(year){return Math.round(Number(localStorage.getItem('openingCash_'+year))||0);}
+function setOpeningCash(year,val){localStorage.setItem('openingCash_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));renderBudgetCashflow();}
+// Budget Kassaflöde-kort (kort 3): Löpande likviditets-version (fallback Primär/första) + ingående-input → utgående balans.
+async function renderBudgetCashflow(){
+  const el=document.getElementById('budget-kassaflode-panel');if(!el)return;
+  if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
+  const liq=(budgetVersions||[]).filter(v=>v.BudgetType==='Likviditetsbudget');
+  const id=getRollingBudgetIdForMode('likviditet')||getPrimaryBudgetIdForMode('likviditet')||(liq[0]&&liq[0].Id);
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(id));
+  if(!ver){el.innerHTML='<div class="fin-card" style="text-align:center;color:var(--text3);padding:40px;font-size:13px;">Ingen likviditetsbudget hittad — skapa en och märk den som ⟳ Löpande.</div>';return;}
+  let rows=[];try{rows=await (await apiFetch(`${API}/budget-versions/${ver.Id}/rows`)).json();}catch(e){rows=[];}
+  const year=ver.Year||new Date().getFullYear();
+  const opening=getOpeningCash(year);
+  const cf=computeCashflow(rows,opening);
+  const src=isRollingBudgetVersion(ver)?'Löpande':isPrimaryBudgetVersion(ver)?'Primär':'';
+  const head=`<th style="min-width:150px;text-align:left;padding:4px 8px;"></th>${cf.months.map(m=>`<th style="text-align:center;font-size:10px;color:var(--text3);font-weight:500;padding:3px 4px;">${m}</th>`).join('')}<th style="text-align:center;font-size:10px;color:var(--text3);font-weight:600;padding:3px 6px;border-left:1px solid var(--border);">Totalt</th>`;
+  const row=(label,arr,total,color,bg,strong)=>`<tr style="background:${bg};"><td style="font-weight:${strong?700:600};font-size:12px;color:${color};padding:5px 8px;">${label}</td>${arr.map(v=>`<td style="text-align:center;font-size:11px;font-weight:${strong?700:500};color:${color};padding:4px;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;font-size:12px;color:${color};border-left:1px solid var(--border);padding:4px 6px;">${total}</td></tr>`;
+  const inT=cf.cashIn.reduce((a,b)=>a+b,0),outT=cf.cashOut.reduce((a,b)=>a+b,0),netT=inT-outT;
+  el.innerHTML=`<div class="fin-card" style="overflow:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+      <div class="fin-card-title" style="margin-bottom:0;">Kassaflöde — ${ver.Name} (${year})${src?` <span class="badge b-blue">${src}</span>`:''}</div>
+      <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Ingående kassa:<input type="text" value="${opening.toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>
+    </div>
+    <table style="width:100%;border-collapse:collapse;"><thead><tr>${head}</tr></thead><tbody>
+      ${row('Cash in (intäkter)',cf.cashIn,fmtK(inT),'#1a7a50','#e8f5ee')}
+      ${row('Cash out (kostnader)',cf.cashOut,fmtK(outT),'#a32d2d','#fbeaea')}
+      ${row('Netto kassaflöde',cf.net,fmtK(netT),netT>=0?'#1a7a50':'#a32d2d','#eef0f6',true)}
+      ${row('Utgående balans',cf.closing,fmtK(cf.closing[11]),cf.closing[11]>=0?'#1a7a50':'#a32d2d','#fff7e6',true)}
+    </tbody></table>
+    <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">Utgående balans = ingående + ackumulerat netto. Ingående nästa månad = föregående månads utgående.</div>
+  </div>`;
 }
 async function loadBudgetVersions(){
   // Attach the delegated budget-row autosave once (the #budget-content element
@@ -4623,28 +4666,8 @@ function renderBudgetTable(){
     <td style="font-weight:600;text-align:center;border-left:1px solid var(--border);">${fmtK(total)}</td>
   </tr>`;
 
-  // Kassaflödessammanställning som eget sammanfattningskort ovanför tabellen
-  // (endast Likviditet-läget) — varm beige med egen ram så den läses som ett kort.
-  let cashflowCard='';
-  if(currentBudgetMode==='likviditet'){
-    const cashOutMonthly=MONTHS.map((_,i)=>cogsMonthly[i]+opexMonthly[i]+smMonthly[i]);
-    const cashOutTotal=cogsTotal+opexTotal+smTotal;
-    const netMonthly=revMonthly.map((v,i)=>v-cashOutMonthly[i]);
-    const netTotal=revTotal-cashOutTotal;
-    const cfHead=`<th style="min-width:140px;"></th>${MONTHS.map(m=>`<th style="text-align:center;font-size:10px;color:var(--text3);font-weight:500;padding:3px 4px;">${m}</th>`).join('')}<th style="text-align:center;font-size:10px;color:var(--text3);font-weight:600;padding:3px 6px;border-left:1px solid var(--border);">Totalt</th>`;
-    // Tydlig färgkodning per rad: ljusgrön (Cash in), ljusröd (Cash out), neutral (Netto).
-    const cfRow=(label,arr,total,color,bg,strong)=>`<tr style="background:${bg};">${`<td style="font-weight:${strong?700:600};font-size:12px;color:${color};padding:5px 6px;">${label}</td>`}${arr.map(v=>`<td style="text-align:center;font-size:11px;font-weight:${strong?700:500};color:${color};padding:4px;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;font-size:12px;color:${color};border-left:1px solid var(--border);padding:4px 6px;">${fmtK(total)}</td></tr>`;
-    cashflowCard=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow);overflow:hidden;">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text2);margin-bottom:8px;">Kassaflöde</div>
-      <table style="width:100%;border-collapse:collapse;"><thead><tr>${cfHead}</tr></thead><tbody>
-        ${cfRow('Cash in (intäkter)',revMonthly,revTotal,'#1a7a50','#e8f5ee')}
-        ${cfRow('Cash out (kostnader)',cashOutMonthly,cashOutTotal,'#a32d2d','#fbeaea')}
-        ${cfRow('Netto kassaflöde',netMonthly,netTotal,netTotal>=0?'#1a7a50':'#a32d2d','#eef0f6',true)}
-      </tbody></table>
-    </div>`;
-  }
-
-  let html=cashflowCard+`<div class="budget-table-wrap"><table class="budget-table">
+  // Kassaflödessammanställningen flyttad till eget Budget-kort (kort 3, renderBudgetCashflow) — ej längre här.
+  let html=`<div class="budget-table-wrap"><table class="budget-table">
     <thead><tr>
       <th style="text-align:left;min-width:180px;padding-left:10px;">Row</th>
       ${MONTHS.map(m=>`<th>${m}</th>`).join('')}
