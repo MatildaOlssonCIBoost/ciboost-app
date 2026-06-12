@@ -4415,6 +4415,9 @@ function setOpeningCash(year,val){localStorage.setItem('openingCash_'+year,Strin
   // Tidigare buggen: styrelse-panelens style.display blev '' efter ett besök och låg kvar → fel panel uppdaterades.
   const sp=document.getElementById('fa-panel-styrelse');if(sp&&sp.offsetParent!==null)renderStyrelse();
   const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.offsetParent!==null)renderBudgetCashflow();}
+// Personlig preferens (per år): särskilj utfall/prognos i kassaflöde-grafen. Default på (saknad nyckel → true; bara '0' → false).
+function getCashflowSplit(year){return localStorage.getItem('cashflowSplit_'+year)!=='0';}
+function setCashflowSplit(year,on){localStorage.setItem('cashflowSplit_'+year,on?'1':'0');const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.offsetParent!==null)renderBudgetCashflow();}
 // Manuell projektion: Licens (prenumeration) vid årets slut (styrelserapportens nyckeltalsbox).
 function getProjectedLicens(year){return Math.round(Number(localStorage.getItem('projectedLicensPren_'+year))||0);}
 function setProjectedLicens(year,val){localStorage.setItem('projectedLicensPren_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));renderStyrelse();}
@@ -4509,11 +4512,11 @@ async function renderBudgetCashflow(){
       <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Version: ${verSel}</label>
       <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;">Ingående kassa:<input type="text" value="${opening.toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;"><span style="font-size:16px;font-weight:700;color:var(--text);">Kassaflöde ${year}</span>${src?`<span style="background:#FBEEDF;color:#BA7517;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;white-space:nowrap;">${src}</span>`:''}</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;"><span style="font-size:16px;font-weight:700;color:var(--text);">Kassaflöde ${year}</span>${src?`<span style="background:#FBEEDF;color:#BA7517;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;white-space:nowrap;">${src}</span>`:''}<label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;"><input type="checkbox" ${getCashflowSplit(year)?'checked':''} onchange="setCashflowSplit(${year},this.checked)" style="width:15px;height:15px;cursor:pointer;">Särskilj utfall &amp; prognos</label></div>
     <div style="border-top:1px solid var(--border);margin-bottom:14px;"></div>
     <div>
       <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;margin-top:14px;margin-bottom:18px;">
-        <div style="flex:0 1 676px;min-width:280px;">${cashflowChartSvg(cf,{scale:1.3,fontScale:1.2,hover:true,showLocks:true})}</div>
+        <div style="flex:0 1 676px;min-width:280px;">${cashflowChartSvg(cf,{scale:1.3,fontScale:1.2,hover:true,showLocks:getCashflowSplit(year)})}</div>
         <div style="flex:0 0 auto;align-self:stretch;width:1px;background:var(--border);"></div>
         ${nyckelBox}
       </div>
