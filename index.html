@@ -4825,7 +4825,36 @@ async function openImportPipelineModal(versionId,preMonth){
     document.getElementById('pp-body').innerHTML=html||`<div style="padding:30px;text-align:center;color:var(--text3);">Inga pipeline-poster i ${MONTHS[mi]}.</div>`;
     window._ppRecalc();
   };
-  window._ppImport=()=>{}; // STEG 1: ingen import än
+  // Faktisk import: skriv viktade pipeline-poster till LIKVIDITETSMÅNADEN (faktura+30) per SubCategory, Source='Pipeline (viktat)' (idempotent).
+  window._ppImport=async()=>{
+    const today=new Date().toISOString().substring(0,10);const SRC='Pipeline (viktat)';
+    const picks=Object.entries(window._ppEdits||{}).filter(([k,e])=>e&&e.checked).map(([k,e])=>{const us=k.split('_');const itemId=us.pop();return {prospectId:us.join('_'),itemId,date:e.date,amount:_ppParse(e.amount),prob:Math.max(0,Math.min(100,_ppParse(e.prob)))};});
+    if(!picks.length){alert('Inga pipeline-poster ikryssade.');return;}
+    let rows;try{rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();}catch(e){alert('Kunde inte hämta budgetrader.');return;}
+    if(!Array.isArray(rows))rows=[];
+    // Idempotens: nollställ alla befintliga Pipeline (viktat)-raders månadsceller innan ackumulering.
+    rows.forEach(r=>{if(r.Category===REV_CATEGORY&&(r.Source||'')===SRC)MONTHS.forEach(m=>r[m]=0);});
+    const saved={};let imported=0;
+    picks.forEach(p=>{
+      const items=prospectRevCache[p.prospectId]||[];const it=items.find(x=>String(x.Id)===String(p.itemId));
+      const sub=it&&it.Type?REV_CAT_TO_SUB[it.Type]:null;
+      const d=new Date(p.date);const weighted=Math.round((p.amount||0)*(p.prob||0)/100);
+      if(sub&&!isNaN(d)&&weighted>0){
+        const ld=new Date(d);ld.setDate(ld.getDate()+30);const liq=MONTHS[ld.getMonth()];
+        let row=rows.find(r=>r.Category===REV_CATEGORY&&r.SubCategory===sub&&(r.Source||'')===SRC);
+        if(!row){row={Category:REV_CATEGORY,SubCategory:sub,Source:SRC,ImportedAt:today};MONTHS.forEach(m=>row[m]=0);rows.push(row);}
+        row[liq]=(row[liq]||0)+weighted;row.ImportedAt=today;imported++;
+      }
+      saved[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,invoiceDate:it&&it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null,type:it?it.Type:null,importedAt:today};
+    });
+    const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
+    try{await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}catch(e){alert('Kunde inte spara importen.');return;}
+    localStorage.setItem('pipelineImport_'+versionId,JSON.stringify(saved));
+    if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
+    const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
+    document.getElementById('import-pipeline-overlay')?.remove();
+    alert(imported+' pipeline-poster importerade.');
+  };
   // Markera vald månadsknapp (navy) + sätt dolt #pp-month + rendera.
   window._ppPickMonth=(mi)=>{document.getElementById('pp-month').value=mi;document.querySelectorAll('#pp-month-btns button').forEach((b,j)=>{const on=j===mi;b.style.background=on?'#1E2340':'transparent';b.style.color=on?'#fff':'var(--text2)';b.style.borderColor=on?'#1E2340':'var(--border)';b.style.fontWeight=on?'600':'400';});window._ppRender();};
   window._ppPickMonth(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
