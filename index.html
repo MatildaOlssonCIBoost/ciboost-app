@@ -4654,17 +4654,21 @@ async function openImportFornyelseModal(versionId,preMonth){
   </div>`;
   document.body.appendChild(ov);
   window._frSummary=()=>{}; // sammanräkning sker i _frRecalc
+  window._frEdits={};       // redigeringar per kund+typ (date/amount/prob/checked), överlever _frRender (för datumflytt mellan flikar)
   const _frParse=s=>Number(String(s).replace(/[^0-9.\-]/g,''))||0;
-  // Live-omräkning vid input/kryss: viktat + likviditetsmånad (faktura+30, samma mönster som kaCashflowDate) + summa + knapp-state.
+  // Senaste licens-posten av en typ (ARR/Fastpris) ur custRevCache — ger belopp, beskrivning, period, default-fakturadatum.
+  const _frLatestOfType=(c,t)=>{const items=custRevCache[c.Id]||[];const r=items.filter(i=>i.Type===t&&i.DateTo);return r.length?r.reduce((a,b)=>new Date(b.DateTo)>new Date(a.DateTo)?b:a):null;};
+  // Persist + live-omräkning: viktat + likviditetsmånad (faktura+30, samma mönster som kaCashflowDate) + summa + knapp-state.
   window._frRecalc=()=>{
     let n=0,tot=0;
     document.querySelectorAll('#fr-body .fr-row').forEach(row=>{
-      const cb=row.querySelector('.fr-cb');
-      const amount=_frParse(row.querySelector('.fr-amount').value);
-      const prob=Math.max(0,Math.min(100,_frParse(row.querySelector('.fr-prob').value)));
+      const cb=row.querySelector('.fr-cb');const key=cb.dataset.cust+'_'+cb.dataset.type;
+      const dateV=row.querySelector('.fr-date').value,amtV=row.querySelector('.fr-amount').value,probV=row.querySelector('.fr-prob').value;
+      window._frEdits[key]={date:dateV,amount:amtV,prob:probV,checked:cb.checked};
+      const amount=_frParse(amtV);const prob=Math.max(0,Math.min(100,_frParse(probV)));
       const weighted=Math.round(amount*prob/100);
       row.querySelector('.fr-weighted').textContent=weighted.toLocaleString('sv-SE')+' kr';
-      const d=new Date(row.querySelector('.fr-date').value);let liq='–';
+      const d=new Date(dateV);let liq='–';
       if(!isNaN(d)){const ld=new Date(d);ld.setDate(ld.getDate()+30);liq=MONTHS[ld.getMonth()];}
       row.querySelector('.fr-liqmonth').textContent='Likviditet: '+liq;
       if(cb.checked){n++;tot+=weighted;}
@@ -4681,15 +4685,25 @@ async function openImportFornyelseModal(versionId,preMonth){
     const _tl={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)'};
     const churnPct=computeHistoricChurnPct();const fk=v=>Math.round(v).toLocaleString('sv-SE');
     const inp='padding:2px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);';
-    // Förnyelse-månad = månaden EFTER LicenseEnd (samma placeringslogik som aggregateFornyelseRows).
-    const inMonth=(allCustomers||[]).filter(c=>{if(!c.LicenseEnd)return false;const le=new Date(c.LicenseEnd);const target=new Date(le.getFullYear(),le.getMonth()+1,1);return target.getFullYear()===year&&target.getMonth()===mi;});
     let html='';
-    [['ARR','ARR'],['Fastpris','ARR_Fixed']].forEach(([t,field])=>{
-      const posts=inMonth.filter(c=>(c[field]||0)>0);if(!posts.length)return;const tc=_tc[t];
-      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[t]}</div>`;
-      posts.forEach(c=>{const belopp=c[field]||0;const prob=calculateRiskScoreClient(c).renewalProb;
-        const le=new Date(c.LicenseEnd);le.setDate(le.getDate()+1);const invDate=le.toISOString().substring(0,10);
-        html+=`<div class="fr-row" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--surface);"><input type="checkbox" class="fr-cb" data-cust="${c.Id}" data-field="${field}" checked onchange="window._frRecalc()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||('Kund '+c.Id)}</div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Faktura:<input type="text" class="fr-date" value="${invDate}" oninput="window._frRecalc()" style="width:92px;${inp}">Belopp:<input type="text" class="fr-amount" value="${belopp}" oninput="window._frRecalc()" style="width:78px;text-align:right;${inp}">Risk:<input type="text" class="fr-prob" value="${prob}" oninput="window._frRecalc()" style="width:40px;text-align:right;${inp}">% · Hist. churn: ${Math.round(churnPct*100)}%</div></div><div style="text-align:right;flex:0 0 auto;"><div class="fr-weighted" style="font-size:13px;font-weight:600;">${fk(Math.round(belopp*prob/100))} kr</div><div class="fr-liqmonth" style="font-size:10px;color:var(--text3);">Likviditet: –</div></div></div>`;});
+    // Filter på licens-postens (latestOfType) DateTo-MÅNAD === mi — matchar fixade aggregateFornyelseRows (LicenseEnd-månaden).
+    // Effektivt fakturadatum (ev. redigerat i _frEdits) styr vilken flik posten hör till → datumändring flyttar posten.
+    [['ARR','ARR'],['Fastpris','Fastpris']].forEach(([grp,type])=>{
+      const tc=_tc[type];
+      const posts=(allCustomers||[]).map(c=>({c,post:_frLatestOfType(c,type)})).filter(({c,post})=>{
+        if(!post||!post.DateTo||(post.Amount||0)<=0)return false;
+        const e=window._frEdits[c.Id+'_'+type];const effDate=(e&&e.date!=null)?e.date:post.DateTo.substring(0,10);
+        const d=new Date(effDate);return !isNaN(d)&&d.getFullYear()===year&&d.getMonth()===mi;
+      });
+      if(!posts.length)return;
+      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[type]}</div>`;
+      posts.forEach(({c,post})=>{const e=window._frEdits[c.Id+'_'+type]||{};
+        const dateV=e.date!=null?e.date:post.DateTo.substring(0,10);
+        const amtV=e.amount!=null?e.amount:String(post.Amount||0);
+        const probV=e.prob!=null?e.prob:String(calculateRiskScoreClient(c).renewalProb);
+        const chk=e.checked!=null?e.checked:true;
+        const period=`${post.DateFrom?post.DateFrom.substring(0,10):'?'} – ${post.DateTo.substring(0,10)}`;const desc=post.Description||'';
+        html+=`<div class="fr-row" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--surface);"><input type="checkbox" class="fr-cb" data-cust="${c.Id}" data-type="${type}" ${chk?'checked':''} onchange="window._frRecalc()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||('Kund '+c.Id)}</div><div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc?desc+' · ':''}${period}</div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Faktura:<input type="text" class="fr-date" value="${dateV}" oninput="window._frRecalc()" onchange="window._frRender()" style="width:92px;${inp}">Belopp:<input type="text" class="fr-amount" value="${amtV}" oninput="window._frRecalc()" style="width:84px;text-align:right;${inp}">Risk:<input type="text" class="fr-prob" value="${probV}" oninput="window._frRecalc()" style="width:40px;text-align:right;${inp}">% · Hist. churn: ${Math.round(churnPct*100)}%</div></div><div style="text-align:right;flex:0 0 auto;"><div class="fr-weighted" style="font-size:13px;font-weight:600;">${fk(Math.round(_frParse(amtV)*_frParse(probV)/100))} kr</div><div class="fr-liqmonth" style="font-size:10px;color:var(--text3);">Likviditet: –</div></div></div>`;});
       html+=`</div>`;});
     document.getElementById('fr-body').innerHTML=html||`<div style="padding:30px;text-align:center;color:var(--text3);">Inga förnyelser i ${MONTHS[mi]}.</div>`;
     window._frRecalc();
@@ -5345,30 +5359,17 @@ function aggregateAvtalRows(customers,allRevenues,year,today){
 
 function aggregateFornyelseRows(customers,mode,churnPct,today,year){
   // mode: 'full' | 'churn' | 'risk'
-  // For each customer with a LicenseEnd in the budget year, place renewal
-  // value (ARR + ARR_Fixed) in the month after license end.
+  // Per-typ-placering: varje licens (senaste posten av typen ur custRevCache) läggs i SIN egen
+  // DateTo-MÅNAD — samma nyckel som _frRender i förnyelse-modalen → summorna speglar varandra exakt.
+  const _latestOfType=(c,t)=>{const r=(custRevCache[c.Id]||[]).filter(i=>i.Type===t&&i.DateTo);return r.length?r.reduce((a,b)=>new Date(b.DateTo)>new Date(a.DateTo)?b:a):null;};
   const buckets={};
   customers.forEach(c=>{
-    if(!c.LicenseEnd)return;
-    const le=new Date(c.LicenseEnd);
-    let target=new Date(le.getFullYear(),le.getMonth()+1,1);
-    if(target.getFullYear()!==year)return;
-    const baseArr=(c.ARR||0);const baseFast=(c.ARR_Fixed||0);
-    let factor=1;
-    if(mode==='churn')factor=Math.max(0,1-churnPct);
-    if(mode==='risk'){
-      const r=calculateRiskScoreClient(c);
-      factor=(r.renewalProb||0)/100;
-    }
-    const placements=[
-      {sub:REV_CAT_TO_SUB.ARR,val:Math.round(baseArr*factor)},
-      {sub:REV_CAT_TO_SUB.Fastpris,val:Math.round(baseFast*factor)},
-    ];
-    placements.forEach(p=>{
-      if(!p.val)return;
-      if(!buckets[p.sub])buckets[p.sub]=new Array(12).fill(0);
-      buckets[p.sub][target.getMonth()]+=p.val;
-    });
+    const arrPost=_latestOfType(c,'ARR'),fastPost=_latestOfType(c,'Fastpris');
+    let factor=1; if(mode==='churn')factor=Math.max(0,1-churnPct);
+    if(mode==='risk'){const r=calculateRiskScoreClient(c);factor=(r.renewalProb||0)/100;}
+    const placeAt=(post,sub,amt)=>{if(!amt||!post||!post.DateTo)return;const m=new Date(post.DateTo);if(m.getFullYear()!==year)return;if(!buckets[sub])buckets[sub]=new Array(12).fill(0);buckets[sub][m.getMonth()]+=Math.round(amt*factor);};
+    placeAt(arrPost,REV_CAT_TO_SUB.ARR,(arrPost&&arrPost.Amount)||0);
+    placeAt(fastPost,REV_CAT_TO_SUB.Fastpris,(fastPost&&fastPost.Amount)||0);
   });
   const tag=mode==='full'?'Förnyelse (full)':mode==='churn'?`Förnyelse (churn ${Math.round(churnPct*100)}%)`:'Förnyelse (risk)';
   return Object.entries(buckets).filter(([_,arr])=>arr.some(v=>v>0)).map(([sub,arr])=>{
