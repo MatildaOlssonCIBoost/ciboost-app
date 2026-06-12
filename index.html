@@ -971,7 +971,6 @@
         <option value="">Välj budgetversion...</option>
       </select>
       <span class="badge b-blue" id="budget-type-badge" style="display:none;"></span>
-      <button class="quick-btn" onclick="openImportRevenues()" id="btn-import-pipeline" style="display:none;">⇪ Importera inkomster</button>
       <button class="quick-btn" onclick="openNewBudgetVersion()">+ Ny version</button>
       <button class="quick-btn" onclick="copyBudgetVersion()" id="btn-copy-budget" style="display:none;">⎘ Kopiera</button>
       <button class="quick-btn" onclick="renameBudgetVersion()" id="btn-rename-budget" style="display:none;">✎ Byt namn</button>
@@ -979,6 +978,7 @@
       <button class="quick-btn" onclick="toggleBudgetPrimary()" id="btn-primary-budget" style="display:none;">☆ Sätt som primär</button>
       <button class="quick-btn" onclick="toggleBudgetRolling()" id="btn-rolling-budget" style="display:none;">⟳ Sätt som löpande</button>
       <button class="quick-btn" onclick="openImportActualsModal(currentBudgetVersionId)" id="btn-import-actuals" style="display:none;">⇪ Actuals/mån</button>
+      <button class="quick-btn" onclick="openImportFornyelseModal(currentBudgetVersionId)" id="btn-import-fornyelse" style="display:none;">⟳ Förnyelser/mån</button>
       <span id="budget-autosave-hint" style="margin-left:auto;font-size:11px;color:var(--text3);">Autospar på</span>
     </div>
     <div class="kpi-grid" id="budget-kpi" style="margin-bottom:16px;"></div>
@@ -4638,6 +4638,34 @@ async function openImportActualsModal(versionId,preMonth){
   window._iaPickMonth=(mi)=>{document.getElementById('ia-month').value=mi;document.querySelectorAll('#ia-month-btns button').forEach((b,j)=>{const on=j===mi;b.style.background=on?'#1E2340':'transparent';b.style.color=on?'#fff':'var(--text2)';b.style.borderColor=on?'#1E2340':'var(--border)';b.style.fontWeight=on?'600':'400';});window._iaRender();};
   window._iaPickMonth(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
 }
+// Förnyelse-import-modal (per månad), speglar openImportActualsModal-strukturen. STEG 1: tomt skelett (ingen beräkning än).
+async function openImportFornyelseModal(versionId,preMonth){
+  if(!Object.keys(custRevCache||{}).length){try{await prefetchAllCustomerRevenues();}catch(e){}}
+  if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(versionId));if(!ver)return;
+  const year=Number(ver.Year)||new Date().getFullYear();
+  const ex=document.getElementById('import-fornyelse-overlay');if(ex)ex.remove();
+  const ov=document.createElement('div');ov.id='import-fornyelse-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:540px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
+    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:10px;">Importera förnyelser · <span id="fr-month-lbl"></span> ${year}</h3><input type="hidden" id="fr-month"><div id="fr-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;">${MONTHS.map((m,i)=>`<button type="button" onclick="window._frPickMonth(${i})" style="flex:1;min-width:34px;padding:5px 4px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;">${m}</button>`).join('')}</div></div>
+    <div id="fr-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
+    <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="fr-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-fornyelse-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="fr-import-btn" class="btn-primary" onclick="window._frImport()" style="padding:8px 16px;" disabled>Importera</button></div></div>
+  </div>`;
+  document.body.appendChild(ov);
+  window._frSummary=()=>{const e=document.getElementById('fr-summary');if(e)e.textContent='0 förnyelser';};
+  window._frRender=()=>{
+    const mi=Number(document.getElementById('fr-month').value);
+    document.getElementById('fr-month-lbl').textContent=MONTHS[mi];
+    document.getElementById('fr-import-btn').textContent='Importera till '+MONTHS[mi];
+    document.getElementById('fr-body').innerHTML=`<div style="padding:30px;text-align:center;color:var(--text3);">Förnyelser för ${MONTHS[mi]} — byggs i nästa steg.</div>`;
+    window._frSummary();
+  };
+  window._frImport=()=>{}; // STEG 1: ingen import än
+  // Markera vald månadsknapp (navy) + sätt dolt #fr-month + rendera.
+  window._frPickMonth=(mi)=>{document.getElementById('fr-month').value=mi;document.querySelectorAll('#fr-month-btns button').forEach((b,j)=>{const on=j===mi;b.style.background=on?'#1E2340':'transparent';b.style.color=on?'#fff':'var(--text2)';b.style.borderColor=on?'#1E2340':'var(--border)';b.style.fontWeight=on?'600':'400';});window._frRender();};
+  window._frPickMonth(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
+}
 // ── STYRELSERAPPORT (Finansiell analys → kort "styrelse"). Allt ur likviditetsbudgeten: Budget=Primär, Utfall=Löpande. ──
 let styrelseX=null;
 function setStyrelseX(v){styrelseX=Number(v);renderStyrelse();}
@@ -4784,6 +4812,7 @@ async function loadBudgetVersion(){
   const rollBtn=document.getElementById('btn-rolling-budget');
   if(rollBtn)rollBtn.textContent=isRollingBudgetVersion(selVersion)?'⟳ Löpande':'⟳ Sätt som löpande';
   const iaBtn=document.getElementById('btn-import-actuals');if(iaBtn)iaBtn.style.display=currentBudgetMode==='likviditet'?'flex':'none';
+  const frBtn=document.getElementById('btn-import-fornyelse');if(frBtn)frBtn.style.display=currentBudgetMode==='likviditet'?'flex':'none';
   await loadBudgetLocks(currentBudgetVersionId);
   try{renderBudgetTable();}
   catch(e){
