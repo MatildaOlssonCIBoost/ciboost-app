@@ -4774,11 +4774,33 @@ async function openImportPipelineModal(versionId,preMonth){
   document.body.appendChild(ov);
   window._ppEdits={};
   window._ppRecalc=()=>{};
+  window._ppSummary=()=>{}; // sammanräkning sker i _ppRender (läsläge)
   window._ppRender=()=>{
     const mi=Number(document.getElementById('pp-month').value);
     document.getElementById('pp-month-lbl').textContent=MONTHS[mi];
     document.getElementById('pp-import-btn').textContent='Importera till '+MONTHS[mi];
-    document.getElementById('pp-body').innerHTML=`<div style="padding:30px;text-align:center;color:var(--text3);">Pipeline för ${MONTHS[mi]} — byggs i nästa steg.</div>`;
+    // Alla fyra kategorier (pipeline kan ha alla — till skillnad från förnyelser som bara har ARR/Fastpris).
+    const _tc={ARR:{bg:'#EAF3DE',color:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5'},Utbildning:{bg:'#FAEEDA',color:'#854F0B'},Consulting:{bg:'#EEEDFE',color:'#3C3489'}};
+    const _tl={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Utbildning:'Utbildning',Consulting:'Consulting'};
+    const fk=v=>Math.round(v).toLocaleString('sv-SE');
+    // Samla ProspectRevenues-poster (alla line-items) för de tre stages, filtrerade på InvoiceDate-månad === mi.
+    const byType={ARR:[],Fastpris:[],Utbildning:[],Consulting:[]};
+    pipeProspects.forEach(p=>{(prospectRevCache[p.Id]||[]).forEach(it=>{
+      if(!byType[it.Type])return;if(!it.InvoiceDate||(it.Amount||0)<=0)return;
+      const d=new Date(it.InvoiceDate);if(isNaN(d)||d.getFullYear()!==year||d.getMonth()!==mi)return;
+      byType[it.Type].push({p,it});
+    });});
+    let html='',n=0,totWeighted=0;
+    ['ARR','Fastpris','Utbildning','Consulting'].forEach(type=>{
+      const posts=byType[type];if(!posts.length)return;const tc=_tc[type];
+      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[type]}</div>`;
+      posts.forEach(({p,it})=>{const belopp=it.Amount||0;const prob=it.Probability||0;const weighted=Math.round(belopp*prob/100);n++;totWeighted+=weighted;
+        const ld=new Date(it.InvoiceDate);ld.setDate(ld.getDate()+30);const liq=MONTHS[ld.getMonth()];
+        const period=(it.DateFrom||it.DateTo)?`${it.DateFrom?it.DateFrom.substring(0,10):'?'} – ${it.DateTo?it.DateTo.substring(0,10):'?'}`:'';const desc=it.Description||'';
+        html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--surface);"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.Company||('Prospekt '+p.Id)}<span style="display:inline-block;font-size:9px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--surface2);color:var(--text3);margin-left:5px;">${p.Stage}</span></div><div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc?desc+' · ':''}${period?period+' · ':''}Sannolikhet: ${prob}%</div></div><div style="text-align:right;flex:0 0 auto;"><div style="font-size:13px;font-weight:600;">${fk(belopp)} kr</div><div style="font-size:10px;color:var(--text3);">Viktat: ${fk(weighted)} kr · Likviditet: ${liq}</div></div></div>`;});
+      html+=`</div>`;});
+    document.getElementById('pp-body').innerHTML=html||`<div style="padding:30px;text-align:center;color:var(--text3);">Inga pipeline-poster i ${MONTHS[mi]}.</div>`;
+    const e=document.getElementById('pp-summary');if(e)e.textContent=`${n} affärer · viktat ${fk(totWeighted)} kr`;
   };
   window._ppImport=()=>{}; // STEG 1: ingen import än
   // Markera vald månadsknapp (navy) + sätt dolt #pp-month + rendera.
