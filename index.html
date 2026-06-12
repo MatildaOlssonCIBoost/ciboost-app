@@ -4653,7 +4653,25 @@ async function openImportFornyelseModal(versionId,preMonth){
     <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="fr-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-fornyelse-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="fr-import-btn" class="btn-primary" onclick="window._frImport()" style="padding:8px 16px;" disabled>Importera</button></div></div>
   </div>`;
   document.body.appendChild(ov);
-  window._frSummary=()=>{}; // sammanräkning sker i _frRender (läsläge)
+  window._frSummary=()=>{}; // sammanräkning sker i _frRecalc
+  const _frParse=s=>Number(String(s).replace(/[^0-9.\-]/g,''))||0;
+  // Live-omräkning vid input/kryss: viktat + likviditetsmånad (faktura+30, samma mönster som kaCashflowDate) + summa + knapp-state.
+  window._frRecalc=()=>{
+    let n=0,tot=0;
+    document.querySelectorAll('#fr-body .fr-row').forEach(row=>{
+      const cb=row.querySelector('.fr-cb');
+      const amount=_frParse(row.querySelector('.fr-amount').value);
+      const prob=Math.max(0,Math.min(100,_frParse(row.querySelector('.fr-prob').value)));
+      const weighted=Math.round(amount*prob/100);
+      row.querySelector('.fr-weighted').textContent=weighted.toLocaleString('sv-SE')+' kr';
+      const d=new Date(row.querySelector('.fr-date').value);let liq='–';
+      if(!isNaN(d)){const ld=new Date(d);ld.setDate(ld.getDate()+30);liq=MONTHS[ld.getMonth()];}
+      row.querySelector('.fr-liqmonth').textContent='Likviditet: '+liq;
+      if(cb.checked){n++;tot+=weighted;}
+    });
+    const e=document.getElementById('fr-summary');if(e)e.textContent=`${n} förnyelser · viktat ${Math.round(tot).toLocaleString('sv-SE')} kr`;
+    const btn=document.getElementById('fr-import-btn');if(btn)btn.disabled=n===0;
+  };
   window._frRender=()=>{
     const mi=Number(document.getElementById('fr-month').value);
     document.getElementById('fr-month-lbl').textContent=MONTHS[mi];
@@ -4662,17 +4680,19 @@ async function openImportFornyelseModal(versionId,preMonth){
     const _tc={ARR:{bg:'#EAF3DE',color:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5'}};
     const _tl={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)'};
     const churnPct=computeHistoricChurnPct();const fk=v=>Math.round(v).toLocaleString('sv-SE');
+    const inp='padding:2px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);';
     // Förnyelse-månad = månaden EFTER LicenseEnd (samma placeringslogik som aggregateFornyelseRows).
     const inMonth=(allCustomers||[]).filter(c=>{if(!c.LicenseEnd)return false;const le=new Date(c.LicenseEnd);const target=new Date(le.getFullYear(),le.getMonth()+1,1);return target.getFullYear()===year&&target.getMonth()===mi;});
-    let html='',n=0,totWeighted=0;
+    let html='';
     [['ARR','ARR'],['Fastpris','ARR_Fixed']].forEach(([t,field])=>{
       const posts=inMonth.filter(c=>(c[field]||0)>0);if(!posts.length)return;const tc=_tc[t];
       html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[t]}</div>`;
-      posts.forEach(c=>{const belopp=c[field]||0;const prob=calculateRiskScoreClient(c).renewalProb;const weighted=Math.round(belopp*prob/100);n++;totWeighted+=weighted;
-        html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--surface);"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||('Kund '+c.Id)}</div><div style="font-size:11px;color:var(--text3);">Licens slutar ${String(c.LicenseEnd).substring(0,10)} · Risk: ${prob}% · Hist. churn: ${Math.round(churnPct*100)}%</div></div><div style="text-align:right;flex:0 0 auto;"><div style="font-size:13px;font-weight:600;">${fk(belopp)} kr</div><div style="font-size:10px;color:var(--text3);">Viktat: ${fk(weighted)} kr</div></div></div>`;});
+      posts.forEach(c=>{const belopp=c[field]||0;const prob=calculateRiskScoreClient(c).renewalProb;
+        const le=new Date(c.LicenseEnd);le.setDate(le.getDate()+1);const invDate=le.toISOString().substring(0,10);
+        html+=`<div class="fr-row" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--surface);"><input type="checkbox" class="fr-cb" data-cust="${c.Id}" data-field="${field}" checked onchange="window._frRecalc()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||('Kund '+c.Id)}</div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Faktura:<input type="text" class="fr-date" value="${invDate}" oninput="window._frRecalc()" style="width:92px;${inp}">Belopp:<input type="text" class="fr-amount" value="${belopp}" oninput="window._frRecalc()" style="width:78px;text-align:right;${inp}">Risk:<input type="text" class="fr-prob" value="${prob}" oninput="window._frRecalc()" style="width:40px;text-align:right;${inp}">% · Hist. churn: ${Math.round(churnPct*100)}%</div></div><div style="text-align:right;flex:0 0 auto;"><div class="fr-weighted" style="font-size:13px;font-weight:600;">${fk(Math.round(belopp*prob/100))} kr</div><div class="fr-liqmonth" style="font-size:10px;color:var(--text3);">Likviditet: –</div></div></div>`;});
       html+=`</div>`;});
     document.getElementById('fr-body').innerHTML=html||`<div style="padding:30px;text-align:center;color:var(--text3);">Inga förnyelser i ${MONTHS[mi]}.</div>`;
-    const e=document.getElementById('fr-summary');if(e)e.textContent=`${n} förnyelser · viktat ${fk(totWeighted)} kr`;
+    window._frRecalc();
   };
   window._frImport=()=>{}; // STEG 1: ingen import än
   // Markera vald månadsknapp (navy) + sätt dolt #fr-month + rendera.
