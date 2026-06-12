@@ -1239,6 +1239,66 @@ function persistBudgetNotes(){
   if(!currentBudgetVersionId)return;
   localStorage.setItem(BUDGET_NOTES_KEY(currentBudgetVersionId),JSON.stringify(budgetNotes));
 }
+// ── Månadslås (BudgetMonthLocks, server-side, per budgetversion). budgetLocks =
+// Map(månad → {LockedBy, LockedAt}) för aktuell version. Hämtas i loadBudgetVersion;
+// degraderar tyst till tomt om lås-API:t inte är uppe (endpoints ej deployade än).
+let budgetLocks=new Map();
+function isBudgetMonthLocked(m){return budgetLocks.has(m);}
+async function loadBudgetLocks(versionId){
+  budgetLocks=new Map();
+  if(!versionId)return;
+  try{
+    const r=await apiFetch(`${API}/budget-versions/${versionId}/locks`);
+    if(r.ok){const rows=await r.json();(Array.isArray(rows)?rows:[]).forEach(l=>budgetLocks.set(l.Month,{LockedBy:l.LockedBy||'',LockedAt:l.LockedAt||null}));}
+  }catch(e){/* lås-API ej uppe än — inga lås visas */}
+}
+async function lockBudgetMonth(month){
+  if(!currentBudgetVersionId)return;
+  let lockedBy='';try{await getUserInfo();lockedBy=startFirstName()||(_userInfo&&_userInfo.name)||'';}catch(e){}
+  try{const r=await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/locks`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({month,lockedBy})});if(!r.ok)throw new Error();}
+  catch(e){showSaveIndicator('⚠ Kunde inte låsa','#a32d2d');return;}
+  await loadBudgetLocks(currentBudgetVersionId);renderBudgetTable();
+}
+async function unlockBudgetMonth(month){
+  if(!currentBudgetVersionId)return;
+  try{const r=await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/locks/${month}`,{method:'DELETE'});if(!r.ok)throw new Error();}
+  catch(e){showSaveIndicator('⚠ Kunde inte låsa upp','#a32d2d');return;}
+  await loadBudgetLocks(currentBudgetVersionId);renderBudgetTable();
+}
+// Månads-<th> med låsikon (🔒 låst / 🔓 svag olåst) → klick öppnar lås-popup.
+function budgetMonthHeaderCells(){
+  return MONTHS.map(m=>{
+    const locked=isBudgetMonthLocked(m);
+    return `<th style="position:relative;"><span style="display:inline-flex;align-items:center;gap:3px;justify-content:center;">${m}<span class="month-lock${locked?' locked':''}" data-month="${m}" onclick="openBudgetLockPopup(this)" title="${locked?'Låst – klicka för att låsa upp':'Klicka för att låsa månaden'}" style="cursor:pointer;font-size:10px;opacity:${locked?1:0.35};">${locked?'🔒':'🔓'}</span></span></th>`;
+  }).join('');
+}
+// Lås-popup (speglar openNotePopup): status + vem/när + Lås/Lås upp.
+function openBudgetLockPopup(el){
+  document.querySelectorAll('.note-popup,.lock-popup').forEach(p=>p.remove());
+  const month=el.dataset.month;
+  const locked=isBudgetMonthLocked(month);
+  const info=budgetLocks.get(month)||{};
+  const when=info.LockedAt?new Date(info.LockedAt).toLocaleDateString('sv-SE'):'';
+  const popup=document.createElement('div');
+  popup.className='lock-popup';
+  popup.style.cssText='position:absolute;right:0;top:22px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;width:190px;box-shadow:var(--shadow-md);z-index:200;text-align:left;font-weight:400;';
+  popup.innerHTML=`
+    <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">${month}${locked?' – låst':''}</div>
+    ${locked?`<div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.4;">Låst${info.LockedBy?` av <strong>${String(info.LockedBy).replace(/</g,'&lt;')}</strong>`:''}${when?`<br><span style="color:var(--text3);">${when}</span>`:''}</div>`:`<div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.4;">Lås månaden så att beloppen blir skrivskyddade.</div>`}
+    <button onclick="${locked?`unlockBudgetMonth('${month}')`:`lockBudgetMonth('${month}')`}" style="width:100%;padding:5px 10px;border:none;border-radius:6px;background:${locked?'var(--surface2)':'#1e2140'};color:${locked?'var(--text)':'#fff'};font-family:Poppins,sans-serif;font-size:11px;font-weight:500;cursor:pointer;">${locked?'🔓 Lås upp':'🔒 Lås månaden'}</button>`;
+  el.parentElement.appendChild(popup);
+  setTimeout(()=>{document.addEventListener('click',function close(e){if(!popup.contains(e.target)&&e.target!==el){popup.remove();document.removeEventListener('click',close);}});},100);
+}
+// Skrivskydda inmatningsceller för låsta månader (körs sist i båda render-funktionerna).
+// saveBudget läser ändå .value från disablade fält → låst månads belopp bevaras vid spar.
+function applyBudgetLockState(){
+  document.querySelectorAll('.budget-input').forEach(inp=>{
+    const locked=isBudgetMonthLocked(inp.dataset.month);
+    inp.disabled=locked;
+    if(locked){inp.style.background='var(--surface2)';inp.style.color='var(--text3)';inp.style.cursor='not-allowed';}
+    else{inp.style.background='';inp.style.color='';inp.style.cursor='';}
+  });
+}
 // Budget version type helpers. BudgetType is stored as 'Likviditetsbudget' or
 // 'Resultatbudget'; these map it to a short badge label and the toggle mode.
 function budgetTypeLabel(t){return t==='Resultatbudget'?'Resultat':t==='Likviditetsbudget'?'Likviditet':'';}
@@ -4582,6 +4642,7 @@ async function loadBudgetVersion(){
   const badge=document.getElementById('budget-type-badge');
   const showMessage=(msg,color)=>{content.innerHTML=`<div style="text-align:center;padding:60px;color:${color||'var(--text3)'};font-size:13px;line-height:1.5;">${msg}</div>`;};
   if(!currentBudgetVersionId){
+    budgetLocks=new Map();
     showMessage('Välj eller skapa en budgetversion för att börja');
     buttons.forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
     if(badge)badge.style.display='none';
@@ -4628,6 +4689,7 @@ async function loadBudgetVersion(){
   const rollBtn=document.getElementById('btn-rolling-budget');
   if(rollBtn)rollBtn.textContent=isRollingBudgetVersion(selVersion)?'⟳ Löpande':'⟳ Sätt som löpande';
   const iaBtn=document.getElementById('btn-import-actuals');if(iaBtn)iaBtn.style.display=currentBudgetMode==='likviditet'?'flex':'none';
+  await loadBudgetLocks(currentBudgetVersionId);
   try{renderBudgetTable();}
   catch(e){
     console.error('[loadBudgetVersion] renderBudgetTable threw:',e);
@@ -4676,7 +4738,7 @@ function renderResultatBudgetTable(){
   // sektioner = mörkblå; intäktsrader = beige.
   // Orange intäktsrubriker med vit text, mörkblå kostnadssektioner, vita datarader.
   const WARM_BG='#E8823A', WARM_TEXT='white', DARK='#1a1a2e', BEIGE='var(--surface)';
-  let html=`<div class="budget-table-wrap"><table class="budget-table"><thead><tr><th style="text-align:left;min-width:240px;padding-left:10px;">Rad</th>${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th style="border-left:1px solid var(--border);">Total år</th></tr></thead><tbody>`;
+  let html=`<div class="budget-table-wrap"><table class="budget-table"><thead><tr><th style="text-align:left;min-width:240px;padding-left:10px;">Rad</th>${budgetMonthHeaderCells()}<th style="border-left:1px solid var(--border);">Total år</th></tr></thead><tbody>`;
 
   // Periodiserade intäkter (orange). Egna nycklar (Category='Periodiserade
   // intäkter') så att resultatbudgeten ALDRIG delar värden med likviditets-
@@ -4736,6 +4798,7 @@ function renderResultatBudgetTable(){
     <div class="kpi-card"><div class="kpi-label">Rörelsens kostnader</div><div class="kpi-value" style="color:var(--red)">${fmtKr(sum(kostnaderMonthly))}</div><div class="kpi-delta neu">totalt</div></div>
     <div class="kpi-card"><div class="kpi-label">Resultat före avskrivn.</div><div class="kpi-value" style="color:${resultatTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatTotal)}</div><div class="kpi-delta neu">helår ${year}</div></div>`;
   restoreNoteDots();
+  applyBudgetLockState();
 }
 function renderBudgetTable(){
   if(!Array.isArray(budgetRows))budgetRows=[];
@@ -4864,7 +4927,7 @@ function renderBudgetTable(){
   let html=`<div class="budget-table-wrap"><table class="budget-table">
     <thead><tr>
       <th style="text-align:left;min-width:180px;padding-left:10px;">Row</th>
-      ${MONTHS.map(m=>`<th>${m}</th>`).join('')}
+      ${budgetMonthHeaderCells()}
       <th style="border-left:1px solid var(--border);">Total år</th>
     </tr></thead><tbody>`;
 
@@ -4967,6 +5030,7 @@ function renderBudgetTable(){
     <div class="kpi-card"><div class="kpi-label">Net (TB3)</div><div class="kpi-value" style="color:${tb3Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb3Total)}</div><div class="kpi-delta neu">${fmtPct(tb3Total,revTotal)} net margin</div></div>`;
 
   restoreNoteDots();
+  applyBudgetLockState();
 }
 
 function updateBudgetTotals(){}
