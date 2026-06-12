@@ -4653,13 +4653,26 @@ async function openImportFornyelseModal(versionId,preMonth){
     <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="fr-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-fornyelse-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="fr-import-btn" class="btn-primary" onclick="window._frImport()" style="padding:8px 16px;" disabled>Importera</button></div></div>
   </div>`;
   document.body.appendChild(ov);
-  window._frSummary=()=>{const e=document.getElementById('fr-summary');if(e)e.textContent='0 förnyelser';};
+  window._frSummary=()=>{}; // sammanräkning sker i _frRender (läsläge)
   window._frRender=()=>{
     const mi=Number(document.getElementById('fr-month').value);
     document.getElementById('fr-month-lbl').textContent=MONTHS[mi];
     document.getElementById('fr-import-btn').textContent='Importera till '+MONTHS[mi];
-    document.getElementById('fr-body').innerHTML=`<div style="padding:30px;text-align:center;color:var(--text3);">Förnyelser för ${MONTHS[mi]} — byggs i nästa steg.</div>`;
-    window._frSummary();
+    // Färgkort som actuals-modalen, men bara de två återkommande licenstyperna (= det aggregateFornyelseRows förnyar).
+    const _tc={ARR:{bg:'#EAF3DE',color:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5'}};
+    const _tl={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)'};
+    const churnPct=computeHistoricChurnPct();const fk=v=>Math.round(v).toLocaleString('sv-SE');
+    // Förnyelse-månad = månaden EFTER LicenseEnd (samma placeringslogik som aggregateFornyelseRows).
+    const inMonth=(allCustomers||[]).filter(c=>{if(!c.LicenseEnd)return false;const le=new Date(c.LicenseEnd);const target=new Date(le.getFullYear(),le.getMonth()+1,1);return target.getFullYear()===year&&target.getMonth()===mi;});
+    let html='',n=0,totWeighted=0;
+    [['ARR','ARR'],['Fastpris','ARR_Fixed']].forEach(([t,field])=>{
+      const posts=inMonth.filter(c=>(c[field]||0)>0);if(!posts.length)return;const tc=_tc[t];
+      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[t]}</div>`;
+      posts.forEach(c=>{const belopp=c[field]||0;const prob=calculateRiskScoreClient(c).renewalProb;const weighted=Math.round(belopp*prob/100);n++;totWeighted+=weighted;
+        html+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:var(--surface);"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||('Kund '+c.Id)}</div><div style="font-size:11px;color:var(--text3);">Licens slutar ${String(c.LicenseEnd).substring(0,10)} · Risk: ${prob}% · Hist. churn: ${Math.round(churnPct*100)}%</div></div><div style="text-align:right;flex:0 0 auto;"><div style="font-size:13px;font-weight:600;">${fk(belopp)} kr</div><div style="font-size:10px;color:var(--text3);">Viktat: ${fk(weighted)} kr</div></div></div>`;});
+      html+=`</div>`;});
+    document.getElementById('fr-body').innerHTML=html||`<div style="padding:30px;text-align:center;color:var(--text3);">Inga förnyelser i ${MONTHS[mi]}.</div>`;
+    const e=document.getElementById('fr-summary');if(e)e.textContent=`${n} förnyelser · viktat ${fk(totWeighted)} kr`;
   };
   window._frImport=()=>{}; // STEG 1: ingen import än
   // Markera vald månadsknapp (navy) + sätt dolt #fr-month + rendera.
