@@ -302,6 +302,8 @@
   .kpi-info { display:inline-flex; align-items:center; justify-content:center; width:13px; height:13px; border-radius:50%; border:1px solid var(--text3); color:var(--text3); font-size:9px; font-style:italic; font-weight:700; cursor:pointer; margin-left:5px; line-height:1; vertical-align:middle; flex:0 0 auto; }
   .kpi-info:hover { border-color:var(--accent); color:var(--accent); }
   .kpi-info-pop { position:fixed; max-width:240px; background:#1e2140; color:#fff; font-size:11px; line-height:1.45; padding:9px 11px; border-radius:7px; box-shadow:var(--shadow-md); z-index:400; font-weight:400; text-transform:none; letter-spacing:normal; }
+  .cf-tip { position:fixed; pointer-events:none; background:#1E2340; color:#fff; font-size:11px; line-height:1.45; padding:7px 10px; border-radius:7px; box-shadow:var(--shadow-md); z-index:400; white-space:nowrap; opacity:0; transition:opacity 0.12s; }
+  .cf-tip.show { opacity:1; }
   .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
   .b-green { background: var(--green-bg); color: var(--green); }
   .b-amber { background: var(--amber-bg); color: var(--amber); }
@@ -1424,6 +1426,25 @@ function showKpiPopup(anchor,text){
   pop.style.top=(r.bottom+6)+'px';
   pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-pop.offsetWidth-8))+'px';
   setTimeout(()=>{document.addEventListener('click',function h(e){if(!pop.contains(e.target)&&e.target!==anchor){pop.remove();document.removeEventListener('click',h);}});},50);
+}
+// Custom hover-tooltip för element med [data-tip] (kassaflöde-grafens hover-zoner).
+// Registreras EN gång globalt på document → överlever el.innerHTML-omritningar och kan
+// aldrig trigga i styrelserapporten (där hover=false → inga data-tip-element renderas).
+let _cfTipEl=null;
+function cfTipInit(){
+  document.addEventListener('mousemove',e=>{
+    const t=e.target,r=t&&t.closest?t.closest('[data-tip]'):null;
+    if(r){
+      if(!_cfTipEl){_cfTipEl=document.createElement('div');_cfTipEl.className='cf-tip';document.body.appendChild(_cfTipEl);}
+      _cfTipEl.textContent=r.getAttribute('data-tip');
+      _cfTipEl.classList.add('show');
+      const w=_cfTipEl.offsetWidth,h=_cfTipEl.offsetHeight;
+      _cfTipEl.style.left=Math.max(8,Math.min(e.clientX+14,window.innerWidth-w-8))+'px';
+      _cfTipEl.style.top=Math.max(8,Math.min(e.clientY+14,window.innerHeight-h-8))+'px';
+    } else if(_cfTipEl){
+      _cfTipEl.classList.remove('show');
+    }
+  });
 }
 function enhanceKpiCards(root){
   (root||document).querySelectorAll('.kpi-card .kpi-label:not([data-kpi-info])').forEach(lbl=>{
@@ -4423,7 +4444,7 @@ function cashflowChartSvg(cf,opts={}){
   const balDots=cf.closing.map((v,i)=>{const cx=Math.round(c3bx(i)+c3bw/2),cy=bY(v);return (showLocks&&i>lastLockedIx)?`<circle cx="${cx}" cy="${cy}" r="2.5" fill="#fff" stroke="#BA7517" stroke-width="1.5"/>`:`<circle cx="${cx}" cy="${cy}" r="2.5" fill="#BA7517"/>`;}).join('');
   const bAxis=[bMax,0,bMin].filter((v,ix,a)=>a.indexOf(v)===ix).map(v=>`<text x="${c3W-4}" y="${bY(v)+3}" font-size="${fs(8)}" fill="var(--text3)" text-anchor="end">${Math.round(v/1000)}k</text>`).join('');
   // Osynliga hover-zoner/månad → native tooltip. Robust efter innerHTML (ingen JS-wiring).
-  const hoverRects=hover?cf.months.map((m,i)=>`<rect x="${Math.round(c3bx(i)+c3bw/2-c3slot/2)}" y="0" width="${Math.round(c3slot)}" height="${c3H}" fill="transparent"><title>${m} · Cash in: ${cf.cashIn[i].toLocaleString('sv-SE')} · Cash out: ${cf.cashOut[i].toLocaleString('sv-SE')} · Utgående: ${Math.round(cf.closing[i]).toLocaleString('sv-SE')}</title></rect>`).join(''):'';
+  const hoverRects=hover?cf.months.map((m,i)=>`<rect x="${Math.round(c3bx(i)+c3bw/2-c3slot/2)}" y="0" width="${Math.round(c3slot)}" height="${c3H}" fill="transparent" pointer-events="all" data-tip="${m} · Cash in: ${cf.cashIn[i].toLocaleString('sv-SE')} · Cash out: ${cf.cashOut[i].toLocaleString('sv-SE')} · Utgående: ${Math.round(cf.closing[i]).toLocaleString('sv-SE')}"></rect>`).join(''):'';
   // Utfall/prognos-zon (endast showLocks + minst en låst månad): sandruta bakom utfallsmånaderna,
   // streckad gränslinje + etiketter. Läggs FÖRST i SVG:n (bakom staplarna). Tom sträng annars → byte-identisk.
   let zone='';
@@ -6558,6 +6579,7 @@ populateIndustryDropdowns();
 (()=>{const sel=document.getElementById('mt-assignee');if(sel)sel.insertAdjacentHTML('beforeend',OWNERS.map(o=>`<option>${o}</option>`).join(''));})();
 updateArkivStatsBar();
 startKpiObserver();
+cfTipInit();
 // Startsidan är första vyn — dölj pipeline-statistik/underflikar som visas i default-markup.
 switchMain('start',document.querySelector('.nav-tab'));
 loadCustomers();
