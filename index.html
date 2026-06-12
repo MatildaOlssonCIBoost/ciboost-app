@@ -4412,8 +4412,8 @@ function cashflowChartSvg(cf,opts={}){
   const c3slot=(c3W-44)/12,c3bx=i=>34+i*c3slot,c3bw=c3slot*0.46;
   const bMin=Math.min(...cf.closing,0),bMax=Math.max(...cf.closing,1),bY=v=>Math.round(12+(1-(v-bMin)/Math.max(1,bMax-bMin))*(c3H-c3padB-12));
   // Per-stapel-attribut: låst (eller showLocks=false) → solid som tidigare; olåst i showLocks-läge → tonad+streckad.
-  const inAttr=i=>(locked[i]||!showLocks)?`fill="#1E2340" opacity="0.88"`:`fill="#1E2340" opacity="0.3" stroke="#1E2340" stroke-width="0.6" stroke-dasharray="2.5 2"`;
-  const outAttr=i=>(locked[i]||!showLocks)?`fill="#7c8bbf" opacity="0.9"`:`fill="#7c8bbf" opacity="0.4" stroke="#7c8bbf" stroke-width="0.6" stroke-dasharray="2.5 2"`;
+  const inAttr=i=>(locked[i]||!showLocks)?`fill="#1E2340" opacity="0.88"`:`fill="#1E2340" opacity="0.5" stroke="#1E2340" stroke-width="0.6" stroke-dasharray="2.5 2"`;
+  const outAttr=i=>(locked[i]||!showLocks)?`fill="#7c8bbf" opacity="0.9"`:`fill="#7c8bbf" opacity="0.55" stroke="#7c8bbf" stroke-width="0.6" stroke-dasharray="2.5 2"`;
   const c3bars=cf.months.map((m,i)=>`<rect x="${Math.round(c3bx(i))}" y="${c3mid-fbh(cf.cashIn[i])}" width="${Math.round(c3bw)}" height="${fbh(cf.cashIn[i])}" rx="1" ${inAttr(i)}/><rect x="${Math.round(c3bx(i))}" y="${c3mid}" width="${Math.round(c3bw)}" height="${fbh(cf.cashOut[i])}" rx="1" ${outAttr(i)}/><text x="${Math.round(c3bx(i)+c3bw/2)}" y="${c3H-5}" font-size="${fs(8)}" fill="var(--text3)" text-anchor="middle">${m}</text>`).join('');
   const balPtArr=cf.closing.map((v,i)=>`${Math.round(c3bx(i)+c3bw/2)},${bY(v)}`);
   const balPts=balPtArr.join(' ');
@@ -4429,7 +4429,7 @@ function cashflowChartSvg(cf,opts={}){
   let zone='';
   if(showLocks&&lastLockedIx>=0){
     const bX=Math.min(c3W-30,Math.round(c3bx(lastLockedIx)+c3bw/2+c3slot/2));
-    zone=`<rect x="28" y="8" width="${bX-28}" height="${c3H-c3padB-8}" fill="#FBEEDF" opacity="0.5"/><line x1="${bX}" y1="8" x2="${bX}" y2="${c3H-c3padB}" stroke="var(--text3)" stroke-width="0.75" stroke-dasharray="3 3" opacity="0.6"/><text x="${Math.round((28+bX)/2)}" y="18" font-size="${fs(8)}" fill="#9a6b2a" text-anchor="middle">utfall</text>${lastLockedIx<11?`<text x="${Math.round((bX+c3W-30)/2)}" y="18" font-size="${fs(8)}" fill="var(--text3)" text-anchor="middle">prognos</text>`:''}`;
+    zone=`<rect x="28" y="8" width="${bX-28}" height="${c3H-c3padB-8}" fill="#FBEEDF" opacity="0.5"/><line x1="${bX}" y1="8" x2="${bX}" y2="${c3H-c3padB}" stroke="var(--text3)" stroke-width="0.75" stroke-dasharray="3 3" opacity="0.6"/><text x="${Math.round((28+bX)/2)}" y="12" font-size="${fs(8)}" fill="#9a6b2a" text-anchor="middle">utfall</text>${lastLockedIx<11?`<text x="${Math.round((bX+c3W-30)/2)}" y="12" font-size="${fs(8)}" fill="var(--text3)" text-anchor="middle">prognos</text>`:''}`;
   }
   return `<svg viewBox="0 0 ${c3W} ${c3H}" width="100%" style="overflow:visible;${scale!==1?`max-width:${Math.round(520*scale)}px;`:''}">${zone}<line x1="28" y1="${c3mid}" x2="${c3W-30}" y2="${c3mid}" stroke="var(--border)" stroke-width="0.75"/><line x1="28" y1="${bY(0)}" x2="${c3W-30}" y2="${bY(0)}" stroke="#BA7517" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.45"/>${c3bars}${balLine}${balDots}${bAxis}${hoverRects}</svg><div style="display:flex;gap:14px;font-size:${fs(10)}px;color:var(--text3);margin-top:${hover?12:2}px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#1E2340;vertical-align:middle;border-radius:2px;"></span> Cash in</span><span><span style="display:inline-block;width:9px;height:9px;background:#7c8bbf;vertical-align:middle;border-radius:2px;"></span> Cash out</span><span><span style="display:inline-block;width:12px;height:2px;background:#BA7517;vertical-align:middle;"></span> Utgående balans${hover?'':' (höger skala)'}</span></div>`;
 }
