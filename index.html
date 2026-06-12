@@ -4518,17 +4518,17 @@ async function renderBudgetCashflow(){
       <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Version: ${verSel}</label>
       <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;">Ingående kassa:<input type="text" value="${opening.toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;"><span style="font-size:16px;font-weight:700;color:var(--text);">Kassaflöde ${year}</span>${src?`<span style="background:#FBEEDF;color:#BA7517;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;white-space:nowrap;">${src}</span>`:''}<label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;"><input type="checkbox" ${getCashflowSplit(year)?'checked':''} onchange="setCashflowSplit(${year},this.checked)" style="width:15px;height:15px;cursor:pointer;">Särskilj utfall &amp; prognos</label></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;"><span style="font-size:16px;font-weight:700;color:var(--text);">Kassaflöde ${year}</span>${src?`<span style="background:#FBEEDF;color:#BA7517;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;white-space:nowrap;">${src}</span>`:''}</div>
     <div style="border-top:1px solid var(--border);margin-bottom:14px;"></div>
     <div>
-      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;margin-top:14px;margin-bottom:18px;">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-top:14px;margin-bottom:18px;">
         <div style="flex:0 1 676px;min-width:280px;">${chart.svg}</div>
-        <div style="flex:0 0 auto;margin-left:10px;">${chart.legend}</div>
+        <div style="flex:0 0 auto;margin-left:10px;">${chart.legend}<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap;margin-top:10px;"><input type="checkbox" ${getCashflowSplit(year)?'checked':''} onchange="setCashflowSplit(${year},this.checked)" style="width:14px;height:14px;cursor:pointer;">Särskilj utfall &amp; prognos</label></div>
         <div style="flex:0 0 auto;align-self:stretch;width:1px;background:var(--border);"></div>
         ${nyckelBox}
       </div>
       <div style="overflow:auto;">
-        <table style="width:100%;max-width:740px;margin-right:auto;border-collapse:collapse;">
+        <table style="width:100%;max-width:860px;margin-right:auto;border-collapse:collapse;">
           <thead><tr>${TH('Månad')}${TH('Finansiering')}${TH('Ingående')}${TH('Cash in')}${TH('Cash out')}${TH('Netto')}${TH('Utgående balans')}</tr></thead>
           <tbody>${bodyRows}${totalRow}</tbody>
         </table>
