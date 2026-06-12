@@ -4338,15 +4338,22 @@ function getProjectedLicens(year){return Math.round(Number(localStorage.getItem(
 function setProjectedLicens(year,val){localStorage.setItem('projectedLicensPren_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));renderStyrelse();}
 // Delad likviditetsgraf: cash in upp (navy), cash out ner (#7c8bbf), utgående balans (cf.closing) amber linje (#BA7517)
 // på egen högerskala + legend. Tar ett computeCashflow-resultat → samma graf i Kassaflöde-kortet och styrelserapporten.
-function cashflowChartSvg(cf){
+// opts (valfritt): {scale, fontScale, hover}. Default {1,1,false} → BYTE-IDENTISK output (styrelserapporten orörd).
+// scale = SVG:ns max-width (kortet renderar grafen större); fontScale = font-size på axlar/staplar/legend × N;
+// hover = osynliga <rect>/månad med native <title>-tooltip + legend utan "(höger skala)" + extra luft.
+function cashflowChartSvg(cf,opts={}){
+  const {scale=1,fontScale=1,hover=false}=opts;
+  const fs=n=>Math.round(n*fontScale);
   const c3W=620,c3H=210,c3mid=92,c3padB=22,maxFlow=Math.max(...cf.cashIn,...cf.cashOut,1),fbh=v=>Math.round(v/maxFlow*64);
   const c3slot=(c3W-44)/12,c3bx=i=>34+i*c3slot,c3bw=c3slot*0.46;
   const bMin=Math.min(...cf.closing,0),bMax=Math.max(...cf.closing,1),bY=v=>Math.round(12+(1-(v-bMin)/Math.max(1,bMax-bMin))*(c3H-c3padB-12));
-  const c3bars=cf.months.map((m,i)=>`<rect x="${Math.round(c3bx(i))}" y="${c3mid-fbh(cf.cashIn[i])}" width="${Math.round(c3bw)}" height="${fbh(cf.cashIn[i])}" rx="1" fill="#1E2340" opacity="0.88"/><rect x="${Math.round(c3bx(i))}" y="${c3mid}" width="${Math.round(c3bw)}" height="${fbh(cf.cashOut[i])}" rx="1" fill="#7c8bbf" opacity="0.9"/><text x="${Math.round(c3bx(i)+c3bw/2)}" y="${c3H-5}" font-size="8" fill="var(--text3)" text-anchor="middle">${m}</text>`).join('');
+  const c3bars=cf.months.map((m,i)=>`<rect x="${Math.round(c3bx(i))}" y="${c3mid-fbh(cf.cashIn[i])}" width="${Math.round(c3bw)}" height="${fbh(cf.cashIn[i])}" rx="1" fill="#1E2340" opacity="0.88"/><rect x="${Math.round(c3bx(i))}" y="${c3mid}" width="${Math.round(c3bw)}" height="${fbh(cf.cashOut[i])}" rx="1" fill="#7c8bbf" opacity="0.9"/><text x="${Math.round(c3bx(i)+c3bw/2)}" y="${c3H-5}" font-size="${fs(8)}" fill="var(--text3)" text-anchor="middle">${m}</text>`).join('');
   const balPts=cf.closing.map((v,i)=>`${Math.round(c3bx(i)+c3bw/2)},${bY(v)}`).join(' ');
   const balDots=cf.closing.map((v,i)=>`<circle cx="${Math.round(c3bx(i)+c3bw/2)}" cy="${bY(v)}" r="2.5" fill="#BA7517"/>`).join('');
-  const bAxis=[bMax,0,bMin].filter((v,ix,a)=>a.indexOf(v)===ix).map(v=>`<text x="${c3W-4}" y="${bY(v)+3}" font-size="8" fill="var(--text3)" text-anchor="end">${Math.round(v/1000)}k</text>`).join('');
-  return `<svg viewBox="0 0 ${c3W} ${c3H}" width="100%" style="overflow:visible;"><line x1="28" y1="${c3mid}" x2="${c3W-30}" y2="${c3mid}" stroke="var(--border)" stroke-width="0.75"/><line x1="28" y1="${bY(0)}" x2="${c3W-30}" y2="${bY(0)}" stroke="#BA7517" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.45"/>${c3bars}<polyline points="${balPts}" fill="none" stroke="#BA7517" stroke-width="2"/>${balDots}${bAxis}</svg><div style="display:flex;gap:14px;font-size:10px;color:var(--text3);margin-top:2px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#1E2340;vertical-align:middle;border-radius:2px;"></span> Cash in</span><span><span style="display:inline-block;width:9px;height:9px;background:#7c8bbf;vertical-align:middle;border-radius:2px;"></span> Cash out</span><span><span style="display:inline-block;width:12px;height:2px;background:#BA7517;vertical-align:middle;"></span> Utgående balans (höger skala)</span></div>`;
+  const bAxis=[bMax,0,bMin].filter((v,ix,a)=>a.indexOf(v)===ix).map(v=>`<text x="${c3W-4}" y="${bY(v)+3}" font-size="${fs(8)}" fill="var(--text3)" text-anchor="end">${Math.round(v/1000)}k</text>`).join('');
+  // Osynliga hover-zoner/månad → native tooltip. Robust efter innerHTML (ingen JS-wiring).
+  const hoverRects=hover?cf.months.map((m,i)=>`<rect x="${Math.round(c3bx(i)+c3bw/2-c3slot/2)}" y="0" width="${Math.round(c3slot)}" height="${c3H}" fill="transparent"><title>${m} · Cash in: ${cf.cashIn[i].toLocaleString('sv-SE')} · Cash out: ${cf.cashOut[i].toLocaleString('sv-SE')} · Utgående: ${Math.round(cf.closing[i]).toLocaleString('sv-SE')}</title></rect>`).join(''):'';
+  return `<svg viewBox="0 0 ${c3W} ${c3H}" width="100%" style="overflow:visible;${scale!==1?`max-width:${Math.round(520*scale)}px;`:''}"><line x1="28" y1="${c3mid}" x2="${c3W-30}" y2="${c3mid}" stroke="var(--border)" stroke-width="0.75"/><line x1="28" y1="${bY(0)}" x2="${c3W-30}" y2="${bY(0)}" stroke="#BA7517" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.45"/>${c3bars}<polyline points="${balPts}" fill="none" stroke="#BA7517" stroke-width="2"/>${balDots}${bAxis}${hoverRects}</svg><div style="display:flex;gap:14px;font-size:${fs(10)}px;color:var(--text3);margin-top:${hover?12:2}px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#1E2340;vertical-align:middle;border-radius:2px;"></span> Cash in</span><span><span style="display:inline-block;width:9px;height:9px;background:#7c8bbf;vertical-align:middle;border-radius:2px;"></span> Cash out</span><span><span style="display:inline-block;width:12px;height:2px;background:#BA7517;vertical-align:middle;"></span> Utgående balans${hover?'':' (höger skala)'}</span></div>`;
 }
 // Budget Kassaflöde-kort (kort 3): explicit vald likviditets-version (default Löpande→Primär→första) + ingående → utgående balans.
 let cashflowVersionId=null;
@@ -4378,7 +4385,7 @@ async function renderBudgetCashflow(){
   const num=(v,extra)=>`<td style="font-size:11px;text-align:right;padding:3px 6px;border-bottom:0.5px solid var(--border);${extra||''}">${fmtK(v)}</td>`;
   const finCell=mi=>`<td style="padding:2px 4px;text-align:right;border-bottom:0.5px solid var(--border);"><input type="text" value="${financing[mi]?financing[mi].toLocaleString('sv-SE'):''}" placeholder="0" onchange="setFinancing(${ver.Id},${year},${mi},this.value)" style="width:72px;padding:2px 5px;text-align:right;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);"></td>`;
   // Utgående balans-cell: bara textfärg (svart ≥0, röd <0) + diskret riktningspil mot föregående månad (jan mot ingående). Netto kursivt.
-  const arrow=(cur,prev)=>cur>prev?` <span style="font-size:9px;color:#1a7a50;">↑</span>`:cur<prev?` <span style="font-size:9px;color:#a32d2d;">↓</span>`:'';
+  const arrow=(cur,prev)=>cur>prev?`<span style="margin-left:6px;font-size:9px;color:#1a7a50;">↑</span>`:cur<prev?`<span style="margin-left:6px;font-size:9px;color:#a32d2d;">↓</span>`:'';
   const closingCell=(v,prev,extra)=>`<td style="font-size:11px;text-align:right;padding:3px 6px;border-bottom:0.5px solid var(--border);font-weight:600;${v<0?'color:#a32d2d;':''}${extra||''}">${fmtK(v)}${arrow(v,prev)}</td>`;
   const bodyRows=cf.months.map((m,i)=>`<tr><td style="font-size:11px;font-weight:500;color:var(--text2);text-align:left;padding:3px 6px;border-bottom:0.5px solid var(--border);">${m}</td>${finCell(i)}${num(cf.ingaende[i])}${num(cf.cashIn[i])}${num(cf.cashOut[i])}${num(cf.net[i],'font-style:italic;')}${closingCell(cf.closing[i],i===0?cf.ingaende[0]:cf.closing[i-1])}</tr>`).join('');
   const tEx='font-weight:700;border-top:2px solid var(--border);';
@@ -4399,16 +4406,18 @@ async function renderBudgetCashflow(){
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div class="fin-card-title" style="margin-bottom:0;">Kassaflöde (${year})${src?` <span class="badge b-blue">${src}</span>`:''}</div><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Version: ${verSel}</label></div>
       <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;">Ingående kassa:<input type="text" value="${opening.toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>
     </div>
-    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-bottom:18px;">
-      <div style="flex:1;min-width:280px;max-width:520px;">${cashflowChartSvg(cf)}</div>
-      ${nyckelBox}
-    </div>
-    <div style="overflow:auto;">
-      <table style="width:100%;border-collapse:collapse;">
-        <thead><tr>${TH('Månad')}${TH('Finansiering')}${TH('Ingående')}${TH('Cash in')}${TH('Cash out')}${TH('Netto')}${TH('Utgående balans')}</tr></thead>
-        <tbody>${bodyRows}${totalRow}</tbody>
-      </table>
-      <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">Utgående balans = ingående + netto + finansiering. Ingående nästa månad = föregående månads utgående.</div>
+    <div style="padding-right:140px;">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;margin-top:14px;margin-bottom:18px;">
+        <div style="flex:0 1 676px;min-width:280px;">${cashflowChartSvg(cf,{scale:1.3,fontScale:1.5,hover:true})}</div>
+        ${nyckelBox}
+      </div>
+      <div style="overflow:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>${TH('Månad')}${TH('Finansiering')}${TH('Ingående')}${TH('Cash in')}${TH('Cash out')}${TH('Netto')}${TH('Utgående balans')}</tr></thead>
+          <tbody>${bodyRows}${totalRow}</tbody>
+        </table>
+        <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic;">Utgående balans = ingående + netto + finansiering. Ingående nästa månad = föregående månads utgående.</div>
+      </div>
     </div>
   </div>`;
 }
