@@ -1558,6 +1558,9 @@ async function prefetchAllCustomerRevenues(){
   updateStats();renderTable();
   if(currentMain==='kunder'&&currentSub.kunder==='licenstidslinje')renderLicenstidslinje();
   if(currentMain==='start')renderStart();
+  // Cache-guard: stats-baren (fs-arr) räknar ARR via arrAnnualizedAt → räkna om nu
+  // när custRevCache är fylld, annars visar den 0 om den renderats före prefetch.
+  if(currentMain==='finansiellt'&&typeof updateFinStatsBar==='function')updateFinStatsBar();
 }
 // Uppdaterar en enskild kunds härledda fält efter ändring i värdefliken.
 function recomputeCustomerDerived(customerId,items){
@@ -1636,7 +1639,7 @@ function switchSub(main,sub,el){
 function faLandingReset(){document.querySelectorAll('#page-finansiellt-dashboard .fa-panel').forEach(p=>p.style.display='none');document.querySelectorAll('#page-finansiellt-dashboard .fa-card').forEach(c=>c.classList.remove('active'));}
 function faOpenView(view){const card=document.querySelector('#page-finansiellt-dashboard .fa-card[data-faview="'+view+'"]');const wasActive=card&&card.classList.contains('active');faLandingReset();if(wasActive)return;const panel=document.getElementById('fa-panel-'+view);if(panel)panel.style.display='';if(card)card.classList.add('active');if(view==='arr')renderFinChurn();else if(view==='modell')renderModellanalysTab();else if(view==='styrelse')renderStyrelse();else renderFinDashboard();}
 function updateFinStatsBar(){
-  const arrTotal=allCustomers.reduce((s,c)=>s+(c.ARR||0)+(c.ARR_Fixed||0),0);
+  const arrTotal=arrAnnualizedAt(new Date(),false);   // äkta ARR (annualiserad run-rate), delad med dashboard/churn-vyn
   const mrr=Math.round(arrTotal/12);
   const active=allCustomers.filter(c=>c._days===null||c._days>=0).length;
   const setV=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
@@ -3577,6 +3580,9 @@ function renderStartActivity(){
 function setFinQuick(){}
 function setResultView(v,el){document.querySelectorAll('.result-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
 async function renderFinDashboard(){
+  // Cache-guard: arrAnnualizedAt läser custRevCache (fylls async). Säkerställ fylld
+  // innan vi räknar ARR, annars blir Total ARR/ACV 0 vid tidig render.
+  if(!Object.keys(custRevCache||{}).length){try{await prefetchAllCustomerRevenues();}catch(e){}}
   // Visa primärbudgeten som matchar valt läge (Likviditet/Resultat).
   await loadPrimaryBudget(currentFaMode);
   const fromIn=document.getElementById('fin-from'),toIn=document.getElementById('fin-to');
@@ -3594,11 +3600,9 @@ async function renderFinDashboard(){
   const total=actualByMonth.reduce((a,b)=>a+b,0);
   let cmpTotal=0;
   if(compare==='prev'){const cmpFrom=new Date(from.getFullYear()-1,from.getMonth(),1);const cmpTo=new Date(to.getFullYear()-1,to.getMonth(),28);const cm=[];let c2=new Date(cmpFrom);while(c2<=cmpTo){cm.push(new Date(c2));c2=new Date(c2.getFullYear(),c2.getMonth()+1,1);}cm.forEach(m=>{allCustomers.forEach(c=>{const mv=monthlyValue(c,m);cmpTotal+=filterMV(mv);});});cmpTotal=Math.round(cmpTotal);}
-  const totArr=allCustomers.reduce((s,c)=>s+(c.ARR||0),0);
-  const totFast=allCustomers.reduce((s,c)=>s+(c.ARR_Fixed||0),0);
   const totUtb=allCustomers.reduce((s,c)=>s+(c.Revenue_Training||0),0);
   const totCons=allCustomers.reduce((s,c)=>s+(c.Revenue_Consulting||0),0);
-  const totalARR=totArr+totFast;
+  const totalARR=arrAnnualizedAt(new Date(),false);   // äkta ARR (annualiserad run-rate), delad med stats-bar/churn-vyn
   const active=allCustomers.filter(c=>c._days===null||c._days>=0);
   const churn=allCustomers.filter(c=>c._days!==null&&c._days<0).length;
   const churnPct=allCustomers.length?Math.round(churn/allCustomers.length*1000)/10:0;
@@ -3754,6 +3758,22 @@ function annualAmount(it){
   let m=(end.getFullYear()-df.getFullYear())*12+(end.getMonth()-df.getMonth());
   if(end.getDate()<df.getDate())m-=1;
   return a/Math.max(1,m)*12;
+}
+// Äkta ARR (annualiserad run-rate) vid tidpunkt T: Σ annualAmount över aktiva
+// licensposter (DateFrom<=T<=DateTo) i custRevCache. Samma metod som churn-vyns
+// totalARRat — delad så dashboard/stats-bar inte glider isär. Default ARR-only.
+function arrAnnualizedAt(T,inclFastpris){
+  const types=inclFastpris?{ARR:1,Fastpris:1}:{ARR:1};
+  let total=0;
+  Object.values(custRevCache||{}).forEach(items=>{
+    if(!Array.isArray(items))return;
+    items.forEach(it=>{
+      if(!types[it.Type]||!it.DateFrom||!it.DateTo)return;
+      const df=new Date(it.DateFrom),dt=new Date(it.DateTo);
+      if(df<=T&&dt>=T)total+=annualAmount(it);
+    });
+  });
+  return Math.round(total);
 }
 function computeRenewalChurnLinks({from,to,includeFastpris=false,now,customers=[],revenuesByCust={},links=[]}={}){
   const today=now?new Date(now):new Date();today.setHours(0,0,0,0);
