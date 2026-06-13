@@ -745,8 +745,8 @@
       <div class="rev-dropdown">
         <button class="rev-dd-btn" onclick="toggleRevDD(event)">Intäktskällor <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="rev-dd-panel" id="rev-dd-panel" style="display:none;">
-          <div class="rev-dd-item" onclick="toggleRevSource('arr')"><div class="rev-cb on" id="rcb-arr"></div><span class="rev-dot" style="background:#1a7a50;"></span>Licens (prenumeration)</div>
-          <div class="rev-dd-item" onclick="toggleRevSource('fast')"><div class="rev-cb on" id="rcb-fast"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Licens (fast pris)</div>
+          <div class="rev-dd-item" onclick="toggleRevSource('arr')"><div class="rev-cb on" id="rcb-arr"></div><span class="rev-dot" style="background:#1a7a50;"></span>Prenumeration</div>
+          <div class="rev-dd-item" onclick="toggleRevSource('fast')"><div class="rev-cb on" id="rcb-fast"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Fast pris</div>
           <div class="rev-dd-item" onclick="toggleRevSource('utb')"><div class="rev-cb on" id="rcb-utb"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
           <div class="rev-dd-item" onclick="toggleRevSource('cons')"><div class="rev-cb on" id="rcb-cons"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
         </div>
@@ -788,8 +788,8 @@
       <div class="rev-dropdown">
         <button class="rev-dd-btn" onclick="kaToggleDD('ka-types-panel',event)">Intäktstyper <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="rev-dd-panel" id="ka-types-panel" style="display:none;">
-          <div class="rev-dd-item" onclick="kaToggleType('ARR')"><div class="rev-cb on" id="ka-cb-ARR"></div><span class="rev-dot" style="background:#1a7a50;"></span>Licens (prenumeration)</div>
-          <div class="rev-dd-item" onclick="kaToggleType('Fastpris')"><div class="rev-cb on" id="ka-cb-Fastpris"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Licens (fast pris)</div>
+          <div class="rev-dd-item" onclick="kaToggleType('ARR')"><div class="rev-cb on" id="ka-cb-ARR"></div><span class="rev-dot" style="background:#1a7a50;"></span>Prenumeration</div>
+          <div class="rev-dd-item" onclick="kaToggleType('Fastpris')"><div class="rev-cb on" id="ka-cb-Fastpris"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Fast pris</div>
           <div class="rev-dd-item" onclick="kaToggleType('Consulting')"><div class="rev-cb on" id="ka-cb-Consulting"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
           <div class="rev-dd-item" onclick="kaToggleType('Utbildning')"><div class="rev-cb on" id="ka-cb-Utbildning"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
         </div>
@@ -857,8 +857,8 @@
       </select>
       <select id="fa-sources" class="date-input" onchange="renderFinDashboard()" style="font-size:12px;">
         <option value="all">Alla intäktskällor</option>
-        <option value="ARR">Licens (prenumeration)</option>
-        <option value="Fastpris">Licens (fast pris)</option>
+        <option value="ARR">Prenumeration</option>
+        <option value="Fastpris">Fast pris</option>
         <option value="Consulting">Consulting</option>
         <option value="Utbildning">Utbildning</option>
       </select>
@@ -921,8 +921,8 @@
         <div class="rev-dropdown">
           <button class="rev-dd-btn" onclick="fcToggleDD(event)">Intäktskällor <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
           <div class="rev-dd-panel" id="fc-source-panel" style="display:none;">
-            <div class="rev-dd-item" onclick="fcToggleSource('ARR')"><div class="rev-cb on" id="fc-cb-ARR"></div><span class="rev-dot" style="background:#1a7a50;"></span>Licens (prenumeration)</div>
-            <div class="rev-dd-item" onclick="fcToggleSource('Fastpris')"><div class="rev-cb on" id="fc-cb-Fastpris"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Licens (fast pris)</div>
+            <div class="rev-dd-item" onclick="fcToggleSource('ARR')"><div class="rev-cb on" id="fc-cb-ARR"></div><span class="rev-dot" style="background:#1a7a50;"></span>Prenumeration</div>
+            <div class="rev-dd-item" onclick="fcToggleSource('Fastpris')"><div class="rev-cb on" id="fc-cb-Fastpris"></div><span class="rev-dot" style="background:#1a4f7a;"></span>Fast pris</div>
             <div class="rev-dd-item" onclick="fcToggleSource('Consulting')"><div class="rev-cb on" id="fc-cb-Consulting"></div><span class="rev-dot" style="background:#5a1a7a;"></span>Consulting</div>
             <div class="rev-dd-item" onclick="fcToggleSource('Utbildning')"><div class="rev-cb on" id="fc-cb-Utbildning"></div><span class="rev-dot" style="background:#b85a00;"></span>Utbildning</div>
           </div>
@@ -1395,7 +1395,7 @@ const KPI_INFO={
   'EBITDA (TB2)':'Rörelseresultat före räntor, skatt och avskrivningar (TB1 minus OPEX).',
   'Net (TB3)':'Nettoresultat efter S&M-avgift (TB2 minus Service & Management fee).',
   'Total ARR':'Summan av återkommande licensintäkter (prenumeration + fast pris) per år.',
-  'Budgeterad försäljning (total)':'Summan av all budgeterad försäljning för helåret. Subraden visar varav Licens (prenumeration).',
+  'Budgeterad försäljning (total)':'Summan av all budgeterad försäljning för helåret. Subraden visar varav Prenumeration.',
   'Budgeterade utgifter (totalt)':'Summa budgeterade kostnader för helåret (COGS + OPEX + S&M).',
   'Total försäljning':'Summa periodiserad försäljning under vald period.',
   'Snitt/månad':'Genomsnittlig intäkt per månad i vald period.',
@@ -1764,7 +1764,7 @@ function renderKanban(){
       const _rrow=(c,lbl,right)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);margin-bottom:2px;"><span style="width:7px;height:7px;border-radius:2px;background:${c};flex:0 0 auto;"></span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lbl}</span><span style="flex:0 0 auto;color:var(--text3);">${right}</span></div>`;
       let _total,_viktat,_detailRows;
       if(_ritems.length){
-        _detailRows=_ritems.map(it=>{const amt=it.Amount||0,prob=it.Probability||0;return _rrow(_revC[it.Type]||'#8b90b0',`${it.Type}${it.Description?' · '+it.Description:''}`,`${Math.round(amt).toLocaleString('sv-SE')} × ${Math.round(prob)}%`);}).join('');
+        _detailRows=_ritems.map(it=>{const amt=it.Amount||0,prob=it.Probability||0;return _rrow(_revC[it.Type]||'#8b90b0',`${typeLabel(it.Type)}${it.Description?' · '+it.Description:''}`,`${Math.round(amt).toLocaleString('sv-SE')} × ${Math.round(prob)}%`);}).join('');
         _total=_ritems.reduce((s,it)=>s+(it.Amount||0),0);
         _viktat=_ritems.reduce((s,it)=>s+Math.round((it.Amount||0)*(it.Probability||0)/100),0);
       } else {
@@ -1974,7 +1974,7 @@ async function loadProspectRevenuesUI(id){
 }
 function openAddProspectRevenue(id){
   showDialog('Lägg till intäktspost',
-    `<div class="modal-field"><label>Typ</label><select id="pr-type" class="edit-input" onchange="updateRevDialogHeaders('pr')"><option value="ARR">Licens (prenumeration)</option><option value="Fastpris">Licens (fast pris)</option><option value="Utbildning">Utbildning</option><option value="Consulting">Consulting</option></select></div>
+    `<div class="modal-field"><label>Typ</label><select id="pr-type" class="edit-input" onchange="updateRevDialogHeaders('pr')"><option value="ARR">Prenumeration</option><option value="Fastpris">Fast pris</option><option value="Utbildning">Utbildning</option><option value="Consulting">Consulting</option></select></div>
     <div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="pr-amount" type="number" class="edit-input" placeholder="0"></div>
     <div class="modal-field" style="margin-top:10px;"><label>Sannolikhet (viktning)</label><select id="pr-prob-weight" class="edit-input">${[...Array(21)].map((_,k)=>k*5).map(v=>`<option value="${v}">${v}%</option>`).join('')}</select></div>
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">Fakturering · Estimerad</div>
@@ -2008,7 +2008,7 @@ async function editProspectRevItem(id,itemId){
   const it=items.find(x=>x.Id===itemId);if(!it)return;
   const invExp=it.InvoiceDate?(()=>{const d=new Date(it.InvoiceDate);d.setDate(d.getDate()+30);return d.toLocaleDateString('sv-SE')+' (+30 dagar)';})():'–';
   showDialog('Redigera intäktspost',
-    `<div class="modal-field"><label>Typ</label><select id="pr-type" class="edit-input" onchange="updateRevDialogHeaders('pr')"><option value="ARR" ${it.Type==='ARR'?'selected':''}>Licens (prenumeration)</option><option value="Fastpris" ${it.Type==='Fastpris'?'selected':''}>Licens (fast pris)</option><option value="Utbildning" ${it.Type==='Utbildning'?'selected':''}>Utbildning</option><option value="Consulting" ${it.Type==='Consulting'?'selected':''}>Consulting</option></select></div>
+    `<div class="modal-field"><label>Typ</label><select id="pr-type" class="edit-input" onchange="updateRevDialogHeaders('pr')"><option value="ARR" ${it.Type==='ARR'?'selected':''}>Prenumeration</option><option value="Fastpris" ${it.Type==='Fastpris'?'selected':''}>Fast pris</option><option value="Utbildning" ${it.Type==='Utbildning'?'selected':''}>Utbildning</option><option value="Consulting" ${it.Type==='Consulting'?'selected':''}>Consulting</option></select></div>
     <div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="pr-amount" type="number" class="edit-input" value="${it.Amount||0}"></div>
     <div class="modal-field" style="margin-top:10px;"><label>Sannolikhet (viktning)</label><select id="pr-prob-weight" class="edit-input">${[...Array(21)].map((_,k)=>k*5).map(v=>`<option value="${v}" ${(it.Probability||0)===v?'selected':''}>${v}%</option>`).join('')}</select></div>
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">Fakturering · Estimerad</div>
@@ -2376,7 +2376,7 @@ function openRenewRevenue(customerId,itemId){
       <div style="background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:12px;color:var(--text2);">Länkas till: <strong>${origLabel}</strong> (${Math.round(orig.Amount||0).toLocaleString('sv-SE')} kr)</div>
       <div class="modal-field"><label>Typ av förändring</label><select id="rn-relation" class="edit-input" onchange="document.getElementById('rn-relation-note').textContent=this.value==='upgrade'?'Uppgradering räknas inte som churn.':this.value==='downgrade'?'Endast mellanskillnaden i värde räknas som churn.':'Förnyelse på samma nivå.';"><option value="renewal" ${relPrev==='renewal'?'selected':''}>Förnyelse (samma nivå)</option><option value="upgrade" ${relPrev==='upgrade'?'selected':''}>Uppgraderad till (ingen churn)</option><option value="downgrade" ${relPrev==='downgrade'?'selected':''}>Nedgraderad till (churn = mellanskillnad)</option></select></div>
       <div id="rn-relation-note" style="font-size:11px;color:var(--text3);margin-top:4px;">${relPrev==='upgrade'?'Uppgradering räknas inte som churn.':relPrev==='downgrade'?'Endast mellanskillnaden i värde räknas som churn.':'Förnyelse på samma nivå.'}</div>
-      <div class="modal-field" style="margin-top:10px;"><label>Typ</label><select id="rn-type" class="edit-input"><option value="ARR" ${orig.Type==='ARR'?'selected':''}>Licens (prenumeration)</option><option value="Fastpris" ${orig.Type==='Fastpris'?'selected':''}>Licens (fast pris)</option><option value="Utbildning" ${orig.Type==='Utbildning'?'selected':''}>Utbildning</option><option value="Consulting" ${orig.Type==='Consulting'?'selected':''}>Consulting</option></select></div>
+      <div class="modal-field" style="margin-top:10px;"><label>Typ</label><select id="rn-type" class="edit-input"><option value="ARR" ${orig.Type==='ARR'?'selected':''}>Prenumeration</option><option value="Fastpris" ${orig.Type==='Fastpris'?'selected':''}>Fast pris</option><option value="Utbildning" ${orig.Type==='Utbildning'?'selected':''}>Utbildning</option><option value="Consulting" ${orig.Type==='Consulting'?'selected':''}>Consulting</option></select></div>
       <div class="modal-field" style="margin-top:10px;"><label>Nytt belopp (kr)</label><input id="rn-amount" type="number" class="edit-input" value="${orig.Amount||0}"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
         <div class="modal-field"><label>Från datum</label><input id="rn-from" type="date" class="edit-input" value="${newStart}"></div>
@@ -2456,7 +2456,7 @@ async function loadRenewalItems(id){
     const amount=Math.round(it.Amount||0);
     return `<div class="modal-card" style="margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
-        <div><div style="font-weight:600;font-size:14px;">${amount.toLocaleString('sv-SE')} kr</div><div style="font-size:11px;color:var(--text3);">Licens (prenumeration) · ${fmtP(it.DateFrom,it.DateTo)}</div></div>
+        <div><div style="font-weight:600;font-size:14px;">${amount.toLocaleString('sv-SE')} kr</div><div style="font-size:11px;color:var(--text3);">Prenumeration · ${fmtP(it.DateFrom,it.DateTo)}</div></div>
         ${status}
       </div>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
@@ -3115,7 +3115,7 @@ function kaMixDonut(items,year,TC,types){
   types.forEach(t=>{const v=sums[t];if(!v)return;const frac=v/totMix;if(frac>=0.9999){donut+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${TC[t]}"/>`;acc+=frac;return;}const a1=acc*2*Math.PI-Math.PI/2;const a2=(acc+frac)*2*Math.PI-Math.PI/2;const x1=cx+Math.cos(a1)*r,y1=cy+Math.sin(a1)*r,x2=cx+Math.cos(a2)*r,y2=cy+Math.sin(a2)*r;const large=frac>0.5?1:0;donut+=`<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z" fill="${TC[t]}"/>`;acc+=frac;});
   const totVal=Object.values(sums).reduce((a,b)=>a+b,0);
   donut+=`<circle cx="${cx}" cy="${cy}" r="26" fill="var(--surface)"/><text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="9" fill="var(--text3)">${year===0?'Totalt':year}</text><text x="${cx}" y="${cy+11}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--text)">${totVal>0?Math.round(totVal/1000)+'k':'–'}</text></svg>`;
-  const legend=types.map(t=>`<div class="ka-mix-row"><span class="dot" style="background:${TC[t]};"></span><span class="lbl">${t}</span><span class="val">${totMix>0?Math.round((sums[t]/totMix)*100):0}%</span></div>`).join('');
+  const legend=types.map(t=>`<div class="ka-mix-row"><span class="dot" style="background:${TC[t]};"></span><span class="lbl">${typeLabel(t)}</span><span class="val">${totMix>0?Math.round((sums[t]/totMix)*100):0}%</span></div>`).join('');
   return `<div style="display:flex;gap:14px;align-items:center;">${donut}<div style="flex:1;display:flex;flex-direction:column;gap:5px;">${legend}</div></div>`;
 }
 function kaSelectedYears(){return kaYearSet.has(0)?[2023,2024,2025,2026]:[...kaYearSet].sort();}
@@ -3312,7 +3312,7 @@ function kaRenderChart(items,years,types,TC,extraHtml){
     const vLbl=tot>0?`<text x="${cx}" y="${stackY-5}" text-anchor="middle" font-size="10" fill="var(--text2)" font-weight="500">${Math.round(tot/1000)}k</text>`:'';
     return rects+yLbl+vLbl;
   }).join('');
-  const legendHtml=extraHtml?'':`<div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;">${types.map(t=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:${TC[t]};"></div>${t}</div>`).join('')}</div>`;
+  const legendHtml=extraHtml?'':`<div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;">${types.map(t=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><div style="width:10px;height:10px;border-radius:2px;background:${TC[t]};"></div>${typeLabel(t)}</div>`).join('')}</div>`;
   document.getElementById('ka-chart-wrap').innerHTML=`<div style="max-width:${CW}px;margin:0 auto;"><svg viewBox="0 0 ${CW} ${CH}" width="100%" style="display:block;overflow:visible;">${bars}</svg></div>${legendHtml}${extraHtml||''}`;
 }
 // ─── KUNDER ──────────────────────────────────────────────
@@ -3690,7 +3690,7 @@ async function renderFinDashboard(){
       <div><span style="color:var(--text3);">Prognos helår:</span> <strong>${fmtSv(forecastTotal)}</strong></div>
     </div></div>`;
   const catColors={ARR:'#1a7a50',Fastpris:'#1a4f7a',Utbildning:'#b85a00',Consulting:'#5a1a7a'};
-  const catLabels={ARR:'Licens (pren.)',Fastpris:'Licens (fast)',Utbildning:'Utbildning',Consulting:'Consulting'};
+  const catLabels={ARR:'Prenumeration',Fastpris:'Fast pris',Utbildning:'Utbildning',Consulting:'Consulting'};
   const monthlyCat=months.map(m=>{let a=0,f=0,u=0,co=0;allCustomers.forEach(c=>{const mv=monthlyValue(c,m);a+=mv.arr;f+=mv.fast;u+=mv.utb;co+=mv.cons;});return{ARR:Math.round(a),Fastpris:Math.round(f),Utbildning:Math.round(u),Consulting:Math.round(co)};});
   const catGroups=groupByYear?(()=>{const ym={},order=[];months.forEach((m,i)=>{const y=m.getFullYear();if(!(y in ym)){ym[y]={ARR:0,Fastpris:0,Utbildning:0,Consulting:0};order.push(y);}['ARR','Fastpris','Utbildning','Consulting'].forEach(k=>ym[y][k]+=monthlyCat[i][k]);});return order.map(y=>ym[y]);})():monthlyCat;
   const monthMax=Math.max(...catGroups.map(mc=>mc.ARR+mc.Fastpris+mc.Utbildning+mc.Consulting),1);
@@ -4177,8 +4177,8 @@ function renderPeriodisering(){
   // prognosperioden, viktat med kundens förnyelsesannolikhet (renewalProb). Rader
   // följer intäktskällefiltret. Likviditet skjuter kassan +30 dagar (NET30).
   const renewTypes=[
-    {label:'Licens (prenumeration)',type:'ARR',on:useArr},
-    {label:'Licens (fast pris)',type:'Fastpris',on:useFast},
+    {label:'Prenumeration',type:'ARR',on:useArr},
+    {label:'Fast pris',type:'Fastpris',on:useFast},
     {label:'Consulting',type:'Consulting',on:useCons},
     {label:'Utbildning',type:'Utbildning',on:useUtb},
   ];
@@ -4708,7 +4708,7 @@ async function openImportActualsModal(versionId,preMonth){
     Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!byType[it.Type])return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==year||d.getMonth()!==mi)return;const c=custById[Number(cid)];byType[it.Type].push({id:it.Id,cust:c?(c.Company||('Kund '+cid)):('Kund '+cid),amount:it.Amount||0,desc:it.Description||'',net30:d.toISOString().substring(0,10),paid:!!it.Paid});});});
     const fk=v=>Math.round(v).toLocaleString('sv-SE');let html='';
     ['ARR','Fastpris','Utbildning','Consulting'].forEach(t=>{const arr=byType[t];if(!arr.length)return;const tc=_tc[t];
-      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[t]}</div>`;
+      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${subLabel(_tl[t])}</div>`;
       arr.forEach(a=>{const checked=hasImp?impSet.has(String(a.id)):true;const isNew=hasImp&&!impSet.has(String(a.id));
         html+=`<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid ${isNew?'#d99':'var(--border)'};border-left:3px solid ${impSet.has(String(a.id))?'#1D9E75':(isNew?'#d99':'var(--border)')};border-radius:8px;margin-bottom:6px;cursor:pointer;background:${isNew?'#fdf3f3':'var(--surface)'};"><input type="checkbox" class="ia-cb" data-id="${a.id}" data-amount="${a.amount}" ${checked?'checked':''} onchange="window._iaSummary()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.cust}${isNew?' <span style="color:#a32d2d;font-size:10px;font-weight:600;">● Ny</span>':''}</div><div style="font-size:11px;color:var(--text3);">${a.desc?a.desc+' · ':''}NET30 ${a.net30}</div></div><div style="text-align:right;flex:0 0 auto;"><div style="font-size:13px;font-weight:600;">${fk(a.amount)} kr</div><div style="font-size:10px;color:${a.paid?'#1a7a50':'var(--text3)'};">${a.paid?'Betald':'Avtalat'}</div></div></label>`;});
       html+=`</div>`;});
@@ -4803,7 +4803,7 @@ async function openImportFornyelseModal(versionId,preMonth){
         const d=new Date(effDate);return !isNaN(d)&&d.getFullYear()===year&&d.getMonth()===mi;
       });
       if(!posts.length)return;
-      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[type]}</div>`;
+      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${subLabel(_tl[type])}</div>`;
       posts.forEach(({c,post})=>{const e=window._frEdits[c.Id+'_'+type]||{};
         const sv=_frSaved[c.Id+'_'+type];
         const dateV=e.date!=null?e.date:(sv?sv.date:post.DateTo.substring(0,10));
@@ -4983,7 +4983,7 @@ async function openImportPipelineModal(versionId,preMonth){
     let html='';
     ['ARR','Fastpris','Utbildning','Consulting'].forEach(type=>{
       const posts=byType[type];if(!posts.length)return;const tc=_tc[type];
-      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[type]}</div>`;
+      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${subLabel(_tl[type])}</div>`;
       posts.forEach(({p,it})=>{const e=window._ppEdits[p.Id+'_'+it.Id]||{};
         const sv=_ppSaved[p.Id+'_'+it.Id];
         const dateV=e.date!=null?e.date:(sv?sv.date:(it.InvoiceDate?String(it.InvoiceDate).substring(0,10):''));
@@ -5127,7 +5127,7 @@ async function renderStyrelse(){
   const segB=types.map(([t])=>sumType(primRows,t)),segU=types.map(([t])=>sumType(rollRows,t));
   const totB=segB.reduce((a,b)=>a+b,0),totU=segU.reduce((a,b)=>a+b,0),maxT=Math.max(totB,totU,1),fH=170;
   const stack=(segs,x,label,tot)=>{let acc=0,s='';segs.forEach((v,i)=>{const h=Math.round(v/maxT*(fH-26));if(h<=0)return;s+=`<rect x="${x}" y="${fH-22-acc-h}" width="58" height="${h}" fill="${types[i][1]}"><title>${types[i][0]}: ${fmtSv(v)}</title></rect>`;acc+=h;});s+=`<text x="${x+29}" y="${fH-22-acc-4}" font-size="8" fill="var(--text3)" text-anchor="middle">${Math.round(tot/1000)}k</text><text x="${x+29}" y="${fH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">${label}</text>`;return s;};
-  const fordSvg=`<svg viewBox="0 0 220 ${fH}" width="100%" style="overflow:visible;max-width:260px;">${stack(segB,40,'Budget',totB)}${stack(segU,122,'Utfall',totU)}</svg><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${types.map(([t,c])=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);"><span style="width:9px;height:9px;background:${c};border-radius:2px;"></span>${t}</span>`).join('')}</div>`;
+  const fordSvg=`<svg viewBox="0 0 220 ${fH}" width="100%" style="overflow:visible;max-width:260px;">${stack(segB,40,'Budget',totB)}${stack(segU,122,'Utfall',totU)}</svg><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${types.map(([t,c])=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);"><span style="width:9px;height:9px;background:${c};border-radius:2px;"></span>${subLabel(t)}</span>`).join('')}</div>`;
   // BILD 3 — Likviditetsprognos (Primär, plan, helår): computeCashflow inkl. finansiering → delad likviditetsgraf (cashflowChartSvg).
   const primVer=budgetVersions.find(v=>String(v.Id)===String(primId)),year=Number(primVer&&primVer.Year)||new Date().getFullYear();
   // Bild 3 egen versionsväljare (oberoende av kassaflöde-fliken). Default = Primär. Påverkar ENDAST bild 3 (ej bild 2/fördelning).
@@ -5140,7 +5140,7 @@ async function renderStyrelse(){
   const bild3svg=cashflowChartSvg(cf);
   const revFull=cf.cashIn.reduce((a,b)=>a+b,0),costFull=cf.cashOut.reduce((a,b)=>a+b,0),proj=getProjectedLicens(year);
   const kpiR=(label,val)=>`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid rgba(122,90,42,0.12);"><span style="font-size:11px;color:var(--text2);">${label}</span><span style="font-size:13px;font-weight:600;text-align:right;">${val}</span></div>`;
-  const nyckelBox=`<div style="background:#FBEEDF;border-radius:10px;padding:14px 16px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#7a5a2a;margin-bottom:8px;">Nyckeltal (helår)</div>${kpiR('Försäljning (total)',fmtSv(revFull))}${kpiR('Kostnad (innan avskrivning)',fmtSv(costFull))}${kpiR('Gross burn rate / mån',fmtSv(costFull/12))}<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0 2px;"><span style="font-size:11px;color:var(--text2);">Licens (prenumeration) slutet av året</span><input type="text" value="${proj?proj.toLocaleString('sv-SE'):''}" placeholder="0" onchange="setProjectedLicens(${year},this.value)" style="width:120px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"></div></div>`;
+  const nyckelBox=`<div style="background:#FBEEDF;border-radius:10px;padding:14px 16px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#7a5a2a;margin-bottom:8px;">Nyckeltal (helår)</div>${kpiR('Försäljning (total)',fmtSv(revFull))}${kpiR('Kostnad (innan avskrivning)',fmtSv(costFull))}${kpiR('Gross burn rate / mån',fmtSv(costFull/12))}<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0 2px;"><span style="font-size:11px;color:var(--text2);">Prenumeration slutet av året</span><input type="text" value="${proj?proj.toLocaleString('sv-SE'):''}" placeholder="0" onchange="setProjectedLicens(${year},this.value)" style="width:120px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"></div></div>`;
   const negIdx=cf.closing.findIndex(v=>v<0),minVal=Math.min(...cf.closing),minMon=cf.months[cf.closing.indexOf(minVal)];
   const kassaText=negIdx>=0?`<div style="background:#fbeaea;border:1px solid #e3b3b3;border-radius:8px;padding:10px 14px;font-size:12px;color:#a32d2d;margin-top:12px;">⚠️ Likviditeten går negativ i <strong>${cf.months[negIdx]}</strong> (${fmtSv(cf.closing[negIdx])}). Lägst ${fmtSv(minVal)} i ${minMon}.</div>`:`<div style="background:#e8f5ee;border:1px solid #bcdcc9;border-radius:8px;padding:10px 14px;font-size:12px;color:#1a7a50;margin-top:12px;">Likviditeten håller sig positiv hela året (lägst ${fmtSv(minVal)} i ${minMon}).</div>`;
   const openInput=`<label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Ingående kassa:<input type="text" value="${getOpeningCash(year).toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>`;
@@ -5684,7 +5684,7 @@ function renderBudgetTable(){
   const utgifterTotal=cogsTotal+opexTotal+smTotal;
   document.getElementById('budget-kpi').style.gridTemplateColumns='repeat(5,minmax(0,1fr))';
   document.getElementById('budget-kpi').innerHTML=`
-    <div class="kpi-card" id="kpi-rev-total" onclick="window.toggleRevUnderlag()" style="cursor:pointer;"><div class="kpi-label">Budgeterad försäljning (total) <span id="kpi-rev-ind" style="color:var(--accent);font-style:normal;">▾</span></div><div class="kpi-value" style="color:var(--accent)">${fmtKr(revTotal)}</div><div class="kpi-delta neu">Varav Licens (prenumeration) ${fmtKr(licPrenSum)} · klicka för underlag</div></div>
+    <div class="kpi-card" id="kpi-rev-total" onclick="window.toggleRevUnderlag()" style="cursor:pointer;"><div class="kpi-label">Budgeterad försäljning (total) <span id="kpi-rev-ind" style="color:var(--accent);font-style:normal;">▾</span></div><div class="kpi-value" style="color:var(--accent)">${fmtKr(revTotal)}</div><div class="kpi-delta neu">Varav Prenumeration ${fmtKr(licPrenSum)} · klicka för underlag</div></div>
     <div class="kpi-card"><div class="kpi-label">Budgeterade utgifter (totalt)</div><div class="kpi-value" style="color:var(--red)">${fmtKr(utgifterTotal)}</div><div class="kpi-delta neu">COGS + OPEX + S&M · helår ${year}</div></div>
     <div class="kpi-card"><div class="kpi-label">Gross Profit (TB1)</div><div class="kpi-value" style="color:${tb1Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb1Total)}</div><div class="kpi-delta neu">${fmtPct(tb1Total,revTotal)} gross margin</div></div>
     <div class="kpi-card"><div class="kpi-label">EBITDA (TB2)</div><div class="kpi-value" style="color:${tb2Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb2Total)}</div><div class="kpi-delta neu">${fmtPct(tb2Total,revTotal)} av intäkter</div></div>
@@ -5788,6 +5788,11 @@ async function copyBudgetVersion(){
 // Mapping from CustomerRevenues.Type / RevenueCategory → BudgetRows.SubCategory
 const REV_CAT_TO_SUB={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Utbildning:'Utbildning',Consulting:'Consulting'};
 const REV_CATEGORY='Revenue';
+// Display-helpers (#3): översätter DATAVÄRDEN (SubCategory / Type) → UI-etikett.
+// Rör ALDRIG datavärdena själva (de lagras i DB BudgetRows.SubCategory / CustomerRevenues.Type
+// och används som nycklar/filter). Endast för rendering. Utbildning/Consulting faller genom.
+function subLabel(sub){return ({'Licens (prenumeration)':'Prenumeration','Licens (fast pris)':'Fast pris'})[sub]||sub;}
+function typeLabel(type){return ({ARR:'Prenumeration',Fastpris:'Fast pris'})[type]||type;}
 
 // Spread an amount across months of a given year, weighted by the day-overlap
 // between [from,to] and each month — same logic as loadRevenueItems' calcYearTotal.
@@ -6315,7 +6320,7 @@ function revFieldsHtml(prefix,v,licStart,licEnd){
   const to=v.to!=null?v.to:licEnd;
   const paid=!!v.paid;
   const isLicType=(v.type==='Consulting'||v.type==='Utbildning');
-  return `<div class="modal-field"><label>Typ</label><select id="${prefix}-type" class="edit-input" onchange="updateRevDialogDates('${licStart}','${licEnd}','${prefix}');updateRevDialogHeaders('${prefix}')"><option value="ARR" ${sel('ARR')}>Licens (prenumeration)</option><option value="Fastpris" ${sel('Fastpris')}>Licens (fast pris)</option><option value="Utbildning" ${sel('Utbildning')}>Utbildning</option><option value="Consulting" ${sel('Consulting')}>Consulting</option></select></div>
+  return `<div class="modal-field"><label>Typ</label><select id="${prefix}-type" class="edit-input" onchange="updateRevDialogDates('${licStart}','${licEnd}','${prefix}');updateRevDialogHeaders('${prefix}')"><option value="ARR" ${sel('ARR')}>Prenumeration</option><option value="Fastpris" ${sel('Fastpris')}>Fast pris</option><option value="Utbildning" ${sel('Utbildning')}>Utbildning</option><option value="Consulting" ${sel('Consulting')}>Consulting</option></select></div>
     <div class="modal-field" style="margin-top:10px;"><label>Belopp (kr)</label><input id="${prefix}-amount" class="edit-input" type="number" placeholder="0" value="${v.amount!=null?v.amount:''}"></div>
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">Fakturering</div>
     <div class="modal-field"><label>Faktureringsdatum</label><input id="${prefix}-invoice-date" type="date" class="edit-input" value="${v.invoiceDate||''}" oninput="updateRiPaymentExpected('${prefix}')"></div>
