@@ -4745,7 +4745,8 @@ async function openImportFornyelseModal(versionId,preMonth){
     if(!Array.isArray(rows))rows=[];
     // Idempotens: nollställ alla befintliga Förnyelse-raders månadsceller innan ackumulering (avkryssade/borttagna försvinner).
     rows.forEach(r=>{if(r.Category===REV_CATEGORY&&(r.Source||'')===SRC)MONTHS.forEach(m=>r[m]=0);});
-    const saved={};let imported=0;
+    const importedBy=(await getUserInfo()).name||'';   // Easy Auth-identitet, en gång
+    const saved={};const assumptions=[];let imported=0;
     picks.forEach(p=>{
       const sub=REV_CAT_TO_SUB[p.type];const cust=(allCustomers||[]).find(c=>String(c.Id)===String(p.custId));const post=cust?_frLatestOfType(cust,p.type):null;
       const d=new Date(p.date);const weighted=Math.round((p.amount||0)*(p.prob||0)/100);
@@ -4755,11 +4756,15 @@ async function openImportFornyelseModal(versionId,preMonth){
         if(!row){row={Category:REV_CATEGORY,SubCategory:sub,Source:SRC,ImportedAt:today};MONTHS.forEach(m=>row[m]=0);rows.push(row);}
         row[liq]=(row[liq]||0)+weighted;row.ImportedAt=today;imported++;
       }
-      saved[p.custId+'_'+p.type]={amount:p.amount,prob:p.prob,date:p.date,licenseDateTo:post&&post.DateTo?String(post.DateTo).substring(0,10):null,importedAt:today};
+      const _refDate=post&&post.DateTo?String(post.DateTo).substring(0,10):null;
+      saved[p.custId+'_'+p.type]={amount:p.amount,prob:p.prob,date:p.date,licenseDateTo:_refDate,importedAt:today};
+      assumptions.push({itemKey:p.custId+'_'+p.type,amount:p.amount,prob:p.prob,assumeDate:p.date,refDate:_refDate,type:p.type,importedBy});
     });
     const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
     try{await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}catch(e){alert('Kunde inte spara importen.');return;}
     localStorage.setItem('fornyelseImport_'+versionId,JSON.stringify(saved));
+    // DB3: spara antagandena även i DB (delat mellan användare). Behåll localStorage tills DB5. Fel bryter ej importen.
+    try{ await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:SRC,assumptions})}); }catch(e){ console.warn('Kunde ej spara antaganden till DB (localStorage finns kvar):',e); }
     if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
     document.getElementById('import-fornyelse-overlay')?.remove();
@@ -4858,7 +4863,8 @@ async function openImportPipelineModal(versionId,preMonth){
     if(!Array.isArray(rows))rows=[];
     // Idempotens: nollställ alla befintliga Pipeline (viktat)-raders månadsceller innan ackumulering.
     rows.forEach(r=>{if(r.Category===REV_CATEGORY&&(r.Source||'')===SRC)MONTHS.forEach(m=>r[m]=0);});
-    const saved={};let imported=0;
+    const importedBy=(await getUserInfo()).name||'';   // Easy Auth-identitet, en gång
+    const saved={};const assumptions=[];let imported=0;
     picks.forEach(p=>{
       const items=prospectRevCache[p.prospectId]||[];const it=items.find(x=>String(x.Id)===String(p.itemId));
       const sub=it&&it.Type?REV_CAT_TO_SUB[it.Type]:null;
@@ -4869,11 +4875,15 @@ async function openImportPipelineModal(versionId,preMonth){
         if(!row){row={Category:REV_CATEGORY,SubCategory:sub,Source:SRC,ImportedAt:today};MONTHS.forEach(m=>row[m]=0);rows.push(row);}
         row[liq]=(row[liq]||0)+weighted;row.ImportedAt=today;imported++;
       }
-      saved[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,invoiceDate:it&&it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null,type:it?it.Type:null,importedAt:today};
+      const _refDate=it&&it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null;
+      saved[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,invoiceDate:_refDate,type:it?it.Type:null,importedAt:today};
+      assumptions.push({itemKey:p.prospectId+'_'+p.itemId,amount:p.amount,prob:p.prob,assumeDate:p.date,refDate:_refDate,type:it?it.Type:null,importedBy});
     });
     const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
     try{await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}catch(e){alert('Kunde inte spara importen.');return;}
     localStorage.setItem('pipelineImport_'+versionId,JSON.stringify(saved));
+    // DB3: spara antagandena även i DB (delat mellan användare). Behåll localStorage tills DB5. Fel bryter ej importen.
+    try{ await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:SRC,assumptions})}); }catch(e){ console.warn('Kunde ej spara antaganden till DB (localStorage finns kvar):',e); }
     if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
     document.getElementById('import-pipeline-overlay')?.remove();
