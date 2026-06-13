@@ -3325,18 +3325,23 @@ function updateStats(){const churned=getChurnedCustomers();const cs=allCustomers
 function renderRevSummary(){const el=document.getElementById('rev-summary');if(!el)return;const data=(typeof getFiltered==='function')?getFiltered():allCustomers;
   const year=new Date().getFullYear();
   const T=revSummaryTotals(data,revSummaryMode,year);
-  const scoped=data.length!==allCustomers.length;
-  const heading=scoped?(data.length===1?` · ${data[0].Company||''}`:` · ${orgCount(data)} kunder`):'';
   const mainLabel=revSummaryMode==='likviditet'?'Total försäljning':'Total intäkt';
+  const pct=v=>T.total>0?v/T.total*100:0;
   const pctTxt=v=>T.total>0?Math.round(v/T.total*100)+'% av total':'–';
-  const toggle=`<div class="result-toggle" style="grid-column:1/-1;justify-self:end;margin-bottom:2px;"><button class="result-btn ${revSummaryMode==='likviditet'?'active':''}" onclick="setRevSummaryMode('likviditet')">Försäljning</button><button class="result-btn ${revSummaryMode==='resultat'?'active':''}" onclick="setRevSummaryMode('resultat')">Resultat</button></div>`;
-  const card=(label,val,sub,color)=>`<div class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value" style="color:${color}">${fmtKr(val)}</div>${sub?`<div class="kpi-delta neu">${sub}</div>`:''}</div>`;
-  el.innerHTML=toggle
-    +card(`${mainLabel}${heading}`,T.total,`${year}`,'var(--accent)')
-    +card(subLabel('Licens (prenumeration)'),T.pren,pctTxt(T.pren),'var(--green)')
-    +card(subLabel('Licens (fast pris)'),T.fast,pctTxt(T.fast),'var(--blue)')
-    +card(typeLabel('Utbildning'),T.utb,pctTxt(T.utb),'var(--amber)')
-    +card(typeLabel('Consulting'),T.cons,pctTxt(T.cons),'var(--purple)');}
+  const cats=[
+    {label:subLabel('Licens (prenumeration)'),val:T.pren,bar:'#639922',txt:'#27500A'},
+    {label:subLabel('Licens (fast pris)'),val:T.fast,bar:'#378ADD',txt:'#042C53'},
+    {label:typeLabel('Utbildning'),val:T.utb,bar:'#EF9F27',txt:'#633806'},
+    {label:typeLabel('Consulting'),val:T.cons,bar:'#7F77DD',txt:'#26215C'}
+  ];
+  const toggle=`<div class="result-toggle"><button class="result-btn ${revSummaryMode==='likviditet'?'active':''}" onclick="setRevSummaryMode('likviditet')">Försäljning</button><button class="result-btn ${revSummaryMode==='resultat'?'active':''}" onclick="setRevSummaryMode('resultat')">Resultat</button></div>`;
+  const barHtml=cats.map(c=>pct(c.val)>0?`<div style="width:${pct(c.val)}%;background:${c.bar};"></div>`:'').join('');
+  const cardsHtml=cats.map(c=>`<div style="padding:8px 10px;border-top:2px solid ${c.bar};background:var(--surface2);border-radius:0 0 6px 6px;"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);"><span style="width:8px;height:8px;border-radius:50%;background:${c.bar};flex:0 0 auto;"></span>${c.label}</div><div style="font-size:14px;font-weight:600;color:${c.txt};margin-top:2px;">${fmtKr(c.val)}</div><div style="font-size:10px;color:var(--text3);">${pctTxt(c.val)}</div></div>`).join('');
+  el.innerHTML=`<div style="grid-column:1/-1;border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;">`
+    +`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;"><div style="font-size:18px;font-weight:700;color:#D85A30;">${fmtKr(T.total)}</div><div style="font-size:12px;color:var(--text2);flex:1;">${mainLabel} · ${orgCount(data)} kunder</div>${toggle}</div>`
+    +`<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--surface2);margin-bottom:10px;">${barHtml}</div>`
+    +`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">${cardsHtml}</div>`
+    +`</div>`;}
 let showFormerCustomers=false;
 function toggleFormerCustomers(on){showFormerCustomers=!!on;renderTable();}
 // Default-vyn döljer kunder vars avtal gått ut för mer än 30 dagar sedan samt
