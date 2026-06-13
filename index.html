@@ -5142,6 +5142,17 @@ function setStyrelseResultSplit(year,on){localStorage.setItem('styrelseResultSpl
 // Bild 3:s egen versions-preferens (per år), oberoende av kassaflöde-fliken. Saknad nyckel → null → default Primär.
 function getStyrelseVersionId(year){return localStorage.getItem('styrelseVersionId_'+year)||null;}
 function setStyrelseVersion(year,id){if(id)localStorage.setItem('styrelseVersionId_'+year,id);else localStorage.removeItem('styrelseVersionId_'+year);renderStyrelse();}
+// Styrelsens kassaflödeskort (#2h) återanvänder renderCashflowCard. Egna handler-wrappers:
+// version = styrelsens egen version (egen nyckel); fönster/split/opening/finansiering = DELADE
+// localStorage-nycklar med kassaflödesvyn, men re-render går till styrelsen.
+let _styrCfYear=null;
+window.styrCfVersion=function(id){setStyrelseVersion(_styrCfYear,id);};
+window.styrCfOpening=function(y,v){setOpeningCash(y,v);renderStyrelse();};
+window.styrCfOpeningMonth=function(y,m){setOpeningMonth(y,m);renderStyrelse();};
+window.styrCfShowFrom=function(y,m){setCashflowShowFrom(y,m);renderStyrelse();};
+window.styrCfToMonth=function(y,m){setCashflowToMonth(y,m);renderStyrelse();};
+window.styrCfSplit=function(y,on){setCashflowSplit(y,on);renderStyrelse();};
+window.styrCfFinancing=function(vId,y,mi,val){setFinancing(vId,y,mi,val);renderStyrelse();};
 async function renderStyrelse(){
   const el=document.getElementById('fa-panel-styrelse');if(!el)return;
   if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
@@ -5210,16 +5221,15 @@ async function renderStyrelse(){
   const b3id=(b3sel&&b3liq.some(v=>String(v.Id)===String(b3sel)))?b3sel:primId;
   let b3rows=primRows; // återanvänd redan hämtade primRows när b3id===primId (ingen extra fetch)
   if(String(b3id)!==String(primId)){try{b3rows=await (await apiFetch(`${API}/budget-versions/${b3id}/rows`)).json();}catch(e){b3rows=[];}}
-  const cf=computeCashflow(b3rows,getOpeningCash(year),getFinancing(b3id,year));
-  const bild3svg=cashflowChartSvg(cf);
-  const revFull=cf.cashIn.reduce((a,b)=>a+b,0),costFull=cf.cashOut.reduce((a,b)=>a+b,0),proj=getProjectedLicens(year);
-  const kpiR=(label,val)=>`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid rgba(122,90,42,0.12);"><span style="font-size:11px;color:var(--text2);">${label}</span><span style="font-size:13px;font-weight:600;text-align:right;">${val}</span></div>`;
-  const nyckelBox=`<div style="background:#FBEEDF;border-radius:10px;padding:14px 16px;"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#7a5a2a;margin-bottom:8px;">Nyckeltal (helår)</div>${kpiR('Försäljning (total)',fmtSv(revFull))}${kpiR('Kostnad (innan avskrivning)',fmtSv(costFull))}${kpiR('Gross burn rate / mån',fmtSv(costFull/12))}<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0 2px;"><span style="font-size:11px;color:var(--text2);">Prenumeration slutet av året</span><input type="text" value="${proj?proj.toLocaleString('sv-SE'):''}" placeholder="0" onchange="setProjectedLicens(${year},this.value)" style="width:120px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"></div></div>`;
-  const negIdx=cf.closing.findIndex(v=>v<0),minVal=Math.min(...cf.closing),minMon=cf.months[cf.closing.indexOf(minVal)];
-  const kassaText=negIdx>=0?`<div style="background:#fbeaea;border:1px solid #e3b3b3;border-radius:8px;padding:10px 14px;font-size:12px;color:#a32d2d;margin-top:12px;">⚠️ Likviditeten går negativ i <strong>${cf.months[negIdx]}</strong> (${fmtSv(cf.closing[negIdx])}). Lägst ${fmtSv(minVal)} i ${minMon}.</div>`:`<div style="background:#e8f5ee;border:1px solid #bcdcc9;border-radius:8px;padding:10px 14px;font-size:12px;color:#1a7a50;margin-top:12px;">Likviditeten håller sig positiv hela året (lägst ${fmtSv(minVal)} i ${minMon}).</div>`;
-  const openInput=`<label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Ingående kassa:<input type="text" value="${getOpeningCash(year).toLocaleString('sv-SE')}" onchange="setOpeningCash(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr</label>`;
-  const b3verSel=`<select onchange="setStyrelseVersion(${year},this.value)" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;max-width:280px;">${b3liq.map(v=>{const mark=(isPrimaryBudgetVersion(v)?'★ ':'')+(isRollingBudgetVersion(v)?'⟳ ':'');const sel=String(v.Id)===String(b3id)?' selected':'';return`<option value="${v.Id}"${sel}>${mark}${v.Name} (${v.Year}) · #${v.Id}</option>`;}).join('')}</select>`;
-  const bild3html=`<div class="fin-grid" style="margin-top:14px;grid-template-columns:2fr 1fr;"><div class="fin-card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><div class="fin-card-title" style="margin-bottom:0;">Likviditetsprognos (plan, ${year})</div><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Version: ${b3verSel}</label></div>${openInput}</div>${bild3svg}${kassaText}</div><div class="fin-card">${nyckelBox}</div></div>`;
+  // BILD 3 (#2h) — Likviditetsprognos = ren spegling av kassaflödesvyn via renderCashflowCard.
+  // Lås laddas för bild 3:s version så split-zonerna (utfall/prognos) stämmer.
+  _styrCfYear=year;
+  await loadBudgetLocks(b3id);
+  const b3ver=b3liq.find(v=>String(v.Id)===String(b3id))||primVer;
+  const _b3from=getOpeningMonth(year);
+  let _b3to=getCashflowToMonth(year);if(_b3to<_b3from)_b3to=_b3from;
+  let _b3show=getCashflowShowFrom(year,_b3from);if(_b3show>_b3to)_b3show=_b3to;
+  const bild3html=renderCashflowCard({ver:b3ver,liq:b3liq,year,rows:b3rows,opening:getOpeningCash(year),financing:getFinancing(b3id,year),fromIdx:_b3from,showFromIdx:_b3show,toIdx:_b3to,split:getCashflowSplit(year),src:(isRollingBudgetVersion(b3ver)?'Löpande':isPrimaryBudgetVersion(b3ver)?'Primär':'Styrelse'),handlers:{version:'styrCfVersion',openingCash:'styrCfOpening',openingMonth:'styrCfOpeningMonth',showFrom:'styrCfShowFrom',toMonth:'styrCfToMonth',split:'styrCfSplit',financing:'styrCfFinancing'}});
   // Period-väljare + källrad
   const periodSel=`<select onchange="setStyrelseX(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;">${MONTHS.map((m,i)=>`<option value="${i}"${i===X?' selected':''}>t.o.m. ${m}</option>`).join('')}</select>`;
   // FÖRDELNINGSRAD (#2e) högst upp: Försäljning per kategori ur LÖPANDE likviditetsbudget (rollRows).
