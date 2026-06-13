@@ -5135,6 +5135,10 @@ async function openImportPipelineModal(versionId,preMonth){
 // ── STYRELSERAPPORT (Finansiell analys → kort "styrelse"). Allt ur likviditetsbudgeten: Budget=Primär, Utfall=Löpande. ──
 let styrelseX=null;
 function setStyrelseX(v){styrelseX=Number(v);renderStyrelse();}
+// Styrelse-resultatgrafens utfall/prognos-split (eget state, per år; default på). Speglar
+// getCashflowSplit-mönstret men EGEN nyckel — ingen koppling till kassaflödet.
+function getStyrelseResultSplit(year){return localStorage.getItem('styrelseResultSplit_'+year)!=='0';}
+function setStyrelseResultSplit(year,on){localStorage.setItem('styrelseResultSplit_'+year,on?'1':'0');renderStyrelse();}
 // Bild 3:s egen versions-preferens (per år), oberoende av kassaflöde-fliken. Saknad nyckel → null → default Primär.
 function getStyrelseVersionId(year){return localStorage.getItem('styrelseVersionId_'+year)||null;}
 function setStyrelseVersion(year,id){if(id)localStorage.setItem('styrelseVersionId_'+year,id);else localStorage.removeItem('styrelseVersionId_'+year);renderStyrelse();}
@@ -5153,10 +5157,38 @@ async function renderStyrelse(){
   const sumP=(rows,pred)=>{let t=0;for(let mi=0;mi<=X;mi++)rows.filter(pred).forEach(r=>t+=Number(r[MONTHS[mi]])||0);return t;};
   const inB=sumP(primRows,r=>r.Category==='Revenue'),inU=sumP(rollRows,r=>r.Category==='Revenue');
   const coB=sumP(primRows,r=>r.Category!=='Revenue'),coU=sumP(rollRows,r=>r.Category!=='Revenue');
-  // BILD 2 — SVG (inkomster upp / utgifter ner kring nollinje), dämpade färger.
-  const cW=420,cH=190,zero=88,maxV=Math.max(inB,inU,coB,coU,1),bh=v=>Math.round(v/maxV*58);
-  const bar=(x,v,up,color)=>`<rect x="${x}" y="${up?zero-bh(v):zero}" width="36" height="${bh(v)}" rx="2" fill="${color}"/><text x="${x+18}" y="${up?zero-bh(v)-4:zero+bh(v)+11}" font-size="8" fill="var(--text3)" text-anchor="middle">${Math.round(v/1000)}k</text>`;
-  const bild2svg=`<svg viewBox="0 0 ${cW} ${cH}" width="100%" style="overflow:visible;"><line x1="20" y1="${zero}" x2="${cW-20}" y2="${zero}" stroke="var(--border)" stroke-width="1"/>${bar(70,inB,1,'#5f8f73')}${bar(112,inU,1,'#9ec3ad')}${bar(252,coB,0,'#9e7b7b')}${bar(294,coU,0,'#c4a9a9')}<text x="100" y="${cH-4}" font-size="10" fill="var(--text2)" text-anchor="middle">Inkomster</text><text x="282" y="${cH-4}" font-size="10" fill="var(--text2)" text-anchor="middle">Utgifter</text></svg><div style="display:flex;gap:16px;font-size:10px;color:var(--text3);margin-top:2px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#5f8f73;vertical-align:middle;border-radius:2px;"></span> Budget (Primär)</span><span><span style="display:inline-block;width:9px;height:9px;background:#9ec3ad;vertical-align:middle;border-radius:2px;"></span> Utfall (Löpande)</span></div>`;
+  // BILD 2 (#2f) — RESULTATGRAF: två grupper (Inkomster upp / Utgifter ner) kring nollinje.
+  // INTÄKTER källbaserat (kapat vid period-väljaren X): utfall=Avtal (likviditet), prognos-påslag=övriga källor.
+  // UTGIFTER tidsbaserat (kapat vid X): utfall=0..min(nowM,X) (passerat), planerat kvar=min(nowM,X)+1..X. Budget=primRows 0..X.
+  const _sM=(rows,pred,a,b)=>{let t=0;for(let mi=a;mi<=b&&mi<12;mi++)rows.filter(pred).forEach(r=>t+=Number(r[MONTHS[mi]])||0);return t;};
+  const _ry=Number((budgetVersions.find(v=>String(v.Id)===String(primId))||{}).Year)||new Date().getFullYear();
+  const _split=getStyrelseResultSplit(_ry);
+  const _nowM=new Date().getMonth();
+  const _utfallGrans=Math.min(_nowM,X);
+  const incBudget=_sM(primRows,r=>r.Category==='Revenue',0,X);
+  const incUtfall=_sM(rollRows,r=>r.Category==='Revenue'&&r.Source==='Avtal (likviditet)',0,X);
+  const incForecast=_sM(rollRows,r=>r.Category==='Revenue',0,X)-incUtfall;
+  const costBudget=_sM(primRows,r=>r.Category!=='Revenue',0,X);
+  const costUtfall=_sM(rollRows,r=>r.Category!=='Revenue',0,_utfallGrans);
+  const costPlanned=_sM(rollRows,r=>r.Category!=='Revenue',_utfallGrans+1,X);
+  const _money=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
+  const cW=460,cH=224,zero=112,maxBar=82,axL=52;
+  const maxV=Math.max(incBudget,incUtfall+incForecast,costBudget,costUtfall+costPlanned,1);
+  const bh=v=>Math.round(Math.max(0,v)/maxV*maxBar);
+  const grid=[1,0.5].flatMap(f=>[{y:zero-Math.round(maxBar*f),v:maxV*f},{y:zero+Math.round(maxBar*f),v:-maxV*f}]).map(g=>`<line x1="${axL}" y1="${g.y}" x2="${cW-12}" y2="${g.y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 2"/><text x="${axL-4}" y="${g.y+3}" font-size="8" fill="var(--text3)" text-anchor="end">${(g.v/1000000).toFixed(1)} Mkr</text>`).join('');
+  const BW=30,gap=10;
+  const grp=(cx,budget,utfBase,utfAdd,up,baseLbl,addLbl)=>{const bx=cx-BW-gap/2,ux=cx+gap/2;let s='';
+    s+=`<rect x="${bx}" y="${up?zero-bh(budget):zero}" width="${BW}" height="${bh(budget)}" rx="2" fill="#C00010"><title>Budget: ${_money(budget)}</title></rect>`;
+    s+=`<rect x="${ux}" y="${up?zero-bh(utfBase):zero}" width="${BW}" height="${bh(utfBase)}" rx="2" fill="#1E2340"><title>${baseLbl}: ${_money(utfBase)}</title></rect>`;
+    if(_split&&utfAdd>0){const baseH=bh(utfBase),addH=bh(utfAdd);const ay=up?zero-baseH-addH:zero+baseH;s+=`<rect x="${ux}" y="${ay}" width="${BW}" height="${addH}" rx="2" fill="#5566A0"><title>${addLbl}: ${_money(utfAdd)}</title></rect>`;}
+    return s;};
+  const incCx=axL+78,costCx=axL+248;
+  const _bars=grp(incCx,incBudget,incUtfall,incForecast,true,'Kontrakt (Avtal)','Prognos (övriga källor)')+grp(costCx,costBudget,costUtfall,costPlanned,false,'Utfall (passerat)','Planerat kvar');
+  const _zeroLine=`<line x1="${axL}" y1="${zero}" x2="${cW-12}" y2="${zero}" stroke="var(--border)" stroke-width="1"/>`;
+  const _glabels=`<text x="${incCx}" y="${cH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">Inkomster</text><text x="${costCx}" y="${cH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">Utgifter</text>`;
+  const _splitCb=`<label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" ${_split?'checked':''} onchange="setStyrelseResultSplit(${_ry},this.checked)" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;">Visa prognos &amp; planerat</label>`;
+  const _legend=`<div style="display:flex;gap:14px;font-size:10px;color:var(--text3);margin-top:4px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#C00010;vertical-align:middle;border-radius:2px;"></span> Budget (Primär)</span><span><span style="display:inline-block;width:9px;height:9px;background:#1E2340;vertical-align:middle;border-radius:2px;"></span> Utfall</span><span><span style="display:inline-block;width:9px;height:9px;background:#5566A0;vertical-align:middle;border-radius:2px;"></span> Prognos / planerat</span></div>`;
+  const bild2svg=`<div style="display:flex;justify-content:flex-end;margin-bottom:4px;">${_splitCb}</div><svg viewBox="0 0 ${cW} ${cH}" width="100%" style="overflow:visible;">${grid}${_zeroLine}${_bars}${_glabels}</svg>${_legend}`;
   // BILD 2 — tabell (Inkomster/Utgifter × Budget/Utfall/Differens). Inkomst under budget=röd; utgift under budget=grön.
   const dRow=(label,b,u,incomeLike)=>{const diff=u-b;const col=incomeLike?(diff>=0?'var(--green)':'var(--red)'):(diff<=0?'var(--green)':'var(--red)');return `<tr><td style="padding:5px 8px;font-weight:500;">${label}</td><td style="padding:5px 8px;text-align:right;">${fmtSv(b)}</td><td style="padding:5px 8px;text-align:right;">${fmtSv(u)}</td><td style="padding:5px 8px;text-align:right;font-weight:600;color:${col};">${diff>=0?'+':''}${fmtSv(diff)}</td></tr>`;};
   const bild2tbl=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;"><thead><tr><th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;"></th><th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Budget</th><th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Utfall</th><th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Differens</th></tr></thead><tbody>${dRow('Inkomster',inB,inU,true)}${dRow('Utgifter',coB,coU,false)}</tbody></table>`;
