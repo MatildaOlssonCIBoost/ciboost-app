@@ -1704,8 +1704,10 @@ function updatePipeKpi(){
 function renderPipeOverviewKpis(){
   const el=document.getElementById('pipe-overview-kpis');if(!el)return;
   const open=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost');
-  const pipeFull=open.reduce((s,p)=>s+(p.ValueMax||p.ValueMin||p.Value||0),0);
-  const pipeWeighted=open.reduce((s,p)=>s+Math.round((p.ValueMax||p.ValueMin||p.Value||0)*(p.Probability||0)/100),0);
+  // P-2: värde från line-items (prospectRevCache); fallback till platt värde per poster-löst prospekt (= som P-1-korten).
+  const _pf=p=>p.ValueMax||p.ValueMin||p.Value||0;
+  const pipeFull=open.reduce((s,p)=>{const it=prospectRevCache[p.Id]||[];return s+(it.length?it.reduce((a,x)=>a+(x.Amount||0),0):_pf(p));},0);
+  const pipeWeighted=open.reduce((s,p)=>{const it=prospectRevCache[p.Id]||[];return s+(it.length?it.reduce((a,x)=>a+Math.round((x.Amount||0)*(x.Probability||0)/100),0):Math.round(_pf(p)*(p.Probability||0)/100));},0);
   const now=Date.now();
   const inStage=open.map(p=>{const s=p.UpdatedAt||p.CreatedAt;return s?Math.max(0,Math.round((now-new Date(s))/86400000)):null;}).filter(v=>v!=null);
   const avgStage=inStage.length?Math.round(inStage.reduce((a,b)=>a+b,0)/inStage.length):0;
@@ -1713,10 +1715,20 @@ function renderPipeOverviewKpis(){
   const decDays=closed.map(p=>{const c=p.CreatedAt,u=p.UpdatedAt;if(!c||!u)return null;const d=Math.round((new Date(u)-new Date(c))/86400000);return d>=0?d:null;}).filter(v=>v!=null);
   const avgDec=decDays.length?Math.round(decDays.reduce((a,b)=>a+b,0)/decDays.length):0;
   el.innerHTML=`
-    <div class="kpi-card"><div class="kpi-label">Pipeline viktat</div><div class="kpi-value" style="color:var(--blue);">${pipeWeighted?fmtKr(pipeWeighted):'–'}</div><div class="kpi-delta neu">sannolikhetsviktat</div></div>
     <div class="kpi-card"><div class="kpi-label">Pipeline total</div><div class="kpi-value" style="color:var(--purple);">${pipeFull?fmtKr(pipeFull):'–'}</div><div class="kpi-delta neu">ej viktat</div></div>
+    <div class="kpi-card"><div class="kpi-label">Pipeline viktat</div><div class="kpi-value" style="color:var(--blue);">${pipeWeighted?fmtKr(pipeWeighted):'–'}</div><div class="kpi-delta neu">sannolikhetsviktat</div></div>
     <div class="kpi-card"><div class="kpi-label">Snitt dagar per stage</div><div class="kpi-value" style="color:var(--accent);">${avgStage} d</div><div class="kpi-delta neu">aktiva prospekt</div></div>
     <div class="kpi-card"><div class="kpi-label">Snitt dagar till beslut</div><div class="kpi-value" style="color:var(--green);">${avgDec} d</div><div class="kpi-delta neu">första kontakt → won/lost</div></div>`;
+}
+// P-1b: håller utfällda pipeline-kort öppna över omritningar; togglar DOM direkt utan renderKanban.
+let _kanbanExpanded=new Set();
+function toggleKanbanCard(id,el){
+  const card=el.closest('.kanban-card');if(!card)return;
+  const detail=card.querySelector('.kc-rev-detail');const chev=el.querySelector('.kc-chev');
+  const open=!_kanbanExpanded.has(id);
+  if(open)_kanbanExpanded.add(id);else _kanbanExpanded.delete(id);
+  if(detail)detail.style.display=open?'block':'none';
+  if(chev)chev.textContent=open?'▴':'▾';
 }
 function renderKanban(){
   renderPipeOverviewKpis();
@@ -1738,21 +1750,26 @@ function renderKanban(){
     const cardsHtml=cards.length?cards.map(p=>{
       const srcColor=SOURCE_COLORS[p.Source]||'#8b90b0';
       const val=p.ValueMin&&p.ValueMax?`${Math.round(p.ValueMin/1000)}k–${Math.round(p.ValueMax/1000)}k`:p.ValueMax?Math.round(p.ValueMax/1000)+'k':p.ValueMin?Math.round(p.ValueMin/1000)+'k':p.Value?Math.round(p.Value/1000)+'k':'';
-      // P-1: intäktsrader per ProspectRevenue-post (EJ summerade per typ). Fallback = platt värde/Probability.
+      // P-1b: kompakt kort — sammanfattning (viktat + total + färgad %-ruta) alltid synlig, posterna i klick-utfällning.
       const _revC={ARR:'#3B6D11',Fastpris:'#185FA5',Utbildning:'#854F0B',Consulting:'#3C3489'};
       const _ritems=prospectRevCache[p.Id]||[];
       const _rrow=(c,lbl,right)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);margin-bottom:2px;"><span style="width:7px;height:7px;border-radius:2px;background:${c};flex:0 0 auto;"></span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lbl}</span><span style="flex:0 0 auto;color:var(--text3);">${right}</span></div>`;
-      let revHtml='';
+      let _total,_viktat,_detailRows;
       if(_ritems.length){
-        const rows=_ritems.map(it=>{const amt=it.Amount||0,prob=it.Probability||0;return _rrow(_revC[it.Type]||'#8b90b0',`${it.Type}${it.Description?' · '+it.Description:''}`,`${Math.round(amt).toLocaleString('sv-SE')} × ${Math.round(prob)}%`);}).join('');
-        const total=_ritems.reduce((s,it)=>s+(it.Amount||0),0);
-        const viktat=_ritems.reduce((s,it)=>s+Math.round((it.Amount||0)*(it.Probability||0)/100),0);
-        const samlad=total>0?Math.round(viktat/total*100):0;
-        revHtml=`<div style="margin:4px 0 3px;padding-top:4px;border-top:1px dashed var(--border);">${rows}<div style="display:flex;justify-content:space-between;font-size:10px;margin-top:3px;"><span style="color:var(--text3);">Totalt</span><span style="font-weight:600;color:var(--text2);">${fmtKr(total)}</span></div><div style="display:flex;justify-content:space-between;font-size:10px;"><span style="color:var(--text3);">Viktat</span><span style="font-weight:600;color:var(--blue);">${fmtKr(viktat)} · ${samlad}%</span></div></div>`;
+        _detailRows=_ritems.map(it=>{const amt=it.Amount||0,prob=it.Probability||0;return _rrow(_revC[it.Type]||'#8b90b0',`${it.Type}${it.Description?' · '+it.Description:''}`,`${Math.round(amt).toLocaleString('sv-SE')} × ${Math.round(prob)}%`);}).join('');
+        _total=_ritems.reduce((s,it)=>s+(it.Amount||0),0);
+        _viktat=_ritems.reduce((s,it)=>s+Math.round((it.Amount||0)*(it.Probability||0)/100),0);
       } else {
         const _fa=p.ValueMax||p.ValueMin||p.Value||0,_fp=p.Probability||0;
-        revHtml=`<div style="margin:4px 0 3px;padding-top:4px;border-top:1px dashed var(--border);">${_rrow('#8b90b0','Uppskattat värde',`${_fa?Math.round(_fa).toLocaleString('sv-SE'):'–'}${_fp?' × '+_fp+'%':''}`)}</div>`;
+        _total=_fa;_viktat=Math.round(_fa*_fp/100);_detailRows='';
       }
+      const _samlad=_total>0?Math.round(_viktat/_total*100):0;
+      const _viktLbl=_ritems.length>1?'samlad viktning':'viktning';
+      const _summary=`<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin:5px 0 3px;padding-top:5px;border-top:1px solid var(--border);"><div style="min-width:0;"><div style="font-size:14px;font-weight:600;color:var(--blue);line-height:1.1;">${fmtKr(_viktat)}</div><div style="font-size:9px;color:var(--text3);margin-top:1px;">viktat av ${fmtKr(_total)}</div></div><div style="flex:0 0 auto;text-align:center;background:#E6F1FB;color:#0C447C;border-radius:6px;padding:3px 7px;"><div style="font-size:13px;font-weight:700;line-height:1.1;">${_samlad}%</div><div style="font-size:8px;">${_viktLbl}</div></div></div>`;
+      const _exp=_kanbanExpanded.has(p.Id);
+      const _toggle=_ritems.length?`<div onclick="event.stopPropagation();toggleKanbanCard(${p.Id},this)" style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;margin-bottom:2px;"><span class="kc-chev">${_exp?'▴':'▾'}</span> ${_ritems.length} intäktspost${_ritems.length>1?'er':''}</div>`:'';
+      const _detail=_ritems.length?`<div class="kc-rev-detail" style="display:${_exp?'block':'none'};background:var(--surface2);border-radius:6px;padding:6px 8px;margin-bottom:3px;">${_detailRows}</div>`:'';
+      const revHtml=_summary+_toggle+_detail;
       let actionHtml='';
       if(p.NextActionType||p.NextActionDate){
         const hasDate=!!p.NextActionDate;
@@ -1777,7 +1794,7 @@ function renderKanban(){
         <div class="kc-name">${p.Company||'-'}</div>
         <div class="kc-contact">${p.Contact||'–'}</div>
         <div class="kc-owner">${p.Owner||'–'}</div>
-        <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span>${totalValStr?`<span class="kc-val">${totalValStr}</span>`:''}</div>
+        <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span></div>
         ${revHtml}
         ${actionHtml}
         ${isLost&&p.LostReason?`<div class="kc-lost-reason">Orsak: ${p.LostReason}</div>`:''}
