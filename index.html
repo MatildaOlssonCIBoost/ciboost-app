@@ -5186,10 +5186,21 @@ async function renderStyrelse(){
   const bh=v=>Math.round(Math.max(0,v)/maxV*maxBar);
   const grid=[1,0.5].flatMap(f=>[{y:zero-Math.round(maxBar*f),v:maxV*f},{y:zero+Math.round(maxBar*f),v:-maxV*f}]).map(g=>`<line x1="${axL}" y1="${g.y}" x2="${cW-12}" y2="${g.y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 2"/><text x="${axL-4}" y="${g.y+3}" font-size="8" fill="var(--text3)" text-anchor="end">${(g.v/1000000).toFixed(1)} Mkr</text>`).join('');
   const BW=30,gap=10;
-  const grp=(cx,budget,utfBase,utfAdd,up,baseLbl,addLbl)=>{const bx=cx-BW-gap/2,ux=cx+gap/2;let s='';
+  // Variant D: kort Mkr-format (1 decimal, komma). Utfall-värdet = mörka utfallet (utfBase), aldrig +prognos.
+  const _mkr=v=>(v/1000000).toFixed(1).replace('.',',');
+  const grp=(cx,budget,utfBase,utfAdd,up,baseLbl,addLbl)=>{const bx=cx-BW-gap/2,ux=cx+gap/2,bcx=bx+BW/2,ucx=ux+BW/2;let s='';
     s+=`<rect x="${bx}" y="${up?zero-bh(budget):zero}" width="${BW}" height="${bh(budget)}" rx="2" fill="#C00010"><title>Budget: ${_money(budget)}</title></rect>`;
     s+=`<rect x="${ux}" y="${up?zero-bh(utfBase):zero}" width="${BW}" height="${bh(utfBase)}" rx="2" fill="#1E2340"><title>${baseLbl}: ${_money(utfBase)}</title></rect>`;
     if(_split&&utfAdd>0){const baseH=bh(utfBase),addH=bh(utfAdd);const ay=up?zero-baseH-addH:zero+baseH;s+=`<rect x="${ux}" y="${ay}" width="${BW}" height="${addH}" rx="2" fill="#5566A0"><title>${addLbl}: ${_money(utfAdd)}</title></rect>`;}
+    // Värde ovanför (utgift: nedanför) varje stapels yttersta ände; utfall-siffran = utfBase (hoppar ej med prognos).
+    const _utfFullH=bh(utfBase)+(_split&&utfAdd>0?bh(utfAdd):0);
+    const budTipY=up?zero-bh(budget)-4:zero+bh(budget)+11, utfTipY=up?zero-_utfFullH-4:zero+_utfFullH+11;
+    s+=`<text x="${bcx}" y="${budTipY}" font-size="9" font-weight="600" fill="#C00010" text-anchor="middle">${_mkr(budget)}</text>`;
+    s+=`<text x="${ucx}" y="${utfTipY}" font-size="9" font-weight="600" fill="#1E2340" text-anchor="middle">${_mkr(utfBase)}</text>`;
+    // Etikett vid stapelbasen (nollinjesidan motsatt stapelriktningen): "budget" / "utfall".
+    const _lblY=up?zero+11:zero-5;
+    s+=`<text x="${bcx}" y="${_lblY}" font-size="9" fill="var(--text3)" text-anchor="middle">budget</text>`;
+    s+=`<text x="${ucx}" y="${_lblY}" font-size="9" fill="var(--text3)" text-anchor="middle">utfall</text>`;
     return s;};
   const incCx=axL+78,costCx=axL+248;
   const _bars=grp(incCx,incBudget,incUtfall,incForecast,true,'Kontrakt (Avtal)','Prognos (övriga källor)')+grp(costCx,costBudget,costUtfall,costPlanned,false,'Utfall (passerat)','Planerat kvar');
