@@ -3174,7 +3174,7 @@ function renderKaAlla(viewCusts){
     {label:`Nya kunder ${yearLabel}`,val:String(newCustData.count),color:'var(--blue)',sub:'unika organisationer'},
     {label:`Expansion revenue ${yearLabel}`,val:expansionRev>0?expansionRev.toLocaleString('sv-SE')+' kr':'–',color:'var(--purple)',sub:expansionRev>0?'ny enhet i befintlig koncern':'–'},
     {label:'Tillväxt YoY',val:growth!==null?(growth>=0?'+':'')+growth+'%':'–',color:growth!==null&&growth>=0?'var(--green)':'var(--red)',sub:'vs föregående år'},
-    {label:primaryType?`${primaryType}-tillväxt`:'Tillväxt',val:primaryGrowth!==null?(primaryGrowth>=0?'+':'')+primaryGrowth+'%':'–',color:primaryGrowth!==null&&primaryGrowth>=0?'var(--green)':'var(--red)',sub:primaryType&&primaryPrev>0?`${primaryDiff>=0?'+':''}${Math.round(primaryDiff/1000)}k kr vs ${kpiYear-1}`:primaryType?`${primaryType}: ${primaryCur.toLocaleString('sv-SE')} kr`:'–'}
+    {label:primaryType?`${typeLabel(primaryType)}-tillväxt`:'Tillväxt',val:primaryGrowth!==null?(primaryGrowth>=0?'+':'')+primaryGrowth+'%':'–',color:primaryGrowth!==null&&primaryGrowth>=0?'var(--green)':'var(--red)',sub:primaryType&&primaryPrev>0?`${primaryDiff>=0?'+':''}${Math.round(primaryDiff/1000)}k kr vs ${kpiYear-1}`:primaryType?`${typeLabel(primaryType)}: ${primaryCur.toLocaleString('sv-SE')} kr`:'–'}
   ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-delta">${k.sub}</div></div>`).join('');
 
   // Chart + intäktsmix-tabell per år (no bg, just border-top)
@@ -3182,7 +3182,7 @@ function renderKaAlla(viewCusts){
   const mixYears=[2023,2024,2025,2026];
   const boldYear=kaYearSet.has(0)?null:kpiYear;
   const mixRows=allTypes.filter(t=>kaTypes.has(t));
-  const mixTable=`<div class="ka-mix-wrap"><table class="ka-mix-table"><thead><tr><th></th>${mixYears.map(y=>`<th class="${y===boldYear?'sel':''}">${y}</th>`).join('')}</tr></thead><tbody>${(mixRows.length?mixRows:allTypes).map(t=>`<tr><td><span class="swatch" style="background:${TC[t]};"></span>${t}</td>${mixYears.map(y=>{const v=kaCalcYearAll(items.filter(i=>i.Type===t),y);return `<td class="${y===boldYear?'sel':''}">${v>0?Math.round(v/1000)+'k':'–'}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const mixTable=`<div class="ka-mix-wrap"><table class="ka-mix-table"><thead><tr><th></th>${mixYears.map(y=>`<th class="${y===boldYear?'sel':''}">${y}</th>`).join('')}</tr></thead><tbody>${(mixRows.length?mixRows:allTypes).map(t=>`<tr><td><span class="swatch" style="background:${TC[t]};"></span>${typeLabel(t)}</td>${mixYears.map(y=>{const v=kaCalcYearAll(items.filter(i=>i.Type===t),y);return `<td class="${y===boldYear?'sel':''}">${v>0?Math.round(v/1000)+'k':'–'}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
   kaRenderChart(items,years,types,TC,mixTable);
 
   // Aggregated entries for Top 5 + fastest growing (koncern combined)
@@ -3256,7 +3256,7 @@ function renderKaPerKund(viewCusts,isKoncern){
     {label:'Andel av total',val:`${sharePct}%`,color:'var(--green)',sub:`av ${totalPortfolio.toLocaleString('sv-SE')} kr`},
     {label:`vs ${lt}-snitt`,val:vsPeer!==null?(vsPeer>=0?'+':'')+vsPeer+'%':'–',color:vsPeer!==null&&vsPeer>=0?'var(--green)':'var(--red)',sub:`${lt}-snitt: ${peerAvg.toLocaleString('sv-SE')} kr`},
     {label:'Kund sedan',val:yrs?`${yrs} år`:'–',color:'var(--blue)',sub:lifeTot>0?`Total: ${lifeTot.toLocaleString('sv-SE')} kr`:'–'},
-    {label:'ARR-tillväxt',val:arrGrowth!==null?(arrGrowth>=0?'+':'')+arrGrowth+'%':'–',color:arrGrowth!==null&&arrGrowth>=0?'var(--green)':'var(--red)',sub:arrPrev>0?`${arrDiff>=0?'+':''}${Math.round(arrDiff/1000)}k kr vs ${kpiYear-1}`:`ARR: ${arrCur.toLocaleString('sv-SE')} kr`}
+    {label:'Prenumeration-tillväxt',val:arrGrowth!==null?(arrGrowth>=0?'+':'')+arrGrowth+'%':'–',color:arrGrowth!==null&&arrGrowth>=0?'var(--green)':'var(--red)',sub:arrPrev>0?`${arrDiff>=0?'+':''}${Math.round(arrDiff/1000)}k kr vs ${kpiYear-1}`:`Prenumeration: ${arrCur.toLocaleString('sv-SE')} kr`}
   ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-delta">${k.sub}</div></div>`).join('');
 
   // Chart
