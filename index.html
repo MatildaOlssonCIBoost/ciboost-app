@@ -810,8 +810,8 @@
         <option>Alexandra Henningson</option>
       </select>
       <div class="result-toggle" style="margin-left:auto;">
-        <button id="ka-mode-per" class="ka-mode-btn active" onclick="kaSetMode('periodiserat')">Periodiserat</button>
-        <button id="ka-mode-liq" class="ka-mode-btn" onclick="kaSetMode('likviditet')">Likviditet</button>
+        <button id="ka-mode-per" class="ka-mode-btn active" onclick="kaSetMode('periodiserat')">Resultat</button>
+        <button id="ka-mode-liq" class="ka-mode-btn" onclick="kaSetMode('likviditet')">Försäljning</button>
       </div>
     </div>
     <div class="kpi-grid" id="ka-kpi-grid"></div>
@@ -3169,7 +3169,7 @@ function renderKaAlla(viewCusts){
   const expansionCusts=kaExpansionCustsInYear(kpiKpiYear);
   const expansionRev=expansionCusts.reduce((s,c)=>s+kaCalcYear(kaRevCache[c.Id]||[],kpiKpiYear),0);
   document.getElementById('ka-kpi-grid').innerHTML=[
-    {label:`Total intäkt ${kpiYear}`,val:totCur>0?totCur.toLocaleString('sv-SE')+' kr':'–',color:'var(--accent)',sub:growth!==null?`<span style="color:${growth>=0?'var(--green)':'var(--red)'};">${growth>=0?'+':''}${growth}% vs ${kpiYear-1}</span>`:'–'},
+    {label:`${kaMode==='likviditet'?'Total försäljning':'Total intäkt'} ${kpiYear}`,val:totCur>0?totCur.toLocaleString('sv-SE')+' kr':'–',color:'var(--accent)',sub:growth!==null?`<span style="color:${growth>=0?'var(--green)':'var(--red)'};">${growth>=0?'+':''}${growth}% vs ${kpiYear-1}</span>`:'–'},
     {label:'Snitt per kund',val:avgPerCust>0?avgPerCust.toLocaleString('sv-SE')+' kr':'–',color:'var(--green)',sub:`${activeCusts} aktiva kunder`},
     {label:`Nya kunder ${yearLabel}`,val:String(newCustData.count),color:'var(--blue)',sub:'unika organisationer'},
     {label:`Expansion revenue ${yearLabel}`,val:expansionRev>0?expansionRev.toLocaleString('sv-SE')+' kr':'–',color:'var(--purple)',sub:expansionRev>0?'ny enhet i befintlig koncern':'–'},
