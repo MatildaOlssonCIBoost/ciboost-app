@@ -986,7 +986,7 @@
     <div id="budget-content">
       <div style="text-align:center;padding:60px;color:var(--text3);font-size:13px;">Välj eller skapa en budgetversion för att börja</div>
     </div>
-    <div id="budget-rev-detail" style="display:none;"></div>
+    <div id="budget-rev-detail" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;align-items:flex-start;justify-content:center;overflow:auto;padding:40px 16px;" onclick="if(event.target===this)window.closeRevUnderlag()"></div>
     </div>
     <div id="budget-kassaflode-panel" style="display:none;"><div class="fin-card" style="text-align:center;color:var(--text3);padding:40px;font-size:14px;">Byggs i nästa steg — kassaflöde + ingående kassa → balans.</div></div>
   </div>
@@ -5301,11 +5301,16 @@ function renderResultatBudgetTable(){
 // viktat + manuell = budgetens REVENUE-total (matchar KPI:n).
 window.toggleRevUnderlag=function(){
   const el=document.getElementById('budget-rev-detail');if(!el)return;
-  const open=el.style.display==='none';
-  el.style.display=open?'block':'none';
+  const open=el.style.display==='none'||el.style.display==='';
+  el.style.display=open?'flex':'none';   // overlay = flex (centrerad modal); none = stängd
   const ind=document.getElementById('kpi-rev-ind');if(ind)ind.textContent=open?'▴':'▾';
   if(open)renderRevUnderlag();
 };
+window.closeRevUnderlag=function(){const el=document.getElementById('budget-rev-detail');if(el)el.style.display='none';const ind=document.getElementById('kpi-rev-ind');if(ind)ind.textContent='▾';};
+// U-2: öppna kundkortet/prospektkortet på Värde-fliken från en underlagspost.
+// openModal/openProspectModal är async (returnerar promise) → .then; setTimeout-fallback om ej.
+window.openCustValue=function(id){const r=openModal(id);if(r&&typeof r.then==='function')r.then(()=>goToPage(3));else setTimeout(()=>goToPage(3),300);};
+window.openProspectValue=function(id){const r=openProspectModal(id);if(r&&typeof r.then==='function')r.then(()=>switchProspectTab(3));else setTimeout(()=>switchProspectTab(3),300);};
 async function renderRevUnderlag(){
   const el=document.getElementById('budget-rev-detail');if(!el)return;
   if(!currentBudgetVersionId){el.innerHTML='<div style="padding:16px;color:var(--text3);font-size:13px;">Välj en budgetversion först.</div>';return;}
@@ -5319,16 +5324,24 @@ async function renderRevUnderlag(){
   const custName=cid=>{const c=(allCustomers||[]).find(x=>String(x.Id)===String(cid));return c?(c.Company||('Kund '+cid)):('Kund '+cid);};
   const prospName=pid=>{const p=(allProspects||[]).find(x=>String(x.Id)===String(pid));return p?(p.Company||('Prospekt '+pid)):('Prospekt '+pid);};
   const liq30=d=>{const x=new Date(d);if(isNaN(x))return '–';x.setDate(x.getDate()+30);return x.toISOString().substring(0,10);};
+  const esc=s=>String(s||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  // U-3 D: Description per källa. Förnyelse-antagandet saknar Description → hämta från
+  // underliggande licenspost (senaste ARR/Fastpris av typen i custRevCache).
+  const latestOfType=(cid,t)=>{const items=custRevCache[cid]||[];const r=items.filter(i=>i.Type===t&&i.DateTo);return r.length?r.reduce((a,b)=>new Date(b.DateTo)>new Date(a.DateTo)?b:a):null;};
   const TL={ARR:'Licens (pren.)',Fastpris:'Licens (fast)',Utbildning:'Utbildning',Consulting:'Consulting'};
   // AVTAL — importerade custRevCache-poster (id i någon importedAvtal_<ver>_<mi>).
   const impIds=new Set();
   for(let mi=0;mi<12;mi++){try{JSON.parse(localStorage.getItem('importedAvtal_'+currentBudgetVersionId+'_'+mi)||'[]').forEach(id=>impIds.add(String(id)));}catch(e){}}
   const avtalPosts=[];
-  Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!impIds.has(String(it.Id)))return;const cf=kaCashflowDate(it);avtalPosts.push({name:custName(cid),type:it.Type,faktura:it.InvoiceDate?String(it.InvoiceDate).substring(0,10):'–',liq:cf?cf.toISOString().substring(0,10):'–',amount:it.Amount||0});});});
+  Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!impIds.has(String(it.Id)))return;const cf=kaCashflowDate(it);avtalPosts.push({custId:cid,name:custName(cid),desc:it.Description||'',type:it.Type,faktura:it.InvoiceDate?String(it.InvoiceDate).substring(0,10):'–',liq:cf?cf.toISOString().substring(0,10):'–',amount:it.Amount||0});});});
   const avtalSum=avtalPosts.reduce((s,p)=>s+p.amount,0);
   // FÖRNYELSE / PIPELINE — import-assumptions (DB).
-  const fornRows=assumptions.filter(a=>a.Source==='Förnyelse').map(a=>{const cid=String(a.ItemKey||'').split('_')[0];const amt=a.Amount||0,prob=a.Prob||0;const fakt=a.AssumeDate?String(a.AssumeDate).substring(0,10):'–';return{name:custName(cid),type:a.Type||'',faktura:fakt,liq:liq30(fakt),amount:amt,prob,viktat:Math.round(amt*prob/100)};});
-  const pipeRows=assumptions.filter(a=>a.Source==='Pipeline (viktat)').map(a=>{const pid=String(a.ItemKey||'').split('_')[0];const amt=a.Amount||0,prob=a.Prob||0;const fakt=a.AssumeDate?String(a.AssumeDate).substring(0,10):'–';return{name:prospName(pid),type:a.Type||'',faktura:fakt,liq:liq30(fakt),amount:amt,prob,viktat:Math.round(amt*prob/100)};});
+  const fornRows=assumptions.filter(a=>a.Source==='Förnyelse').map(a=>{const cid=String(a.ItemKey||'').split('_')[0];const amt=a.Amount||0,prob=a.Prob||0;const fakt=a.AssumeDate?String(a.AssumeDate).substring(0,10):'–';const lp=latestOfType(cid,a.Type);return{cid,name:custName(cid),desc:(lp&&lp.Description)||'',type:a.Type||'',faktura:fakt,liq:liq30(fakt),amount:amt,prob,viktat:Math.round(amt*prob/100)};});
+  // U-3 D: pipeline-Description ligger på prospectRevCache-posten → förladda berörda prospekt.
+  const _pipeAssumps=assumptions.filter(a=>a.Source==='Pipeline (viktat)');
+  const _pipePids=[...new Set(_pipeAssumps.map(a=>String(a.ItemKey||'').split('_')[0]))];
+  await Promise.all(_pipePids.map(pid=>prospectRevCache[pid]?Promise.resolve():loadProspectRevenues(pid).then(items=>{prospectRevCache[pid]=Array.isArray(items)?items:[];}).catch(()=>{prospectRevCache[pid]=[];})));
+  const pipeRows=_pipeAssumps.map(a=>{const us=String(a.ItemKey||'').split('_');const pid=us[0],itemId=us[1];const amt=a.Amount||0,prob=a.Prob||0;const fakt=a.AssumeDate?String(a.AssumeDate).substring(0,10):'–';const pit=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));return{pid,name:prospName(pid),desc:(pit&&pit.Description)||'',type:a.Type||'',faktura:fakt,liq:liq30(fakt),amount:amt,prob,viktat:Math.round(amt*prob/100)};});
   const fornViktat=fornRows.reduce((s,r)=>s+r.viktat,0),fornAmt=fornRows.reduce((s,r)=>s+r.amount,0);
   const pipeViktat=pipeRows.reduce((s,r)=>s+r.viktat,0),pipeAmt=pipeRows.reduce((s,r)=>s+r.amount,0);
   const fornAvg=fornRows.length?Math.round(fornRows.reduce((s,r)=>s+r.prob,0)/fornRows.length):0;
@@ -5346,23 +5359,37 @@ async function renderRevUnderlag(){
   const th=t=>`<th style="text-align:${t==='Belopp'||t==='Viktat'||t==='Viktning'||t==='Årssumma'?'right':'left'};font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;padding:5px 8px;border-bottom:1px solid var(--border);">${t}</th>`;
   const datedTable=(rows,cols,sumCells,bg)=>`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody><tr style="background:${bg};font-weight:600;">${sumCells}</tr>${rows}</tbody></table>`;
   // AVTAL-sektion (grön summa).
-  const avtalBody=avtalPosts.length?avtalPosts.map(p=>`<tr><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${p.name}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${TL[p.type]||p.type}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${p.faktura}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${p.liq}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;">${fk(p.amount)}</td></tr>`).join(''):'<tr><td colspan="5" style="padding:8px;color:var(--text3);">Inga importerade avtal.</td></tr>';
+  const avtalBody=avtalPosts.length?avtalPosts.map(p=>`<tr style="cursor:pointer;" onclick="window.openCustValue('${p.custId}')" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);max-width:230px;"><div style="display:flex;align-items:baseline;gap:6px;min-width:0;"><span style="white-space:nowrap;">${p.name}</span>${p.desc?`<span style="color:var(--text3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">· ${esc(p.desc)}</span>`:''}</div></td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${TL[p.type]||p.type}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${p.faktura}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${p.liq}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;">${fk(p.amount)}</td></tr>`).join(''):'<tr><td colspan="5" style="padding:8px;color:var(--text3);">Inga importerade avtal.</td></tr>';
   const avtalHtml=`<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:#1a7a50;margin-bottom:2px;">Avtal (befintliga kunder)</div>${datedTable(avtalBody,['Kund','Typ','Faktura','Likviditet','Belopp'],`<td colspan="4" style="padding:5px 8px;color:#1a7a50;">Summa avtal · ${avtalPosts.length} poster</td><td style="padding:5px 8px;text-align:right;color:#1a7a50;">${fk(avtalSum)}</td>`,'#e8f5ee')}</div>`;
   // FÖRNYELSE-sektion (amber summa).
-  const wRow=(rows,bg,emptyTxt)=>rows.length?rows.map(r=>`<tr><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${r.name}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${TL[r.type]||r.type}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${r.faktura}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${r.liq}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;">${fk(r.amount)}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;">${r.prob}%</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-weight:500;">${fk(r.viktat)}</td></tr>`).join(''):`<tr><td colspan="7" style="padding:8px;color:var(--text3);">${emptyTxt}</td></tr>`;
-  const fornHtml=`<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:#b85a00;margin-bottom:2px;">Förnyelsepotential (viktad)</div>${datedTable(wRow(fornRows,'#fff3e6','Inga förnyelser importerade.'),['Kund','Typ','Faktura','Likviditet','Belopp','Viktning','Viktat'],`<td colspan="4" style="padding:5px 8px;color:#b85a00;">Summa förnyelse · ${fornRows.length} poster</td><td style="padding:5px 8px;text-align:right;color:#b85a00;">${fk(fornAmt)}</td><td style="padding:5px 8px;text-align:right;color:#b85a00;">${fornAvg}%</td><td style="padding:5px 8px;text-align:right;color:#b85a00;">${fk(fornViktat)}</td>`,'#fff3e6')}</div>`;
-  const pipeHtml=`<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:#1a4f7a;margin-bottom:2px;">Pipeline (viktat)</div>${datedTable(wRow(pipeRows,'#e8f0f8','Inga pipeline-poster importerade.'),['Prospekt','Typ','Faktura','Likviditet','Belopp','Viktning','Viktat'],`<td colspan="4" style="padding:5px 8px;color:#1a4f7a;">Summa pipeline · ${pipeRows.length} poster</td><td style="padding:5px 8px;text-align:right;color:#1a4f7a;">${fk(pipeAmt)}</td><td style="padding:5px 8px;text-align:right;color:#1a4f7a;">${pipeAvg}%</td><td style="padding:5px 8px;text-align:right;color:#1a4f7a;">${fk(pipeViktat)}</td>`,'#e8f0f8')}</div>`;
+  const wRow=(rows,bg,emptyTxt,clk)=>rows.length?rows.map(r=>`<tr style="cursor:pointer;" onclick="${clk(r)}" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);max-width:230px;"><div style="display:flex;align-items:baseline;gap:6px;min-width:0;"><span style="white-space:nowrap;">${r.name}</span>${r.desc?`<span style="color:var(--text3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">· ${esc(r.desc)}</span>`:''}</div></td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${TL[r.type]||r.type}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${r.faktura}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${r.liq}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;">${fk(r.amount)}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;">${r.prob}%</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-weight:500;">${fk(r.viktat)}</td></tr>`).join(''):`<tr><td colspan="7" style="padding:8px;color:var(--text3);">${emptyTxt}</td></tr>`;
+  const fornHtml=`<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:#b85a00;margin-bottom:2px;">Förnyelsepotential (viktad)</div>${datedTable(wRow(fornRows,'#fff3e6','Inga förnyelser importerade.',r=>"window.openCustValue('"+r.cid+"')"),['Kund','Typ','Faktura','Likviditet','Belopp','Viktning','Viktat'],`<td colspan="4" style="padding:5px 8px;color:#b85a00;">Summa förnyelse · ${fornRows.length} poster</td><td style="padding:5px 8px;text-align:right;color:#b85a00;">${fk(fornAmt)}</td><td style="padding:5px 8px;text-align:right;color:#b85a00;">${fornAvg}%</td><td style="padding:5px 8px;text-align:right;color:#b85a00;">${fk(fornViktat)}</td>`,'#fff3e6')}</div>`;
+  const pipeHtml=`<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:#1a4f7a;margin-bottom:2px;">Pipeline (viktat)</div>${datedTable(wRow(pipeRows,'#e8f0f8','Inga pipeline-poster importerade.',r=>"window.openProspectValue('"+r.pid+"')"),['Prospekt','Typ','Faktura','Likviditet','Belopp','Viktning','Viktat'],`<td colspan="4" style="padding:5px 8px;color:#1a4f7a;">Summa pipeline · ${pipeRows.length} poster</td><td style="padding:5px 8px;text-align:right;color:#1a4f7a;">${fk(pipeAmt)}</td><td style="padding:5px 8px;text-align:right;color:#1a4f7a;">${pipeAvg}%</td><td style="padding:5px 8px;text-align:right;color:#1a4f7a;">${fk(pipeViktat)}</td>`,'#e8f0f8')}</div>`;
   // MANUELL-sektion (grå summa) — bara årssumma per SubCategory, inga datum.
   const manBody=manRows.length?manRows.map(r=>`<tr><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${r.sub}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;">${fk(r.total)}</td></tr>`).join(''):'<tr><td colspan="2" style="padding:8px;color:var(--text3);">Inga manuella belopp.</td></tr>';
   const manHtml=`<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:2px;">Manuellt (utan poster/datum)</div>${datedTable(manBody,['Kategori','Årssumma'],`<td style="padding:5px 8px;color:var(--text2);">Summa manuellt</td><td style="padding:5px 8px;text-align:right;color:var(--text2);">${fk(manSum)}</td>`,'var(--surface2)')}</div>`;
-  el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-top:4px;box-shadow:var(--shadow);">
-    <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Underlag bakom budgeterad försäljning ${year}</div>
-    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px;">
-      ${stat('Budgeterat viktat',fk(srcViktat),'var(--accent)','matchar KPI:n')}
-      ${stat('Totalt ovikt',fk(ovikt),'var(--text)','fullt värde')}
-      ${stat('Andel avtal',pctAvtal+'%','#1a7a50',fk(avtalSum))}
-      ${stat('Andel prognos',pctPrognos+'%','#b85a00','förn + pipe · '+fk(prognos))}
+  // BLOCK B: huvudruta (viktad summa + oviktad subrubrik) + fyra källboxar (viktat bidrag + % av budget).
+  const pctOf=v=>srcViktat>0?Math.round(v/srcViktat*100):0;
+  const srcBox=(name,val,pct,bg,fg,border)=>`<div style="background:${bg};${border?'border:1px solid var(--border);':''}border-radius:8px;padding:10px 12px;"><div style="font-size:11px;font-weight:600;color:${fg};">${name}</div><div style="font-size:15px;font-weight:700;color:${fg};margin-top:2px;">${fk(val)}</div><div style="font-size:10px;color:${fg};opacity:0.85;margin-top:1px;">${pct}% av budget</div></div>`;
+  const topHtml=`
+    <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">Budgeterad försäljning</div>
+      <div style="font-size:26px;font-weight:700;color:#D85A30;line-height:1.1;margin-top:3px;">${fk(srcViktat)}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;">oviktad: ${fk(ovikt)}</div>
     </div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px;">
+      ${srcBox('Avtal',avtalSum,pctOf(avtalSum),'#EAF3DE','#27500A',false)}
+      ${srcBox('Förnyelse',fornViktat,pctOf(fornViktat),'#FAEEDA','#633806',false)}
+      ${srcBox('Pipeline',pipeViktat,pctOf(pipeViktat),'#E6F1FB','#042C53',false)}
+      ${srcBox('Manuell',manSum,pctOf(manSum),'var(--surface)','var(--text2)',true)}
+    </div>`;
+  // BLOCK A: centrerad modal-box i overlayn (header + stäng-X).
+  el.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:780px;max-width:94vw;max-height:88vh;overflow:auto;box-shadow:var(--shadow-md);padding:18px 22px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:15px;font-weight:600;">Underlag · Budgeterad försäljning ${year}</div>
+      <button onclick="window.closeRevUnderlag()" style="width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;color:var(--text2);font-size:16px;line-height:1;">×</button>
+    </div>
+    ${topHtml}
     ${avtalHtml}${fornHtml}${pipeHtml}${manHtml}
   </div>`;
 }
