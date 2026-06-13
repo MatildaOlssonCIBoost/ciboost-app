@@ -4766,7 +4766,7 @@ async function openImportFornyelseModal(versionId,preMonth){
       }
       const _refDate=post&&post.DateTo?String(post.DateTo).substring(0,10):null;
       saved[p.custId+'_'+p.type]={amount:p.amount,prob:p.prob,date:p.date,licenseDateTo:_refDate,importedAt:today};
-      assumptions.push({itemKey:p.custId+'_'+p.type,amount:p.amount,prob:p.prob,assumeDate:p.date,refDate:_refDate,type:p.type,importedBy});
+      assumptions.push({itemKey:p.custId+'_'+p.type,amount:p.amount,prob:p.prob,assumeDate:p.date,refDate:_refDate,type:p.type,importedBy,srcAmount:(post&&post.Amount!=null)?post.Amount:null,srcProb:cust?calculateRiskScoreClient(cust).renewalProb:null,srcDate:(post&&post.DateTo)?String(post.DateTo).substring(0,10):null});
     });
     const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
     try{await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}catch(e){alert('Kunde inte spara importen.');return;}
@@ -4893,7 +4893,7 @@ async function openImportPipelineModal(versionId,preMonth){
       }
       const _refDate=it&&it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null;
       saved[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,invoiceDate:_refDate,type:it?it.Type:null,importedAt:today};
-      assumptions.push({itemKey:p.prospectId+'_'+p.itemId,amount:p.amount,prob:p.prob,assumeDate:p.date,refDate:_refDate,type:it?it.Type:null,importedBy});
+      assumptions.push({itemKey:p.prospectId+'_'+p.itemId,amount:p.amount,prob:p.prob,assumeDate:p.date,refDate:_refDate,type:it?it.Type:null,importedBy,srcAmount:(it&&it.Amount!=null)?it.Amount:null,srcProb:(it&&it.Probability!=null)?it.Probability:null,srcDate:(it&&it.InvoiceDate)?String(it.InvoiceDate).substring(0,10):null});
     });
     const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
     try{await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}catch(e){alert('Kunde inte spara importen.');return;}
