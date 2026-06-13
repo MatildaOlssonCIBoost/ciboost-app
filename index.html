@@ -4666,7 +4666,7 @@ async function openImportFornyelseModal(versionId,preMonth){
   const ex=document.getElementById('import-fornyelse-overlay');if(ex)ex.remove();
   const ov=document.createElement('div');ov.id='import-fornyelse-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:540px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:620px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
     <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:10px;">Importera förnyelser · <span id="fr-month-lbl"></span> ${year}</h3><input type="hidden" id="fr-month"><div id="fr-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;">${MONTHS.map((m,i)=>`<button type="button" onclick="window._frPickMonth(${i})" style="flex:1;min-width:34px;padding:5px 4px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;">${m}</button>`).join('')}</div></div>
     <div id="fr-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
     <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="fr-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-fornyelse-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="fr-import-btn" class="btn-primary" onclick="window._frImport()" style="padding:8px 16px;" disabled>Importera</button></div></div>
@@ -4676,7 +4676,7 @@ async function openImportFornyelseModal(versionId,preMonth){
   let _frSavedAll={};
   try{
     const r=await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`);
-    if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _frSavedAll=Object.fromEntries(arr.filter(x=>x.Source==='Förnyelse').map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,licenseDateTo:x.RefDate?String(x.RefDate).substring(0,10):null}]));}
+    if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _frSavedAll=Object.fromEntries(arr.filter(x=>x.Source==='Förnyelse').map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,licenseDateTo:x.RefDate?String(x.RefDate).substring(0,10):null,srcAmount:x.SrcAmount,srcProb:x.SrcProb,srcDate:x.SrcDate?String(x.SrcDate).substring(0,10):null,importedBy:x.ImportedBy||'',importedAt:x.ImportedAt?String(x.ImportedAt).substring(0,10):''}]));}
   }catch(e){
     try{_frSavedAll=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'{}');}catch(e2){_frSavedAll={};}
   }
@@ -4727,13 +4727,14 @@ async function openImportFornyelseModal(versionId,preMonth){
       if(!posts.length)return;
       html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[type]}</div>`;
       posts.forEach(({c,post})=>{const e=window._frEdits[c.Id+'_'+type]||{};
-        const dateV=e.date!=null?e.date:post.DateTo.substring(0,10);
-        const amtV=e.amount!=null?e.amount:String(post.Amount||0);
-        const probV=e.prob!=null?e.prob:String(calculateRiskScoreClient(c).renewalProb);
-        const chk=e.checked!=null?e.checked:false;
+        const sv=_frSaved[c.Id+'_'+type];
+        const dateV=e.date!=null?e.date:(sv?sv.date:post.DateTo.substring(0,10));
+        const amtV=e.amount!=null?e.amount:(sv?String(sv.amount):String(post.Amount||0));
+        const probV=e.prob!=null?e.prob:(sv?String(sv.prob):String(calculateRiskScoreClient(c).renewalProb));
+        const chk=e.checked!=null?e.checked:(sv?true:false);
         const period=`${post.DateFrom?post.DateFrom.substring(0,10):'?'} – ${post.DateTo.substring(0,10)}`;const desc=post.Description||'';
         // Ändrings-markör: ● Ny om aldrig importerad; ↻ Ändrad (klickbar → importerat vs nuvarande) om underlag/licens-DateTo skiljer sig.
-        const sv=_frSaved[c.Id+'_'+type];const curDateTo=post.DateTo?post.DateTo.substring(0,10):null;let marker='';
+        const curDateTo=post.DateTo?post.DateTo.substring(0,10):null;let marker='';
         if(!sv)marker=' <span style="color:#185FA5;font-size:10px;font-weight:600;">● Ny</span>';
         else{const licDiff=curDateTo!==(sv.licenseDateTo||null);
           const undDiff=Math.round(_frParse(amtV))!==Math.round(_frParse(sv.amount))||Math.round(_frParse(probV))!==Math.round(_frParse(sv.prob))||dateV!==sv.date;
@@ -4794,7 +4795,7 @@ async function openImportPipelineModal(versionId,preMonth){
   const ex=document.getElementById('import-pipeline-overlay');if(ex)ex.remove();
   const ov=document.createElement('div');ov.id='import-pipeline-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:540px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:620px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
     <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:10px;">Importera pipeline · <span id="pp-month-lbl"></span> ${year}</h3><input type="hidden" id="pp-month"><div id="pp-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;">${MONTHS.map((m,i)=>`<button type="button" onclick="window._ppPickMonth(${i})" style="flex:1;min-width:34px;padding:5px 4px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;">${m}</button>`).join('')}</div></div>
     <div id="pp-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
     <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="pp-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-pipeline-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="pp-import-btn" class="btn-primary" onclick="window._ppImport()" style="padding:8px 16px;" disabled>Importera</button></div></div>
@@ -4804,7 +4805,7 @@ async function openImportPipelineModal(versionId,preMonth){
   let _ppSavedAll={};
   try{
     const r=await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`);
-    if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _ppSavedAll=Object.fromEntries(arr.filter(x=>x.Source==='Pipeline (viktat)').map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,invoiceDate:x.RefDate?String(x.RefDate).substring(0,10):null}]));}
+    if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _ppSavedAll=Object.fromEntries(arr.filter(x=>x.Source==='Pipeline (viktat)').map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,invoiceDate:x.RefDate?String(x.RefDate).substring(0,10):null,srcAmount:x.SrcAmount,srcProb:x.SrcProb,srcDate:x.SrcDate?String(x.SrcDate).substring(0,10):null,importedBy:x.ImportedBy||'',importedAt:x.ImportedAt?String(x.ImportedAt).substring(0,10):''}]));}
   }catch(e){
     try{_ppSavedAll=JSON.parse(localStorage.getItem('pipelineImport_'+versionId)||'{}');}catch(e2){_ppSavedAll={};}
   }
@@ -4853,13 +4854,14 @@ async function openImportPipelineModal(versionId,preMonth){
       const posts=byType[type];if(!posts.length)return;const tc=_tc[type];
       html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${_tl[type]}</div>`;
       posts.forEach(({p,it})=>{const e=window._ppEdits[p.Id+'_'+it.Id]||{};
-        const dateV=e.date!=null?e.date:(it.InvoiceDate?String(it.InvoiceDate).substring(0,10):'');
-        const amtV=e.amount!=null?e.amount:String(it.Amount||0);
-        const probV=e.prob!=null?e.prob:String(it.Probability||0);
-        const chk=e.checked!=null?e.checked:false;
+        const sv=_ppSaved[p.Id+'_'+it.Id];
+        const dateV=e.date!=null?e.date:(sv?sv.date:(it.InvoiceDate?String(it.InvoiceDate).substring(0,10):''));
+        const amtV=e.amount!=null?e.amount:(sv?String(sv.amount):String(it.Amount||0));
+        const probV=e.prob!=null?e.prob:(sv?String(sv.prob):String(it.Probability||0));
+        const chk=e.checked!=null?e.checked:(sv?true:false);
         const period=(it.DateFrom||it.DateTo)?`${it.DateFrom?it.DateFrom.substring(0,10):'?'} – ${it.DateTo?it.DateTo.substring(0,10):'?'}`:'';const desc=it.Description||'';
         // Ändrings-markör: ● Ny om aldrig importerad; ✎ Ändrad (klickbar → importerat vs nuvarande) om antaganden/InvoiceDate skiljer sig.
-        const sv=_ppSaved[p.Id+'_'+it.Id];const curInv=it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null;let marker='';
+        const curInv=it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null;let marker='';
         if(!sv)marker=' <span style="color:#185FA5;font-size:10px;font-weight:600;">● Ny</span>';
         else{const invDiff=curInv!==(sv.invoiceDate||null);
           const undDiff=Math.round(_ppParse(amtV))!==Math.round(_ppParse(sv.amount))||Math.round(_ppParse(probV))!==Math.round(_ppParse(sv.prob))||dateV!==sv.date;
