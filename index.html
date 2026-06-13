@@ -3606,7 +3606,23 @@ async function renderFinDashboard(){
   const active=allCustomers.filter(c=>c._days===null||c._days>=0);
   const churn=allCustomers.filter(c=>c._days!==null&&c._days<0).length;
   const churnPct=allCustomers.length?Math.round(churn/allCustomers.length*1000)/10:0;
-  const churnARR=allCustomers.filter(c=>c._days!==null&&c._days<0).reduce((s,c)=>s+(c.ARR||0)+(c.ARR_Fixed||0),0);
+  // Churnad ARR (#1b): en kund räknas som churn om dess senaste prenumerationslicens
+  // (ARR) gått ut OCH ingen aktiv ARR-post finns nu (förnyade kunder = ej churn).
+  // Värde = annualAmount av senaste utgångna posten, bara om den löpt ut inom 12 mån.
+  const _churnT=new Date();
+  let churnARR=0;
+  Object.values(custRevCache||{}).forEach(items=>{
+    if(!Array.isArray(items))return;
+    const arr=items.filter(it=>it.Type==='ARR'&&it.DateFrom&&it.DateTo);
+    if(!arr.length)return;
+    const hasActive=arr.some(it=>{const df=new Date(it.DateFrom),dt=new Date(it.DateTo);return df<=_churnT&&dt>=_churnT;});
+    if(hasActive)return; // förnyad/aktiv → ej churn
+    const latest=arr.reduce((a,b)=>new Date(b.DateTo)>new Date(a.DateTo)?b:a);
+    const dt=new Date(latest.DateTo);
+    const monthsAgo=(_churnT-dt)/(86400000*30.44);
+    if(dt<_churnT&&monthsAgo<=12)churnARR+=annualAmount(latest);
+  });
+  churnARR=Math.round(churnARR);
   const pipeFull=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost').reduce((s,p)=>s+(p.ValueMax||p.ValueMin||p.Value||0),0);
   const pipeWeighted=allProspects.filter(p=>p.Stage!=='Closed Won'&&p.Stage!=='Closed Lost').reduce((s,p)=>s+Math.round((p.ValueMax||p.ValueMin||p.Value||0)*(p.Probability||0)/100),0);
   const avgMonth=months.length?Math.round(total/months.length):0;
