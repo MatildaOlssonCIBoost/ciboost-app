@@ -4672,6 +4672,14 @@ async function openImportFornyelseModal(versionId,preMonth){
     <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="fr-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-fornyelse-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="fr-import-btn" class="btn-primary" onclick="window._frImport()" style="padding:8px 16px;" disabled>Importera</button></div></div>
   </div>`;
   document.body.appendChild(ov);
+  // DB4: förladda antaganden från DB (delat mellan användare). Render läser denna minnesvariabel synkront. Fallback: localStorage.
+  let _frSavedAll={};
+  try{
+    const r=await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`);
+    if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _frSavedAll=Object.fromEntries(arr.filter(x=>x.Source==='Förnyelse').map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,licenseDateTo:x.RefDate?String(x.RefDate).substring(0,10):null}]));}
+  }catch(e){
+    try{_frSavedAll=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'{}');}catch(e2){_frSavedAll={};}
+  }
   window._frSummary=()=>{}; // sammanräkning sker i _frRecalc
   window._frEdits={};       // redigeringar per kund+typ (date/amount/prob/checked), överlever _frRender (för datumflytt mellan flikar)
   const _frParse=s=>Number(String(s).replace(/[^0-9.\-]/g,''))||0;
@@ -4704,8 +4712,8 @@ async function openImportFornyelseModal(versionId,preMonth){
     const _tl={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)'};
     const churnPct=computeHistoricChurnPct();const fk=v=>Math.round(v).toLocaleString('sv-SE');
     const inp='padding:2px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);';
-    // Sparade antaganden från senaste import (variant A) → ändrings-markör per post.
-    let _frSaved={};try{_frSaved=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'{}');}catch(e){_frSaved={};}
+    // Sparade antaganden (variant A) → ändrings-markör per post. DB4: läses från förladdade _frSavedAll (DB, fallback localStorage).
+    const _frSaved=_frSavedAll;
     let html='';
     // Filter på licens-postens (latestOfType) DateTo-MÅNAD === mi — matchar fixade aggregateFornyelseRows (LicenseEnd-månaden).
     // Effektivt fakturadatum (ev. redigerat i _frEdits) styr vilken flik posten hör till → datumändring flyttar posten.
@@ -4792,6 +4800,14 @@ async function openImportPipelineModal(versionId,preMonth){
     <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="pp-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-pipeline-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="pp-import-btn" class="btn-primary" onclick="window._ppImport()" style="padding:8px 16px;" disabled>Importera</button></div></div>
   </div>`;
   document.body.appendChild(ov);
+  // DB4: förladda antaganden från DB (delat mellan användare). Render läser denna minnesvariabel synkront. Fallback: localStorage.
+  let _ppSavedAll={};
+  try{
+    const r=await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`);
+    if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _ppSavedAll=Object.fromEntries(arr.filter(x=>x.Source==='Pipeline (viktat)').map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,invoiceDate:x.RefDate?String(x.RefDate).substring(0,10):null}]));}
+  }catch(e){
+    try{_ppSavedAll=JSON.parse(localStorage.getItem('pipelineImport_'+versionId)||'{}');}catch(e2){_ppSavedAll={};}
+  }
   window._ppEdits={};
   window._ppSummary=()=>{}; // sammanräkning sker i _ppRecalc
   const _ppParse=s=>Number(String(s).replace(/[^0-9.\-]/g,''))||0;
@@ -4822,8 +4838,8 @@ async function openImportPipelineModal(versionId,preMonth){
     const _tl={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Utbildning:'Utbildning',Consulting:'Consulting'};
     const fk=v=>Math.round(v).toLocaleString('sv-SE');
     const inp='padding:2px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);';
-    // Sparade antaganden från senaste import (variant A) → ändrings-markör per post.
-    let _ppSaved={};try{_ppSaved=JSON.parse(localStorage.getItem('pipelineImport_'+versionId)||'{}');}catch(e){_ppSaved={};}
+    // Sparade antaganden (variant A) → ändrings-markör per post. DB4: läses från förladdade _ppSavedAll (DB, fallback localStorage).
+    const _ppSaved=_ppSavedAll;
     // Filter på EFFEKTIVT fakturadatum (ev. redigerat i _ppEdits) → datumändring flyttar posten mellan flikar.
     const byType={ARR:[],Fastpris:[],Utbildning:[],Consulting:[]};
     pipeProspects.forEach(p=>{(prospectRevCache[p.Id]||[]).forEach(it=>{
