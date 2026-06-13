@@ -1468,6 +1468,9 @@ function startKpiObserver(){
   }catch(e){}
 }
 function inferOwner(c){if(c.Owner)return c.Owner;if(c.Notes?.includes('Alexandra'))return 'Alexandra Henningson';return 'Matilda Olsson';}
+// P-3: färgskild ägartagg per OWNERS-index (cyklar i paletten). Okänd/tom → null → behåll dagens neutrala amber-klass.
+const _OWNER_PAL=[{bg:'#E6F1FB',fg:'#0C447C'},{bg:'#EEEDFE',fg:'#3C3489'},{bg:'#E1F5EE',fg:'#0F6E56'},{bg:'#FAECE7',fg:'#993C1D'}];
+function ownerColor(name){const i=OWNERS.indexOf(name);if(i<0)return null;return _OWNER_PAL[i%_OWNER_PAL.length];}
 function fmtShortDate(d){if(!d)return'';const dt=new Date(d);return`${dt.getDate()}/${dt.getMonth()+1}`;}
 function daysPill(days){
   if(days===null)return'<span class="days-pill days-expired">-</span>';
@@ -1749,6 +1752,7 @@ function renderKanban(){
     const isWon=stage==='Closed Won',isLost=stage==='Closed Lost';
     const cardsHtml=cards.length?cards.map(p=>{
       const srcColor=SOURCE_COLORS[p.Source]||'#8b90b0';
+      const _oc=ownerColor(p.Owner);
       const val=p.ValueMin&&p.ValueMax?`${Math.round(p.ValueMin/1000)}k–${Math.round(p.ValueMax/1000)}k`:p.ValueMax?Math.round(p.ValueMax/1000)+'k':p.ValueMin?Math.round(p.ValueMin/1000)+'k':p.Value?Math.round(p.Value/1000)+'k':'';
       // P-1b: kompakt kort — sammanfattning (viktat + total + färgad %-ruta) alltid synlig, posterna i klick-utfällning.
       const _revC={ARR:'#3B6D11',Fastpris:'#185FA5',Utbildning:'#854F0B',Consulting:'#3C3489'};
@@ -1793,7 +1797,7 @@ function renderKanban(){
         ${statusBlock}
         <div class="kc-name">${p.Company||'-'}</div>
         <div class="kc-contact">${p.Contact||'–'}</div>
-        <div class="kc-owner">${p.Owner||'–'}</div>
+        <div class="kc-owner"${_oc?` style="background:${_oc.bg};color:${_oc.fg};"`:''}>${p.Owner||'–'}</div>
         <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span></div>
         ${revHtml}
         ${actionHtml}
@@ -4784,12 +4788,21 @@ async function openImportFornyelseModal(versionId,preMonth){
           if(kallaDiff)flags+=` <span onclick="window._frShowDiff('${c.Id}_${type}')" title="Källan har ändrats sedan import" style="cursor:pointer;color:#854F0B;background:#FAEEDA;border-radius:8px;padding:1px 7px;font-size:9px;font-weight:600;">⚠ Källan uppdaterad</span>`;
           marker=flags;
         }
-        html+=`<div class="fr-row" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);${sv?'border-left:3px solid #1D9E75;':''}border-radius:8px;margin-bottom:6px;background:var(--surface);"><input type="checkbox" class="fr-cb" data-cust="${c.Id}" data-type="${type}" ${chk?'checked':''} onchange="window._frRecalc()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||('Kund '+c.Id)}${marker}</div><div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc?desc+' · ':''}${period}</div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Faktura:<input type="text" class="fr-date" value="${dateV}" oninput="window._frRecalc()" onchange="window._frRender()" style="width:92px;${inp}">Belopp:<input type="text" class="fr-amount" value="${amtV}" oninput="window._frRecalc()" style="width:84px;text-align:right;${inp}">Viktning:<input type="text" class="fr-prob" value="${probV}" oninput="window._frRecalc()" style="width:40px;text-align:right;${inp}">% · Hist. churn: ${Math.round(churnPct*100)}%</div>${sv?`<div style="font-size:10px;color:#0F6E56;margin-top:6px;display:flex;align-items:center;gap:4px;"><span style="font-size:11px;">✓</span> Importerad av ${sv.importedBy||'okänd'}${sv.importedAt?' · '+sv.importedAt:''}</div>`:`<div style="font-size:10px;color:var(--text3);margin-top:6px;">Ej importerad · default-värden</div>`}</div><div style="text-align:right;flex:0 0 auto;"><div class="fr-weighted" style="font-size:13px;font-weight:600;">${fk(Math.round(_frParse(amtV)*_frParse(probV)/100))} kr</div><div class="fr-liqmonth" style="font-size:10px;color:var(--text3);">Likviditet: –</div></div></div>`;});
+        html+=`<div class="fr-row" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);${sv?'border-left:3px solid #1D9E75;':''}border-radius:8px;margin-bottom:6px;background:var(--surface);"><input type="checkbox" class="fr-cb" data-cust="${c.Id}" data-type="${type}" ${chk?'checked':''} onchange="window._frRecalc()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||('Kund '+c.Id)}${marker}</div><div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc?desc+' · ':''}${period}</div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Faktura:<input type="text" class="fr-date" value="${dateV}" oninput="window._frRecalc()" onchange="window._frRender()" style="width:92px;${inp}">Belopp:<input type="text" class="fr-amount" value="${amtV}" oninput="window._frRecalc()" style="width:84px;text-align:right;${inp}"></div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Viktning:<input type="text" class="fr-prob" value="${probV}" oninput="window._frRecalc()" style="width:40px;text-align:right;${inp}">% · Hist. churn: ${Math.round(churnPct*100)}%</div>${sv?`<div style="font-size:10px;color:#0F6E56;margin-top:6px;display:flex;align-items:center;gap:4px;"><span style="font-size:11px;">✓</span> Importerad av ${sv.importedBy||'okänd'}${sv.importedAt?' · '+sv.importedAt:''}</div>`:`<div style="font-size:10px;color:var(--text3);margin-top:6px;">Ej importerad · default-värden</div>`}</div><div style="text-align:right;flex:0 0 auto;"><div class="fr-weighted" style="font-size:13px;font-weight:600;">${fk(Math.round(_frParse(amtV)*_frParse(probV)/100))} kr</div><div class="fr-liqmonth" style="font-size:10px;color:var(--text3);">Likviditet: –</div></div></div>`;});
       html+=`</div>`;});
     document.getElementById('fr-body').innerHTML=html||`<div style="padding:30px;text-align:center;color:var(--text3);">Inga förnyelser i ${MONTHS[mi]}.</div>`;
     window._frRecalc();
   };
   // Popup: A (du importerade) vs B (källan vid import) vs C (källan nu, live). Visar bara de block som skiljer sig.
+  // P-C3: sätt redigeringsfälten till källans NUVARANDE värde (C), kryssa i, stäng popup, rita om.
+  window._frUseSource=(key)=>{
+    const us=key.split('_');const type=us.pop();const custId=us.join('_');
+    const cust=(allCustomers||[]).find(c=>String(c.Id)===String(custId));
+    const post=cust?_frLatestOfType(cust,type):null;
+    window._frEdits[key]={amount:String(post?(post.Amount||0):0),prob:String(cust?calculateRiskScoreClient(cust).renewalProb:0),date:(post&&post.DateTo)?String(post.DateTo).substring(0,10):'',checked:true};
+    document.getElementById('fr-diff-overlay')?.remove();
+    window._frRender();
+  };
   window._frShowDiff=(key)=>{
     const sv=_frSavedAll[key];if(!sv)return;
     const us=key.split('_');const type=us.pop();const custId=us.join('_');
@@ -4811,7 +4824,7 @@ async function openImportFornyelseModal(versionId,preMonth){
         ${underlagDiff?`<br><strong style="color:#3C3489;">Källan säger:</strong> belopp ${fk(sv.srcAmount)} kr · viktning ${Math.round(_frParse(sv.srcProb))}% · datum ${sv.srcDate||'–'}`:''}
         ${kallaDiff?`<br><strong style="color:#854F0B;">Källan säger (uppdaterad):</strong> belopp ${curAmount.toLocaleString('sv-SE')} kr · viktning ${Math.round(curProb)}% · datum ${curDateTo}<br><span style="color:var(--text3);">Importera om för att uppdatera budgeten till källans värde.</span>`:''}
       </div>
-      <div style="text-align:right;margin-top:14px;"><button onclick="document.getElementById('fr-diff-overlay').remove();" style="padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Stäng</button></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button onclick="window._frUseSource('${key}')" style="padding:7px 14px;border:none;border-radius:8px;background:#1D9E75;color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">Använd källans värden</button><button onclick="document.getElementById('fr-diff-overlay').remove();" style="padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Stäng</button></div>
     </div>`;
     document.body.appendChild(ov);
   };
@@ -4944,12 +4957,20 @@ async function openImportPipelineModal(versionId,preMonth){
           if(kallaDiff)flags+=` <span onclick="window._ppShowDiff('${p.Id}_${it.Id}')" title="Källan har ändrats sedan import" style="cursor:pointer;color:#854F0B;background:#FAEEDA;border-radius:8px;padding:1px 7px;font-size:9px;font-weight:600;">⚠ Källan uppdaterad</span>`;
           marker=flags;
         }
-        html+=`<div class="pp-row" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);${sv?'border-left:3px solid #1D9E75;':''}border-radius:8px;margin-bottom:6px;background:var(--surface);"><input type="checkbox" class="pp-cb" data-prospect="${p.Id}" data-item="${it.Id}" ${chk?'checked':''} onchange="window._ppRecalc()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.Company||('Prospekt '+p.Id)}${marker}<span style="display:inline-block;font-size:9px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--surface2);color:var(--text3);margin-left:5px;">${p.Stage}</span></div><div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc?desc+' · ':''}${period?period+' · ':''}</div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Faktura:<input type="text" class="pp-date" value="${dateV}" oninput="window._ppRecalc()" onchange="window._ppRender()" style="width:92px;${inp}">Belopp:<input type="text" class="pp-amount" value="${amtV}" oninput="window._ppRecalc()" style="width:84px;text-align:right;${inp}">Viktning:<input type="text" class="pp-prob" value="${probV}" oninput="window._ppRecalc()" style="width:40px;text-align:right;${inp}">%</div>${sv?`<div style="font-size:10px;color:#0F6E56;margin-top:6px;display:flex;align-items:center;gap:4px;"><span style="font-size:11px;">✓</span> Importerad av ${sv.importedBy||'okänd'}${sv.importedAt?' · '+sv.importedAt:''}</div>`:`<div style="font-size:10px;color:var(--text3);margin-top:6px;">Ej importerad · default-värden</div>`}</div><div style="text-align:right;flex:0 0 auto;"><div class="pp-weighted" style="font-size:13px;font-weight:600;">${fk(Math.round(_ppParse(amtV)*_ppParse(probV)/100))} kr</div><div class="pp-liqmonth" style="font-size:10px;color:var(--text3);">Likviditet: –</div></div></div>`;});
+        html+=`<div class="pp-row" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);${sv?'border-left:3px solid #1D9E75;':''}border-radius:8px;margin-bottom:6px;background:var(--surface);"><input type="checkbox" class="pp-cb" data-prospect="${p.Id}" data-item="${it.Id}" ${chk?'checked':''} onchange="window._ppRecalc()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.Company||('Prospekt '+p.Id)}${marker}<span style="display:inline-block;font-size:9px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--surface2);color:var(--text3);margin-left:5px;">${p.Stage}</span></div><div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc?desc+' · ':''}${period?period+' · ':''}</div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Faktura:<input type="text" class="pp-date" value="${dateV}" oninput="window._ppRecalc()" onchange="window._ppRender()" style="width:92px;${inp}">Belopp:<input type="text" class="pp-amount" value="${amtV}" oninput="window._ppRecalc()" style="width:84px;text-align:right;${inp}"></div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Viktning:<input type="text" class="pp-prob" value="${probV}" oninput="window._ppRecalc()" style="width:40px;text-align:right;${inp}">%</div>${sv?`<div style="font-size:10px;color:#0F6E56;margin-top:6px;display:flex;align-items:center;gap:4px;"><span style="font-size:11px;">✓</span> Importerad av ${sv.importedBy||'okänd'}${sv.importedAt?' · '+sv.importedAt:''}</div>`:`<div style="font-size:10px;color:var(--text3);margin-top:6px;">Ej importerad · default-värden</div>`}</div><div style="text-align:right;flex:0 0 auto;"><div class="pp-weighted" style="font-size:13px;font-weight:600;">${fk(Math.round(_ppParse(amtV)*_ppParse(probV)/100))} kr</div><div class="pp-liqmonth" style="font-size:10px;color:var(--text3);">Likviditet: –</div></div></div>`;});
       html+=`</div>`;});
     document.getElementById('pp-body').innerHTML=html||`<div style="padding:30px;text-align:center;color:var(--text3);">Inga pipeline-poster i ${MONTHS[mi]}.</div>`;
     window._ppRecalc();
   };
   // Popup: A (du importerade) vs B (källan vid import) vs C (källan nu, live). Visar bara de block som skiljer sig.
+  // P-C3: sätt redigeringsfälten till källans NUVARANDE värde (C), kryssa i, stäng popup, rita om.
+  window._ppUseSource=(key)=>{
+    const us=key.split('_');const itemId=us.pop();const prospectId=us.join('_');
+    const items=prospectRevCache[prospectId]||[];const it=items.find(x=>String(x.Id)===String(itemId));
+    window._ppEdits[key]={amount:String(it?(it.Amount||0):0),prob:String(it?(it.Probability||0):0),date:(it&&it.InvoiceDate)?String(it.InvoiceDate).substring(0,10):'',checked:true};
+    document.getElementById('pp-diff-overlay')?.remove();
+    window._ppRender();
+  };
   window._ppShowDiff=(key)=>{
     const sv=_ppSavedAll[key];if(!sv)return;
     const us=key.split('_');const itemId=us.pop();const prospectId=us.join('_');
@@ -4971,7 +4992,7 @@ async function openImportPipelineModal(versionId,preMonth){
         ${underlagDiff?`<br><strong style="color:#3C3489;">Källan säger:</strong> belopp ${fk(sv.srcAmount)} kr · viktning ${Math.round(_ppParse(sv.srcProb))}% · datum ${sv.srcDate||'–'}`:''}
         ${kallaDiff?`<br><strong style="color:#854F0B;">Källan säger (uppdaterad):</strong> belopp ${curAmount.toLocaleString('sv-SE')} kr · viktning ${Math.round(curProb)}% · datum ${curInv}<br><span style="color:var(--text3);">Importera om för att uppdatera budgeten till källans värde.</span>`:''}
       </div>
-      <div style="text-align:right;margin-top:14px;"><button onclick="document.getElementById('pp-diff-overlay').remove();" style="padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Stäng</button></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button onclick="window._ppUseSource('${key}')" style="padding:7px 14px;border:none;border-radius:8px;background:#1D9E75;color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">Använd källans värden</button><button onclick="document.getElementById('pp-diff-overlay').remove();" style="padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Stäng</button></div>
     </div>`;
     document.body.appendChild(ov);
   };
