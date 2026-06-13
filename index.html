@@ -392,7 +392,7 @@
   .pipe-divider { width: 1px; height: 28px; background: var(--border); }
   .pipe-filters { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 24px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .kanban { display: flex; gap: 10px; padding: 16px 24px; overflow-x: auto; min-height: calc(100vh - 220px); align-items: flex-start; background: var(--bg); }
-  .kanban-col { min-width: 195px; width: 195px; flex-shrink: 0; }
+  .kanban-col { min-width: 240px; width: 240px; flex-shrink: 0; }
   .kanban-col-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 2px; margin-bottom: 8px; }
   .kanban-col-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
   .kanban-col-count { font-size: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; color: var(--text3); }
@@ -1720,6 +1720,12 @@ function renderPipeOverviewKpis(){
 }
 function renderKanban(){
   renderPipeOverviewKpis();
+  // P-1: säkerställ att ProspectRevenues är cachade så korten kan visa intäktsrader.
+  // Engångs-förladdning + omritning; sync-anropare (switchMain, drag, filter) påverkas ej.
+  if((allProspects||[]).some(p=>!prospectRevCache[p.Id])&&!window._kanbanRevPrefetching){
+    window._kanbanRevPrefetching=true;
+    prefetchProspectRevenues(allProspects).then(()=>{window._kanbanRevPrefetching=false;renderKanban();}).catch(()=>{window._kanbanRevPrefetching=false;});
+  }
   const srcFilter=document.getElementById('filter-source')?.value||'';
   const ownerFilter=document.getElementById('filter-pipe-owner')?.value||'';
   const indFilter=document.getElementById('filter-pipe-industry')?.value||'';
@@ -1732,7 +1738,21 @@ function renderKanban(){
     const cardsHtml=cards.length?cards.map(p=>{
       const srcColor=SOURCE_COLORS[p.Source]||'#8b90b0';
       const val=p.ValueMin&&p.ValueMax?`${Math.round(p.ValueMin/1000)}k–${Math.round(p.ValueMax/1000)}k`:p.ValueMax?Math.round(p.ValueMax/1000)+'k':p.ValueMin?Math.round(p.ValueMin/1000)+'k':p.Value?Math.round(p.Value/1000)+'k':'';
-      const probHtml=p.Probability?`<span class="prob-badge ${p.Probability>=70?'prob-high':p.Probability>=40?'prob-mid':'prob-low'}">${p.Probability}%${p.ValueMax||p.ValueMin||p.Value?' · '+Math.round((p.ValueMax||p.ValueMin||p.Value)*p.Probability/100/1000)+'k viktat':''}</span>`:'';
+      // P-1: intäktsrader per ProspectRevenue-post (EJ summerade per typ). Fallback = platt värde/Probability.
+      const _revC={ARR:'#3B6D11',Fastpris:'#185FA5',Utbildning:'#854F0B',Consulting:'#3C3489'};
+      const _ritems=prospectRevCache[p.Id]||[];
+      const _rrow=(c,lbl,right)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text2);margin-bottom:2px;"><span style="width:7px;height:7px;border-radius:2px;background:${c};flex:0 0 auto;"></span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lbl}</span><span style="flex:0 0 auto;color:var(--text3);">${right}</span></div>`;
+      let revHtml='';
+      if(_ritems.length){
+        const rows=_ritems.map(it=>{const amt=it.Amount||0,prob=it.Probability||0;return _rrow(_revC[it.Type]||'#8b90b0',`${it.Type}${it.Description?' · '+it.Description:''}`,`${Math.round(amt).toLocaleString('sv-SE')} × ${Math.round(prob)}%`);}).join('');
+        const total=_ritems.reduce((s,it)=>s+(it.Amount||0),0);
+        const viktat=_ritems.reduce((s,it)=>s+Math.round((it.Amount||0)*(it.Probability||0)/100),0);
+        const samlad=total>0?Math.round(viktat/total*100):0;
+        revHtml=`<div style="margin:4px 0 3px;padding-top:4px;border-top:1px dashed var(--border);">${rows}<div style="display:flex;justify-content:space-between;font-size:10px;margin-top:3px;"><span style="color:var(--text3);">Totalt</span><span style="font-weight:600;color:var(--text2);">${fmtKr(total)}</span></div><div style="display:flex;justify-content:space-between;font-size:10px;"><span style="color:var(--text3);">Viktat</span><span style="font-weight:600;color:var(--blue);">${fmtKr(viktat)} · ${samlad}%</span></div></div>`;
+      } else {
+        const _fa=p.ValueMax||p.ValueMin||p.Value||0,_fp=p.Probability||0;
+        revHtml=`<div style="margin:4px 0 3px;padding-top:4px;border-top:1px dashed var(--border);">${_rrow('#8b90b0','Uppskattat värde',`${_fa?Math.round(_fa).toLocaleString('sv-SE'):'–'}${_fp?' × '+_fp+'%':''}`)}</div>`;
+      }
       let actionHtml='';
       if(p.NextActionType||p.NextActionDate){
         const hasDate=!!p.NextActionDate;
@@ -1758,7 +1778,7 @@ function renderKanban(){
         <div class="kc-contact">${p.Contact||'–'}</div>
         <div class="kc-owner">${p.Owner||'–'}</div>
         <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span>${totalValStr?`<span class="kc-val">${totalValStr}</span>`:''}</div>
-        ${probHtml?`<div style="margin-bottom:3px;">${probHtml}</div>`:''}
+        ${revHtml}
         ${actionHtml}
         ${isLost&&p.LostReason?`<div class="kc-lost-reason">Orsak: ${p.LostReason}</div>`:''}
         <div class="kc-days">Pipe: ${daysInPipe}d · Steg: ${daysInStage}d</div>
