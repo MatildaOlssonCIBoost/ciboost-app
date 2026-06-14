@@ -5296,23 +5296,19 @@ async function renderStyrelse(){
   const tlBox=`<div style="position:absolute;top:0;right:0;font-size:9px;color:var(--text2);text-align:right;line-height:1.4;">vid <strong>${MONTHS[X]}</strong><br>ingående budget ${_tk(primCurve[X])} tkr<br>${_col2} ${_tk(rollCurve[X])} tkr<br><span style="color:${_tlDiff>=0?'var(--green)':'var(--red)'};">${_tlDiff>=0?'+':''}${_tk(_tlDiff)} tkr mot plan</span></div>`;
   const tlLegend=`<div style="display:flex;gap:12px;font-size:9px;color:var(--text3);margin-top:2px;flex-wrap:wrap;"><span><span style="display:inline-block;width:12px;height:2px;background:#C00010;vertical-align:middle;"></span> Ingående budget</span><span><span style="display:inline-block;width:12px;height:2px;background:#1E2340;vertical-align:middle;"></span> Utfall</span><span><span style="display:inline-block;width:12px;height:2px;background:#1E2340;opacity:0.6;vertical-align:middle;"></span> Prognos</span></div>`;
   const timelineSvg=`<div style="position:relative;"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Kumulativ försäljning över året</div><svg viewBox="0 0 ${tlW} ${tlH}" width="100%" style="overflow:visible;">${tlGrid}${tlLines}${tlMarker}${tlXlbl}</svg>${tlBox}${tlLegend}</div>`;
-  // STEG 6 — "Sålt men infaller efter {year}": del av avtal (custRevCache) vars period sträcker sig in i {year+1}+.
-  // Dagproportion mot DateFrom..DateTo (samma princip som calcYearTotalItems). Alla typer. DateTo-guard.
+  // PUNKT 5 — "Försäljning {year+1}+": färdiga avtal som BÖRJAR efter {year}-12-31 (hela Amount, ej dagproportion). Alla typer.
   const _cut=new Date(year,11,31);
-  let soldAfter=0;
+  let soldNext=0;
   Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{
-    if(!it.DateFrom||!it.DateTo)return;   // DateTo saknas → ingen "efter"-del (robust)
-    const from=new Date(it.DateFrom),to=new Date(it.DateTo);
-    if(isNaN(from)||isNaN(to)||to<=_cut)return;
-    const total=Math.max(1,Math.round((to-from)/86400000)+1);
-    const aStart=from>_cut?from:new Date(year+1,0,1);   // "efter"-fönstrets start = max(DateFrom, 1 jan year+1)
-    const od=Math.max(0,Math.round((to-aStart)/86400000)+1);
-    soldAfter+=(it.Amount||0)*od/total;
+    if(!it.DateFrom)return;                 // DateFrom-guard: saknas → skip
+    const from=new Date(it.DateFrom);
+    if(isNaN(from)||from<=_cut)return;       // börjar inte efter årsskiftet → ej med
+    soldNext+=(it.Amount||0);               // hela beloppet (faktureras year+1)
   });});
-  soldAfter=Math.round(soldAfter);
-  const soldAfterHtml=soldAfter>0?`<div style="margin-top:10px;padding:6px 10px;background:var(--surface2);border-radius:6px;font-size:11px;color:var(--text2);">Sålt men infaller efter ${year}: <strong>${fmtSv(soldAfter)}</strong> — avser avtal vars period sträcker sig in i ${year+1}+ (ingår ej i årets resultat ovan).</div>`:'';
+  soldNext=Math.round(soldNext);
+  const box2027=soldNext>0?`<div style="background:#FBEEDF;border-radius:10px;padding:14px 16px;width:200px;"><div style="font-size:10px;color:#7a5a2a;text-transform:uppercase;letter-spacing:0.04em;">Försäljning ${year+1}+</div><div style="font-size:22px;font-weight:500;color:#1E2340;margin:4px 0;">${Math.round(soldNext/1000).toLocaleString('sv-SE')} tkr</div><div style="font-size:10px;color:#9a6b2a;line-height:1.5;">Färdiga avtal som börjar (och faktureras) efter ${year}-12-31 — ingår ej i beräkningsunderlaget ovan.</div></div>`:'';
   el.innerHTML=hdr+fordelningHtml+`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;"><div style="font-size:11px;color:var(--text3);">Budget: Primär likviditet #${primId} · Utfall: Löpande likviditet #${rollId}</div></div>
-    <div class="fin-card" style="margin-bottom:22px;"><div style="font-size:16px;font-weight:600;color:#1E2340;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);">Resultat</div><div style="display:flex;gap:16px;flex-wrap:wrap;"><div style="flex:1;min-width:260px;"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Försäljning och utgifter – jämförelse med ingående budget</div>${bild2svg}</div><div style="flex:1;min-width:260px;" id="styr-timeline-slot">${timelineSvg}</div></div>${periodSlider}${bild2tbl}${soldAfterHtml}</div>${bild3html}${top5Html}${arrMrrHtml}`;
+    <div class="fin-card" style="margin-bottom:22px;"><div style="font-size:16px;font-weight:600;color:#1E2340;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);">Resultat</div><div style="display:flex;gap:16px;flex-wrap:wrap;"><div style="flex:1;min-width:260px;"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Försäljning och utgifter – jämförelse med ingående budget</div>${bild2svg}</div><div style="flex:1;min-width:260px;" id="styr-timeline-slot">${timelineSvg}</div></div>${periodSlider}<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;"><div style="flex:1;max-width:860px;min-width:280px;">${bild2tbl}</div><div style="flex-shrink:0;">${box2027}</div></div></div>${bild3html}${top5Html}${arrMrrHtml}`;
 }
 async function loadBudgetVersions(){
   // Attach the delegated budget-row autosave once (the #budget-content element
