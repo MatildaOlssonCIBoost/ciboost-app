@@ -5167,17 +5167,16 @@ async function renderStyrelse(){
   let primRows=[],rollRows=[];
   try{primRows=await (await apiFetch(`${API}/budget-versions/${primId}/rows`)).json();}catch(e){}
   try{rollRows=await (await apiFetch(`${API}/budget-versions/${rollId}/rows`)).json();}catch(e){}
-  let defX=0;for(let mi=11;mi>=0;mi--){if(rollRows.some(r=>Number(r[MONTHS[mi]])||0)){defX=mi;break;}}
-  const X=(styrelseX!=null?Math.min(styrelseX,11):defX);
-  const fmtSv=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
-  // BILD 2 (#2f, ombyggd) — RESULTATSTAPEL kumulativ jan→X. Solid=jan→_grans (utfall t.o.m. sista låsta månad i
-  // LÖPANDE budgeten, rollId), transparent=_grans+1→X (prognos). Budget=primär kumulativt jan→X (röd linje). Tidsbaserad split.
-  const _sM=(rows,pred,a,b)=>{let t=0;for(let mi=a;mi<=b&&mi<12;mi++)rows.filter(pred).forEach(r=>t+=Number(r[MONTHS[mi]])||0);return t;};
   const _nowM=new Date().getMonth();
   // Lås för rollId; fånga _grans LOKALT innan #2h:s loadBudgetLocks(b3id) skriver över global budgetLocks.
   await loadBudgetLocks(rollId);
   let lastLocked=-1;for(let i=0;i<12;i++)if(isBudgetMonthLocked(MONTHS[i]))lastLocked=i;
   const _grans=lastLocked>=0?lastLocked:_nowM;   // mjuk fallback till nowM om inga lås
+  const X=(styrelseX!=null?Math.min(styrelseX,11):_grans);   // reglagets default = sista låsta månaden
+  const fmtSv=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
+  // BILD 2 (#2f, ombyggd) — RESULTATSTAPEL kumulativ jan→X. Solid=jan→_grans (utfall t.o.m. sista låsta månad i
+  // LÖPANDE budgeten, rollId), transparent=_grans+1→X (prognos). Budget=primär kumulativt jan→X (röd linje). Tidsbaserad split.
+  const _sM=(rows,pred,a,b)=>{let t=0;for(let mi=a;mi<=b&&mi<12;mi++)rows.filter(pred).forEach(r=>t+=Number(r[MONTHS[mi]])||0);return t;};
   const _utfallGrans=Math.min(_grans,X);
   const incSolid=_sM(rollRows,r=>r.Category==='Revenue',0,_utfallGrans);
   const incTrans=_sM(rollRows,r=>r.Category==='Revenue',_utfallGrans+1,X);
@@ -5238,7 +5237,7 @@ async function renderStyrelse(){
   let _b3show=getCashflowShowFrom(year,_b3from);if(_b3show>_b3to)_b3show=_b3to;
   const bild3html=renderCashflowCard({ver:b3ver,liq:b3liq,year,rows:b3rows,opening:getOpeningCash(year),financing:getFinancing(b3id,year),fromIdx:_b3from,showFromIdx:_b3show,toIdx:_b3to,split:getCashflowSplit(year),src:(isRollingBudgetVersion(b3ver)?'Löpande':isPrimaryBudgetVersion(b3ver)?'Primär':'Styrelse'),handlers:{version:'styrCfVersion',openingCash:'styrCfOpening',openingMonth:'styrCfOpeningMonth',showFrom:'styrCfShowFrom',toMonth:'styrCfToMonth',split:'styrCfSplit',financing:'styrCfFinancing'}});
   // Period-väljare + källrad
-  const periodSel=`<select onchange="setStyrelseX(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;">${MONTHS.map((m,i)=>`<option value="${i}"${i===X?' selected':''}>t.o.m. ${m}</option>`).join('')}</select>`;
+  const periodSlider=`<div style="margin-bottom:14px;"><input type="range" min="0" max="11" step="1" value="${X}" oninput="setStyrelseX(this.value)" style="width:100%;"><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px;">${MONTHS.map(m=>`<span>${m}</span>`).join('')}</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">Visar t.o.m. <strong>${MONTHS[X]}</strong> ${X>_grans?'<span style="color:#5566A0;">(inkl. prognos)</span>':'<span style="color:var(--text3);">(utfall)</span>'} · <span style="color:var(--text3);">◀ utfall t.o.m. ${MONTHS[_grans]} · prognos därefter ▶</span></div></div>`;
   // FÖRDELNINGSRAD (#2e) högst upp: Försäljning per kategori ur LÖPANDE likviditetsbudget (rollRows).
   // Utfall = Source 'Avtal (likviditet)' (kontrakt); estimerat helår = ALLA REVENUE-källor; helår 0..11.
   const _fordCats=[{sub:'Licens (prenumeration)',bar:'#639922'},{sub:'Licens (fast pris)',bar:'#378ADD'},{sub:'Utbildning',bar:'#EF9F27'},{sub:'Consulting',bar:'#7F77DD'}];
@@ -5263,7 +5262,7 @@ async function renderStyrelse(){
   // ARR/MRR (#2j) — diskret nedtonad rad, återanvänder arrAnnualizedAt (#1a). Ingen KPI-box/accent.
   const _styrArr=arrAnnualizedAt(new Date(),false),_styrMrr=Math.round(_styrArr/12);
   const arrMrrHtml=`<div style="font-size:10px;color:var(--text3);text-align:right;margin-top:8px;">ARR ${fmtSv(_styrArr)} · MRR ${fmtSv(_styrMrr)} <span style="opacity:0.7;">· run-rate prenumeration</span></div>`;
-  el.innerHTML=hdr+fordelningHtml+`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;"><div style="font-size:11px;color:var(--text3);">Budget: Primär likviditet #${primId} · Utfall: Löpande likviditet #${rollId}</div><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Period (jan–): ${periodSel}</label></div>
+  el.innerHTML=hdr+fordelningHtml+`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;"><div style="font-size:11px;color:var(--text3);">Budget: Primär likviditet #${primId} · Utfall: Löpande likviditet #${rollId}</div></div>${periodSlider}
     <div class="fin-card"><div style="font-size:16px;font-weight:600;color:#1E2340;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);">Resultat</div>${bild2svg}${bild2tbl}</div>${bild3html}${top5Html}${arrMrrHtml}`;
 }
 async function loadBudgetVersions(){
