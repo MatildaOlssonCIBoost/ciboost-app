@@ -5170,7 +5170,6 @@ async function renderStyrelse(){
   let defX=0;for(let mi=11;mi>=0;mi--){if(rollRows.some(r=>Number(r[MONTHS[mi]])||0)){defX=mi;break;}}
   const X=(styrelseX!=null?Math.min(styrelseX,11):defX);
   const fmtSv=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
-  const sumP=(rows,pred)=>{let t=0;for(let mi=0;mi<=X;mi++)rows.filter(pred).forEach(r=>t+=Number(r[MONTHS[mi]])||0);return t;};
   // BILD 2 (#2f) — RESULTATGRAF: två grupper (Inkomster upp / Utgifter ner) kring nollinje.
   // INTÄKTER källbaserat (kapat vid period-väljaren X): utfall=Avtal (likviditet), prognos-påslag=övriga källor.
   // UTGIFTER tidsbaserat (kapat vid X): utfall=0..min(nowM,X) (passerat), planerat kvar=min(nowM,X)+1..X. Budget=primRows 0..X.
@@ -5222,13 +5221,6 @@ async function renderStyrelse(){
   const dRow=(label,b,u,incomeLike,sub)=>{const diff=incomeLike?(u-b):(b-u);const col=diff>=0?'var(--green)':'var(--red)';const fs=sub?'font-size:11px;':'';const lblPad=sub?'padding:4px 8px 4px 22px;color:var(--text3);':'padding:5px 8px;font-weight:500;';const cellPad=sub?'padding:4px 8px;color:var(--text3);':'padding:5px 8px;';return `<tr><td style="${lblPad}${fs}">${label}</td><td style="${cellPad}${fs}text-align:right;">${fmtSv(b)}</td><td style="${cellPad}${fs}text-align:right;">${fmtSv(u)}</td><td style="padding:${sub?'4px':'5px'} 8px;text-align:right;${fs}font-weight:600;color:${col};">${diff>=0?'+':''}${fmtSv(diff)}</td></tr>`;};
   const _th=t=>`<th style="text-align:${t?'right':'left'};padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">${t}</th>`;
   const bild2tbl=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;"><thead><tr>${_th('')}${_th('Budget')}${_th('Utfall')}${_th('Differens')}</tr></thead><tbody>${dRow('Inkomster',incBudget,incUtfall,true)}${dRow('Varav '+subLabel('Licens (prenumeration)'),prenBudget,prenUtfall,true,true)}${dRow('Utgifter',costBudget,costUtfall,false)}</tbody></table>`;
-  // FÖRDELNINGSGRAF — staplade staplar per typ, Budget vs Utfall, dämpade Nordic-färger + grått för okvalificerat.
-  const types=[['Licens (prenumeration)','#7fa98c'],['Licens (fast pris)','#8aa9c4'],['Utbildning','#c9a87e'],['Consulting','#a394c4'],['Okvalificerat/okänt','#b8b8b4']];
-  const sumType=(rows,sub)=>sumP(rows,r=>r.Category==='Revenue'&&r.SubCategory===sub);
-  const segB=types.map(([t])=>sumType(primRows,t)),segU=types.map(([t])=>sumType(rollRows,t));
-  const totB=segB.reduce((a,b)=>a+b,0),totU=segU.reduce((a,b)=>a+b,0),maxT=Math.max(totB,totU,1),fH=170;
-  const stack=(segs,x,label,tot)=>{let acc=0,s='';segs.forEach((v,i)=>{const h=Math.round(v/maxT*(fH-26));if(h<=0)return;s+=`<rect x="${x}" y="${fH-22-acc-h}" width="58" height="${h}" fill="${types[i][1]}"><title>${types[i][0]}: ${fmtSv(v)}</title></rect>`;acc+=h;});s+=`<text x="${x+29}" y="${fH-22-acc-4}" font-size="8" fill="var(--text3)" text-anchor="middle">${Math.round(tot/1000)}k</text><text x="${x+29}" y="${fH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">${label}</text>`;return s;};
-  const fordSvg=`<svg viewBox="0 0 220 ${fH}" width="100%" style="overflow:visible;max-width:260px;">${stack(segB,40,'Budget',totB)}${stack(segU,122,'Utfall',totU)}</svg><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${types.map(([t,c])=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);"><span style="width:9px;height:9px;background:${c};border-radius:2px;"></span>${subLabel(t)}</span>`).join('')}</div>`;
   // BILD 3 — Likviditetsprognos (Primär, plan, helår): computeCashflow inkl. finansiering → delad likviditetsgraf (cashflowChartSvg).
   const primVer=budgetVersions.find(v=>String(v.Id)===String(primId)),year=Number(primVer&&primVer.Year)||new Date().getFullYear();
   // Bild 3 egen versionsväljare (oberoende av kassaflöde-fliken). Default = Primär. Påverkar ENDAST bild 3 (ej bild 2/fördelning).
@@ -5268,15 +5260,12 @@ async function renderStyrelse(){
   const _topShown=styrelseTopAll?_topRows:_topRows.slice(0,5);
   const _topRowHtml=_topShown.map((r,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:0.5px solid var(--border);"><span style="width:18px;flex:0 0 auto;font-size:12px;color:var(--text3);text-align:right;">${i+1}</span><div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><span style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name}${r.isKoncern?' <span style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">koncern</span>':''}</span><span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;">${fmtSv(r.cur)} · ${_topPct(r.cur)}%</span></div><div style="height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:3px;"><div style="width:${Math.round(r.cur/_topMax*100)}%;height:5px;background:#D85A30;border-radius:3px;"></div></div></div></div>`).join('')||'<div style="color:var(--text3);font-size:13px;padding:10px;">Ingen kundintäkt</div>';
   const _topToggle=_topRows.length>5?`<button onclick="toggleStyrelseTopAll()" style="margin-top:8px;font-size:11px;background:none;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:3px 10px;cursor:pointer;">${styrelseTopAll?'Visa färre ▲':'Visa alla ('+_topRows.length+') ▾'}</button>`:'';
-  const top5Html=`<div class="fin-card" style="margin-top:14px;"><div class="fin-card-title">Största kunder ${year}</div><div style="font-size:10px;color:var(--text3);margin-bottom:6px;">Andel visar % av kundintäkt (faktisk total ${fmtSv(_topTotal)} · custRevCache, separat från budget ovan)</div>${_topRowHtml}${_topToggle}</div>`;
+  const top5Html=`<div class="fin-card" style="margin-top:14px;"><div style="font-size:16px;font-weight:600;color:#1E2340;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);">Största kunder ${year}</div><div style="font-size:10px;color:var(--text3);margin-bottom:6px;">Andel visar % av kundintäkt (faktisk total ${fmtSv(_topTotal)} · custRevCache, separat från budget ovan)</div>${_topRowHtml}${_topToggle}</div>`;
   // ARR/MRR (#2j) — diskret nedtonad rad, återanvänder arrAnnualizedAt (#1a). Ingen KPI-box/accent.
   const _styrArr=arrAnnualizedAt(new Date(),false),_styrMrr=Math.round(_styrArr/12);
   const arrMrrHtml=`<div style="font-size:10px;color:var(--text3);text-align:right;margin-top:8px;">ARR ${fmtSv(_styrArr)} · MRR ${fmtSv(_styrMrr)} <span style="opacity:0.7;">· run-rate prenumeration</span></div>`;
   el.innerHTML=hdr+fordelningHtml+`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;"><div style="font-size:11px;color:var(--text3);">Budget: Primär likviditet #${primId} · Utfall: Löpande likviditet #${rollId}</div><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Period (jan–): ${periodSel}</label></div>
-    <div class="fin-grid">
-      <div class="fin-card"><div class="fin-card-title">Inkomster vs Utgifter · budget vs utfall</div>${bild2svg}${bild2tbl}</div>
-      <div class="fin-card"><div class="fin-card-title">Intäktsfördelning per typ</div>${fordSvg}</div>
-    </div>${bild3html}${top5Html}${arrMrrHtml}`;
+    <div class="fin-card"><div style="font-size:16px;font-weight:600;color:#1E2340;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);">Resultat</div>${bild2svg}${bild2tbl}</div>${bild3html}${top5Html}${arrMrrHtml}`;
 }
 async function loadBudgetVersions(){
   // Attach the delegated budget-row autosave once (the #budget-content element
