@@ -530,6 +530,12 @@
   .tp-mail-panel input, .tp-mail-panel textarea { width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:6px; font-family:'Poppins',sans-serif; font-size:12px; color:var(--text); background:var(--surface); outline:none; }
   .tp-mail-panel textarea { resize:vertical; min-height:140px; font-family:'Courier New',monospace; }
   .tp-mail-actions { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  /* Styrelsens period-reglage (ljust nordiskt) */
+  .styr-slider{-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:#ECEAE3;outline:none;}
+  .styr-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;border:1.5px solid #B4B2A9;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.07);}
+  .styr-slider::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:1.5px solid #B4B2A9;cursor:pointer;}
+  .styr-slider::-moz-range-track{height:5px;border-radius:3px;background:#ECEAE3;}
+  .styr-slider::-moz-range-progress{height:5px;border-radius:3px;background:#B4B2A9;}
 </style>
 </head><body>
 <nav class="topnav">
@@ -5134,7 +5140,7 @@ async function openImportPipelineModal(versionId,preMonth){
 }
 // ── STYRELSERAPPORT (Finansiell analys → kort "styrelse"). Allt ur likviditetsbudgeten: Budget=Primär, Utfall=Löpande. ──
 let styrelseX=null;
-function setStyrelseX(v){styrelseX=Number(v);renderStyrelse();}
+function setStyrelseX(v){styrelseX=Number(v);const _s=document.querySelector('.styr-slider');if(_s){const p=Number(v)/11*100;_s.style.background=`linear-gradient(to right,#B4B2A9 0%,#B4B2A9 ${p}%,#ECEAE3 ${p}%,#ECEAE3 100%)`;}renderStyrelse();}
 // Styrelse-resultatgrafens utfall/prognos-split (eget state, per år; default på). Speglar
 // getCashflowSplit-mönstret men EGEN nyckel — ingen koppling till kassaflödet.
 function getStyrelseResultSplit(year){return localStorage.getItem('styrelseResultSplit_'+year)!=='0';}
@@ -5222,9 +5228,9 @@ async function renderStyrelse(){
   const _col2=X<=_grans?'Utfall':'Prognos';
   const _tsek=v=>Math.round(v/1000).toLocaleString('sv-SE');   // TSEK
   // Differens: inkomst=val−budget, utgift=budget−val (besparing) → positivt=grön=bra. %=differens/budget.
-  const dRow=(label,budget,val,incomeLike,sub)=>{const diff=incomeLike?(val-budget):(budget-val);const pct=budget!==0?Math.round(diff/budget*100):0;const col=diff>=0?'var(--green)':'var(--red)';const fs=sub?'font-size:11px;':'';const lblPad=sub?'padding:4px 8px 4px 22px;color:var(--text3);':'padding:5px 8px;font-weight:500;';const cellPad=sub?'padding:4px 8px;color:var(--text3);':'padding:5px 8px;';const dPad=`padding:${sub?'4px':'5px'} 8px;text-align:right;${fs}font-weight:600;color:${col};`;return `<tr><td style="${lblPad}${fs}">${label}</td><td style="${cellPad}${fs}text-align:right;">${_tsek(budget)}</td><td style="${cellPad}${fs}text-align:right;">${_tsek(val)}</td><td style="${dPad}">${diff>=0?'+':''}${_tsek(diff)}</td><td style="${dPad}">${diff>=0?'+':''}${pct}%</td></tr>`;};
-  const _th=t=>`<th style="text-align:${t?'right':'left'};padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">${t}</th>`;
-  const bild2tbl=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;"><thead><tr>${_th('')}${_th('Ingående budget')}${_th(_col2)}${_th('Differens')}${_th('%')}</tr></thead><tbody>${dRow('Försäljning',incBudget,incVal,true)}${dRow('Varav '+subLabel('Licens (prenumeration)'),prenBudget,prenVal,true,true)}${dRow('Utgifter',costBudget,costVal,false)}</tbody></table>`;
+  const dRow=(label,budget,val,incomeLike,sub)=>{const diff=incomeLike?(val-budget):(budget-val);const pct=budget!==0?Math.round(diff/budget*100):0;const col=diff>=0?'var(--green)':'var(--red)';const lblPad=sub?'padding:3px 6px 3px 18px;color:var(--text3);':'padding:3px 6px;font-weight:500;';const cellPad=sub?'padding:3px 6px;color:var(--text3);':'padding:3px 6px;';const dPad=`padding:3px 6px;text-align:right;font-weight:600;color:${col};`;return `<tr><td style="${lblPad}">${label}</td><td style="${cellPad}text-align:right;">${_tsek(budget)}</td><td style="${cellPad}text-align:right;">${_tsek(val)}</td><td style="${dPad}">${diff>=0?'+':''}${_tsek(diff)}</td><td style="${dPad}">${diff>=0?'+':''}${pct}%</td></tr>`;};
+  const _th=t=>`<th style="text-align:${t?'right':'left'};padding:5px 6px;font-size:10px;color:#7a5a2a;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;background:#FBEEDF;border-bottom:1px solid var(--border);">${t}</th>`;
+  const bild2tbl=`<table style="width:100%;max-width:860px;border-collapse:collapse;font-size:11px;margin-top:10px;"><thead><tr>${_th('')}${_th('Ingående budget')}${_th(_col2)}${_th('Differens')}${_th('%')}</tr></thead><tbody>${dRow('Försäljning',incBudget,incVal,true)}${dRow('Varav '+subLabel('Licens (prenumeration)'),prenBudget,prenVal,true,true)}${dRow('Utgifter',costBudget,costVal,false)}</tbody></table>`;
   // BILD 3 — Likviditetsprognos (Primär, plan, helår): computeCashflow inkl. finansiering → delad likviditetsgraf (cashflowChartSvg).
   const primVer=budgetVersions.find(v=>String(v.Id)===String(primId)),year=Number(primVer&&primVer.Year)||new Date().getFullYear();
   // Bild 3 egen versionsväljare (oberoende av kassaflöde-fliken). Default = Primär. Påverkar ENDAST bild 3 (ej bild 2/fördelning).
@@ -5243,7 +5249,8 @@ async function renderStyrelse(){
   let _b3show=getCashflowShowFrom(year,_b3from);if(_b3show>_b3to)_b3show=_b3to;
   const bild3html=renderCashflowCard({ver:b3ver,liq:b3liq,year,rows:b3rows,opening:getOpeningCash(year),financing:getFinancing(b3id,year),fromIdx:_b3from,showFromIdx:_b3show,toIdx:_b3to,split:getCashflowSplit(year),src:(isRollingBudgetVersion(b3ver)?'Löpande':isPrimaryBudgetVersion(b3ver)?'Primär':'Styrelse'),handlers:{version:'styrCfVersion',openingCash:'styrCfOpening',openingMonth:'styrCfOpeningMonth',showFrom:'styrCfShowFrom',toMonth:'styrCfToMonth',split:'styrCfSplit',financing:'styrCfFinancing'}});
   // Period-väljare + källrad
-  const periodSlider=`<div style="margin-bottom:14px;"><input type="range" min="0" max="11" step="1" value="${X}" oninput="setStyrelseX(this.value)" style="width:100%;"><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px;">${MONTHS.map(m=>`<span>${m}</span>`).join('')}</div><div style="font-size:11px;color:var(--text2);margin-top:4px;">Visar t.o.m. <strong>${MONTHS[X]}</strong> ${X>_grans?'<span style="color:#5566A0;">(inkl. prognos)</span>':'<span style="color:var(--text3);">(utfall)</span>'} · <span style="color:var(--text3);">◀ utfall t.o.m. ${MONTHS[_grans]} · prognos därefter ▶</span></div></div>`;
+  const _slPct=Math.round(X/11*100);
+  const periodSlider=`<div style="padding:10px 4px 18px;"><div style="text-align:center;font-size:11px;color:var(--text2);margin-bottom:8px;">Visar t.o.m. <strong>${MONTHS[X]}</strong> ${X>_grans?'<span style="color:#5566A0;">(inkl. prognos)</span>':'<span style="color:var(--text3);">(utfall)</span>'}</div><input type="range" min="0" max="11" step="1" value="${X}" oninput="setStyrelseX(this.value)" class="styr-slider" style="width:100%;background:linear-gradient(to right,#B4B2A9 0%,#B4B2A9 ${_slPct}%,#ECEAE3 ${_slPct}%,#ECEAE3 100%);"><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px;">${MONTHS.map(m=>`<span>${m}</span>`).join('')}</div><div style="text-align:center;font-size:10px;color:var(--text3);margin-top:4px;">◀ utfall t.o.m. ${MONTHS[_grans]} · prognos därefter ▶</div></div>`;
   // FÖRDELNINGSRAD (#2e) högst upp: Försäljning per kategori ur LÖPANDE likviditetsbudget (rollRows).
   // Utfall = Source 'Avtal (likviditet)' (kontrakt); estimerat helår = ALLA REVENUE-källor; helår 0..11.
   const _fordCats=[{sub:'Licens (prenumeration)',bar:'#639922'},{sub:'Licens (fast pris)',bar:'#378ADD'},{sub:'Utbildning',bar:'#EF9F27'},{sub:'Consulting',bar:'#7F77DD'}];
