@@ -5185,7 +5185,7 @@ async function renderStyrelse(){
   const incBudget=_sM(primRows,r=>r.Category==='Revenue',0,X);
   const costBudget=_sM(primRows,r=>r.Category!=='Revenue',0,X);
   const _money=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
-  const cW=460,cH=224,zero=112,maxBar=82,axL=52;
+  const cW=460,cH=200,zero=100,maxBar=76,axL=52;
   const maxV=Math.max(_sM(primRows,r=>r.Category==='Revenue',0,11),_sM(rollRows,r=>r.Category==='Revenue',0,11),_sM(primRows,r=>r.Category!=='Revenue',0,11),_sM(rollRows,r=>r.Category!=='Revenue',0,11),1);
   const bh=v=>Math.round(Math.max(0,v)/maxV*maxBar);
   const grid=[1,0.5].flatMap(f=>[{y:zero-Math.round(maxBar*f),v:maxV*f},{y:zero+Math.round(maxBar*f),v:-maxV*f}]).map(g=>`<line x1="${axL}" y1="${g.y}" x2="${cW-12}" y2="${g.y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 2"/><text x="${axL-4}" y="${g.y+3}" font-size="8" fill="var(--text3)" text-anchor="end">${(g.v/1000000).toFixed(1)} Mkr</text>`).join('');
@@ -5208,8 +5208,8 @@ async function renderStyrelse(){
   const incCx=axL+90,costCx=axL+240;
   const _bars=grp(incCx,incBudget,incSolid,incTrans,true,'#1E2340')+grp(costCx,costBudget,costSolid,costTrans,false,'#7c8bbf');
   const _zeroLine=`<line x1="${axL}" y1="${zero}" x2="${cW-12}" y2="${zero}" stroke="var(--border)" stroke-width="1"/>`;
-  const _glabels=`<text x="${incCx}" y="${cH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">Inkomster</text><text x="${costCx}" y="${cH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">Utgifter</text>`;
-  const _legend=`<div style="display:flex;gap:14px;font-size:10px;color:var(--text3);margin-top:4px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#1E2340;vertical-align:middle;border-radius:2px;"></span> Inkomster</span><span><span style="display:inline-block;width:9px;height:9px;background:#7c8bbf;vertical-align:middle;border-radius:2px;"></span> Utgifter</span><span><span style="display:inline-block;width:12px;height:2px;background:#C00010;vertical-align:middle;"></span> Primär budget</span><span style="opacity:0.6;">Uttonat = prognos (efter ${MONTHS[_grans]||'–'})</span></div>`;
+  const _glabels=`<text x="${incCx}" y="${cH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">Försäljning</text><text x="${costCx}" y="${cH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">Utgifter</text>`;
+  const _legend=`<div style="display:flex;gap:14px;font-size:10px;color:var(--text3);margin-top:4px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#1E2340;vertical-align:middle;border-radius:2px;"></span> Försäljning</span><span><span style="display:inline-block;width:9px;height:9px;background:#7c8bbf;vertical-align:middle;border-radius:2px;"></span> Utgifter</span><span><span style="display:inline-block;width:12px;height:2px;background:#C00010;vertical-align:middle;"></span> Ingående budget</span><span style="opacity:0.6;">Uttonat = prognos</span></div>`;
   const bild2svg=`<svg viewBox="0 0 ${cW} ${cH}" width="100%" style="overflow:visible;">${grid}${_zeroLine}${_bars}${_glabels}</svg>${_legend}`;
   // BILD 2 (#2g) — RESULTATTABELL (Budget/Utfall/Differens). Matchar grafens modell (#2f), kapat vid X.
   // Utfall = hårt (Avtal för intäkt, 0..utfallGräns för utgift) — prognos-checkboxen påverkar INTE tabellen.
@@ -5224,7 +5224,7 @@ async function renderStyrelse(){
   // Differens: inkomst=val−budget, utgift=budget−val (besparing) → positivt=grön=bra. %=differens/budget.
   const dRow=(label,budget,val,incomeLike,sub)=>{const diff=incomeLike?(val-budget):(budget-val);const pct=budget!==0?Math.round(diff/budget*100):0;const col=diff>=0?'var(--green)':'var(--red)';const fs=sub?'font-size:11px;':'';const lblPad=sub?'padding:4px 8px 4px 22px;color:var(--text3);':'padding:5px 8px;font-weight:500;';const cellPad=sub?'padding:4px 8px;color:var(--text3);':'padding:5px 8px;';const dPad=`padding:${sub?'4px':'5px'} 8px;text-align:right;${fs}font-weight:600;color:${col};`;return `<tr><td style="${lblPad}${fs}">${label}</td><td style="${cellPad}${fs}text-align:right;">${_tsek(budget)}</td><td style="${cellPad}${fs}text-align:right;">${_tsek(val)}</td><td style="${dPad}">${diff>=0?'+':''}${_tsek(diff)}</td><td style="${dPad}">${diff>=0?'+':''}${pct}%</td></tr>`;};
   const _th=t=>`<th style="text-align:${t?'right':'left'};padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">${t}</th>`;
-  const bild2tbl=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;"><thead><tr>${_th('')}${_th('Ingående budget')}${_th(_col2)}${_th('Differens')}${_th('%')}</tr></thead><tbody>${dRow('Inkomster',incBudget,incVal,true)}${dRow('Varav '+subLabel('Licens (prenumeration)'),prenBudget,prenVal,true,true)}${dRow('Utgifter',costBudget,costVal,false)}</tbody></table>`;
+  const bild2tbl=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;"><thead><tr>${_th('')}${_th('Ingående budget')}${_th(_col2)}${_th('Differens')}${_th('%')}</tr></thead><tbody>${dRow('Försäljning',incBudget,incVal,true)}${dRow('Varav '+subLabel('Licens (prenumeration)'),prenBudget,prenVal,true,true)}${dRow('Utgifter',costBudget,costVal,false)}</tbody></table>`;
   // BILD 3 — Likviditetsprognos (Primär, plan, helår): computeCashflow inkl. finansiering → delad likviditetsgraf (cashflowChartSvg).
   const primVer=budgetVersions.find(v=>String(v.Id)===String(primId)),year=Number(primVer&&primVer.Year)||new Date().getFullYear();
   // Bild 3 egen versionsväljare (oberoende av kassaflöde-fliken). Default = Primär. Påverkar ENDAST bild 3 (ej bild 2/fördelning).
@@ -5282,15 +5282,30 @@ async function renderStyrelse(){
   const primPts=primCurve.map((v,i)=>`${tlcx(i)},${tlcy(v)}`).join(' ');
   const utfPts=rollCurve.map((v,i)=>i<=_grans?`${tlcx(i)},${tlcy(v)}`:null).filter(Boolean).join(' ');
   const progPts=rollCurve.map((v,i)=>(i>=_grans&&i<=X)?`${tlcx(i)},${tlcy(v)}`:null).filter(Boolean).join(' ');
-  const tlLines=`<polyline points="${primPts}" fill="none" stroke="#C00010" stroke-width="2"/><polyline points="${utfPts}" fill="none" stroke="#1E2340" stroke-width="2.5"/>`+(X>_grans?`<polyline points="${progPts}" fill="none" stroke="#1E2340" stroke-width="2.5" stroke-opacity="0.6" stroke-dasharray="4 3"/>`:'');
+  const tlLines=`<polyline points="${primPts}" fill="none" stroke="#C00010" stroke-width="2"/><polyline points="${utfPts}" fill="none" stroke="#1E2340" stroke-width="2"/>`+(X>_grans?`<polyline points="${progPts}" fill="none" stroke="#1E2340" stroke-width="2" stroke-opacity="0.6" stroke-dasharray="4 3"/>`:'');
   const _mx=tlcx(X);
-  const tlMarker=`<line x1="${_mx}" y1="${tlTop}" x2="${_mx}" y2="${tlH-tlPadB}" stroke="var(--text3)" stroke-width="0.75" stroke-dasharray="3 3"/><circle cx="${_mx}" cy="${tlcy(primCurve[X])}" r="3" fill="#C00010"/><circle cx="${_mx}" cy="${tlcy(rollCurve[X])}" r="3" fill="#1E2340"/>`;
+  const tlMarker=`<line x1="${_mx}" y1="${tlTop}" x2="${_mx}" y2="${tlH-tlPadB}" stroke="var(--text3)" stroke-width="0.75" stroke-dasharray="3 3"/><circle cx="${_mx}" cy="${tlcy(primCurve[X])}" r="2.5" fill="#C00010"/>`+(X>_grans?`<circle cx="${_mx}" cy="${tlcy(rollCurve[X])}" r="2.5" fill="#fff" stroke="#1E2340" stroke-width="1.5"/>`:`<circle cx="${_mx}" cy="${tlcy(rollCurve[X])}" r="2.5" fill="#1E2340"/>`);
   const _tlDiff=rollCurve[X]-primCurve[X],_tk=v=>Math.round(v/1000).toLocaleString('sv-SE');
   const tlBox=`<div style="position:absolute;top:0;right:0;font-size:9px;color:var(--text2);text-align:right;line-height:1.4;">vid <strong>${MONTHS[X]}</strong><br>ingående budget ${_tk(primCurve[X])} tkr<br>${_col2} ${_tk(rollCurve[X])} tkr<br><span style="color:${_tlDiff>=0?'var(--green)':'var(--red)'};">${_tlDiff>=0?'+':''}${_tk(_tlDiff)} tkr mot plan</span></div>`;
   const tlLegend=`<div style="display:flex;gap:12px;font-size:9px;color:var(--text3);margin-top:2px;flex-wrap:wrap;"><span><span style="display:inline-block;width:12px;height:2px;background:#C00010;vertical-align:middle;"></span> Ingående budget</span><span><span style="display:inline-block;width:12px;height:2px;background:#1E2340;vertical-align:middle;"></span> Utfall</span><span><span style="display:inline-block;width:12px;height:2px;background:#1E2340;opacity:0.6;vertical-align:middle;"></span> Prognos</span></div>`;
   const timelineSvg=`<div style="position:relative;"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Kumulativ försäljning över året</div><svg viewBox="0 0 ${tlW} ${tlH}" width="100%" style="overflow:visible;">${tlGrid}${tlLines}${tlMarker}${tlXlbl}</svg>${tlBox}${tlLegend}</div>`;
+  // STEG 6 — "Sålt men infaller efter {year}": del av avtal (custRevCache) vars period sträcker sig in i {year+1}+.
+  // Dagproportion mot DateFrom..DateTo (samma princip som calcYearTotalItems). Alla typer. DateTo-guard.
+  const _cut=new Date(year,11,31);
+  let soldAfter=0;
+  Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{
+    if(!it.DateFrom||!it.DateTo)return;   // DateTo saknas → ingen "efter"-del (robust)
+    const from=new Date(it.DateFrom),to=new Date(it.DateTo);
+    if(isNaN(from)||isNaN(to)||to<=_cut)return;
+    const total=Math.max(1,Math.round((to-from)/86400000)+1);
+    const aStart=from>_cut?from:new Date(year+1,0,1);   // "efter"-fönstrets start = max(DateFrom, 1 jan year+1)
+    const od=Math.max(0,Math.round((to-aStart)/86400000)+1);
+    soldAfter+=(it.Amount||0)*od/total;
+  });});
+  soldAfter=Math.round(soldAfter);
+  const soldAfterHtml=soldAfter>0?`<div style="margin-top:10px;padding:6px 10px;background:var(--surface2);border-radius:6px;font-size:11px;color:var(--text2);">Sålt men infaller efter ${year}: <strong>${fmtSv(soldAfter)}</strong> — avser avtal vars period sträcker sig in i ${year+1}+ (ingår ej i årets resultat ovan).</div>`:'';
   el.innerHTML=hdr+fordelningHtml+`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;"><div style="font-size:11px;color:var(--text3);">Budget: Primär likviditet #${primId} · Utfall: Löpande likviditet #${rollId}</div></div>
-    <div class="fin-card"><div style="font-size:16px;font-weight:600;color:#1E2340;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);">Resultat</div><div style="display:flex;gap:16px;flex-wrap:wrap;"><div style="flex:1;min-width:260px;">${bild2svg}</div><div style="flex:1;min-width:260px;" id="styr-timeline-slot">${timelineSvg}</div></div>${periodSlider}${bild2tbl}</div>${bild3html}${top5Html}${arrMrrHtml}`;
+    <div class="fin-card" style="margin-bottom:22px;"><div style="font-size:16px;font-weight:600;color:#1E2340;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);">Resultat</div><div style="display:flex;gap:16px;flex-wrap:wrap;"><div style="flex:1;min-width:260px;"><div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;">Försäljning och utgifter – jämförelse med ingående budget</div>${bild2svg}</div><div style="flex:1;min-width:260px;" id="styr-timeline-slot">${timelineSvg}</div></div>${periodSlider}${bild2tbl}${soldAfterHtml}</div>${bild3html}${top5Html}${arrMrrHtml}`;
 }
 async function loadBudgetVersions(){
   // Attach the delegated budget-row autosave once (the #budget-content element
