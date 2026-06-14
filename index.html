@@ -5170,57 +5170,56 @@ async function renderStyrelse(){
   let defX=0;for(let mi=11;mi>=0;mi--){if(rollRows.some(r=>Number(r[MONTHS[mi]])||0)){defX=mi;break;}}
   const X=(styrelseX!=null?Math.min(styrelseX,11):defX);
   const fmtSv=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
-  // BILD 2 (#2f) — RESULTATGRAF: två grupper (Inkomster upp / Utgifter ner) kring nollinje.
-  // INTÄKTER källbaserat (kapat vid period-väljaren X): utfall=Avtal (likviditet), prognos-påslag=övriga källor.
-  // UTGIFTER tidsbaserat (kapat vid X): utfall=0..min(nowM,X) (passerat), planerat kvar=min(nowM,X)+1..X. Budget=primRows 0..X.
+  // BILD 2 (#2f, ombyggd) — RESULTATSTAPEL kumulativ jan→X. Solid=jan→_grans (utfall t.o.m. sista låsta månad i
+  // LÖPANDE budgeten, rollId), transparent=_grans+1→X (prognos). Budget=primär kumulativt jan→X (röd linje). Tidsbaserad split.
   const _sM=(rows,pred,a,b)=>{let t=0;for(let mi=a;mi<=b&&mi<12;mi++)rows.filter(pred).forEach(r=>t+=Number(r[MONTHS[mi]])||0);return t;};
-  const _ry=Number((budgetVersions.find(v=>String(v.Id)===String(primId))||{}).Year)||new Date().getFullYear();
-  const _split=getStyrelseResultSplit(_ry);
   const _nowM=new Date().getMonth();
-  const _utfallGrans=Math.min(_nowM,X);
+  // Lås för rollId; fånga _grans LOKALT innan #2h:s loadBudgetLocks(b3id) skriver över global budgetLocks.
+  await loadBudgetLocks(rollId);
+  let lastLocked=-1;for(let i=0;i<12;i++)if(isBudgetMonthLocked(MONTHS[i]))lastLocked=i;
+  const _grans=lastLocked>=0?lastLocked:_nowM;   // mjuk fallback till nowM om inga lås
+  const _utfallGrans=Math.min(_grans,X);
+  const incSolid=_sM(rollRows,r=>r.Category==='Revenue',0,_utfallGrans);
+  const incTrans=_sM(rollRows,r=>r.Category==='Revenue',_utfallGrans+1,X);
+  const costSolid=_sM(rollRows,r=>r.Category!=='Revenue',0,_utfallGrans);
+  const costTrans=_sM(rollRows,r=>r.Category!=='Revenue',_utfallGrans+1,X);
   const incBudget=_sM(primRows,r=>r.Category==='Revenue',0,X);
-  const incUtfall=_sM(rollRows,r=>r.Category==='Revenue'&&r.Source==='Avtal (likviditet)',0,X);
-  const incForecast=_sM(rollRows,r=>r.Category==='Revenue',0,X)-incUtfall;
   const costBudget=_sM(primRows,r=>r.Category!=='Revenue',0,X);
-  const costUtfall=_sM(rollRows,r=>r.Category!=='Revenue',0,_utfallGrans);
-  const costPlanned=_sM(rollRows,r=>r.Category!=='Revenue',_utfallGrans+1,X);
   const _money=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
   const cW=460,cH=224,zero=112,maxBar=82,axL=52;
-  const maxV=Math.max(incBudget,incUtfall+incForecast,costBudget,costUtfall+costPlanned,1);
+  const maxV=Math.max(_sM(primRows,r=>r.Category==='Revenue',0,11),_sM(rollRows,r=>r.Category==='Revenue',0,11),_sM(primRows,r=>r.Category!=='Revenue',0,11),_sM(rollRows,r=>r.Category!=='Revenue',0,11),1);
   const bh=v=>Math.round(Math.max(0,v)/maxV*maxBar);
   const grid=[1,0.5].flatMap(f=>[{y:zero-Math.round(maxBar*f),v:maxV*f},{y:zero+Math.round(maxBar*f),v:-maxV*f}]).map(g=>`<line x1="${axL}" y1="${g.y}" x2="${cW-12}" y2="${g.y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 2"/><text x="${axL-4}" y="${g.y+3}" font-size="8" fill="var(--text3)" text-anchor="end">${(g.v/1000000).toFixed(1)} Mkr</text>`).join('');
-  const BW=30,gap=10;
-  // Variant D: kort Mkr-format (1 decimal, komma). Utfall-värdet = mörka utfallet (utfBase), aldrig +prognos.
+  const BW=36;
+  // Kort Mkr-format (1 decimal, komma).
   const _mkr=v=>(v/1000000).toFixed(1).replace('.',',');
-  const grp=(cx,budget,utfBase,utfAdd,up,baseLbl,addLbl)=>{const bx=cx-BW-gap/2,ux=cx+gap/2,bcx=bx+BW/2,ucx=ux+BW/2;let s='';
-    s+=`<rect x="${bx}" y="${up?zero-bh(budget):zero}" width="${BW}" height="${bh(budget)}" rx="2" fill="#C00010"><title>Budget: ${_money(budget)}</title></rect>`;
-    s+=`<rect x="${ux}" y="${up?zero-bh(utfBase):zero}" width="${BW}" height="${bh(utfBase)}" rx="2" fill="#1E2340"><title>${baseLbl}: ${_money(utfBase)}</title></rect>`;
-    if(_split&&utfAdd>0){const baseH=bh(utfBase),addH=bh(utfAdd);const ay=up?zero-baseH-addH:zero+baseH;s+=`<rect x="${ux}" y="${ay}" width="${BW}" height="${addH}" rx="2" fill="#5566A0"><title>${addLbl}: ${_money(utfAdd)}</title></rect>`;}
-    // Värde ovanför (utgift: nedanför) varje stapels yttersta ände; utfall-siffran = utfBase (hoppar ej med prognos).
-    const _utfFullH=bh(utfBase)+(_split&&utfAdd>0?bh(utfAdd):0);
-    const budTipY=up?zero-bh(budget)-4:zero+bh(budget)+11, utfTipY=up?zero-_utfFullH-4:zero+_utfFullH+11;
-    s+=`<text x="${bcx}" y="${budTipY}" font-size="9" font-weight="600" fill="#C00010" text-anchor="middle">${_mkr(budget)}</text>`;
-    s+=`<text x="${ucx}" y="${utfTipY}" font-size="9" font-weight="600" fill="#1E2340" text-anchor="middle">${_mkr(utfBase)}</text>`;
-    // Etikett vid stapelbasen (nollinjesidan motsatt stapelriktningen): "budget" / "utfall".
-    const _lblY=up?zero+11:zero-5;
-    s+=`<text x="${bcx}" y="${_lblY}" font-size="9" fill="var(--text3)" text-anchor="middle">budget</text>`;
-    s+=`<text x="${ucx}" y="${_lblY}" font-size="9" fill="var(--text3)" text-anchor="middle">utfall</text>`;
+  const grp=(cx,budget,solid,trans,up,color)=>{const bx=cx-BW/2;let s='';
+    const solidH=bh(solid),transH=bh(trans),showTrans=X>_grans&&trans>0,budY=up?zero-bh(budget):zero+bh(budget);
+    // Solid utfall (jan→_grans)
+    s+=`<rect x="${bx}" y="${up?zero-solidH:zero}" width="${BW}" height="${solidH}" rx="2" fill="${color}"><title>Utfall (t.o.m. ${MONTHS[_utfallGrans]||'–'}): ${_money(solid)}</title></rect>`;
+    // Transparent prognos (_grans+1→X), bara om X>_grans
+    if(showTrans){const ty=up?zero-solidH-transH:zero+solidH;s+=`<rect x="${bx}" y="${ty}" width="${BW}" height="${transH}" rx="2" fill="${color}" fill-opacity="0.35"><title>Prognos (${MONTHS[Math.min(_utfallGrans+1,11)]}–${MONTHS[X]}): ${_money(trans)}</title></rect>`;}
+    // Primär budget = horisontell linje vid kumulativt budgetmål jan→X
+    s+=`<line x1="${bx-4}" x2="${bx+BW+4}" y1="${budY}" y2="${budY}" stroke="#C00010" stroke-width="2.5"><title>Primär budget (jan–${MONTHS[X]}): ${_money(budget)}</title></line>`;
+    // Värde (utfall + ev. prognos) vid stapelns yttersta ände + budgetvärde vid linjen (D-stil)
+    const totH=solidH+(showTrans?transH:0),tipY=up?zero-totH-4:zero+totH+12;
+    s+=`<text x="${cx}" y="${tipY}" font-size="9" font-weight="600" fill="${color}" text-anchor="middle">${_mkr(solid+(showTrans?trans:0))}</text>`;
+    s+=`<text x="${bx+BW+7}" y="${budY+3}" font-size="8" fill="#C00010" text-anchor="start">${_mkr(budget)}</text>`;
     return s;};
-  const incCx=axL+78,costCx=axL+248;
-  const _bars=grp(incCx,incBudget,incUtfall,incForecast,true,'Kontrakt (Avtal)','Prognos (övriga källor)')+grp(costCx,costBudget,costUtfall,costPlanned,false,'Utfall (passerat)','Planerat kvar');
+  const incCx=axL+90,costCx=axL+240;
+  const _bars=grp(incCx,incBudget,incSolid,incTrans,true,'#1E2340')+grp(costCx,costBudget,costSolid,costTrans,false,'#85B7EB');
   const _zeroLine=`<line x1="${axL}" y1="${zero}" x2="${cW-12}" y2="${zero}" stroke="var(--border)" stroke-width="1"/>`;
   const _glabels=`<text x="${incCx}" y="${cH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">Inkomster</text><text x="${costCx}" y="${cH-6}" font-size="10" fill="var(--text2)" text-anchor="middle">Utgifter</text>`;
-  const _splitCb=`<label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" ${_split?'checked':''} onchange="setStyrelseResultSplit(${_ry},this.checked)" style="width:14px;height:14px;cursor:pointer;flex:0 0 auto;">Visa prognos &amp; planerat</label>`;
-  const _legend=`<div style="display:flex;gap:14px;font-size:10px;color:var(--text3);margin-top:4px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#C00010;vertical-align:middle;border-radius:2px;"></span> Budget (Primär)</span><span><span style="display:inline-block;width:9px;height:9px;background:#1E2340;vertical-align:middle;border-radius:2px;"></span> Utfall</span><span><span style="display:inline-block;width:9px;height:9px;background:#5566A0;vertical-align:middle;border-radius:2px;"></span> Prognos / planerat</span></div>`;
-  const bild2svg=`<div style="display:flex;justify-content:flex-end;margin-bottom:4px;">${_splitCb}</div><svg viewBox="0 0 ${cW} ${cH}" width="100%" style="overflow:visible;">${grid}${_zeroLine}${_bars}${_glabels}</svg>${_legend}`;
+  const _legend=`<div style="display:flex;gap:14px;font-size:10px;color:var(--text3);margin-top:4px;flex-wrap:wrap;"><span><span style="display:inline-block;width:9px;height:9px;background:#1E2340;vertical-align:middle;border-radius:2px;"></span> Inkomster</span><span><span style="display:inline-block;width:9px;height:9px;background:#85B7EB;vertical-align:middle;border-radius:2px;"></span> Utgifter</span><span><span style="display:inline-block;width:12px;height:2px;background:#C00010;vertical-align:middle;"></span> Primär budget</span><span style="opacity:0.6;">Uttonat = prognos (efter ${MONTHS[_grans]||'–'})</span></div>`;
+  const bild2svg=`<svg viewBox="0 0 ${cW} ${cH}" width="100%" style="overflow:visible;">${grid}${_zeroLine}${_bars}${_glabels}</svg>${_legend}`;
   // BILD 2 (#2g) — RESULTATTABELL (Budget/Utfall/Differens). Matchar grafens modell (#2f), kapat vid X.
   // Utfall = hårt (Avtal för intäkt, 0..utfallGräns för utgift) — prognos-checkboxen påverkar INTE tabellen.
   // Inkomst under budget = röd (sämre); utgift under budget = grön (mindre kostnad).
   const prenBudget=_sM(primRows,r=>r.Category==='Revenue'&&r.SubCategory==='Licens (prenumeration)',0,X);
-  const prenUtfall=_sM(rollRows,r=>r.Category==='Revenue'&&r.SubCategory==='Licens (prenumeration)'&&r.Source==='Avtal (likviditet)',0,X);
+  const prenSolid=_sM(rollRows,r=>r.Category==='Revenue'&&r.SubCategory==='Licens (prenumeration)',0,_utfallGrans);   // tidsbaserat utfall (0..min(_grans,X)), ej Avtal-filter
   const dRow=(label,b,u,incomeLike,sub)=>{const diff=incomeLike?(u-b):(b-u);const col=diff>=0?'var(--green)':'var(--red)';const fs=sub?'font-size:11px;':'';const lblPad=sub?'padding:4px 8px 4px 22px;color:var(--text3);':'padding:5px 8px;font-weight:500;';const cellPad=sub?'padding:4px 8px;color:var(--text3);':'padding:5px 8px;';return `<tr><td style="${lblPad}${fs}">${label}</td><td style="${cellPad}${fs}text-align:right;">${fmtSv(b)}</td><td style="${cellPad}${fs}text-align:right;">${fmtSv(u)}</td><td style="padding:${sub?'4px':'5px'} 8px;text-align:right;${fs}font-weight:600;color:${col};">${diff>=0?'+':''}${fmtSv(diff)}</td></tr>`;};
   const _th=t=>`<th style="text-align:${t?'right':'left'};padding:4px 8px;font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">${t}</th>`;
-  const bild2tbl=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;"><thead><tr>${_th('')}${_th('Budget')}${_th('Utfall')}${_th('Differens')}</tr></thead><tbody>${dRow('Inkomster',incBudget,incUtfall,true)}${dRow('Varav '+subLabel('Licens (prenumeration)'),prenBudget,prenUtfall,true,true)}${dRow('Utgifter',costBudget,costUtfall,false)}</tbody></table>`;
+  const bild2tbl=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;"><thead><tr>${_th('')}${_th('Budget')}${_th('Utfall')}${_th('Differens')}</tr></thead><tbody>${dRow('Inkomster',incBudget,incSolid,true)}${dRow('Varav '+subLabel('Licens (prenumeration)'),prenBudget,prenSolid,true,true)}${dRow('Utgifter',costBudget,costSolid,false)}</tbody></table>`;
   // BILD 3 — Likviditetsprognos (Primär, plan, helår): computeCashflow inkl. finansiering → delad likviditetsgraf (cashflowChartSvg).
   const primVer=budgetVersions.find(v=>String(v.Id)===String(primId)),year=Number(primVer&&primVer.Year)||new Date().getFullYear();
   // Bild 3 egen versionsväljare (oberoende av kassaflöde-fliken). Default = Primär. Påverkar ENDAST bild 3 (ej bild 2/fördelning).
