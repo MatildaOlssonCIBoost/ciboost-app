@@ -4917,10 +4917,6 @@ async function openImportFornyelseModal(versionId,preMonth){
     // FIX 2/3: urkryssade poster som FANNS i DB (_frSavedAll) → explicit remove. Orörda DB-poster skickas varken som pick eller remove → lämnas av backend-upserten.
     const removals=Object.entries(window._frEdits||{}).filter(([k,e])=>e&&e.checked===false&&_frSavedAll[k]).map(([k])=>k);
     if(!picks.length&&!removals.length){alert('Inga förnyelser ikryssade.');return;}
-    let rows;try{rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();}catch(e){alert('Kunde inte hämta budgetrader.');return;}
-    if(!Array.isArray(rows))rows=[];
-    // Idempotens: nollställ alla befintliga Förnyelse-raders månadsceller innan ackumulering (avkryssade/borttagna försvinner).
-    rows.forEach(r=>{if(r.Category===REV_CATEGORY&&(r.Source||'')===SRC)MONTHS.forEach(m=>r[m]=0);});
     const importedBy=(await getUserInfo()).name||'';   // Easy Auth-identitet, en gång
     const saved={};const assumptions=[];let imported=0;
     // assumptions = checked picks (backend-upsert). /rows byggs INTE här utan från merged-setet nedan.
@@ -4937,16 +4933,7 @@ async function openImportFornyelseModal(versionId,preMonth){
     Object.entries(_frSavedAll||{}).forEach(([k,e])=>{merged[k]={amount:_frParse(e.amount),prob:_frParse(e.prob),date:e.date,type:k.split('_').pop()};});
     picks.forEach(p=>{merged[p.custId+'_'+p.type]={amount:p.amount,prob:p.prob,date:p.date,type:p.type};});
     removals.forEach(k=>{delete merged[k];});
-    Object.values(merged).forEach(m=>{
-      const sub=REV_CAT_TO_SUB[m.type];const d=new Date(m.date);const weighted=Math.round((m.amount||0)*(m.prob||0)/100);
-      if(!sub||isNaN(d)||weighted<=0)return;
-      const ld=new Date(d);ld.setDate(ld.getDate()+30);const liq=MONTHS[ld.getMonth()];
-      let row=rows.find(r=>r.Category===REV_CATEGORY&&r.SubCategory===sub&&(r.Source||'')===SRC);
-      if(!row){row={Category:REV_CATEGORY,SubCategory:sub,Source:SRC,ImportedAt:today};MONTHS.forEach(mm=>row[mm]=0);rows.push(row);}
-      row[liq]=(row[liq]||0)+weighted;row.ImportedAt=today;
-    });
-    const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
-    try{await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}catch(e){alert('Kunde inte spara importen.');return;}
+    try{await rebuildSourceRows(versionId,'Förnyelse',Object.values(merged));}catch(e){alert('Kunde inte spara importen.');return;}
     localStorage.setItem('fornyelseImport_'+versionId,JSON.stringify(saved));
     // DB3: spara antagandena även i DB (delat mellan användare). Behåll localStorage tills DB5. Fel bryter ej importen.
     try{ await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:SRC,assumptions,remove:removals})}); }catch(e){ console.warn('Kunde ej spara antaganden till DB (localStorage finns kvar):',e); }
@@ -5096,10 +5083,6 @@ async function openImportPipelineModal(versionId,preMonth){
     // FIX 2/3: urkryssade poster som FANNS i DB (_ppSavedAll) → explicit remove. Orörda DB-poster skickas varken som pick eller remove → lämnas av backend-upserten.
     const removals=Object.entries(window._ppEdits||{}).filter(([k,e])=>e&&e.checked===false&&_ppSavedAll[k]).map(([k])=>k);
     if(!picks.length&&!removals.length){alert('Inga pipeline-poster ikryssade.');return;}
-    let rows;try{rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();}catch(e){alert('Kunde inte hämta budgetrader.');return;}
-    if(!Array.isArray(rows))rows=[];
-    // Idempotens: nollställ alla befintliga Pipeline (viktat)-raders månadsceller innan ackumulering.
-    rows.forEach(r=>{if(r.Category===REV_CATEGORY&&(r.Source||'')===SRC)MONTHS.forEach(m=>r[m]=0);});
     const importedBy=(await getUserInfo()).name||'';   // Easy Auth-identitet, en gång
     const saved={};const assumptions=[];let imported=0;
     // assumptions = checked picks (backend-upsert). /rows byggs INTE här utan från merged-setet nedan.
@@ -5116,16 +5099,7 @@ async function openImportPipelineModal(versionId,preMonth){
     Object.entries(_ppSavedAll||{}).forEach(([k,e])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));merged[k]={amount:_ppParse(e.amount),prob:_ppParse(e.prob),date:e.date,type:it?it.Type:null};});
     picks.forEach(p=>{const it=(prospectRevCache[p.prospectId]||[]).find(x=>String(x.Id)===String(p.itemId));merged[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,type:it?it.Type:null};});
     removals.forEach(k=>{delete merged[k];});
-    Object.values(merged).forEach(m=>{
-      const sub=m.type?REV_CAT_TO_SUB[m.type]:null;const d=new Date(m.date);const weighted=Math.round((m.amount||0)*(m.prob||0)/100);
-      if(!sub||isNaN(d)||weighted<=0)return;
-      const ld=new Date(d);ld.setDate(ld.getDate()+30);const liq=MONTHS[ld.getMonth()];
-      let row=rows.find(r=>r.Category===REV_CATEGORY&&r.SubCategory===sub&&(r.Source||'')===SRC);
-      if(!row){row={Category:REV_CATEGORY,SubCategory:sub,Source:SRC,ImportedAt:today};MONTHS.forEach(mm=>row[mm]=0);rows.push(row);}
-      row[liq]=(row[liq]||0)+weighted;row.ImportedAt=today;
-    });
-    const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
-    try{await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}catch(e){alert('Kunde inte spara importen.');return;}
+    try{await rebuildSourceRows(versionId,'Pipeline (viktat)',Object.values(merged));}catch(e){alert('Kunde inte spara importen.');return;}
     localStorage.setItem('pipelineImport_'+versionId,JSON.stringify(saved));
     // DB3: spara antagandena även i DB (delat mellan användare). Behåll localStorage tills DB5. Fel bryter ej importen.
     try{ await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:SRC,assumptions,remove:removals})}); }catch(e){ console.warn('Kunde ej spara antaganden till DB (localStorage finns kvar):',e); }
@@ -5947,6 +5921,24 @@ async function copyBudgetVersion(){
 // Mapping from CustomerRevenues.Type / RevenueCategory → BudgetRows.SubCategory
 const REV_CAT_TO_SUB={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Utbildning:'Utbildning',Consulting:'Consulting'};
 const REV_CATEGORY='Revenue';
+// Delad helper: bygg om EN källas (source) BudgetRows-celler från entries [{amount,prob,date,type}] + POST hela /rows.
+// Opererar på HELA rows-arrayen (GET alla → nollställ bara source → POST alla) så Avtal/andra källor/manuella bevaras.
+// Cell = Amount×Prob/100 i likviditetsmånad (AssumeDate+30). Återanvänds av _frImport/_ppImport (+ kommande radering).
+async function rebuildSourceRows(versionId,source,entries){
+  const today=new Date().toISOString().substring(0,10);
+  let rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();
+  if(!Array.isArray(rows))rows=[];
+  rows.forEach(r=>{if(r.Category===REV_CATEGORY&&(r.Source||'')===source)MONTHS.forEach(m=>r[m]=0);});   // nollställ FÖRE ackumulering
+  (entries||[]).forEach(e=>{const sub=REV_CAT_TO_SUB[e.type];const d=new Date(e.date);const weighted=Math.round((e.amount||0)*(e.prob||0)/100);
+    if(!sub||isNaN(d)||weighted<=0)return;
+    const ld=new Date(d);ld.setDate(ld.getDate()+30);const liq=MONTHS[ld.getMonth()];
+    let row=rows.find(r=>r.Category===REV_CATEGORY&&r.SubCategory===sub&&(r.Source||'')===source);
+    if(!row){row={Category:REV_CATEGORY,SubCategory:sub,Source:source,ImportedAt:today};MONTHS.forEach(mm=>row[mm]=0);rows.push(row);}
+    row[liq]=(row[liq]||0)+weighted;row.ImportedAt=today;});
+  const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
+  await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  return rows;
+}
 // Display-helpers (#3): översätter DATAVÄRDEN (SubCategory / Type) → UI-etikett.
 // Rör ALDRIG datavärdena själva (de lagras i DB BudgetRows.SubCategory / CustomerRevenues.Type
 // och används som nycklar/filter). Endast för rendering. Utbildning/Consulting faller genom.
