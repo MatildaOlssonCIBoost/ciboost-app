@@ -5268,8 +5268,8 @@ async function renderStyrelse(){
   // ARR/MRR (#2j) — diskret nedtonad rad, återanvänder arrAnnualizedAt (#1a). Ingen KPI-box/accent.
   const _styrArr=arrAnnualizedAt(new Date(),false),_styrMrr=Math.round(_styrArr/12);
   const arrMrrHtml=`<div style="font-size:10px;color:var(--text3);text-align:right;margin-top:8px;">ARR ${fmtSv(_styrArr)} · MRR ${fmtSv(_styrMrr)} <span style="opacity:0.7;">· run-rate prenumeration</span></div>`;
-  el.innerHTML=hdr+fordelningHtml+`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;"><div style="font-size:11px;color:var(--text3);">Budget: Primär likviditet #${primId} · Utfall: Löpande likviditet #${rollId}</div></div>${periodSlider}
-    <div class="fin-card"><div style="font-size:16px;font-weight:600;color:#1E2340;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);">Resultat</div>${bild2svg}${bild2tbl}</div>${bild3html}${top5Html}${arrMrrHtml}`;
+  el.innerHTML=hdr+fordelningHtml+`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;"><div style="font-size:11px;color:var(--text3);">Budget: Primär likviditet #${primId} · Utfall: Löpande likviditet #${rollId}</div></div>
+    <div class="fin-card"><div style="font-size:16px;font-weight:600;color:#1E2340;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);">Resultat</div><div style="display:flex;gap:16px;flex-wrap:wrap;"><div style="flex:1;min-width:260px;">${bild2svg}</div><div style="flex:1;min-width:260px;" id="styr-timeline-slot"></div></div>${periodSlider}${bild2tbl}</div>${bild3html}${top5Html}${arrMrrHtml}`;
 }
 async function loadBudgetVersions(){
   // Attach the delegated budget-row autosave once (the #budget-content element
