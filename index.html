@@ -5399,9 +5399,12 @@ async function loadBudgetVersion(){
   if(primBtn)primBtn.textContent=isPrimaryBudgetVersion(selVersion)?'★ Primär':'☆ Sätt som primär';
   const rollBtn=document.getElementById('btn-rolling-budget');
   if(rollBtn)rollBtn.textContent=isRollingBudgetVersion(selVersion)?'⟳ Löpande':'⟳ Sätt som löpande';
-  const iaBtn=document.getElementById('btn-import-actuals');if(iaBtn)iaBtn.style.display=currentBudgetMode==='likviditet'?'flex':'none';
-  const frBtn=document.getElementById('btn-import-fornyelse');if(frBtn)frBtn.style.display=currentBudgetMode==='likviditet'?'flex':'none';
-  const ppBtn=document.getElementById('btn-import-pipeline-mod');if(ppBtn)ppBtn.style.display=currentBudgetMode==='likviditet'?'flex':'none';
+  // C4: visa de tre import-knapparna i BÅDA lägen. Avtals-knappen grenar — resultat=bulk periodiserad
+  // (importAllAvtalResultat), likviditet=per-månads kassaflöde (openImportActualsModal). Förnyelse/Pipe
+  // öppnar samma modaler i båda lägen (modalerna grenar internt via C3).
+  const iaBtn=document.getElementById('btn-import-actuals');if(iaBtn){iaBtn.style.display='flex';iaBtn.onclick=currentBudgetMode==='resultat'?()=>importAllAvtalResultat(currentBudgetVersionId):()=>openImportActualsModal(currentBudgetVersionId);iaBtn.textContent=currentBudgetMode==='resultat'?'⇪ Avtal (alla)':'⇪ Actuals/mån';}
+  const frBtn=document.getElementById('btn-import-fornyelse');if(frBtn)frBtn.style.display='flex';
+  const ppBtn=document.getElementById('btn-import-pipeline-mod');if(ppBtn)ppBtn.style.display='flex';
   await loadBudgetLocks(currentBudgetVersionId);
   try{renderBudgetTable();}
   catch(e){
