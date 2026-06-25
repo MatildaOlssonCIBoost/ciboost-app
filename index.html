@@ -5973,6 +5973,30 @@ async function rebuildSourceRows(versionId,source,entries){
   await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   return rows;
 }
+// RESULTAT-variant av rebuildSourceRows: PERIODISERAR (spreadPeriodAcrossMonths över dateFrom..dateTo)
+// istället för likviditetsmånad (date+30), och tar category-parameter (Periodiserade intäkter / Nyförsäljning)
+// istället för hårdkodat REV_CATEGORY. Källisolering på (category, source) → nollställer ENDAST den egna
+// källans celler i den egna category:n; andra källor + manuella rader (source='') bevaras vid full-replace-POST.
+// entries: [{amount, prob, dateFrom, dateTo, type}]. Period bor i cacher (resolvas av anroparen, ej här).
+// Rör ALDRIG rebuildSourceRows (likviditet). Samma payload-format → ärver samtidighetsskyddet.
+async function rebuildSourceRowsPeriodized(versionId,source,category,entries){
+  const today=new Date().toISOString().substring(0,10);
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(versionId));
+  const year=Number(ver&&ver.Year)||new Date().getFullYear();
+  let rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();
+  if(!Array.isArray(rows))rows=[];
+  rows.forEach(r=>{if(r.Category===category&&(r.Source||'')===source)MONTHS.forEach(m=>r[m]=0);});   // nollställ FÖRE ackumulering — bara (category,source)
+  (entries||[]).forEach(e=>{const sub=REV_CAT_TO_SUB[e.type];if(!sub)return;
+    const weighted=Math.round((e.amount||0)*(e.prob||0)/100);if(weighted<=0)return;
+    const months=spreadPeriodAcrossMonths(weighted,e.dateFrom,e.dateTo,year);   // periodisering (dag-overlap), årsguard inuti
+    if(!months.some(v=>v>0))return;
+    let row=rows.find(r=>r.Category===category&&r.SubCategory===sub&&(r.Source||'')===source);
+    if(!row){row={Category:category,SubCategory:sub,Source:source,ImportedAt:today};MONTHS.forEach(mm=>row[mm]=0);rows.push(row);}
+    MONTHS.forEach((m,i)=>{row[m]=(row[m]||0)+months[i];});row.ImportedAt=today;});
+  const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
+  await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  return rows;
+}
 // Display-helpers (#3): översätter DATAVÄRDEN (SubCategory / Type) → UI-etikett.
 // Rör ALDRIG datavärdena själva (de lagras i DB BudgetRows.SubCategory / CustomerRevenues.Type
 // och används som nycklar/filter). Endast för rendering. Utbildning/Consulting faller genom.
