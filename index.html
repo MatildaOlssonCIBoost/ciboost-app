@@ -662,6 +662,10 @@
 <div class="stats-bar" id="stats-bar" style="display:none;">
   <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-total">-</div><div class="stat-label">Aktiva kunder</div></div>
   <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-year">-</div><div class="stat-label">Kunder i år</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat"><div class="stat-val" style="color:var(--accent)" id="stat-total-all">-</div><div class="stat-label">Kunder totalt</div></div>
+  <div class="stat-divider"></div>
   <div class="stat"><div class="stat-val" style="color:var(--green)" id="stat-enterprise">-</div><div class="stat-label">Enterprise</div></div>
   <div class="stat-divider"></div>
   <div class="stat"><div class="stat-val" style="color:var(--green)" id="stat-team">-</div><div class="stat-label">Team</div></div>
@@ -3324,7 +3328,15 @@ function kaRenderChart(items,years,types,TC,extraHtml){
 // ─── KUNDER ──────────────────────────────────────────────
 async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();if(currentMain==='start')renderStart();prefetchAllCustomerRevenues();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="10"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
 async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
-function updateStats(){const churned=getChurnedCustomers();const cs=allCustomers.filter(c=>!churned[c.Id]);const active=cs.filter(c=>c._days!==null&&c._days>=0);document.getElementById('stat-total').textContent=active.length;document.getElementById('tab-count').textContent=cs.length;document.getElementById('stat-enterprise').textContent=cs.filter(c=>c.LicenseType==='Enterprise').length;document.getElementById('stat-team').textContent=cs.filter(c=>c.LicenseType==='Team').length;document.getElementById('stat-expiring').textContent=cs.filter(c=>c._days!==null&&c._days>=0&&c._days<=30).length;document.getElementById('stat-risk').textContent=cs.filter(c=>c.Risk==='High').length;document.getElementById('stat-expired').textContent=cs.filter(c=>c._days!==null&&c._days<0).length;}
+function updateStats(){const churned=getChurnedCustomers();const cs=allCustomers.filter(c=>!churned[c.Id]);
+  // Tre koncern-deduperade avtalssiffror (cs = ej churnade), respekterar revSources.
+  const cacheReady=allCustomers.length>0&&allCustomers.every(c=>custRevCache[c.Id]!==undefined);
+  if(cacheReady){const year=new Date().getFullYear();
+    document.getElementById('stat-total').textContent=orgCount(cs.filter(isActiveNow));
+    document.getElementById('stat-year').textContent=orgCount(cs.filter(c=>activeInYear(c,year)));
+    document.getElementById('stat-total-all').textContent=orgCount(cs.filter(hasAvtal));
+  }else{document.getElementById('stat-total').textContent='–';document.getElementById('stat-year').textContent='–';document.getElementById('stat-total-all').textContent='–';}
+  document.getElementById('tab-count').textContent=cs.length;document.getElementById('stat-enterprise').textContent=cs.filter(c=>c.LicenseType==='Enterprise').length;document.getElementById('stat-team').textContent=cs.filter(c=>c.LicenseType==='Team').length;document.getElementById('stat-expiring').textContent=cs.filter(c=>c._days!==null&&c._days>=0&&c._days<=30).length;document.getElementById('stat-risk').textContent=cs.filter(c=>c.Risk==='High').length;document.getElementById('stat-expired').textContent=cs.filter(c=>c._days!==null&&c._days<0).length;}
 // Intäktstabellen (ARR/Fastpris/Utbildning/Consulting) ovanför kundlistan.
 // Hämtar värden från värdefliken (custTypeValues) och speglar aktuell filtrering
 // så att den även visar en enskild kunds fördelning när man filtrerat ned dit.
@@ -3357,7 +3369,7 @@ function sortBy(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=
 function sortData(data){const pick=c=>{if(sortCol==='days')return c._licDays??99999;if(sortCol==='ARR')return customerValue(c);if(sortCol==='LicenseEnd')return c._licEnd||'';if(sortCol==='avtal')return c._avtalEnd||'';return c[sortCol]||'';};return [...data].sort((a,b)=>{let va=pick(a),vb=pick(b);if(typeof va==='string')va=va.toLowerCase();if(typeof vb==='string')vb=vb.toLowerCase();if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;});}
 function renderTable(){const data=sortData(getFiltered());document.getElementById('filter-count').textContent=`${data.length} kund${data.length!==1?'er':''}`;renderRevSummary();if(!data.length){document.getElementById('table-body').innerHTML=`<tr><td colspan="10"><div class="empty">Inga kunder matchar</div></td></tr>`;return;}document.getElementById('table-body').innerHTML=data.map(c=>{const tv=custTypeValues(c);const _s=revSources;const arr=_s.arr?tv.arr:0,fast=_s.fast?tv.fast:0,utb=_s.utb?tv.utb:0,cons=_s.cons?tv.cons:0;const tot=arr+fast+utb+cons||1;const val=arr+fast+utb+cons;const bars=[arr>0?`<div style="width:${Math.round(arr/tot*60)}px;height:5px;background:#1a7a50;border-radius:2px;"></div>`:'',fast>0?`<div style="width:${Math.round(fast/tot*60)}px;height:5px;background:#1a4f7a;border-radius:2px;"></div>`:'',utb>0?`<div style="width:${Math.round(utb/tot*60)}px;height:5px;background:#b85a00;border-radius:2px;"></div>`:'',cons>0?`<div style="width:${Math.round(cons/tot*60)}px;height:5px;background:#5a1a7a;border-radius:2px;"></div>`:''].filter(Boolean).join('');return`<tr onclick="openModal(${c.Id})"><td><div class="company-name">${c.Company||'-'}</div>${c.SubName?`<div style="font-size:11px;color:var(--text3);margin-top:1px;">${c.SubName}</div>`:''}</td><td style="font-size:13px;color:var(--text2);">${c.Contact||'-'}</td><td><span class="owner-tag">${c._owner}</span></td><td><span class="license-type lt-${c.LicenseType}">${c.LicenseType||'-'}</span></td><td style="font-weight:500;font-size:13px;">${val>0?val.toLocaleString('sv-SE')+' kr':'-'}</td><td><div style="display:flex;gap:2px;align-items:center;">${bars}</div></td><td style="font-size:13px;color:var(--text2);">${c._licEnd?formatDate(c._licEnd):'<span style="color:var(--text3);">–</span>'}</td><td style="font-size:13px;color:var(--text2);">${c._avtalEnd?formatDate(c._avtalEnd):'<span style="color:var(--text3);">–</span>'}</td><td>${daysPill(c._licDays)}</td><td><span class="risk-dot risk-${c.Risk}">${c.Risk||'-'}</span>${(()=>{const f=getCustomerRiskFactors(c);return f.length?`<div style="font-size:10px;color:var(--text3);margin-top:3px;line-height:1.3;">${f.join(' · ')}</div>`:'';})()}</td></tr>`;}).join('');}
 function toggleRevDD(e){e.stopPropagation();const p=document.getElementById('rev-dd-panel');p.style.display=p.style.display==='none'?'block':'none';}
-function toggleRevSource(s){revSources[s]=!revSources[s];document.getElementById(`rcb-${s}`).classList.toggle('on',revSources[s]);renderTable();updateStats();}
+function toggleRevSource(s){const next=!revSources[s];if(!next&&!['arr','fast','utb','cons'].some(k=>k!==s&&revSources[k]))return;revSources[s]=next;document.getElementById(`rcb-${s}`).classList.toggle('on',revSources[s]);renderTable();updateStats();}
 function togglePerDD(e){e.stopPropagation();const p=document.getElementById('per-dd-panel');p.style.display=p.style.display==='none'?'block':'none';}
 function togglePerSource(s){perSources[s]=!perSources[s];document.getElementById(`pcb-${s}`).classList.toggle('on',perSources[s]);}
 
@@ -3818,6 +3830,15 @@ function arrAnnualizedAt(T,inclFastpris){
 }
 // Koncern-dedupat antal: ParentCompany (trim+lowercase) = 1 org; koncernlös = eget kort.
 function orgCount(custs){return new Set((custs||[]).map(c=>{const p=(c.ParentCompany||'').trim().toLowerCase();return p?'org:'+p:'cust:'+c.Id;})).size;}
+// Avtalstyp-mask = Intäktskällor-filtret (revSources). ARR↔arr osv.
+function typeOn(it){return ({ARR:revSources.arr,Fastpris:revSources.fast,Utbildning:revSources.utb,Consulting:revSources.cons})[it.Type];}
+function _custAvtal(c){return (custRevCache[c.Id]||[]).filter(typeOn);}
+// Aktivt avtal just nu: DateFrom<=idag<=DateTo. Datumlösa = ej aktiva.
+function isActiveNow(c){const today=new Date();return _custAvtal(c).some(i=>i.DateFrom&&i.DateTo&&new Date(i.DateFrom)<=today&&today<=new Date(i.DateTo));}
+// Aktiv under år Y: periodöverlapp [1 jan Y, 31 dec Y]. Kräver båda datum.
+function activeInYear(c,Y){const yStart=new Date(Y,0,1),yEnd=new Date(Y,11,31,23,59,59);return _custAvtal(c).some(i=>{if(!i.DateFrom||!i.DateTo)return false;const f=new Date(i.DateFrom),t=new Date(i.DateTo);return f<=yEnd&&t>=yStart;});}
+// Har giltigt (daterat) avtal av påslagen typ.
+function hasAvtal(c){return _custAvtal(c).some(i=>i.DateFrom&&i.DateTo);}
 // Översiktens KPI-summor per kategori, lägesberoende — läser custRevCache DIREKT (ej _valArr,
 // så Värde-kolumnen lämnas orörd). resultat=periodiserat (calcYearTotalItems); likviditet=kassaflöde
 // (kaCashflowDate-året, NET30). Återanvänder befintliga formler.
