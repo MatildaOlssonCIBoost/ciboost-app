@@ -6023,6 +6023,12 @@ function toggleBudgetPrimary(){
   } else {
     localStorage.setItem(key,currentBudgetVersionId);
   }
+  // PAR-4b: roll-synk — spegla A:s NYA primär-tillstånd direkt på den parade motpartens nyckel (motsatt typ).
+  // Direkt setItem/removeItem (ALDRIG rekursivt toggle-anrop) → ingen loop, ingen guard-flagga. Oparad → hoppas över.
+  if(v.PairedVersionId!=null){
+    const mate=budgetVersions.find(x=>String(x.Id)===String(v.PairedVersionId));
+    if(mate){const mKey=primaryBudgetStorageKey(mate.BudgetType);if(localStorage.getItem(key))localStorage.setItem(mKey,mate.Id);else localStorage.removeItem(mKey);}
+  }
   const primBtn=document.getElementById('mi-primary');
   if(primBtn)primBtn.textContent=isPrimaryBudgetVersion(v)?'★ Ta bort som primär':'☆ Sätt som primär';
   loadBudgetVersions();
@@ -6042,6 +6048,11 @@ function toggleBudgetRolling(){
       const hint=document.getElementById('budget-autosave-hint');
       if(hint){hint.textContent='⚠ Samma version är nu både Primär (plan) och Löpande (utfall) — bör vanligtvis vara olika.';hint.style.color='var(--amber)';setTimeout(()=>{hint.textContent='Autospar på';hint.style.color='var(--text3)';},6000);}
     }
+  }
+  // PAR-4b: roll-synk — spegla A:s NYA löpande-tillstånd direkt på den parade motpartens rolling-nyckel (motsatt typ). Ingen rekursion.
+  if(v.PairedVersionId!=null){
+    const mate=budgetVersions.find(x=>String(x.Id)===String(v.PairedVersionId));
+    if(mate){const mKey=rollingBudgetStorageKey(mate.BudgetType);if(localStorage.getItem(key))localStorage.setItem(mKey,mate.Id);else localStorage.removeItem(mKey);}
   }
   const rollBtn=document.getElementById('mi-rolling');
   if(rollBtn)rollBtn.textContent=isRollingBudgetVersion(v)?'⟳ Ta bort som löpande':'⟳ Sätt som löpande';
