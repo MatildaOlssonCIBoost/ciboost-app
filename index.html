@@ -5401,14 +5401,18 @@ async function loadBudgetVersion(){
     if(label){badge.textContent=label;badge.style.display='inline-flex';}
     else badge.style.display='none';
   }
-  // PAR-3a: parindikator (ren visning; länka-om/skapa = PAR-3b/3c). Speglar vald versions PairedVersionId.
+  // PAR-3b: parindikator + interaktiv länka-om-knapp (skapa-motpart = PAR-3c; roll-synk = PAR-4).
   const pind=document.getElementById('budget-pair-indicator');
   if(pind){
     const pid=selVersion?selVersion.PairedVersionId:null;
-    if(pid==null){pind.textContent='⚠ Saknar motpart';pind.style.color='var(--amber)';}
+    let _txt,_col,_btn;
+    if(pid==null){_txt='⚠ Saknar motpart';_col='var(--amber)';_btn='Länka motpart…';}
     else{const mate=budgetVersions.find(v=>String(v.Id)===String(pid));
-      if(mate){pind.textContent='🔗 Parad: '+mate.Name;pind.style.color='var(--text3)';}
-      else{pind.textContent='⚠ Motpart saknas (raderad?)';pind.style.color='var(--amber)';}}
+      if(mate){_txt='🔗 Parad: '+String(mate.Name).replace(/</g,'&lt;');_col='var(--text3)';}
+      else{_txt='⚠ Motpart saknas (raderad?)';_col='var(--amber)';}
+      _btn='Länka om…';}
+    pind.style.color=_col;
+    pind.innerHTML=`<span>${_txt}</span><button onclick="openPairDialog()" style="background:none;border:none;padding:0 0 0 6px;color:var(--accent);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:11px;">${_btn}</button>`;
     pind.style.display='inline-flex';
   }
   currentBudgetMode=budgetTypeMode(selVersion?.BudgetType)||'likviditet';
@@ -6583,6 +6587,44 @@ async function renameBudgetVersion(){
     });
 }
 
+// PAR-3b: länka om budgetparet. Listar OPARADE motsatt-typ-versioner; Para → PUT /pair {pairedId},
+// Avpara (om redan parad) → PUT /pair {pairedId:null}. Efter varje /pair → loadBudgetVersions (färsk
+// PairedVersionId). Ingen skapa-motpart-logik (PAR-3c) och ingen roll-synk (PAR-4).
+function openPairDialog(){
+  const sel=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId));
+  if(!sel)return;
+  const oppType=sel.BudgetType==='Resultatbudget'?'Likviditetsbudget':'Resultatbudget';
+  const candidates=budgetVersions.filter(v=>v.BudgetType!==sel.BudgetType&&v.PairedVersionId==null&&String(v.Id)!==String(sel.Id));
+  const isPaired=sel.PairedVersionId!=null;
+  const esc=s=>String(s||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  let body='';
+  if(candidates.length){
+    body+=`<div class="modal-field"><label>Länka till ${oppType}</label><select id="pair-existing" class="edit-input">${candidates.map(v=>`<option value="${v.Id}">${esc(v.Name)} (${v.Year}) · #${v.Id}</option>`).join('')}</select></div>`;
+  }else{
+    body+=`<div style="font-size:12px;color:var(--text3);line-height:1.5;">Inga oparade ${oppType}ar att länka till — skapa en ny via <strong>+ Ny version</strong>.</div>`;
+  }
+  if(isPaired){
+    body+=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);">Versionen har redan en motpart. <button onclick="unpairCurrentBudget()" style="background:none;border:none;padding:0;color:var(--red);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:12px;">Avpara</button></div>`;
+  }
+  showDialog('Länka budgetpar',body,async()=>{
+    const selEl=document.getElementById('pair-existing');
+    if(!selEl)return true;   // tom lista → stäng utan att para
+    const bId=parseInt(selEl.value,10);
+    try{
+      await apiFetch(`${API}/budget-versions/${sel.Id}/pair`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({pairedId:bId})});
+      await loadBudgetVersions();
+    }catch(e){alert('Kunde inte para budgetarna.');return false;}
+    return true;
+  },candidates.length?'Para':'Stäng');
+}
+async function unpairCurrentBudget(){
+  const id=currentBudgetVersionId;if(!id)return;
+  try{
+    await apiFetch(`${API}/budget-versions/${id}/pair`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({pairedId:null})});
+    await loadBudgetVersions();
+  }catch(e){alert('Kunde inte avpara.');}
+  document.getElementById('dialog-overlay')?.remove();
+}
 async function deleteBudgetVersion(){
   if(!currentBudgetVersionId)return;
   const idToDelete=currentBudgetVersionId;
