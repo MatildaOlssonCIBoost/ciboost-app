@@ -523,6 +523,9 @@
   .tp-mail-suggest .desc { font-size:11px; color:#185FA5; opacity:0.8; margin-top:2px; }
   .tp-mail-suggest .chevron { margin-left:auto; color:#185FA5; transition:transform 0.15s; }
   .tp-mail-suggest.open .chevron { transform:rotate(90deg); }
+  /* K-COST-4: hopfällnings-chevron i budgettabellen (▾ utfälld → roterar -90° = ▸ infälld) */
+  .bchev { display:inline-block; transition:transform 0.15s; font-size:9px; margin-right:2px; }
+  .bchev.collapsed { transform:rotate(-90deg); }
   .tp-mail-panel { background:var(--surface); border:1px solid #c5dbef; border-top:none; border-radius:0 0 8px 8px; padding:14px 16px; display:none; }
   .tp-mail-panel.open { display:block; }
   .tp-mail-panel .field { margin-bottom:10px; }
@@ -5741,6 +5744,21 @@ async function renderRevUnderlag(){
     ${avtalHtml}${fornHtml}${pipeHtml}${manHtml}
   </div>`;
 }
+// K-COST-4: tvånivå-hopfällning i budgettabellen. State per budgettyp (mode) i localStorage så
+// likviditet/resultat inte krockar. Collapse = display:none på detaljrader (data-bsec/data-bgrp);
+// summarader (sektion + grupp) saknar attribut → ALLTID synliga. saveBudget läser dolda .budget-input
+// ändå (display:none tar ej bort ur DOM) → autospar-säkert. Default: allt utfällt (tomt state).
+function budgetCollapseKey(){return 'budgetCollapse_'+currentBudgetMode;}
+function getBudgetCollapse(){try{const s=JSON.parse(localStorage.getItem(budgetCollapseKey())||'{}');return {sections:s.sections||{},groups:s.groups||{}};}catch(e){return {sections:{},groups:{}};}}
+function setBudgetCollapse(s){localStorage.setItem(budgetCollapseKey(),JSON.stringify(s));}
+function applyBudgetCollapse(){
+  const st=getBudgetCollapse();
+  document.querySelectorAll('#budget-content tr[data-bsec]').forEach(tr=>{const s=tr.dataset.bsec,g=tr.dataset.bgrp;tr.style.display=(st.sections[s]||(g&&st.groups[g]))?'none':'';});
+  document.querySelectorAll('#budget-content [data-bsec-toggle]').forEach(el=>el.classList.toggle('collapsed',!!st.sections[el.dataset.bsecToggle]));
+  document.querySelectorAll('#budget-content [data-bgrp-toggle]').forEach(el=>el.classList.toggle('collapsed',!!st.groups[el.dataset.bgrpToggle]));
+}
+function toggleBudgetSection(sec){const st=getBudgetCollapse();st.sections[sec]=!st.sections[sec];setBudgetCollapse(st);applyBudgetCollapse();}
+function toggleBudgetGroup(grp){const st=getBudgetCollapse();st.groups[grp]=!st.groups[grp];setBudgetCollapse(st);applyBudgetCollapse();}
 function renderBudgetTable(){
   if(!Array.isArray(budgetRows))budgetRows=[];
   // Resultat-läget har en helt egen struktur (item: resultatbudget).
@@ -5864,7 +5882,7 @@ function renderBudgetTable(){
     </tr></thead><tbody>`;
 
   // REVENUE — orange intäktsrubrik med vit text; datarader vita.
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#E8823A;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ REVENUE <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,0.85);margin-left:8px;">· Kassaflöde (NET30)</span></td></tr>`;
+  html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('rev')" style="background:#E8823A;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;cursor:pointer;"><span class="bchev" data-bsec-toggle="rev">▾</span> REVENUE <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,0.85);margin-left:8px;">· Kassaflöde (NET30)</span></td></tr>`;
   const _revTC={'Licens (prenumeration)':{bg:'#EAF3DE',color:'#3B6D11'},'Licens (fast pris)':{bg:'#E6F1FB',color:'#185FA5'},'Utbildning':{bg:'#FAEEDA',color:'#854F0B'},'Consulting':{bg:'#EEEDFE',color:'#3C3489'}};
   // Avvikelseflagga: live NET30-avtal per typ/månad som EJ finns i importerade ID-set (localStorage). (a) nya avtal; (b) ändrat belopp kräver sparade belopp → senare.
   const SUB_TO_TYPE={'Licens (prenumeration)':'ARR','Licens (fast pris)':'Fastpris','Utbildning':'Utbildning','Consulting':'Consulting'};
@@ -5885,19 +5903,20 @@ function renderBudgetTable(){
     const sumVals=MONTHS.map((_,i)=>avtalVals[i]+fornVals[i]+pipeVals[i]+manVals[i]);   // = Avtal+Förnyelse+Pipe+Manuell → matchar sumSection
     const tc=_revTC[sub]||{bg:'var(--surface2)',color:'var(--text2)'};
     const delBtnFor=(src,row)=>row?`<button onclick="deleteImportedBudgetRow('${cat.replace(/'/g,"\\'")}','${sub.replace(/'/g,"\\'")}','${src}')" title="Ta bort importerad rad" style="width:16px;height:16px;border:0.5px solid var(--border);border-radius:3px;background:none;cursor:pointer;color:var(--red);font-size:11px;line-height:1;padding:0;margin-left:6px;">×</button>`:'';
-    // Kategori-header (typens färg)
-    html+=`<tr><td colspan="${MONTHS.length+2}" style="background:${tc.bg};color:${tc.color};font-weight:600;font-size:11px;padding:4px 10px;">${sub}</td></tr>`;
+    // Kategori-header (typens färg) — nivå-2 grupphuvud med chevron.
+    const _grpId='rev_'+sub;
+    html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetGroup('${_grpId.replace(/'/g,"\\'")}')" style="background:${tc.bg};color:${tc.color};font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer;"><span class="bchev" data-bgrp-toggle="${_grpId.replace(/"/g,'&quot;')}">▾</span> ${sub}</td></tr>`;
     // Estimat-rader (Avtal/Förnyelse/Pipe) — döljs för 'Okvalificerat/okänt' (bara Manuell + Summa där).
     if(sub!=='Okvalificerat/okänt'){
     // ↳ Avtal — PLAIN TEXT. Klick → actuals-modal; ⚠ vid ej-importerade nya avtal.
-    html+=`<tr style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Avtal${delBtnFor('Avtal (likviditet)',avtalRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportActualsModal(currentBudgetVersionId,${mi})" title="${(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade — klicka för att importera':'Visa/importera underlag för '+MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:11px;color:#3B6D11;">${avtalVals[mi]?fmtK(avtalVals[mi]):'–'}${(_type&&_devCount[_type][mi]>0)?'<span style="color:#d9820a;font-weight:700;">⚠</span>':''}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#3B6D11;border-left:1px solid var(--border);">${fmtK(sum(avtalVals))}</td></tr>`;
+    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Avtal${delBtnFor('Avtal (likviditet)',avtalRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportActualsModal(currentBudgetVersionId,${mi})" title="${(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade — klicka för att importera':'Visa/importera underlag för '+MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:11px;color:#3B6D11;">${avtalVals[mi]?fmtK(avtalVals[mi]):'–'}${(_type&&_devCount[_type][mi]>0)?'<span style="color:#d9820a;font-weight:700;">⚠</span>':''}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#3B6D11;border-left:1px solid var(--border);">${fmtK(sum(avtalVals))}</td></tr>`;
     // ↳ Förnyelse — PLAIN TEXT. Klick → förnyelse-modal med förvald månad.
-    html+=`<tr style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Förnyelse${delBtnFor('Förnyelse',fornRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportFornyelseModal(currentBudgetVersionId,${mi})" title="Visa/importera förnyelser för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:#BA7517;">${fornVals[mi]?fmtK(fornVals[mi]):'–'}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#BA7517;border-left:1px solid var(--border);">${fmtK(sum(fornVals))}</td></tr>`;
+    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Förnyelse${delBtnFor('Förnyelse',fornRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportFornyelseModal(currentBudgetVersionId,${mi})" title="Visa/importera förnyelser för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:#BA7517;">${fornVals[mi]?fmtK(fornVals[mi]):'–'}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#BA7517;border-left:1px solid var(--border);">${fmtK(sum(fornVals))}</td></tr>`;
     // ↳ Pipe — PLAIN TEXT. Klick → pipeline-modal med förvald månad.
-    html+=`<tr style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Pipe${delBtnFor('Pipeline (viktat)',pipeRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportPipelineModal(currentBudgetVersionId,${mi})" title="Visa/importera pipeline för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text3);">${pipeVals[mi]?fmtK(pipeVals[mi]):'–'}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:var(--text3);border-left:1px solid var(--border);">${fmtK(sum(pipeVals))}</td></tr>`;
+    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Pipe${delBtnFor('Pipeline (viktat)',pipeRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportPipelineModal(currentBudgetVersionId,${mi})" title="Visa/importera pipeline för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text3);">${pipeVals[mi]?fmtK(pipeVals[mi]):'–'}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:var(--text3);border-left:1px solid var(--border);">${fmtK(sum(pipeVals))}</td></tr>`;
     }
     // ↳ Manuell — OFÖRÄNDRAD inputCell (.budget-input → autospar intakt)
-    html+=`<tr style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text3);">↳ Manuell</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(manVals))}</td></tr>`;
+    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text3);">↳ Manuell</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(manVals))}</td></tr>`;
     // = Summa — ren visning (text, ej .budget-input, ej i budgetRows → sparas aldrig)
     html+=`<tr style="background:var(--surface2);"><td style="padding-left:24px;font-size:11px;font-weight:700;">= Summa</td>${MONTHS.map((_,mi)=>`<td style="text-align:right;font-size:11px;font-weight:700;">${fmtK(sumVals[mi])}</td>`).join('')}<td style="font-weight:700;text-align:right;border-left:1px solid var(--border);">${fmtK(sum(sumVals))}</td></tr>`;
   });
@@ -5906,14 +5925,15 @@ function renderBudgetTable(){
   // KOSTNADER — ekonomens BAS-konton grupperade (Varu-/material, Övriga externa, Avskrivningar).
   // Gruppsummarad per grupp (samma mönster som tidigare OPEX-grupper). Radnamn = "{kontonr} {namn}".
   // Personalkonton (7210-7622) hanteras separat på kommande lönesida och ingår INTE här.
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ KOSTNADER</td></tr>`;
+  html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('cost')" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;cursor:pointer;"><span class="bchev" data-bsec-toggle="cost">▾</span> KOSTNADER</td></tr>`;
   const costGroups=[...new Set(allBudgetRows().filter(r=>r.section==='COST').map(r=>r.category))];
   costGroups.forEach(grp=>{
     const grpRows=allBudgetRows().filter(r=>r.section==='COST'&&r.category===grp);
     const grpMonthly=MONTHS.map((_,mi)=>grpRows.reduce((s,r)=>s+getVal(r.category,r.subCategory,mi),0));
     const grpTotal=sum(grpMonthly);
-    html+=`<tr style="background:var(--surface2);">
-      <td style="font-weight:600;padding-left:10px;">${grp}</td>
+    const _cgrp='cost_'+grp;
+    html+=`<tr style="background:var(--surface2);cursor:pointer;" onclick="toggleBudgetGroup('${_cgrp.replace(/'/g,"\\'")}')">
+      <td style="font-weight:600;padding-left:10px;"><span class="bchev" data-bgrp-toggle="${_cgrp.replace(/"/g,'&quot;')}">▾</span> ${grp}</td>
       ${grpMonthly.map(v=>`<td style="font-weight:600;text-align:center;font-size:11px;">${fmtK(v)}</td>`).join('')}
       <td style="font-weight:700;text-align:center;border-left:1px solid var(--border);">${fmtK(grpTotal)}</td>
     </tr>`;
@@ -5922,7 +5942,7 @@ function renderBudgetTable(){
       const total=sum(vals);
       const acct=rd.accountNo?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${rd.accountNo}</span>`:'';
       const lbl=`<div>${acct}${rd.subCategory}</div>${isCustomRow(rd)?`<div style="font-size:9px;color:var(--text3);font-style:italic;">Manuellt</div>`:''}`;
-      html+=`<tr>
+      html+=`<tr data-bsec="cost" data-bgrp="${_cgrp.replace(/"/g,'&quot;')}">
         <td style="padding-left:24px;color:var(--text2);font-size:11px;">${lbl}</td>
         ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
         <td style="font-weight:500;text-align:center;font-size:11px;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
@@ -5945,6 +5965,7 @@ function renderBudgetTable(){
 
   restoreNoteDots();
   applyBudgetLockState();
+  applyBudgetCollapse();
 }
 
 function updateBudgetTotals(){}
