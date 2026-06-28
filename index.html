@@ -5987,7 +5987,7 @@ function renderBudgetTable(){
         html+=`<tr data-bsec="${secKey}" style="cursor:pointer;" onclick="openSupplierModal(${i})" title="Klicka för att redigera"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${nm} <span style="font-size:9px;color:var(--text3);border:0.5px solid var(--border);border-radius:3px;padding:0 4px;margin-left:4px;">Manuell</span></td>${vals.map(v=>`<td style="text-align:right;font-size:11px;color:var(--text2);">${v?fmtK(v):'-'}</td>`).join('')}<td style="font-weight:500;text-align:right;font-size:11px;border-left:1px solid var(--border);">${fmtK(tot)}</td></tr>`;
       });
     } else if(tkey==='derived'&&list.length){
-      // F2-3b: härledd config-sammanfattning (käll-rader + regel). Inga belopp — beräknas i F2-4.
+      // F2-4a: härledd → materialiserade belopp (ur budgetRows Source='Leverantör') + config-sammanfattning som underrad.
       list.forEach(({s,i})=>{
         const src=typeof s.SourceRows==='string'?(JSON.parse(s.SourceRows||'[]')):(s.SourceRows||[]);
         const srcLbl=src.length?src.map(e=>e.accountNo||e.subCategory||'?').join(', '):'ingen källa';
@@ -5996,7 +5996,9 @@ function renderBudgetTable(){
         const clumpLbl=({month:'varje mån',quarter:'kvartal',year:'år'})[s.Clumping||'month'];
         const nm=String(s.Name||'').replace(/</g,'&lt;');
         const sumTxt=String(`↳ ${srcLbl} · ${shiftLbl} · ${vatLbl} · ${clumpLbl}`).replace(/</g,'&lt;');
-        html+=`<tr data-bsec="${secKey}" style="cursor:pointer;" onclick="openSupplierModal(${i})" title="Klicka för att redigera"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${nm} <span style="font-size:9px;color:var(--text3);border:0.5px solid var(--border);border-radius:3px;padding:0 4px;margin-left:4px;">Härledd</span></td><td colspan="${MONTHS.length+1}" style="font-size:10px;color:var(--text3);font-style:italic;padding-left:8px;">${sumTxt} — (beräknas F2-4)</td></tr>`;
+        const matRow=(budgetRows||[]).find(r=>(r.Source||'')==='Leverantör'&&r.SubCategory===s.Name);
+        const vals=MONTHS.map(m=>matRow?Number(matRow[m])||0:0);const tot=vals.reduce((a,b)=>a+b,0);
+        html+=`<tr data-bsec="${secKey}" style="cursor:pointer;" onclick="openSupplierModal(${i})" title="Klicka för att redigera"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${nm} <span style="font-size:9px;color:var(--text3);border:0.5px solid var(--border);border-radius:3px;padding:0 4px;margin-left:4px;">Härledd</span><div style="font-size:9px;color:var(--text3);font-style:italic;">${sumTxt}${tot?'':' — 0 (oparad/ingen källa)'}</div></td>${vals.map(v=>`<td style="text-align:right;font-size:11px;color:var(--text2);">${v?fmtK(v):'-'}</td>`).join('')}<td style="font-weight:500;text-align:right;font-size:11px;border-left:1px solid var(--border);">${fmtK(tot)}</td></tr>`;
       });
     } else if(tkey==='manual'){
       html+=`<tr data-bsec="${secKey}"><td colspan="${MONTHS.length+2}" style="padding:4px 24px;font-size:11px;color:var(--text3);font-style:italic;">Inga leverantörer än — klicka "+ Lägg till leverantör"</td></tr>`;
@@ -6131,9 +6133,30 @@ async function saveSuppliers(){
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
   }catch(e){console.error('[saveSuppliers]',e);alert('Kunde inte spara leverantören.');}
 }
-// F2-3a: materialisera MANUELLA leverantörer → BudgetRows Source='Leverantör' (Category='Leverantör', SubCategory=namn).
+// F2-4a: härledning — beräkna en härledd leverantörs 12-mån utflöde ur PARAD resultats källrader + betalningsregel.
+// LÅSTA REGLER: moms = exMoms×(1+VatFactor/100); multi-källrad summeras; klumpa FÖRST, shift på betalmånaden SEDAN;
+// betalmånad >11 (årsöverskridning) → DROPPA (ej clampa). month=M+shift; quarter=sista kvartalsmån(2/5/8/11)+shift; year=första källmån+shift.
+function computeSupplierCashflow(supplier,pairedRows){
+  let src=[];try{src=typeof supplier.SourceRows==='string'?JSON.parse(supplier.SourceRows||'[]'):(supplier.SourceRows||[]);}catch(e){src=[];}
+  const match=r=>src.some(e=>(e.category===r.Category&&e.subCategory===r.SubCategory)||(e.accountNo&&e.accountNo===r.AccountNo));
+  const matched=(pairedRows||[]).filter(match);
+  const exMoms=MONTHS.map(m=>matched.reduce((s,r)=>s+(Number(r[m])||0),0));   // multi-källrad: summera ALLA matchade per månad
+  const f=1+(supplier.VatFactor!=null?Number(supplier.VatFactor):0)/100;
+  const shift=supplier.PaymentShift!=null?Number(supplier.PaymentShift):0;
+  const clump=supplier.Clumping||'month';
+  const out=Array(12).fill(0);
+  if(clump==='quarter'){
+    [[0,2],[3,5],[6,8],[9,11]].forEach(([a,b])=>{let s=0;for(let m=a;m<=b;m++)s+=exMoms[m];const t=b+shift;if(s&&t<=11)out[t]+=s*f;});
+  }else if(clump==='year'){
+    let s=0,first=-1;for(let m=0;m<12;m++){s+=exMoms[m];if(first<0&&exMoms[m])first=m;}const t=(first<0?0:first)+shift;if(s&&t<=11)out[t]+=s*f;
+  }else{
+    for(let m=0;m<12;m++){const t=m+shift;if(t<=11)out[t]+=exMoms[m]*f;}
+  }
+  return out;
+}
+// F2-3a/F2-4a: materialisera MANUELLA + HÄRLEDDA leverantörer → BudgetRows Source='Leverantör' (Category='Leverantör', SubCategory=namn).
 // Mönster: rebuildSourceRows — GET-merge (bevarar intäkter/övriga) → nollställ Source='Leverantör' → POST full array.
-// Härledda (F2-4)/moms (F2-5) materialiseras senare. Plain-text-render → saveBudget rör ej dessa.
+// Härledda läser PARAD resultat (EN gång, om derived finns) + computeSupplierCashflow. Moms (F2-5) senare. Plain-text-render → saveBudget rör ej dessa.
 async function rebuildSupplierRows(versionId){
   let rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();
   if(!Array.isArray(rows))rows=[];
@@ -6143,6 +6166,18 @@ async function rebuildSupplierRows(versionId){
     const row={Category:'Leverantör',SubCategory:s.Name,Source:'Leverantör'};MONTHS.forEach(m=>row[m]=Number(ma[m])||0);
     rows.push(row);
   });
+  // F2-4a: härledda — hämta parad resultat EN gång (bara om derived finns); oparad → pairedRows=[] → utflöde 0 → hoppas.
+  const derived=(supplierRows||[]).filter(s=>s.Type==='derived');
+  if(derived.length){
+    let pairedRows=[];
+    const ver=budgetVersions.find(v=>String(v.Id)===String(versionId));
+    const pid=ver?ver.PairedVersionId:null;
+    if(pid!=null){try{const pr=await (await apiFetch(`${API}/budget-versions/${pid}/rows`)).json();if(Array.isArray(pr))pairedRows=pr;}catch(e){pairedRows=[];}}
+    derived.forEach(s=>{
+      const out=computeSupplierCashflow(s,pairedRows);
+      if(out.some(v=>v)){const row={Category:'Leverantör',SubCategory:s.Name,Source:'Leverantör'};MONTHS.forEach((m,i)=>row[m]=Math.round(out[i])||0);rows.push(row);}   // hoppa all-zero (oparad/ingen källmatch)
+    });
+  }
   const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
   await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
 }
