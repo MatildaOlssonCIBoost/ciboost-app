@@ -5986,10 +5986,24 @@ function renderBudgetTable(){
         const nm=String(s.Name||'').replace(/</g,'&lt;');
         html+=`<tr data-bsec="${secKey}" style="cursor:pointer;" onclick="openSupplierModal(${i})" title="Klicka för att redigera"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${nm} <span style="font-size:9px;color:var(--text3);border:0.5px solid var(--border);border-radius:3px;padding:0 4px;margin-left:4px;">Manuell</span></td>${vals.map(v=>`<td style="text-align:right;font-size:11px;color:var(--text2);">${v?fmtK(v):'-'}</td>`).join('')}<td style="font-weight:500;text-align:right;font-size:11px;border-left:1px solid var(--border);">${fmtK(tot)}</td></tr>`;
       });
+    } else if(tkey==='derived'&&list.length){
+      // F2-3b: härledd config-sammanfattning (käll-rader + regel). Inga belopp — beräknas i F2-4.
+      list.forEach(({s,i})=>{
+        const src=typeof s.SourceRows==='string'?(JSON.parse(s.SourceRows||'[]')):(s.SourceRows||[]);
+        const srcLbl=src.length?src.map(e=>e.accountNo||e.subCategory||'?').join(', '):'ingen källa';
+        const shiftLbl=s.PaymentShift?`+${s.PaymentShift} mån`:'samma mån';
+        const vatLbl=s.VatFactor!=null?`moms ${Number(s.VatFactor)}%`:'ingen moms';
+        const clumpLbl=({month:'varje mån',quarter:'kvartal',year:'år'})[s.Clumping||'month'];
+        const nm=String(s.Name||'').replace(/</g,'&lt;');
+        const sumTxt=String(`↳ ${srcLbl} · ${shiftLbl} · ${vatLbl} · ${clumpLbl}`).replace(/</g,'&lt;');
+        html+=`<tr data-bsec="${secKey}" style="cursor:pointer;" onclick="openSupplierModal(${i})" title="Klicka för att redigera"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${nm} <span style="font-size:9px;color:var(--text3);border:0.5px solid var(--border);border-radius:3px;padding:0 4px;margin-left:4px;">Härledd</span></td><td colspan="${MONTHS.length+1}" style="font-size:10px;color:var(--text3);font-style:italic;padding-left:8px;">${sumTxt} — (beräknas F2-4)</td></tr>`;
+      });
     } else if(tkey==='manual'){
       html+=`<tr data-bsec="${secKey}"><td colspan="${MONTHS.length+2}" style="padding:4px 24px;font-size:11px;color:var(--text3);font-style:italic;">Inga leverantörer än — klicka "+ Lägg till leverantör"</td></tr>`;
+    } else if(tkey==='derived'){
+      html+=`<tr data-bsec="${secKey}"><td colspan="${MONTHS.length+2}" style="padding:4px 24px;font-size:11px;color:var(--text3);font-style:italic;">Inga härledda leverantörer än</td></tr>`;
     } else {
-      html+=`<tr data-bsec="${secKey}"><td colspan="${MONTHS.length+2}" style="padding:4px 24px;font-size:11px;color:var(--text3);font-style:italic;">${tkey==='derived'?'Härledda leverantörer byggs härnäst (F2-3b/F2-4)':'Momsavräkning byggs i F2-5'}</td></tr>`;
+      html+=`<tr data-bsec="${secKey}"><td colspan="${MONTHS.length+2}" style="padding:4px 24px;font-size:11px;color:var(--text3);font-style:italic;">Momsavräkning byggs i F2-5</td></tr>`;
     }
   });
   html+=sumRow('Total Kostnader',costMonthly,costTotal);
@@ -6015,13 +6029,34 @@ function updateBudgetTotals(){}
 
 // F2-3a: leverantörs-modal (skapa/redigera/ta bort). idx = index i supplierRows (redigera) el. undefined (ny).
 // Manuell = 12 månadsbelopp (kompakt 3-kol-grid). Härledd/moms = platshållare (käll-koppling/auto i F2-3b/F2-5).
-function openSupplierModal(idx){
+async function openSupplierModal(idx){
   if(!currentBudgetVersionId)return;
   const existing=(idx!=null&&idx>=0)?supplierRows[idx]:null;
   const curType=existing?existing.Type:'manual';
   const ma=existing&&existing.ManualAmounts?(typeof existing.ManualAmounts==='string'?JSON.parse(existing.ManualAmounts||'{}'):existing.ManualAmounts):{};
   const escA=s=>String(s||'').replace(/"/g,'&quot;');
+  const escH=s=>String(s||'').replace(/</g,'&lt;');
   const monthGrid=MONTHS.map(m=>`<div style="display:flex;flex-direction:column;"><label style="font-size:10px;color:var(--text3);">${m}</label><input id="sup-m-${m}" type="number" class="edit-input" style="padding:4px 5px;font-size:11px;" value="${ma[m]!=null&&ma[m]!==0?ma[m]:''}" placeholder="0"></div>`).join('');
+  // F2-3b: hämta parad resultatbudgets kostnadsrader on-demand (som styrelsen) för käll-koppling. Bara LÄSER.
+  const curVer=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId));
+  const pairedId=curVer?curVer.PairedVersionId:null;
+  let pairedCostRows=[];
+  if(pairedId!=null){
+    try{const pr=await (await apiFetch(`${API}/budget-versions/${pairedId}/rows`)).json();
+      if(Array.isArray(pr))pairedCostRows=pr.filter(r=>r.Category&&r.Category!=='Revenue'&&r.Category!=='Nyförsäljning'&&r.Category!=='Periodiserade intäkter');
+    }catch(e){pairedCostRows=[];}
+  }
+  const existingSrc=existing&&existing.SourceRows?(typeof existing.SourceRows==='string'?JSON.parse(existing.SourceRows||'[]'):existing.SourceRows):[];
+  const isSrcChecked=(cat,sub)=>existingSrc.some(e=>e.category===cat&&e.subCategory===sub);
+  const dShift=existing&&existing.PaymentShift!=null?Number(existing.PaymentShift):0;
+  const dVat=existing&&existing.VatFactor!=null?Number(existing.VatFactor):25;
+  const dClump=existing&&existing.Clumping?existing.Clumping:'month';
+  const selIf=(a,b)=>String(a)===String(b)?'selected':'';
+  const srcListHtml=pairedId==null
+    ? `<div style="font-size:11px;color:var(--amber);padding:8px;border:1px dashed var(--amber);border-radius:6px;">⚠ Oparad — para budgeten med en resultatbudget för att härleda leverantörer.</div>`
+    : (pairedCostRows.length
+      ? `<div style="max-height:140px;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:4px;">${pairedCostRows.map(r=>{const cat=String(r.Category||''),sub=String(r.SubCategory||''),acct=r.AccountNo||'';return `<label style="display:flex;align-items:center;gap:6px;padding:3px 5px;font-size:11px;cursor:pointer;"><input type="checkbox" class="sup-src-cb" data-cat="${escA(cat)}" data-sub="${escA(sub)}" data-acct="${escA(acct)}" ${isSrcChecked(cat,sub)?'checked':''} style="width:14px;height:14px;flex:0 0 auto;"><span style="color:var(--text2);">${acct?`<span style="color:var(--text3);">${escH(acct)}</span> `:''}${escH(sub)} <span style="color:var(--text3);font-size:9px;">${escH(cat)}</span></span></label>`;}).join('')}</div>`
+      : `<div style="font-size:11px;color:var(--text3);font-style:italic;padding:8px;">Parad resultatbudget saknar kostnadsrader.</div>`);
   const body=`
     <div class="modal-field"><label>Namn</label><input id="sup-name" class="edit-input" value="${escA(existing?existing.Name:'')}" placeholder="t.ex. Hyra, Telia, Försäkring"></div>
     <div class="modal-field" style="margin-top:10px;"><label>Typ</label><select id="sup-type" class="edit-input" onchange="updateSupplierModalFields()">
@@ -6034,7 +6069,13 @@ function openSupplierModal(idx){
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:5px;">${monthGrid}</div>
     </div>
     <div id="sup-derived-fields" style="margin-top:12px;display:${curType==='derived'?'block':'none'};">
-      <div style="font-size:11px;color:var(--text3);font-style:italic;padding:8px;border:1px dashed var(--border);border-radius:6px;">Käll-koppling mot parad resultatbudget + betalningsregel (förskjutning/moms/klumpning) byggs härnäst (F2-3b/F2-4).</div>
+      <label style="font-size:11px;color:var(--text2);">Källrad(er) ur parad resultatbudget</label>
+      <div style="margin-top:5px;">${srcListHtml}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;">
+        <div style="display:flex;flex-direction:column;"><label style="font-size:10px;color:var(--text3);">Förskjutning</label><select id="sup-shift" class="edit-input" style="padding:4px;font-size:11px;"><option value="0" ${selIf(dShift,0)}>Samma mån</option><option value="1" ${selIf(dShift,1)}>+1 mån</option><option value="2" ${selIf(dShift,2)}>+2 mån</option></select></div>
+        <div style="display:flex;flex-direction:column;"><label style="font-size:10px;color:var(--text3);">Moms</label><select id="sup-vat" class="edit-input" style="padding:4px;font-size:11px;"><option value="25" ${selIf(dVat,25)}>25%</option><option value="12" ${selIf(dVat,12)}>12%</option><option value="6" ${selIf(dVat,6)}>6%</option><option value="0" ${selIf(dVat,0)}>Ingen</option></select></div>
+        <div style="display:flex;flex-direction:column;"><label style="font-size:10px;color:var(--text3);">Klumpning</label><select id="sup-clump" class="edit-input" style="padding:4px;font-size:11px;"><option value="month" ${selIf(dClump,'month')}>Varje mån</option><option value="quarter" ${selIf(dClump,'quarter')}>Kvartal</option><option value="year" ${selIf(dClump,'year')}>År</option></select></div>
+      </div>
     </div>
     <div id="sup-vat-fields" style="margin-top:12px;display:${curType==='vat'?'block':'none'};">
       <div style="font-size:11px;color:var(--text3);font-style:italic;padding:8px;border:1px dashed var(--border);border-radius:6px;">Momsavräkning (moms ut − in, kvartalsvis) beräknas automatiskt i F2-5.</div>
@@ -6046,9 +6087,17 @@ function openSupplierModal(idx){
     if(!name){alert('Ange ett namn på leverantören.');return false;}
     let manualJson=existing?existing.ManualAmounts:null;
     if(type==='manual'){const ma2={};MONTHS.forEach(m=>{ma2[m]=parseInt(document.getElementById('sup-m-'+m).value)||0;});manualJson=JSON.stringify(ma2);}
-    // derived/vat: regel-/käll-fält byggs i F2-3b/F2-5 — spara bara namn/typ (behåll ev. tidigare config).
-    if(existing){supplierRows[idx]={...existing,Name:name,Type:type,ManualAmounts:manualJson};}
-    else{supplierRows.push({Name:name,Type:type,ManualAmounts:manualJson});}
+    // F2-3b: derived → samla käll-rader (multi-select) + regel. INGEN beräkning här (F2-4 materialiserar).
+    let derived=null;
+    if(type==='derived'){
+      const sourceRows=[...document.querySelectorAll('.sup-src-cb:checked')].map(cb=>({category:cb.dataset.cat,subCategory:cb.dataset.sub,accountNo:cb.dataset.acct||null}));
+      const vf=parseFloat(document.getElementById('sup-vat')?.value);
+      derived={sourceRows:JSON.stringify(sourceRows),paymentShift:parseInt(document.getElementById('sup-shift')?.value)||0,vatFactor:isNaN(vf)?null:vf,clumping:document.getElementById('sup-clump')?.value||'month'};
+    }
+    const base=existing?{...existing}:{};
+    base.Name=name;base.Type=type;base.ManualAmounts=manualJson;
+    if(type==='derived'){base.SourceRows=derived.sourceRows;base.PaymentShift=derived.paymentShift;base.VatFactor=derived.vatFactor;base.Clumping=derived.clumping;}
+    if(existing)supplierRows[idx]=base;else supplierRows.push(base);
     await saveSuppliers();
     return true;
   },existing?'Spara':'Lägg till');
