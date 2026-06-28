@@ -6580,7 +6580,11 @@ function openNewBudgetVersion(){
       <option value="Likviditetsbudget">Likviditetsbudget</option>
       <option value="Resultatbudget">Resultatbudget</option>
     </select><div style="font-size:10px;color:var(--text3);margin-top:4px;">Typen kan inte ändras efteråt.</div></div>
-    <div class="modal-field" style="margin-top:10px;"><label>År</label><input id="bv-year" class="edit-input" type="number" value="${new Date().getFullYear()}"></div>`,
+    <div class="modal-field" style="margin-top:10px;"><label>År</label><input id="bv-year" class="edit-input" type="number" value="${new Date().getFullYear()}"></div>
+    <div class="modal-field" style="margin-top:10px;"><label>Motpart</label><select id="bv-pair-mode" class="edit-input">
+      <option value="match">Skapa matchande motpart (motsatt typ)</option>
+      <option value="none">Ingen motpart (länka senare)</option>
+    </select><div style="font-size:10px;color:var(--text3);margin-top:4px;">Matchande skapar en tom budget av motsatt typ med speglat namn och parar dem.</div></div>`,
     async()=>{
       const name=document.getElementById('bv-name').value.trim();
       const year=parseInt(document.getElementById('bv-year').value);
@@ -6589,7 +6593,11 @@ function openNewBudgetVersion(){
       const r=await apiFetch(`${API}/budget-versions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,year,budgetType,createdBy:'Matilda Olsson'})});
       const created=await r.json();
       currentBudgetVersionId=created.Id;
-      await loadBudgetVersions();
+      // PAR-3c-2: 'match' → skapa speglad tom motpart + para (återanvänder createPairedCounterpart, som kör loadBudgetVersions vid lyckad väg).
+      const pairMode=document.getElementById('bv-pair-mode')?.value;
+      let _loaded=false;
+      if(pairMode==='match'){ try{ if(await createPairedCounterpart(created))_loaded=true; }catch(e){} }   // motpart-fel avbryter ej (primärversionen finns kvar)
+      if(!_loaded) await loadBudgetVersions();   // match-success laddade redan → ingen dubbel; annars (none/fel) ladda nu
       budgetRows=[];
       renderBudgetTable();
       return true;
