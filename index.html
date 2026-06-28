@@ -6081,11 +6081,16 @@ async function copyBudgetVersion(){
         const data=await r.json();
         const newId=data.Id||data.id;
         if(newId){
-          for(const row of budgetRows){
-            const body={category:row.Category,subCategory:row.SubCategory};
-            MONTHS.forEach(m=>{body[m.toLowerCase()]=row[m]||0;});
-            try{await apiFetch(`${API}/budget-versions/${newId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}catch(e){}
-          }
+          // M2: EN array-POST (speglar saveBudget) — full-replace-endpoint kräver array, ej per-rad-objekt.
+          // Versala månadsnycklar (matchar backend r.Jan) + source/importedAt/accountNo så metadata följer med.
+          const rows=budgetRows.map(r=>{
+            const o={category:r.Category,subCategory:r.SubCategory};
+            if(r.Source){o.source=r.Source;if(r.ImportedAt)o.importedAt=String(r.ImportedAt).substring(0,10);}
+            if(r.AccountNo!=null)o.accountNo=r.AccountNo;
+            MONTHS.forEach(m=>{o[m]=r[m]||0;});
+            return o;
+          });
+          try{await apiFetch(`${API}/budget-versions/${newId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rows)});}catch(e){console.error('copy rows',e);}
           // Carry the row comments over to the copy — this is the only path
           // where notes follow a budget to another version.
           const srcNotes=localStorage.getItem(BUDGET_NOTES_KEY(sourceId));
