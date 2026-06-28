@@ -6707,8 +6707,9 @@ async function deleteBudgetVersion(){
     alert(`Kunde inte radera budgetversionen (HTTP ${delRes.status}).`);
     return;
   }
-  // Rensa primärnyckeln (oavsett typ) om den raderade versionen var primär.
-  ['primaryLiquidityBudgetId','primaryResultBudgetId'].forEach(k=>{if(String(localStorage.getItem(k))===String(idToDelete))localStorage.removeItem(k);});
+  // PAR-4a: rensa roll-nycklarna (primär + löpande, oavsett typ) om den raderade versionen hade rollen
+  // — bara den nyckel som pekar på det raderade Id:t. Stänger luckan där löpande-nyckel blev dinglande.
+  ['primaryLiquidityBudgetId','primaryResultBudgetId','rollingLiquidityBudgetId','rollingResultBudgetId'].forEach(k=>{if(String(localStorage.getItem(k))===String(idToDelete))localStorage.removeItem(k);});
   currentBudgetVersionId=null;
   budgetRows=[];
   const sel=document.getElementById('budget-version-select');if(sel)sel.value='';
