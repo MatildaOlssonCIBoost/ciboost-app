@@ -6239,8 +6239,13 @@ function parseExcelResult(wb){
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};   // .v = beräknat värde (ej formel .f)
   const SKIP=/summa|bruttovinst|rörelsens|^resultat|%/i;
   const out=[];
+  // IMP-1b: importera BARA kostnader. Kol A har sektionsrubriker; "Rörelsens kostnader" markerar var kostnadssektionen
+  // börjar. Allt FÖRE den (intäktssektionen, 3000-serien) hoppas helt → CIBoost-intäkterna skrivs aldrig över av Excel.
+  let inCostSection=false;
   for(let r=5;r<=range.e.r;r++){
     const acct=cv(r,0),name=cv(r,1);
+    if(acct!=null&&/rörelsens kostnader/i.test(String(acct))){inCostSection=true;continue;}   // kostnadssektionen börjar — hoppa rubrikraden
+    if(!inCostSection)continue;                                  // före rubriken = intäktssektion → hoppa ALLA rader (3000-serien)
     if(acct==null||String(acct).trim()==='')continue;            // ingen BAS-konto → hoppa
     if(name&&SKIP.test(String(name)))continue;                   // summarad → hoppa
     const row={accountNo:String(acct).trim(),name:name!=null?String(name).trim():''};
