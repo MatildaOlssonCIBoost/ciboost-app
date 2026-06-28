@@ -6215,12 +6215,17 @@ async function syncPairedLiquiditySuppliers(resultVersionId){
 function openExcelImportModal(){
   if(typeof XLSX==='undefined'){alert('Excel-biblioteket (SheetJS) laddas ännu — vänta en sekund och försök igen.');return;}
   if(!currentBudgetVersionId){alert('Öppna en budgetversion först.');return;}
-  window._excelParsed=null;window._excelTargetId=null;
+  window._excelResult=null;window._excelLiquidity=null;window._excelResultTargetId=null;window._excelLiquidityTargetId=null;
   showDialog('Importera från Excel',
-    `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Läser fliken <b>'Prognos och likviditetsprognos'</b> → resultatbudgetens BAS-konton (kol A/B + Jan-Dec). Likviditet/leverantörer kommer i nästa steg (IMP-2).</div>
+    `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Läser fliken <b>'Prognos och likviditetsprognos'</b> → resultatets kostnader (kol A/B) + likviditetens utbetalningar → manuella leverantörer (kol V). En fil fyller <b>båda</b> budgetarna via paret.</div>
      <input type="file" id="excel-file-input" accept=".xlsx" onchange="handleExcelFile(event)" style="font-size:12px;width:100%;">
      <div id="excel-preview" style="margin-top:12px;font-size:12px;color:var(--text2);"></div>`,
-    async()=>{ if(!window._excelParsed||!window._excelParsed.length){alert('Ingen fil inläst — välj en .xlsx först.');return false;} if(window._excelTargetId==null){alert('Ingen resultatbudget kopplad att skriva till.');return false;} await runExcelResultImport(); return true; },
+    async()=>{
+      const hasR=window._excelResult&&window._excelResult.length&&window._excelResultTargetId!=null;
+      const hasL=window._excelLiquidity&&window._excelLiquidity.length&&window._excelLiquidityTargetId!=null;
+      if(!hasR&&!hasL){alert('Inget att importera — välj en fil och se till att budgeten är kopplad till rätt typ.');return false;}
+      await runExcelImport();return true;
+    },
     'Importera');
 }
 // Målversion för resultat-delen: current om resultatbudget, annars parad resultat (likviditet→PairedVersionId).
@@ -6254,39 +6259,96 @@ function parseExcelResult(wb){
   }
   return out;
 }
-// Fil vald → läs + parsa + preview (antal rader + målversion).
+// Målversion (likviditet): current om likviditetsbudget, annars parad likviditet (resultat→PairedVersionId).
+function excelTargetLiquidityVersion(){
+  const cur=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId));
+  if(!cur)return null;
+  if(budgetTypeMode(cur.BudgetType)==='likviditet')return cur;
+  if(cur.PairedVersionId!=null){const mate=budgetVersions.find(v=>String(v.Id)===String(cur.PairedVersionId));if(mate&&budgetTypeMode(mate.BudgetType)==='likviditet')return mate;}
+  return null;
+}
+// IMP-2: parsa likviditet-delen — BARA UTBETALNINGAR (mellan "Summa in" och "Summa ut"). Kol V=namn (c=21), Z-AK=Jan-Dec (c=25..36).
+function parseExcelLiquidity(wb){
+  const ws=wb.Sheets['Prognos och likviditetsprognos'];
+  if(!ws||!ws['!ref'])return null;
+  const range=XLSX.utils.decode_range(ws['!ref']);
+  const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};
+  const SKIP=/summa|netto|saldo/i;
+  const out=[];let inPayments=false;
+  for(let r=0;r<=range.e.r;r++){
+    const name=cv(r,21);   // kol V
+    if(name!=null&&/^summa in/i.test(String(name).trim())){inPayments=true;continue;}   // inbetalningar slut → utbetalningar börjar
+    if(name!=null&&/^summa ut/i.test(String(name).trim()))break;                          // utbetalningar slut
+    if(!inPayments)continue;                                                              // inbetalningssektion → hoppa
+    if(name==null||String(name).trim()==='')continue;
+    if(SKIP.test(String(name)))continue;                                                  // summa/netto/saldo → hoppa
+    const row={name:String(name).trim()};
+    MONTHS.forEach((m,i)=>{const v=cv(r,25+i);row[m]=(typeof v==='number')?v:(parseFloat(v)||0);});   // Z-AK = c 25..36
+    out.push(row);
+  }
+  return out;
+}
+// Fil vald → läs + parsa BÅDA delar (resultat + likviditet) + preview (antal + båda målversioner).
 async function handleExcelFile(e){
   const file=e.target.files[0];if(!file)return;
   const prev=document.getElementById('excel-preview');if(prev)prev.innerHTML='Läser…';
+  const esc=s=>String(s||'').replace(/</g,'&lt;');
   try{
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
-    const rows=parseExcelResult(wb);
-    if(rows==null){window._excelParsed=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Fliken \'Prognos och likviditetsprognos\' hittades inte i filen.</span>';return;}
-    window._excelParsed=rows;
-    const tgt=excelTargetResultVersion();window._excelTargetId=tgt?tgt.Id:null;
-    const tgtTxt=tgt?`<b>${String(tgt.Name).replace(/</g,'&lt;')}</b> (${tgt.Year})`:`<span style="color:var(--amber);">⚠ Ingen resultatbudget kopplad — öppna en resultatbudget eller para denna likviditet först.</span>`;
-    if(prev)prev.innerHTML=`Hittade <b>${rows.length}</b> resultatrader.<br>Skrivs till resultatbudget: ${tgtTxt}`;
-  }catch(err){console.error('[handleExcelFile]',err);window._excelParsed=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Kunde inte läsa filen — är det en giltig .xlsx?</span>';}
+    const resultRows=parseExcelResult(wb);
+    if(resultRows==null){window._excelResult=null;window._excelLiquidity=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Fliken \'Prognos och likviditetsprognos\' hittades inte i filen.</span>';return;}
+    const liqRows=parseExcelLiquidity(wb)||[];
+    window._excelResult=resultRows;window._excelLiquidity=liqRows;
+    const rtgt=excelTargetResultVersion();window._excelResultTargetId=rtgt?rtgt.Id:null;
+    const ltgt=excelTargetLiquidityVersion();window._excelLiquidityTargetId=ltgt?ltgt.Id:null;
+    const rTxt=rtgt?`<b>${esc(rtgt.Name)}</b> (${rtgt.Year})`:`<span style="color:var(--amber);">⚠ ingen resultatbudget kopplad — hoppas</span>`;
+    const lTxt=ltgt?`<b>${esc(ltgt.Name)}</b> (${ltgt.Year})`:`<span style="color:var(--amber);">⚠ ingen likviditetsbudget kopplad — hoppas</span>`;
+    if(prev)prev.innerHTML=`Hittade <b>${resultRows.length}</b> kostnadsrader (resultat) + <b>${liqRows.length}</b> utbetalningar (likviditet).<br>Resultat → ${rTxt}<br>Likviditet → ${lTxt}`;
+  }catch(err){console.error('[handleExcelFile]',err);window._excelResult=null;window._excelLiquidity=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Kunde inte läsa filen — är det en giltig .xlsx?</span>';}
 }
-// Skriv resultat → /rows (match AccountNo, additiv GET-merge) → härledd-omräkning → reload.
-async function runExcelResultImport(){
-  const rows=window._excelParsed,tid=window._excelTargetId;
-  if(!rows||!rows.length||tid==null)return;
+// Skriv resultat → /rows (match AccountNo, additiv GET-merge) → härledd-omräkning.
+async function writeExcelResult(rows,tid){
+  let existing=await (await apiFetch(`${API}/budget-versions/${tid}/rows`)).json();
+  if(!Array.isArray(existing))existing=[];
+  rows.forEach(ir=>{
+    let row=existing.find(r=>r.AccountNo!=null&&String(r.AccountNo)===String(ir.accountNo));   // match på AccountNo (intäktsrader AccountNo=null → bevaras)
+    if(!row){row={Category:'Importerad',SubCategory:ir.name||ir.accountNo,AccountNo:ir.accountNo};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
+    MONTHS.forEach(m=>row[m]=Math.round(Number(ir[m])||0));
+  });
+  const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
+  await apiFetch(`${API}/budget-versions/${tid}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  await syncPairedLiquiditySuppliers(tid);   // parad likviditets härledda räknas om mot importerade resultatet
+}
+// IMP-2: skriv likviditet → /suppliers (match Name, Type='manual', additiv) → rebuildSupplierRows (materialisera).
+// Utbetalningar är NEGATIVA i Excel; manuella leverantörer lagras POSITIVT (costMonthly/cashflow förväntar positiv kostnad) → Math.abs.
+async function writeExcelLiquidity(rows,lid){
+  let sups=await (await apiFetch(`${API}/budget-versions/${lid}/suppliers`)).json();
+  if(!Array.isArray(sups))sups=[];
+  rows.forEach(ir=>{
+    const ma={};MONTHS.forEach(m=>ma[m]=Math.round(Math.abs(Number(ir[m])||0)));   // negativ utbetalning → positiv kostnad
+    const key=String(ir.name).trim().toLowerCase();
+    let s=sups.find(x=>x.Type==='manual'&&String(x.Name||'').trim().toLowerCase()===key);   // match Name (bara manual; härledda/moms orörda)
+    if(!s){sups.push({Name:ir.name,Type:'manual',ManualAmounts:JSON.stringify(ma)});}        // ny → manuell leverantör
+    else{s.ManualAmounts=JSON.stringify(ma);}                                                 // befintlig → uppdatera belopp
+  });
+  const payload=sups.map((s,i)=>({name:s.Name,type:s.Type,sourceRows:s.SourceRows||null,paymentShift:s.PaymentShift!=null?s.PaymentShift:null,vatFactor:s.VatFactor!=null?s.VatFactor:null,clumping:s.Clumping||null,manualAmounts:s.ManualAmounts||null,sortOrder:i}));
+  await apiFetch(`${API}/budget-versions/${lid}/suppliers`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const fresh=await (await apiFetch(`${API}/budget-versions/${lid}/suppliers`)).json();
+  await rebuildSupplierRows(lid,Array.isArray(fresh)?fresh:[]);   // materialisera (override: lid:s suppliers, ej i minne om current≠lid)
+}
+// IMP-2: kör båda delar (paret-routing). En fil → resultat + likviditet. Oparad → bara den halva vars mål finns.
+async function runExcelImport(){
+  let rCount=0,lCount=0;
   try{
-    let existing=await (await apiFetch(`${API}/budget-versions/${tid}/rows`)).json();
-    if(!Array.isArray(existing))existing=[];
-    rows.forEach(ir=>{
-      let row=existing.find(r=>r.AccountNo!=null&&String(r.AccountNo)===String(ir.accountNo));   // match på AccountNo (intäktsrader AccountNo=null matchas aldrig → bevaras)
-      if(!row){row={Category:'Importerad',SubCategory:ir.name||ir.accountNo,AccountNo:ir.accountNo};MONTHS.forEach(m=>row[m]=0);existing.push(row);}   // ny → generisk Category
-      MONTHS.forEach(m=>row[m]=Math.round(Number(ir[m])||0));   // uppdatera 12 mån (behåll befintlig Category/SubCategory vid match)
-    });
-    const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
-    await apiFetch(`${API}/budget-versions/${tid}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    await syncPairedLiquiditySuppliers(tid);   // härledda i parad likviditet räknas om mot importerade resultatet
-    if(String(tid)===String(currentBudgetVersionId)){budgetRows=await (await apiFetch(`${API}/budget-versions/${tid}/rows`)).json();if(!Array.isArray(budgetRows))budgetRows=[];renderBudgetTable();}
-    showSaveIndicator(`✓ ${rows.length} rader importerade`,'#1a7a50');
-  }catch(e){console.error('[runExcelResultImport]',e);alert('Kunde inte skriva importen.');}
+    if(window._excelResult&&window._excelResult.length&&window._excelResultTargetId!=null){await writeExcelResult(window._excelResult,window._excelResultTargetId);rCount=window._excelResult.length;}
+    if(window._excelLiquidity&&window._excelLiquidity.length&&window._excelLiquidityTargetId!=null){await writeExcelLiquidity(window._excelLiquidity,window._excelLiquidityTargetId);lCount=window._excelLiquidity.length;}
+    try{budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();if(!Array.isArray(budgetRows))budgetRows=[];}catch(e){}
+    if(currentBudgetMode==='likviditet'){try{supplierRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/suppliers`)).json();if(!Array.isArray(supplierRows))supplierRows=[];}catch(e){}}
+    renderBudgetTable();
+    const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
+    showSaveIndicator(`✓ ${rCount} resultatrader + ${lCount} leverantörer importerade`,'#1a7a50');
+  }catch(e){console.error('[runExcelImport]',e);alert('Kunde inte skriva importen.');}
 }
 
 // M1: Åtgärder-dropdown. Samma mönster som toggleRevDD (stäng andra paneler, stoppa propagation så
