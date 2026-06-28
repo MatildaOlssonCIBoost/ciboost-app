@@ -6706,21 +6706,33 @@ async function deleteBudgetVersion(){
   if(!currentBudgetVersionId)return;
   const idToDelete=currentBudgetVersionId;
   const v=budgetVersions.find(x=>x.Id==idToDelete);
-  if(!confirm(`Radera "${v?.Name}"? Detta går inte att ångra.`))return;
-  console.log('[deleteBudgetVersion] DELETE',`${API}/budget-versions/${idToDelete}`);
+  // PAR-4a: rensa roll-nycklarna (primär + löpande, oavsett typ) som pekar på ett raderat Id. Återanvänds per Id.
+  const cleanupRoles=id=>['primaryLiquidityBudgetId','primaryResultBudgetId','rollingLiquidityBudgetId','rollingResultBudgetId'].forEach(k=>{if(String(localStorage.getItem(k))===String(id))localStorage.removeItem(k);});
+  // PAR-4c: parad version → tre val (radera båda / avpara+radera vald / avbryt) via confirm-kedja. Oparad → enkel confirm som idag.
+  let deleteMate=false, unpairFirst=false;
+  if(v&&v.PairedVersionId!=null){
+    const mate=budgetVersions.find(x=>String(x.Id)===String(v.PairedVersionId));
+    const mateName=mate?mate.Name:'motpart';
+    if(confirm(`"${v?.Name}" är parad med "${mateName}".\n\nOK = radera BÅDA i paret.\nAvbryt = välj avpara eller ångra.`)) deleteMate=true;
+    else{ if(!confirm(`Avpara i stället?\n\nOK = avpara (behåll "${mateName}") och radera bara "${v?.Name}".\nAvbryt = ångra helt.`))return; unpairFirst=true; }
+  }else{
+    if(!confirm(`Radera "${v?.Name}"? Detta går inte att ångra.`))return;
+  }
   let delRes;
-  try{delRes=await apiFetch(`${API}/budget-versions/${idToDelete}`,{method:'DELETE'});}
-  catch(e){console.error('[deleteBudgetVersion] network error:',e);alert('Nätverksfel vid radering.');return;}
-  console.log('[deleteBudgetVersion] response status:',delRes.status,delRes.ok?'OK':'FAIL');
+  try{
+    if(unpairFirst){ await apiFetch(`${API}/budget-versions/${idToDelete}/pair`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({pairedId:null})}); }   // avpara → motparten behåller sina roller
+    delRes=await apiFetch(`${API}/budget-versions/${idToDelete}`,{method:'DELETE'});
+  }catch(e){console.error('[deleteBudgetVersion] network error:',e);alert('Nätverksfel vid radering.');return;}
   if(!delRes.ok){
     const body=await delRes.clone().text().catch(()=>'<no body>');
     console.error('[deleteBudgetVersion] error body:',body);
     alert(`Kunde inte radera budgetversionen (HTTP ${delRes.status}).`);
     return;
   }
-  // PAR-4a: rensa roll-nycklarna (primär + löpande, oavsett typ) om den raderade versionen hade rollen
-  // — bara den nyckel som pekar på det raderade Id:t. Stänger luckan där löpande-nyckel blev dinglande.
-  ['primaryLiquidityBudgetId','primaryResultBudgetId','rollingLiquidityBudgetId','rollingResultBudgetId'].forEach(k=>{if(String(localStorage.getItem(k))===String(idToDelete))localStorage.removeItem(k);});
+  cleanupRoles(idToDelete);
+  if(deleteMate&&v.PairedVersionId!=null){   // radera båda → radera motparten + rensa dess roll-nycklar
+    try{ const mr=await apiFetch(`${API}/budget-versions/${v.PairedVersionId}`,{method:'DELETE'}); if(mr.ok)cleanupRoles(v.PairedVersionId); }catch(e){console.error('[deleteBudgetVersion] motpart-radering fel:',e);}
+  }
   currentBudgetVersionId=null;
   budgetRows=[];
   const sel=document.getElementById('budget-version-select');if(sel)sel.value='';
