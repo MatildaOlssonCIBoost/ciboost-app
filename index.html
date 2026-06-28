@@ -985,15 +985,27 @@
       </select>
       <span class="badge b-blue" id="budget-type-badge" style="display:none;"></span>
       <span id="budget-pair-indicator" style="display:none;font-size:11px;font-weight:500;align-items:center;gap:4px;"></span>
-      <button class="quick-btn" onclick="openNewBudgetVersion()">+ Ny version</button>
-      <button class="quick-btn" onclick="copyBudgetVersion()" id="btn-copy-budget" style="display:none;">⎘ Kopiera</button>
-      <button class="quick-btn" onclick="renameBudgetVersion()" id="btn-rename-budget" style="display:none;">✎ Byt namn</button>
-      <button class="quick-btn" onclick="deleteBudgetVersion()" id="btn-delete-budget" style="display:none;color:var(--red);">🗑 Radera</button>
-      <button class="quick-btn" onclick="toggleBudgetPrimary()" id="btn-primary-budget" style="display:none;">☆ Sätt som primär</button>
-      <button class="quick-btn" onclick="toggleBudgetRolling()" id="btn-rolling-budget" style="display:none;">⟳ Sätt som löpande</button>
-      <button class="quick-btn" onclick="openImportActualsModal(currentBudgetVersionId)" id="btn-import-actuals" style="display:none;">⇪ Actuals/mån</button>
-      <button class="quick-btn" onclick="openImportFornyelseModal(currentBudgetVersionId)" id="btn-import-fornyelse" style="display:none;">⟳ Förnyelser/mån</button>
-      <button class="quick-btn" onclick="openImportPipelineModal(currentBudgetVersionId)" id="btn-import-pipeline-mod" style="display:none;">⇆ Pipeline/mån</button>
+      <span id="budget-role-status" style="display:none;font-size:11px;font-weight:600;color:var(--text2);align-items:center;gap:6px;"></span>
+      <div class="rev-dropdown">
+        <button class="rev-dd-btn" onclick="toggleBudgetActionsDD(event)">⋯ Åtgärder <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="rev-dd-panel" id="budget-actions-panel" style="display:none;" onclick="document.getElementById('budget-actions-panel').style.display='none'">
+          <div class="rev-dd-item" onclick="openNewBudgetVersion()">+ Skapa ny version</div>
+          <div class="rev-dd-item" id="mi-copy" onclick="copyBudgetVersion()" style="display:none;">⎘ Kopiera version</div>
+          <div class="rev-dd-item" id="mi-rename" onclick="renameBudgetVersion()" style="display:none;">✎ Byt namn</div>
+          <div id="mi-sep1" style="display:none;height:1px;background:var(--border);margin:4px 6px;"></div>
+          <div class="rev-dd-item" id="mi-pair" onclick="openPairDialog()" style="display:none;">🔗 Länka motpart…</div>
+          <div class="rev-dd-item" id="mi-primary" onclick="toggleBudgetPrimary()" style="display:none;">☆ Sätt som primär</div>
+          <div class="rev-dd-item" id="mi-rolling" onclick="toggleBudgetRolling()" style="display:none;">⟳ Sätt som löpande</div>
+          <div id="mi-sep2" style="display:none;height:1px;background:var(--border);margin:4px 6px;"></div>
+          <div class="rev-dd-item" id="mi-delete" onclick="deleteBudgetVersion()" style="display:none;color:var(--red);">🗑 Radera version</div>
+        </div>
+      </div>
+      <div id="budget-import-group" style="display:none;align-items:center;gap:6px;margin-left:auto;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);">
+        <span style="font-size:11px;color:var(--text3);">Importera:</span>
+        <button class="quick-btn" onclick="openImportActualsModal(currentBudgetVersionId)" id="btn-import-actuals" style="display:none;">⇪ Actuals/mån</button>
+        <button class="quick-btn" onclick="openImportFornyelseModal(currentBudgetVersionId)" id="btn-import-fornyelse" style="display:none;">⟳ Förnyelser/mån</button>
+        <button class="quick-btn" onclick="openImportPipelineModal(currentBudgetVersionId)" id="btn-import-pipeline-mod" style="display:none;">⇆ Pipeline/mån</button>
+      </div>
       <span id="budget-autosave-hint" style="margin-left:auto;font-size:11px;color:var(--text3);">Autospar på</span>
     </div>
     <div class="kpi-grid" id="budget-kpi" style="margin-bottom:16px;"></div>
@@ -5363,7 +5375,7 @@ async function loadBudgetVersions(){
     }
     const sel=document.getElementById('budget-version-select');
     // Group versions by budget type under headers in the dropdown.
-    const optHtml=v=>{const prim=isPrimaryBudgetVersion(v);const roll=isRollingBudgetVersion(v);const star=(prim?'★ ':'')+(roll?'⟳ ':'');const tag=(prim?' (Primär)':'')+(roll?' (Löpande)':'')+(v.PairedVersionId==null?' ⚠ opared':'');const created=v.CreatedAt?` · ${String(v.CreatedAt).substring(0,10)}`:'';return`<option value="${v.Id}">${star}${v.Name} (${v.Year})${created} · #${v.Id}${tag}</option>`;};
+    const optHtml=v=>{const prim=isPrimaryBudgetVersion(v);const roll=isRollingBudgetVersion(v);const star=(prim?'★ ':'')+(roll?'⟳ ':'');const tag=(prim?' (Primär)':'')+(roll?' (Löpande)':'')+(v.PairedVersionId==null?' ⚠ oparad':'');const created=v.CreatedAt?` · ${String(v.CreatedAt).substring(0,10)}`:'';return`<option value="${v.Id}">${star}${v.Name} (${v.Year})${created} · #${v.Id}${tag}</option>`;};
     const liq=budgetVersions.filter(v=>v.BudgetType==='Likviditetsbudget');
     const res=budgetVersions.filter(v=>v.BudgetType==='Resultatbudget');
     const other=budgetVersions.filter(v=>v.BudgetType!=='Likviditetsbudget'&&v.BudgetType!=='Resultatbudget');
@@ -5380,7 +5392,7 @@ async function loadBudgetVersion(){
   currentBudgetVersionId=sel.value;
   // Notes are scoped to the selected version (empty when nothing is selected).
   loadBudgetNotes(currentBudgetVersionId);
-  const buttons=['btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget'];
+  const buttons=['mi-copy','mi-rename','mi-pair','mi-primary','mi-rolling','mi-delete','mi-sep1','mi-sep2','budget-import-group','budget-role-status'];
   const content=document.getElementById('budget-content');
   const badge=document.getElementById('budget-type-badge');
   const showMessage=(msg,color)=>{content.innerHTML=`<div style="text-align:center;padding:60px;color:${color||'var(--text3)'};font-size:13px;line-height:1.5;">${msg}</div>`;};
@@ -5401,18 +5413,17 @@ async function loadBudgetVersion(){
     if(label){badge.textContent=label;badge.style.display='inline-flex';}
     else badge.style.display='none';
   }
-  // PAR-3b: parindikator + interaktiv länka-om-knapp (skapa-motpart = PAR-3c; roll-synk = PAR-4).
+  // M1: parindikator = ren statustext (Länka flyttad till Åtgärder-menyn).
   const pind=document.getElementById('budget-pair-indicator');
   if(pind){
     const pid=selVersion?selVersion.PairedVersionId:null;
-    let _txt,_col,_btn;
-    if(pid==null){_txt='⚠ Saknar motpart';_col='var(--amber)';_btn='Länka motpart…';}
+    let _txt,_col;
+    if(pid==null){_txt='⚠ Oparad';_col='var(--amber)';}
     else{const mate=budgetVersions.find(v=>String(v.Id)===String(pid));
-      if(mate){_txt='🔗 Parad: '+String(mate.Name).replace(/</g,'&lt;');_col='var(--text3)';}
-      else{_txt='⚠ Motpart saknas (raderad?)';_col='var(--amber)';}
-      _btn='Länka om…';}
+      if(mate){_txt='🔗 Parad: '+mate.Name;_col='var(--text3)';}
+      else{_txt='⚠ Motpart saknas (raderad?)';_col='var(--amber)';}}
     pind.style.color=_col;
-    pind.innerHTML=`<span>${_txt}</span><button onclick="openPairDialog()" style="background:none;border:none;padding:0 0 0 6px;color:var(--accent);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:11px;">${_btn}</button>`;
+    pind.textContent=_txt;
     pind.style.display='inline-flex';
   }
   currentBudgetMode=budgetTypeMode(selVersion?.BudgetType)||'likviditet';
@@ -5441,11 +5452,14 @@ async function loadBudgetVersion(){
     showMessage('<strong>Fel: API returnerade ogiltigt JSON-svar.</strong><br>Kolla att ciboost-api-v2 är uppe och svarar normalt.','var(--red)');
     return;
   }
-  ['btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget','btn-rolling-budget'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='flex';});
-  const primBtn=document.getElementById('btn-primary-budget');
-  if(primBtn)primBtn.textContent=isPrimaryBudgetVersion(selVersion)?'★ Primär':'☆ Sätt som primär';
-  const rollBtn=document.getElementById('btn-rolling-budget');
-  if(rollBtn)rollBtn.textContent=isRollingBudgetVersion(selVersion)?'⟳ Löpande':'⟳ Sätt som löpande';
+  // M1: visa version-specifika Åtgärder-poster + import-grupp; togglad menytext + roll-status i raden.
+  ['mi-copy','mi-rename','mi-pair','mi-primary','mi-rolling','mi-delete'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='flex';});
+  ['mi-sep1','mi-sep2'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='block';});
+  const _ig=document.getElementById('budget-import-group');if(_ig)_ig.style.display='flex';
+  const miP=document.getElementById('mi-primary');if(miP)miP.textContent=isPrimaryBudgetVersion(selVersion)?'★ Ta bort som primär':'☆ Sätt som primär';
+  const miR=document.getElementById('mi-rolling');if(miR)miR.textContent=isRollingBudgetVersion(selVersion)?'⟳ Ta bort som löpande':'⟳ Sätt som löpande';
+  const _rs=document.getElementById('budget-role-status');
+  if(_rs){const _r=[];if(isPrimaryBudgetVersion(selVersion))_r.push('★ Primär');if(isRollingBudgetVersion(selVersion))_r.push('⟳ Löpande');_rs.textContent=_r.join(' · ');_rs.style.display=_r.length?'inline-flex':'none';}
   // C4: visa de tre import-knapparna i BÅDA lägen. Avtals-knappen grenar — resultat=bulk periodiserad
   // (importAllAvtalResultat), likviditet=per-månads kassaflöde (openImportActualsModal). Förnyelse/Pipe
   // öppnar samma modaler i båda lägen (modalerna grenar internt via C3).
@@ -5993,6 +6007,9 @@ function renderBudgetTable(){
 
 function updateBudgetTotals(){}
 
+// M1: Åtgärder-dropdown. Samma mönster som toggleRevDD (stäng andra paneler, stoppa propagation så
+// global klick-utanför-handlern (6834) inte direkt stänger den). Panelens egen onclick stänger vid postval.
+function toggleBudgetActionsDD(e){e.stopPropagation();document.querySelectorAll('.rev-dd-panel').forEach(p=>{if(p.id!=='budget-actions-panel')p.style.display='none';});const p=document.getElementById('budget-actions-panel');if(p)p.style.display=p.style.display==='none'?'block':'none';}
 function toggleBudgetPrimary(){
   if(!currentBudgetVersionId)return;
   const v=budgetVersions.find(x=>String(x.Id)===String(currentBudgetVersionId));
@@ -6004,8 +6021,8 @@ function toggleBudgetPrimary(){
   } else {
     localStorage.setItem(key,currentBudgetVersionId);
   }
-  const primBtn=document.getElementById('btn-primary-budget');
-  if(primBtn)primBtn.textContent=isPrimaryBudgetVersion(v)?'★ Primär':'☆ Sätt som primär';
+  const primBtn=document.getElementById('mi-primary');
+  if(primBtn)primBtn.textContent=isPrimaryBudgetVersion(v)?'★ Ta bort som primär':'☆ Sätt som primär';
   loadBudgetVersions();
 }
 // "Löpande" — spegel av toggleBudgetPrimary, egen nyckel per typ. Mjuk varning om samma version som Primär.
@@ -6024,8 +6041,8 @@ function toggleBudgetRolling(){
       if(hint){hint.textContent='⚠ Samma version är nu både Primär (plan) och Löpande (utfall) — bör vanligtvis vara olika.';hint.style.color='var(--amber)';setTimeout(()=>{hint.textContent='Autospar på';hint.style.color='var(--text3)';},6000);}
     }
   }
-  const rollBtn=document.getElementById('btn-rolling-budget');
-  if(rollBtn)rollBtn.textContent=isRollingBudgetVersion(v)?'⟳ Löpande':'⟳ Sätt som löpande';
+  const rollBtn=document.getElementById('mi-rolling');
+  if(rollBtn)rollBtn.textContent=isRollingBudgetVersion(v)?'⟳ Ta bort som löpande':'⟳ Sätt som löpande';
   loadBudgetVersions();
 }
 // Budget type is fixed at creation and cannot be switched afterwards, so there
@@ -6568,8 +6585,6 @@ function openNewBudgetVersion(){
       await loadBudgetVersions();
       budgetRows=[];
       renderBudgetTable();
-      document.getElementById('btn-rename-budget').style.display='flex';
-      document.getElementById('btn-delete-budget').style.display='flex';
       return true;
     });
 }
@@ -6647,7 +6662,7 @@ async function deleteBudgetVersion(){
   budgetRows=[];
   const sel=document.getElementById('budget-version-select');if(sel)sel.value='';
   document.getElementById('budget-content').innerHTML='<div style="text-align:center;padding:60px;color:var(--text3);font-size:13px;">Välj eller skapa en budgetversion för att börja</div>';
-  ['btn-rename-budget','btn-delete-budget','btn-copy-budget','btn-import-pipeline','btn-primary-budget'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+  ['mi-copy','mi-rename','mi-pair','mi-primary','mi-rolling','mi-delete','mi-sep1','mi-sep2','budget-import-group','budget-role-status'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
   document.getElementById('budget-kpi').innerHTML='';
   await loadBudgetVersions();
   console.log('[deleteBudgetVersion] reload done; remaining versions:',budgetVersions.length);
