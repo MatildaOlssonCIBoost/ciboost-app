@@ -6628,6 +6628,7 @@ function openPairDialog(){
   if(isPaired){
     body+=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);">Versionen har redan en motpart. <button onclick="unpairCurrentBudget()" style="background:none;border:none;padding:0;color:var(--red);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:12px;">Avpara</button></div>`;
   }
+  body+=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"><button onclick="pairDialogCreateCounterpart()" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:0.5px solid var(--border);border-radius:6px;background:none;font-family:inherit;font-size:12px;color:var(--accent);cursor:pointer;">+ Skapa ny motpart (tom ${oppType})</button></div>`;
   showDialog('Länka budgetpar',body,async()=>{
     const selEl=document.getElementById('pair-existing');
     if(!selEl)return true;   // tom lista → stäng utan att para
@@ -6646,6 +6647,41 @@ async function unpairCurrentBudget(){
     await loadBudgetVersions();
   }catch(e){alert('Kunde inte avpara.');}
   document.getElementById('dialog-overlay')?.remove();
+}
+// PAR-3c: spegla budgetnamn vid skapande av motpart. Full sammansättning FÖRST (foge-s: resultatbudget↔likviditetsbudget),
+// annars bara typordet (resultat↔likviditet), annars suffixa. Bevarar skiftläge på första bokstaven i ersättningen.
+function mirrorBudgetName(name, toMode){
+  name=String(name||'');
+  const pairs = toMode==='likviditet'
+    ? [['resultatbudget','likviditetsbudget'],['resultat','likviditet']]
+    : [['likviditetsbudget','resultatbudget'],['likviditet','resultat']];
+  for(const [from,to] of pairs){
+    if(new RegExp(from,'i').test(name)){
+      return name.replace(new RegExp(from,'gi'), m => (m[0]===m[0].toUpperCase() ? to[0].toUpperCase()+to.slice(1) : to));
+    }
+  }
+  return name + (toMode==='likviditet'?' (likviditet)':' (resultat)');
+}
+// PAR-3c: gemensam helper — skapar en TOM motpart (motsatt typ, speglat namn, samma år) och parar source↔motpart.
+// Används av länka-dialogen (PAR-3c-1) + skapa-dialogen (PAR-3c-2). try/catch → fel avbryter ej anroparen; källversionen finns kvar. Ingen roll (PAR-4).
+async function createPairedCounterpart(source){
+  const oppType = source.BudgetType==='Resultatbudget'?'Likviditetsbudget':'Resultatbudget';
+  const toMode  = oppType==='Likviditetsbudget'?'likviditet':'resultat';
+  const name    = mirrorBudgetName(source.Name||'', toMode);
+  try{
+    const r = await apiFetch(`${API}/budget-versions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name, year:source.Year, budgetType:oppType, createdBy:'Matilda Olsson'})});
+    const counterpart = await r.json();
+    await apiFetch(`${API}/budget-versions/${source.Id}/pair`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({pairedId:counterpart.Id})});
+    await loadBudgetVersions();
+    return counterpart;
+  }catch(e){ alert('Kunde inte skapa matchande motpart.'); return null; }
+}
+// PAR-3c-1: "+ Skapa ny motpart"-knappen i länka-dialogen → läser källversionen, stänger dialogen, skapar+parar.
+async function pairDialogCreateCounterpart(){
+  const sel=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId));
+  if(!sel)return;
+  document.getElementById('dialog-overlay')?.remove();
+  await createPairedCounterpart(sel);
 }
 async function deleteBudgetVersion(){
   if(!currentBudgetVersionId)return;
