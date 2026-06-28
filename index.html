@@ -5970,7 +5970,7 @@ function renderBudgetTable(){
   // (Härledda/Manuella/Momsavräkning); materialiserade leverantörsrader (Source='Leverantör'/'Moms')
   // renderas här i F2-3/F2-4. Nu skal: tomma sektioner + övergångsnotis + "+ Lägg till"-knapp (stub).
   // Hopfällning återanvänder K-COST-4 (toggleBudgetSection/data-bsec) — inga nya collapse-funktioner.
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">KOSTNADER · Leverantörer<button onclick="openSupplierModal()" style="margin-left:10px;border:0.5px solid rgba(255,255,255,0.4);border-radius:3px;background:rgba(255,255,255,0.12);color:white;cursor:pointer;font-size:10px;padding:1px 7px;">+ Lägg till leverantör</button></td></tr>`;
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">KOSTNADER · Leverantörer<button onclick="openSupplierModal()" style="margin-left:10px;border:0.5px solid rgba(255,255,255,0.4);border-radius:3px;background:rgba(255,255,255,0.12);color:white;cursor:pointer;font-size:10px;padding:1px 7px;">+ Lägg till leverantör</button><button onclick="recomputeDerivedSuppliers()" title="Räkna om härledda leverantörer mot parad resultatbudget" style="margin-left:6px;border:0.5px solid rgba(255,255,255,0.4);border-radius:3px;background:rgba(255,255,255,0.12);color:white;cursor:pointer;font-size:10px;padding:1px 7px;">↻ Räkna om</button></td></tr>`;
   html+=`<tr><td colspan="${MONTHS.length+2}" style="background:var(--surface2);color:var(--text3);font-size:10px;font-style:italic;padding:4px 10px;">Leverantörsmodell under uppbyggnad — kostnader visas när leverantörer lagts till.</td></tr>`;
   // F2-3a: rendera sparade leverantörer per typ. Manuella → plain text-belopp (ej .budget-input → ingen autospar-krock);
   // klick på raden → openSupplierModal(index) för redigering. Härledd/moms = platshållare tills F2-3b/F2-5.
@@ -6157,17 +6157,18 @@ function computeSupplierCashflow(supplier,pairedRows){
 // F2-3a/F2-4a: materialisera MANUELLA + HÄRLEDDA leverantörer → BudgetRows Source='Leverantör' (Category='Leverantör', SubCategory=namn).
 // Mönster: rebuildSourceRows — GET-merge (bevarar intäkter/övriga) → nollställ Source='Leverantör' → POST full array.
 // Härledda läser PARAD resultat (EN gång, om derived finns) + computeSupplierCashflow. Moms (F2-5) senare. Plain-text-render → saveBudget rör ej dessa.
-async function rebuildSupplierRows(versionId){
+async function rebuildSupplierRows(versionId,suppliersOverride){
+  const sups=Array.isArray(suppliersOverride)?suppliersOverride:(supplierRows||[]);   // F2-4b: override när mate-suppliers ej i minne (resultat-hook); utan = global (som F2-4a)
   let rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();
   if(!Array.isArray(rows))rows=[];
   rows=rows.filter(r=>(r.Source||'')!=='Leverantör');
-  (supplierRows||[]).filter(s=>s.Type==='manual').forEach(s=>{
+  sups.filter(s=>s.Type==='manual').forEach(s=>{
     const ma=typeof s.ManualAmounts==='string'?JSON.parse(s.ManualAmounts||'{}'):(s.ManualAmounts||{});
     const row={Category:'Leverantör',SubCategory:s.Name,Source:'Leverantör'};MONTHS.forEach(m=>row[m]=Number(ma[m])||0);
     rows.push(row);
   });
   // F2-4a: härledda — hämta parad resultat EN gång (bara om derived finns); oparad → pairedRows=[] → utflöde 0 → hoppas.
-  const derived=(supplierRows||[]).filter(s=>s.Type==='derived');
+  const derived=sups.filter(s=>s.Type==='derived');
   if(derived.length){
     let pairedRows=[];
     const ver=budgetVersions.find(v=>String(v.Id)===String(versionId));
@@ -6180,6 +6181,29 @@ async function rebuildSupplierRows(versionId){
   }
   const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
   await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+}
+// F2-4b: "↻ Räkna om"-knapp — materialisera om härledda mot aktuell parad resultat (manuell färskhet). Bara likviditetsläge.
+async function recomputeDerivedSuppliers(){
+  if(!currentBudgetVersionId||currentBudgetMode!=='likviditet')return;
+  try{
+    await rebuildSupplierRows(currentBudgetVersionId);   // global supplierRows (likviditeten är i minne)
+    budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();
+    if(!Array.isArray(budgetRows))budgetRows=[];
+    renderBudgetTable();
+    const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
+  }catch(e){console.error('[recomputeDerivedSuppliers]',e);}
+}
+// F2-4b: efter resultat-skrivning → om parad likviditet har härledda leverantörer, räkna om dem (de läser denna resultatbudget).
+// Ingen loop: rebuild materialiserar i LIKVIDITETENS BudgetRows, ej resultatet. mate-suppliers ej i minne i resultatläge → hämtas + skickas som override.
+async function syncPairedLiquiditySuppliers(resultVersionId){
+  try{
+    const ver=budgetVersions.find(v=>String(v.Id)===String(resultVersionId));
+    const mateId=ver?ver.PairedVersionId:null;
+    if(mateId==null)return;
+    const mateSuppliers=await (await apiFetch(`${API}/budget-versions/${mateId}/suppliers`)).json();
+    if(!Array.isArray(mateSuppliers)||!mateSuppliers.some(s=>s.Type==='derived'))return;   // bara om härledda finns
+    await rebuildSupplierRows(mateId,mateSuppliers);   // override: mate-suppliers; rebuild läser mate.PairedVersionId (= resultVersionId, nyss sparat)
+  }catch(e){console.error('[syncPairedLiquiditySuppliers]',e);}
 }
 
 // M1: Åtgärder-dropdown. Samma mönster som toggleRevDD (stäng andra paneler, stoppa propagation så
@@ -6743,6 +6767,8 @@ async function saveBudget(silent){
     budgetRows=await reload.json();
     // Silent (autosave) keeps the DOM intact so typing isn't interrupted.
     if(!silent)renderBudgetTable();
+    // F2-4b: explicit resultat-save → räkna om parad likviditets härledda (de läser denna resultatbudget). Ej på autospar (silent) → undvik spam.
+    if(!silent&&currentBudgetMode==='resultat')await syncPairedLiquiditySuppliers(currentBudgetVersionId);
     showSaveIndicator('✓ Sparat','#1a7a50');
   }catch(e){showSaveIndicator('⚠ Fel','#a32d2d');}
 }
