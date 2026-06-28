@@ -5926,7 +5926,9 @@ function renderBudgetTable(){
   const _bvId=currentBudgetVersionId,_bvYr=Number((budgetVersions.find(v=>String(v.Id)===String(_bvId))||{}).Year)||new Date().getFullYear();
   const _impSets={};for(let _mi=0;_mi<12;_mi++)_impSets[_mi]=new Set(JSON.parse(localStorage.getItem('importedAvtal_'+_bvId+'_'+_mi)||'[]').map(String));
   const _devCount={ARR:Array(12).fill(0),Fastpris:Array(12).fill(0),Utbildning:Array(12).fill(0),Consulting:Array(12).fill(0)};
-  if(!Object.keys(custRevCache||{}).length&&!window._budgetRevPrefetching){window._budgetRevPrefetching=true;prefetchAllCustomerRevenues().then(()=>{window._budgetRevPrefetching=false;if(currentBudgetMode==='likviditet')renderBudgetTable();}).catch(()=>{window._budgetRevPrefetching=false;});}
+  // FIX D: _budgetRevPrefetchTried sätts OVILLKORLIGT före prefetch → max ett försök/page-session
+  // oavsett utfall → ingen re-render-loop om allCustomers är tom/API failar. Re-render bara på .then.
+  if(!Object.keys(custRevCache||{}).length&&!window._budgetRevPrefetchTried){window._budgetRevPrefetchTried=true;prefetchAllCustomerRevenues().then(()=>{if(currentBudgetMode==='likviditet')renderBudgetTable();}).catch(()=>{});}
   Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!_devCount[it.Type])return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==_bvYr)return;const _mi=d.getMonth();if(!_impSets[_mi].has(String(it.Id)))_devCount[it.Type][_mi]++;});});
   allBudgetRows().filter(r=>r.section==='REVENUE').forEach(rd=>{
     const cat=rd.category,sub=rd.subCategory,_type=SUB_TO_TYPE[sub];
