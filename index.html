@@ -1268,6 +1268,7 @@ let perSources={arr:true,fast:true,utb:true,cons:true};
 let currentMain='start', currentSub={pipeline:'oversikt',kunder:'oversikt',finansiellt:'prognos',trialpilot:'trials',arkiv:'tidigare'};
 let currentTpId=null, currentTpType=null, currentTpModalTab=1;
 let budgetVersions=[], currentBudgetVersionId=null, budgetRows=[];
+let supplierRows=[];   // F2-3: leverantörsmodell-config (SupplierRows) för aktuell likviditetsversion
 // Row comments/notes are stored per budget version in localStorage so they are
 // unique to each version and only carried over when a budget is explicitly copied.
 let budgetNotes={};
@@ -5452,6 +5453,8 @@ async function loadBudgetVersion(){
     showMessage('<strong>Fel: API returnerade ogiltigt JSON-svar.</strong><br>Kolla att ciboost-api-v2 är uppe och svarar normalt.','var(--red)');
     return;
   }
+  // F2-3: ladda leverantörsmodell-config (SupplierRows) — bara likviditet (resultat har inga).
+  if(currentBudgetMode==='likviditet'){try{supplierRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/suppliers`)).json();if(!Array.isArray(supplierRows))supplierRows=[];}catch(e){supplierRows=[];}}else{supplierRows=[];}
   // M1: visa version-specifika Åtgärder-poster + import-grupp; togglad menytext + roll-status i raden.
   ['mi-copy','mi-rename','mi-pair','mi-primary','mi-rolling','mi-delete'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='flex';});
   ['mi-sep1','mi-sep2'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='block';});
@@ -5969,9 +5972,25 @@ function renderBudgetTable(){
   // Hopfällning återanvänder K-COST-4 (toggleBudgetSection/data-bsec) — inga nya collapse-funktioner.
   html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">KOSTNADER · Leverantörer<button onclick="openSupplierModal()" style="margin-left:10px;border:0.5px solid rgba(255,255,255,0.4);border-radius:3px;background:rgba(255,255,255,0.12);color:white;cursor:pointer;font-size:10px;padding:1px 7px;">+ Lägg till leverantör</button></td></tr>`;
   html+=`<tr><td colspan="${MONTHS.length+2}" style="background:var(--surface2);color:var(--text3);font-size:10px;font-style:italic;padding:4px 10px;">Leverantörsmodell under uppbyggnad — kostnader visas när leverantörer lagts till.</td></tr>`;
-  [['sup_derived','Härledda leverantörer'],['sup_manual','Manuella leverantörer'],['sup_vat','Momsavräkning']].forEach(([secKey,secLabel])=>{
+  // F2-3a: rendera sparade leverantörer per typ. Manuella → plain text-belopp (ej .budget-input → ingen autospar-krock);
+  // klick på raden → openSupplierModal(index) för redigering. Härledd/moms = platshållare tills F2-3b/F2-5.
+  const supByType={derived:[],manual:[],vat:[]};
+  (supplierRows||[]).forEach((s,i)=>{const t=(s.Type==='derived'||s.Type==='vat')?s.Type:'manual';supByType[t].push({s,i});});
+  [['sup_derived','Härledda leverantörer','derived'],['sup_manual','Manuella leverantörer','manual'],['sup_vat','Momsavräkning','vat']].forEach(([secKey,secLabel,tkey])=>{
     html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('${secKey}')" style="background:var(--surface2);font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer;"><span class="bchev" data-bsec-toggle="${secKey}">▾</span> ${secLabel}</td></tr>`;
-    html+=`<tr data-bsec="${secKey}"><td colspan="${MONTHS.length+2}" style="padding:4px 24px;font-size:11px;color:var(--text3);font-style:italic;">Inga leverantörer än</td></tr>`;
+    const list=supByType[tkey];
+    if(tkey==='manual'&&list.length){
+      list.forEach(({s,i})=>{
+        const ma=typeof s.ManualAmounts==='string'?(JSON.parse(s.ManualAmounts||'{}')):(s.ManualAmounts||{});
+        const vals=MONTHS.map(m=>Number(ma[m])||0);const tot=vals.reduce((a,b)=>a+b,0);
+        const nm=String(s.Name||'').replace(/</g,'&lt;');
+        html+=`<tr data-bsec="${secKey}" style="cursor:pointer;" onclick="openSupplierModal(${i})" title="Klicka för att redigera"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${nm} <span style="font-size:9px;color:var(--text3);border:0.5px solid var(--border);border-radius:3px;padding:0 4px;margin-left:4px;">Manuell</span></td>${vals.map(v=>`<td style="text-align:right;font-size:11px;color:var(--text2);">${v?fmtK(v):'-'}</td>`).join('')}<td style="font-weight:500;text-align:right;font-size:11px;border-left:1px solid var(--border);">${fmtK(tot)}</td></tr>`;
+      });
+    } else if(tkey==='manual'){
+      html+=`<tr data-bsec="${secKey}"><td colspan="${MONTHS.length+2}" style="padding:4px 24px;font-size:11px;color:var(--text3);font-style:italic;">Inga leverantörer än — klicka "+ Lägg till leverantör"</td></tr>`;
+    } else {
+      html+=`<tr data-bsec="${secKey}"><td colspan="${MONTHS.length+2}" style="padding:4px 24px;font-size:11px;color:var(--text3);font-style:italic;">${tkey==='derived'?'Härledda leverantörer byggs härnäst (F2-3b/F2-4)':'Momsavräkning byggs i F2-5'}</td></tr>`;
+    }
   });
   html+=sumRow('Total Kostnader',costMonthly,costTotal);
   html+=tbRow('Resultat (Nettoomsättning − Kostnader)',resultatMonthly,resultatTotal);
@@ -5993,8 +6012,91 @@ function renderBudgetTable(){
 }
 
 function updateBudgetTotals(){}
-// F2-2: stub — leverantörs-modal (skapa/redigera härledd/manuell/momsavräkning) byggs i F2-3.
-function openSupplierModal(){}
+
+// F2-3a: leverantörs-modal (skapa/redigera/ta bort). idx = index i supplierRows (redigera) el. undefined (ny).
+// Manuell = 12 månadsbelopp (kompakt 3-kol-grid). Härledd/moms = platshållare (käll-koppling/auto i F2-3b/F2-5).
+function openSupplierModal(idx){
+  if(!currentBudgetVersionId)return;
+  const existing=(idx!=null&&idx>=0)?supplierRows[idx]:null;
+  const curType=existing?existing.Type:'manual';
+  const ma=existing&&existing.ManualAmounts?(typeof existing.ManualAmounts==='string'?JSON.parse(existing.ManualAmounts||'{}'):existing.ManualAmounts):{};
+  const escA=s=>String(s||'').replace(/"/g,'&quot;');
+  const monthGrid=MONTHS.map(m=>`<div style="display:flex;flex-direction:column;"><label style="font-size:10px;color:var(--text3);">${m}</label><input id="sup-m-${m}" type="number" class="edit-input" style="padding:4px 5px;font-size:11px;" value="${ma[m]!=null&&ma[m]!==0?ma[m]:''}" placeholder="0"></div>`).join('');
+  const body=`
+    <div class="modal-field"><label>Namn</label><input id="sup-name" class="edit-input" value="${escA(existing?existing.Name:'')}" placeholder="t.ex. Hyra, Telia, Försäkring"></div>
+    <div class="modal-field" style="margin-top:10px;"><label>Typ</label><select id="sup-type" class="edit-input" onchange="updateSupplierModalFields()">
+      <option value="manual" ${curType==='manual'?'selected':''}>Manuell leverantör</option>
+      <option value="derived" ${curType==='derived'?'selected':''}>Härledd (ur resultatbudget)</option>
+      <option value="vat" ${curType==='vat'?'selected':''}>Momsavräkning</option>
+    </select></div>
+    <div id="sup-manual-fields" style="margin-top:12px;display:${curType==='manual'?'block':'none'};">
+      <label style="font-size:11px;color:var(--text2);">Månadsbelopp (kr)</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:5px;">${monthGrid}</div>
+    </div>
+    <div id="sup-derived-fields" style="margin-top:12px;display:${curType==='derived'?'block':'none'};">
+      <div style="font-size:11px;color:var(--text3);font-style:italic;padding:8px;border:1px dashed var(--border);border-radius:6px;">Käll-koppling mot parad resultatbudget + betalningsregel (förskjutning/moms/klumpning) byggs härnäst (F2-3b/F2-4).</div>
+    </div>
+    <div id="sup-vat-fields" style="margin-top:12px;display:${curType==='vat'?'block':'none'};">
+      <div style="font-size:11px;color:var(--text3);font-style:italic;padding:8px;border:1px dashed var(--border);border-radius:6px;">Momsavräkning (moms ut − in, kvartalsvis) beräknas automatiskt i F2-5.</div>
+    </div>
+    ${existing?`<button onclick="deleteSupplier(${idx})" style="margin-top:14px;width:100%;padding:7px;border:1px solid var(--red);border-radius:8px;background:none;color:var(--red);font-size:12px;cursor:pointer;">Ta bort leverantör</button>`:''}`;
+  showDialog(existing?'Redigera leverantör':'Ny leverantör',body,async()=>{
+    const name=document.getElementById('sup-name').value.trim();
+    const type=document.getElementById('sup-type').value;
+    if(!name){alert('Ange ett namn på leverantören.');return false;}
+    let manualJson=existing?existing.ManualAmounts:null;
+    if(type==='manual'){const ma2={};MONTHS.forEach(m=>{ma2[m]=parseInt(document.getElementById('sup-m-'+m).value)||0;});manualJson=JSON.stringify(ma2);}
+    // derived/vat: regel-/käll-fält byggs i F2-3b/F2-5 — spara bara namn/typ (behåll ev. tidigare config).
+    if(existing){supplierRows[idx]={...existing,Name:name,Type:type,ManualAmounts:manualJson};}
+    else{supplierRows.push({Name:name,Type:type,ManualAmounts:manualJson});}
+    await saveSuppliers();
+    return true;
+  },existing?'Spara':'Lägg till');
+}
+// F2-3a: typ-växling — visa/dölj fält-wrappers per vald typ.
+function updateSupplierModalFields(){
+  const t=document.getElementById('sup-type')?.value;
+  const show=(id,on)=>{const e=document.getElementById(id);if(e)e.style.display=on?'block':'none';};
+  show('sup-manual-fields',t==='manual');show('sup-derived-fields',t==='derived');show('sup-vat-fields',t==='vat');
+}
+// F2-3a: ta bort leverantör (ur arrayen) → spara.
+async function deleteSupplier(idx){
+  if(idx==null||idx<0||!supplierRows[idx])return;
+  if(!confirm(`Ta bort leverantör "${supplierRows[idx].Name}"?`))return;
+  supplierRows.splice(idx,1);
+  document.getElementById('dialog-overlay')?.remove();
+  await saveSuppliers();
+}
+// F2-3a: PUT /suppliers (full-replace) → reload config → materialisera → reload budgetRows → render.
+async function saveSuppliers(){
+  if(!currentBudgetVersionId)return;
+  const payload=(supplierRows||[]).map((s,i)=>({name:s.Name,type:s.Type,sourceRows:s.SourceRows||null,paymentShift:s.PaymentShift!=null?s.PaymentShift:null,vatFactor:s.VatFactor!=null?s.VatFactor:null,clumping:s.Clumping||null,manualAmounts:s.ManualAmounts||null,sortOrder:i}));
+  try{
+    await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/suppliers`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    supplierRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/suppliers`)).json();
+    if(!Array.isArray(supplierRows))supplierRows=[];
+    await rebuildSupplierRows(currentBudgetVersionId);
+    budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();
+    if(!Array.isArray(budgetRows))budgetRows=[];
+    renderBudgetTable();
+    const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
+  }catch(e){console.error('[saveSuppliers]',e);alert('Kunde inte spara leverantören.');}
+}
+// F2-3a: materialisera MANUELLA leverantörer → BudgetRows Source='Leverantör' (Category='Leverantör', SubCategory=namn).
+// Mönster: rebuildSourceRows — GET-merge (bevarar intäkter/övriga) → nollställ Source='Leverantör' → POST full array.
+// Härledda (F2-4)/moms (F2-5) materialiseras senare. Plain-text-render → saveBudget rör ej dessa.
+async function rebuildSupplierRows(versionId){
+  let rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();
+  if(!Array.isArray(rows))rows=[];
+  rows=rows.filter(r=>(r.Source||'')!=='Leverantör');
+  (supplierRows||[]).filter(s=>s.Type==='manual').forEach(s=>{
+    const ma=typeof s.ManualAmounts==='string'?JSON.parse(s.ManualAmounts||'{}'):(s.ManualAmounts||{});
+    const row={Category:'Leverantör',SubCategory:s.Name,Source:'Leverantör'};MONTHS.forEach(m=>row[m]=Number(ma[m])||0);
+    rows.push(row);
+  });
+  const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
+  await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+}
 
 // M1: Åtgärder-dropdown. Samma mönster som toggleRevDD (stäng andra paneler, stoppa propagation så
 // global klick-utanför-handlern (6834) inte direkt stänger den). Panelens egen onclick stänger vid postval.
