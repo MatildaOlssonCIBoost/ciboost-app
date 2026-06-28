@@ -4787,7 +4787,7 @@ async function openImportActualsModal(versionId,preMonth){
   const year=Number(ver.Year)||new Date().getFullYear();
   const ex=document.getElementById('import-actuals-overlay');if(ex)ex.remove();
   const ov=document.createElement('div');ov.id='import-actuals-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:flex-start;padding-left:32px;';
   ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:540px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
     <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:10px;">Importera actuals · <span id="ia-month-lbl"></span> ${year}</h3><input type="hidden" id="ia-month"><div id="ia-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;">${MONTHS.map((m,i)=>`<button type="button" onclick="window._iaPickMonth(${i})" style="flex:1;min-width:34px;padding:5px 4px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;">${m}</button>`).join('')}</div></div>
     <div id="ia-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
@@ -4842,7 +4842,7 @@ async function openImportFornyelseModal(versionId,preMonth){
   const year=Number(ver.Year)||new Date().getFullYear();
   const ex=document.getElementById('import-fornyelse-overlay');if(ex)ex.remove();
   const ov=document.createElement('div');ov.id='import-fornyelse-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:flex-start;padding-left:32px;';
   ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:620px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
     <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:10px;">Importera förnyelser · <span id="fr-month-lbl"></span> ${year}</h3><input type="hidden" id="fr-month"><div id="fr-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;">${MONTHS.map((m,i)=>`<button type="button" onclick="window._frPickMonth(${i})" style="flex:1;min-width:34px;padding:5px 4px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;">${m}</button>`).join('')}</div></div>
     <div id="fr-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
@@ -5021,7 +5021,7 @@ async function openImportPipelineModal(versionId,preMonth){
   const year=Number(ver.Year)||new Date().getFullYear();
   const ex=document.getElementById('import-pipeline-overlay');if(ex)ex.remove();
   const ov=document.createElement('div');ov.id='import-pipeline-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:flex-start;padding-left:32px;';
   ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:620px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
     <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:10px;">Importera pipeline · <span id="pp-month-lbl"></span> ${year}</h3><input type="hidden" id="pp-month"><div id="pp-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;">${MONTHS.map((m,i)=>`<button type="button" onclick="window._ppPickMonth(${i})" style="flex:1;min-width:34px;padding:5px 4px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;">${m}</button>`).join('')}</div></div>
     <div id="pp-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
@@ -5494,7 +5494,7 @@ function renderResultatBudgetTable(){
   const leafVal=(cat,sub,mi)=>getVal(cat,sub,mi)+getImp(cat,sub,mi);
   const rowMonthly=(cat,sub)=>MONTHS.map((_,mi)=>getVal(cat,sub,mi)); // manual only (row's egen total)
   const sumRowsMonthly=(rows)=>MONTHS.map((_,mi)=>rows.reduce((s,r)=>s+leafVal(r.cat,r.sub,mi),0)); // manual + importerat
-  const dotHtml=(sub,mi)=>{const key=`${sub}__${MONTHS[mi]}`;const has=!!budgetNotes[key];const t=has?budgetNotes[key].replace(/"/g,'&quot;').replace(/'/g,'&#39;'):'';return `<span class="ndot ${has?'nfilled':'nempty'}" data-key="${key}" data-sub="${sub.replace(/"/g,'&quot;')}" data-mi="${mi}" onclick="openNotePopup(this)" title="${t}"></span>`;};
+  const dotHtml=(sub,mi)=>{sub=sub||'';const key=`${sub}__${MONTHS[mi]}`;const has=!!budgetNotes[key];const t=has?budgetNotes[key].replace(/"/g,'&quot;').replace(/'/g,'&#39;'):'';return `<span class="ndot ${has?'nfilled':'nempty'}" data-key="${key}" data-sub="${sub.replace(/"/g,'&quot;')}" data-mi="${mi}" onclick="openNotePopup(this)" title="${t}"></span>`;};
   const inputCell=(cat,sub,mi)=>{const val=getVal(cat,sub,mi);return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;position:relative;"><input class="budget-input" type="number" data-cat="${cat}" data-sub="${sub}" data-month="${MONTHS[mi]}" value="${val||''}" placeholder="0" oninput="updateBudgetTotals()">${dotHtml(sub,mi)}</div></td>`;};
   const headerRow=(label,bg,color)=>`<tr><td colspan="${MONTHS.length+2}" style="background:${bg};color:${color||'white'};font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">${label}</td></tr>`;
   const inputRow=(cat,sub,pad,bg,bsec,bgrp)=>`<tr${bsec?` data-bsec="${bsec}" data-bgrp="${(bgrp||'').replace(/"/g,'&quot;')}"`:''} style="background:${bg||'transparent'};"><td style="padding-left:${pad||24}px;font-size:12px;">${sub}</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(cat,sub)))}</td></tr>`;
@@ -5567,7 +5567,7 @@ function renderResultatBudgetTable(){
   // K-COST-3: BAS-kontogrupp ur COST_ROWS_DEF (cat=grupp, sub=namn → matchar BUDGET_ROWS_DEF-spreaden,
   // så saveBudget-berikningen sätter accountNo automatiskt). costAccountRow = redigerbar rad "{konto} {namn}".
   const basGroupRows=grp=>COST_ROWS_DEF.filter(c=>c.group===grp).map(c=>({cat:grp,sub:c.name,account:c.account}));
-  const costAccountRow=(grp,c,bsec)=>{const acct=c.account?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>`:'';return `<tr data-bsec="${bsec}" data-bgrp="rc_${grp.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;">${acct}${c.name}</td>${MONTHS.map((_,mi)=>inputCell(grp,c.name,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(grp,c.name)))}</td></tr>`;};
+  const costAccountRow=(grp,c,bsec)=>{const acct=c.account?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>`:'';return `<tr data-bsec="${bsec}" data-bgrp="rc_${grp.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;">${acct}${c.sub}</td>${MONTHS.map((_,mi)=>inputCell(grp,c.sub,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(grp,c.sub)))}</td></tr>`;};
 
   // Rörelsens kostnader (mörk) — Varu/Övriga externa = BAS-konton (data-drivet); Personalkostnader = inline (lönesida).
   html+=resSecHdr('Rörelsens kostnader','rrorelse',DARK);
@@ -6068,7 +6068,7 @@ async function copyBudgetVersion(){
   const cur=budgetVersions.find(x=>String(x.Id)===String(currentBudgetVersionId));
   if(!cur)return;
   showDialog('Kopiera budget',
-    `<div class="modal-field"><label>Nytt namn</label><input id="cp-name" class="edit-input" value="${(cur.Name+' (kopia)').replace(/"/g,'&quot;')}"></div>
+    `<div class="modal-field"><label>Nytt namn</label><input id="cp-name" class="edit-input" value="${((cur.Name||'')+' (kopia)').replace(/"/g,'&quot;')}"></div>
     <div class="modal-field" style="margin-top:8px;"><label>År</label><input id="cp-year" type="number" class="edit-input" value="${(cur.Year||new Date().getFullYear())+1}"></div>`,
     async()=>{
       const name=document.getElementById('cp-name').value.trim();
@@ -6808,7 +6808,7 @@ async function addActivity(customerId){const type=document.getElementById('new-a
 // ─── AUTOSPARA ───────────────────────────────────────────
 let autoSaveTimer=null;let saveSeq={},saveChain={};
 function setupAutoSave(id){document.getElementById('modal-body').querySelectorAll('input,select,textarea').forEach(f=>{f.addEventListener('input',()=>{clearTimeout(autoSaveTimer);showSaveIndicator('Sparar...');autoSaveTimer=setTimeout(()=>silentSave(id),1500);});f.addEventListener('change',()=>{clearTimeout(autoSaveTimer);showSaveIndicator('Sparar...');autoSaveTimer=setTimeout(()=>silentSave(id),1500);});});}
-function showSaveIndicator(msg,color){let el=document.getElementById('save-indicator');if(!el){el=document.createElement('div');el.id='save-indicator';el.style.cssText='position:fixed;bottom:20px;right:500px;padding:6px 12px;border-radius:6px;font-size:12px;font-family:Poppins,sans-serif;z-index:300;transition:opacity 0.3s;';document.body.appendChild(el);}el.textContent=msg;el.style.background=color||'#1e2140';el.style.color='white';el.style.opacity='1';if(msg==='✓ Sparat'||msg==='✓ Budget sparad')setTimeout(()=>{el.style.opacity='0';},2000);}
+function showSaveIndicator(msg,color){let el=document.getElementById('save-indicator');if(!el){el=document.createElement('div');el.id='save-indicator';el.style.cssText='position:fixed;bottom:20px;right:24px;padding:6px 12px;border-radius:6px;font-size:12px;font-family:Poppins,sans-serif;z-index:300;transition:opacity 0.3s;';document.body.appendChild(el);}el.textContent=msg;el.style.background=color||'#1e2140';el.style.color='white';el.style.opacity='1';if(msg==='✓ Sparat'||msg==='✓ Budget sparad')setTimeout(()=>{el.style.opacity='0';},2000);}
 
 // Steg 2 — racefri autospar. silentSave rör DOM EN gång (ögonblicksbild av
 // on-page-fält + team/admin + lt), bumpar en per-kund sekvens och köar
