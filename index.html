@@ -1199,25 +1199,36 @@ const STAGES = ['Prospect Identified','Contacted','Meeting Booked','Evaluation &
 const SOURCE_COLORS = {'Wow':'#639922','Hemsida demo':'#185FA5','30-dagars':'#854F0B','Traditionell':'#5F5E5A','Partners':'#534AB7','Event':'#993C1D'};
 const ACTION_TYPES = ['Möte','Samtal','E-post','Demo','Offert','Uppföljning','Annat'];
 const DEFAULT_RECIPIENTS = ['Ann-Sofie Forsmark','CI-Labs','Influence','Influence People','Johan Jansson','Lotta Murvall'];
+// Ekonomens exakta BAS-konton (gemensam kostnadsdef för likviditet + resultat). group =
+// resultaträknings-grupp, account = BAS-kontonr ('' = ingen kontokoppling), name = radnamn.
+// Personalkonton (7210-7622) hanteras separat på kommande lönesida och ingår INTE här.
+const COST_ROWS_DEF = [
+  { group:'Varu- och materialkostnader', account:'4611', name:'Underkonsulter extern' },
+  { group:'Varu- och materialkostnader', account:'4699', name:'Vidarefakturerade kostnader' },
+  { group:'Övriga externa kostnader', account:'5090', name:'Service fee koncern' },
+  { group:'Övriga externa kostnader', account:'5410', name:'Förbrukningsinventarier' },
+  { group:'Övriga externa kostnader', account:'5420', name:'Programvaror & licenser' },
+  { group:'Övriga externa kostnader', account:'5800', name:'Resekostnader' },
+  { group:'Övriga externa kostnader', account:'5830', name:'Kost och logi' },
+  { group:'Övriga externa kostnader', account:'5900', name:'Reklam och PR' },
+  { group:'Övriga externa kostnader', account:'5990', name:'Marknadsföring och reklam' },
+  { group:'Övriga externa kostnader', account:'6072', name:'Representation ej avdragsgill' },
+  { group:'Övriga externa kostnader', account:'6212', name:'Telefonikostnader' },
+  { group:'Övriga externa kostnader', account:'6540', name:'IT-tjänster' },
+  { group:'Övriga externa kostnader', account:'6550', name:'Konsultarvoden' },
+  { group:'Övriga externa kostnader', account:'6570', name:'Bankkostnader' },
+  { group:'Övriga externa kostnader', account:'',     name:'Övrig kostnad' },
+  { group:'Avskrivningar', account:'7810', name:'Avskrivningar immateriella' },
+];
 const BUDGET_ROWS_DEF = [
   {section:'REVENUE', category:'Revenue', subCategory:'Licens (prenumeration)', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Licens (fast pris)', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Utbildning', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Consulting', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Okvalificerat/okänt', type:'revenue'},
-  {section:'COGS', category:'Direct Costs (COGS)', subCategory:'Hosting & support', type:'cost'},
-  {section:'COGS', category:'Direct Costs (COGS)', subCategory:'Third party licensing', type:'cost'},
-  {section:'OPEX', category:'Product Development', subCategory:'Content', type:'cost'},
-  {section:'OPEX', category:'Product Development', subCategory:'Compileit', type:'cost'},
-  {section:'OPEX', category:'Sales', subCategory:'CSO/CEO', type:'cost'},
-  {section:'OPEX', category:'Sales', subCategory:'Customer Success Manager', type:'cost'},
-  {section:'OPEX', category:'Sales', subCategory:'Customer Success Representative', type:'cost'},
-  {section:'OPEX', category:'Marketing & Growth', subCategory:'CMO', type:'cost'},
-  {section:'OPEX', category:'Marketing & Growth', subCategory:'Marketing & Communication', type:'cost'},
-  {section:'OPEX', category:'Marketing & Growth', subCategory:'Sales initiatives', type:'cost'},
-  {section:'OPEX', category:'Other OPEX', subCategory:'IT, telecom, pc etc.', type:'cost'},
-  {section:'OPEX', category:'Other OPEX', subCategory:'Other', type:'cost'},
-  {section:'SM', category:'S&M Fee', subCategory:'Service & Management fee', type:'cost'},
+  // Kostnadsrader = ekonomens BAS-konton (COST_ROWS_DEF). section:'COST', category=grupp,
+  // subCategory=namn, accountNo=kontonr. Personalroller utflyttade (kommande lönesida).
+  ...COST_ROWS_DEF.map(c=>({section:'COST', category:c.group, subCategory:c.name, accountNo:c.account, type:'cost'})),
 ];
 const MONTHS = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 let allCustomers=[], allProspects=[], allRecipients=[...DEFAULT_RECIPIENTS];
@@ -5744,22 +5755,13 @@ function renderBudgetTable(){
   };
 
   const revMonthly=sumSection('REVENUE');
-  const cogsMonthly=sumSection('COGS');
-  const opexMonthly=sumSection('OPEX');
-  const smMonthly=sumSection('SM');
-
-  const tb1Monthly=revMonthly.map((v,i)=>v-cogsMonthly[i]);
-  const tb2Monthly=tb1Monthly.map((v,i)=>v-opexMonthly[i]);
-  const tb3Monthly=tb2Monthly.map((v,i)=>v-smMonthly[i]);
+  const costMonthly=sumSection('COST');
+  const resultatMonthly=revMonthly.map((v,i)=>v-costMonthly[i]);
 
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const revTotal=sum(revMonthly);
-  const cogsTotal=sum(cogsMonthly);
-  const opexTotal=sum(opexMonthly);
-  const smTotal=sum(smMonthly);
-  const tb1Total=sum(tb1Monthly);
-  const tb2Total=sum(tb2Monthly);
-  const tb3Total=sum(tb3Monthly);
+  const costTotal=sum(costMonthly);
+  const resultatTotal=sum(resultatMonthly);
 
   const fmtK=v=>v===0?'-':Math.round(v).toLocaleString('sv-SE');
   const fmtPct=(num,den)=>den===0?'-':Math.round(num/den*100)+'%';
@@ -5879,74 +5881,45 @@ function renderBudgetTable(){
   });
   html+=sumRow('Total Revenue',revMonthly,revTotal,'#fde7d6');
 
-  // COGS
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:500;font-size:11px;padding:5px 10px;">▸ DIRECT COSTS (COGS)</td></tr>`;
-  allBudgetRows().filter(r=>r.section==='COGS').forEach(rd=>{
-    const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
-    const total=sum(vals);
-    html+=`<tr>
-      ${subCell(rd)}
-      ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
-      <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
-    </tr>`;
-  });
-  html+=sumRow('Total COGS',cogsMonthly,cogsTotal);
-  html+=tbRow('TB1 – Gross Profit',tb1Monthly,tb1Total);
-  html+=pctRow('Gross Margin %',tb1Monthly,tb1Total,revMonthly,revTotal);
-
-  // OPEX
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:500;font-size:11px;padding:5px 10px;">▸ OPEX &amp; DEVELOPMENT</td></tr>`;
-  const opexCategories=[...new Set(allBudgetRows().filter(r=>r.section==='OPEX').map(r=>r.category))];
-  opexCategories.forEach(cat=>{
-    const catRows=allBudgetRows().filter(r=>r.section==='OPEX'&&r.category===cat);
-    const catMonthly=MONTHS.map((_,mi)=>catRows.reduce((s,r)=>s+getVal(r.category,r.subCategory,mi),0));
-    const catTotal=sum(catMonthly);
+  // KOSTNADER — ekonomens BAS-konton grupperade (Varu-/material, Övriga externa, Avskrivningar).
+  // Gruppsummarad per grupp (samma mönster som tidigare OPEX-grupper). Radnamn = "{kontonr} {namn}".
+  // Personalkonton (7210-7622) hanteras separat på kommande lönesida och ingår INTE här.
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">▸ KOSTNADER</td></tr>`;
+  const costGroups=[...new Set(allBudgetRows().filter(r=>r.section==='COST').map(r=>r.category))];
+  costGroups.forEach(grp=>{
+    const grpRows=allBudgetRows().filter(r=>r.section==='COST'&&r.category===grp);
+    const grpMonthly=MONTHS.map((_,mi)=>grpRows.reduce((s,r)=>s+getVal(r.category,r.subCategory,mi),0));
+    const grpTotal=sum(grpMonthly);
     html+=`<tr style="background:var(--surface2);">
-      <td style="font-weight:500;padding-left:10px;">${cat}</td>
-      ${catMonthly.map(v=>`<td style="font-weight:500;text-align:center;font-size:11px;">${fmtK(v)}</td>`).join('')}
-      <td style="font-weight:600;text-align:center;border-left:1px solid var(--border);">${fmtK(catTotal)}</td>
+      <td style="font-weight:600;padding-left:10px;">${grp}</td>
+      ${grpMonthly.map(v=>`<td style="font-weight:600;text-align:center;font-size:11px;">${fmtK(v)}</td>`).join('')}
+      <td style="font-weight:700;text-align:center;border-left:1px solid var(--border);">${fmtK(grpTotal)}</td>
     </tr>`;
-    catRows.forEach(rd=>{
+    grpRows.forEach(rd=>{
       const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
       const total=sum(vals);
+      const acct=rd.accountNo?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${rd.accountNo}</span>`:'';
+      const lbl=`<div>${acct}${rd.subCategory}</div>${isCustomRow(rd)?`<div style="font-size:9px;color:var(--text3);font-style:italic;">Manuellt</div>`:''}`;
       html+=`<tr>
-        ${subCell(rd,'padding-left:24px;color:var(--text2);font-size:11px;')}
+        <td style="padding-left:24px;color:var(--text2);font-size:11px;">${lbl}</td>
         ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
         <td style="font-weight:500;text-align:center;font-size:11px;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
       </tr>`;
     });
   });
-  html+=sumRow('Total OPEX',opexMonthly,opexTotal);
-  html+=tbRow('TB2 – EBITDA / Operating Profit',tb2Monthly,tb2Total);
-  html+=pctRow('OPEX %',opexMonthly,opexTotal,revMonthly,revTotal);
-
-  // S&M
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:500;font-size:11px;padding:5px 10px;">▸ S&amp;M FEE</td></tr>`;
-  allBudgetRows().filter(r=>r.section==='SM').forEach(rd=>{
-    const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
-    const total=sum(vals);
-    html+=`<tr>
-      ${subCell(rd)}
-      ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
-      <td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
-    </tr>`;
-  });
-  html+=tbRow('TB3 – Net',tb3Monthly,tb3Total);
-  html+=pctRow('Net Margin %',tb3Monthly,tb3Total,revMonthly,revTotal);
+  html+=sumRow('Total Kostnader',costMonthly,costTotal);
+  html+=tbRow('Resultat (Nettoomsättning − Kostnader)',resultatMonthly,resultatTotal);
 
   html+='</tbody></table></div>';
   document.getElementById('budget-content').innerHTML=html;
 
-  // KPI — Budgeterad försäljning (total) + utgifter (totalt) + TB1/2/3
+  // KPI — Budgeterad försäljning (total) + kostnader (totalt) + resultat.
   const licPrenSum=allBudgetRows().filter(r=>r.section==='REVENUE'&&r.subCategory==='Licens (prenumeration)').reduce((s,r)=>s+MONTHS.reduce((ms,_m,mi)=>ms+getVal(r.category,r.subCategory,mi),0),0);
-  const utgifterTotal=cogsTotal+opexTotal+smTotal;
-  document.getElementById('budget-kpi').style.gridTemplateColumns='repeat(5,minmax(0,1fr))';
+  document.getElementById('budget-kpi').style.gridTemplateColumns='repeat(3,minmax(0,1fr))';
   document.getElementById('budget-kpi').innerHTML=`
     <div class="kpi-card" id="kpi-rev-total" onclick="window.toggleRevUnderlag()" style="cursor:pointer;"><div class="kpi-label">Budgeterad försäljning (total) <span id="kpi-rev-ind" style="color:var(--accent);font-style:normal;">▾</span></div><div class="kpi-value" style="color:var(--accent)">${fmtKr(revTotal)}</div><div class="kpi-delta neu">Varav Prenumeration ${fmtKr(licPrenSum)} · klicka för underlag</div></div>
-    <div class="kpi-card"><div class="kpi-label">Budgeterade utgifter (totalt)</div><div class="kpi-value" style="color:var(--red)">${fmtKr(utgifterTotal)}</div><div class="kpi-delta neu">COGS + OPEX + S&M · helår ${year}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Gross Profit (TB1)</div><div class="kpi-value" style="color:${tb1Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb1Total)}</div><div class="kpi-delta neu">${fmtPct(tb1Total,revTotal)} gross margin</div></div>
-    <div class="kpi-card"><div class="kpi-label">EBITDA (TB2)</div><div class="kpi-value" style="color:${tb2Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb2Total)}</div><div class="kpi-delta neu">${fmtPct(tb2Total,revTotal)} av intäkter</div></div>
-    <div class="kpi-card"><div class="kpi-label">Net (TB3)</div><div class="kpi-value" style="color:${tb3Total>=0?'var(--green)':'var(--red)'}">${fmtKr(tb3Total)}</div><div class="kpi-delta neu">${fmtPct(tb3Total,revTotal)} net margin</div></div>`;
+    <div class="kpi-card"><div class="kpi-label">Budgeterade kostnader (totalt)</div><div class="kpi-value" style="color:var(--red)">${fmtKr(costTotal)}</div><div class="kpi-delta neu">BAS-konton · helår ${year}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Resultat</div><div class="kpi-value" style="color:${resultatTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatTotal)}</div><div class="kpi-delta neu">Nettoomsättning − kostnader · helår ${year}</div></div>`;
 
   restoreNoteDots();
   applyBudgetLockState();
@@ -6472,6 +6445,7 @@ async function saveBudget(silent){
     const source=r.Source||'';
     const key=`${r.Category}__${r.SubCategory}__${source}`;
     const obj={category:r.Category,subCategory:r.SubCategory};
+    if(r.AccountNo!=null)obj.accountNo=r.AccountNo;
     if(source){obj.source=source;if(r.ImportedAt)obj.importedAt=String(r.ImportedAt).substring(0,10);}
     MONTHS.forEach(m=>{obj[m]=r[m]||0;});
     rowData[key]=obj;
@@ -6486,6 +6460,8 @@ async function saveBudget(silent){
     rowData[key][month]=parseInt(inp.value)||0;
   });
   const rows=Object.values(rowData);
+  // K-COST: berika kostnadsrader med kontonr ur def:en (→ AccountNo-kolumnen). Intäktsrader saknar konto → null.
+  rows.forEach(o=>{if(o.accountNo==null){const def=allBudgetRows().find(d=>d.category===o.category&&d.subCategory===o.subCategory);if(def&&def.accountNo!=null)o.accountNo=def.accountNo;}});
   try{
     if(!silent)showSaveIndicator('Sparar...');
     await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rows)});
