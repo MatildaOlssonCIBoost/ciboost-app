@@ -6326,7 +6326,7 @@ async function writeExcelLiquidity(rows,lid){
   let sups=await (await apiFetch(`${API}/budget-versions/${lid}/suppliers`)).json();
   if(!Array.isArray(sups))sups=[];
   rows.forEach(ir=>{
-    const ma={};MONTHS.forEach(m=>ma[m]=Math.round(Math.abs(Number(ir[m])||0)));   // negativ utbetalning → positiv kostnad
+    const ma={};MONTHS.forEach(m=>ma[m]=Math.round(-(Number(ir[m])||0)));   // negera: utbetalning(neg i Excel)→kostnad(pos); momsåterbäring(pos)→negativ kostnad(pengar in)
     const key=String(ir.name).trim().toLowerCase();
     let s=sups.find(x=>x.Type==='manual'&&String(x.Name||'').trim().toLowerCase()===key);   // match Name (bara manual; härledda/moms orörda)
     if(!s){sups.push({Name:ir.name,Type:'manual',ManualAmounts:JSON.stringify(ma)});}        // ny → manuell leverantör
