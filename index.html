@@ -5790,13 +5790,16 @@ function getBudgetCollapse(){try{const s=JSON.parse(localStorage.getItem(budgetC
 function setBudgetCollapse(s){localStorage.setItem(budgetCollapseKey(),JSON.stringify(s));}
 function applyBudgetCollapse(){
   const st=getBudgetCollapse();
-  document.querySelectorAll('#budget-content tr[data-bsec]').forEach(tr=>{const s=tr.dataset.bsec,g=tr.dataset.bgrp;tr.style.display=(st.sections[s]||(g&&st.groups[g]))?'none':'';});
+  const _all=document.querySelectorAll('#budget-content tr[data-bsec]');let _hidden=0;
+  _all.forEach(tr=>{const s=tr.dataset.bsec,g=tr.dataset.bgrp;const hide=!!(st.sections[s]||(g&&st.groups[g]));tr.style.display=hide?'none':'';if(hide)_hidden++;});
+  console.log('[collapse] apply mode=',currentBudgetMode,'data-bsec rows:',_all.length,'hidden:',_hidden,'state:',JSON.stringify(st));   // TEMP-DIAG (ta bort)
   document.querySelectorAll('#budget-content [data-bsec-toggle]').forEach(el=>el.classList.toggle('collapsed',!!st.sections[el.dataset.bsecToggle]));
   document.querySelectorAll('#budget-content [data-bgrp-toggle]').forEach(el=>el.classList.toggle('collapsed',!!st.groups[el.dataset.bgrpToggle]));
 }
-function toggleBudgetSection(sec){const st=getBudgetCollapse();st.sections[sec]=!st.sections[sec];setBudgetCollapse(st);applyBudgetCollapse();}
-function toggleBudgetGroup(grp){const st=getBudgetCollapse();st.groups[grp]=!st.groups[grp];setBudgetCollapse(st);applyBudgetCollapse();}
+function toggleBudgetSection(sec){const st=getBudgetCollapse();st.sections[sec]=!st.sections[sec];console.log('[collapse] toggle SECTION',sec,'→',st.sections[sec],'mode',currentBudgetMode);setBudgetCollapse(st);applyBudgetCollapse();}   // TEMP-DIAG (ta bort)
+function toggleBudgetGroup(grp){const st=getBudgetCollapse();st.groups[grp]=!st.groups[grp];console.log('[collapse] toggle GROUP',grp,'→',st.groups[grp],'mode',currentBudgetMode);setBudgetCollapse(st);applyBudgetCollapse();}   // TEMP-DIAG (ta bort)
 function renderBudgetTable(){
+  console.log('[render] renderBudgetTable mode=',currentBudgetMode);   // TEMP-DIAG (ta bort)
   if(!Array.isArray(budgetRows))budgetRows=[];
   // Resultat-läget har en helt egen struktur (item: resultatbudget).
   if(currentBudgetMode==='resultat'){renderResultatBudgetTable();return;}
@@ -5926,7 +5929,7 @@ function renderBudgetTable(){
   const _bvId=currentBudgetVersionId,_bvYr=Number((budgetVersions.find(v=>String(v.Id)===String(_bvId))||{}).Year)||new Date().getFullYear();
   const _impSets={};for(let _mi=0;_mi<12;_mi++)_impSets[_mi]=new Set(JSON.parse(localStorage.getItem('importedAvtal_'+_bvId+'_'+_mi)||'[]').map(String));
   const _devCount={ARR:Array(12).fill(0),Fastpris:Array(12).fill(0),Utbildning:Array(12).fill(0),Consulting:Array(12).fill(0)};
-  if(!Object.keys(custRevCache||{}).length&&!window._budgetRevPrefetching){window._budgetRevPrefetching=true;prefetchAllCustomerRevenues().then(()=>{window._budgetRevPrefetching=false;if(currentBudgetMode==='likviditet')renderBudgetTable();}).catch(()=>{window._budgetRevPrefetching=false;});}
+  if(!Object.keys(custRevCache||{}).length&&!window._budgetRevPrefetching){console.log('[render] custRevCache TOM (inga kunder?) → prefetch startar; ev. re-render-loop');window._budgetRevPrefetching=true;prefetchAllCustomerRevenues().then(()=>{window._budgetRevPrefetching=false;if(currentBudgetMode==='likviditet'){console.log('[render] prefetch KLAR → renderBudgetTable() re-render triggad');renderBudgetTable();}}).catch(()=>{window._budgetRevPrefetching=false;});}   // TEMP-DIAG (ta bort)
   Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!_devCount[it.Type])return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==_bvYr)return;const _mi=d.getMonth();if(!_impSets[_mi].has(String(it.Id)))_devCount[it.Type][_mi]++;});});
   allBudgetRows().filter(r=>r.section==='REVENUE').forEach(rd=>{
     const cat=rd.category,sub=rd.subCategory,_type=SUB_TO_TYPE[sub];
