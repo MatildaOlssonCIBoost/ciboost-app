@@ -5832,7 +5832,9 @@ function renderBudgetTable(){
   };
 
   const revMonthly=sumSection('REVENUE');
-  const costMonthly=sumSection('COST');
+  // F2-2: likviditetens kostnader = materialiserade leverantörsrader (Source='Leverantör'/'Moms', skrivs i F2-4),
+  // INTE längre BAS-defs. = 0 tills F2-4 materialiserar. Konsistent med computeCashflow (Category!=='Revenue').
+  const costMonthly=MONTHS.map((_,mi)=>budgetRows.filter(r=>r.Source==='Leverantör'||r.Source==='Moms').reduce((s,r)=>s+(Number(r[MONTHS[mi]])||0),0));
   const resultatMonthly=revMonthly.map((v,i)=>v-costMonthly[i]);
 
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
@@ -5961,32 +5963,15 @@ function renderBudgetTable(){
   });
   html+=sumRow('Total Revenue',revMonthly,revTotal,'#fde7d6');
 
-  // KOSTNADER — ekonomens BAS-konton grupperade (Varu-/material, Övriga externa, Avskrivningar).
-  // Gruppsummarad per grupp (samma mönster som tidigare OPEX-grupper). Radnamn = "{kontonr} {namn}".
-  // Personalkonton (7210-7622) hanteras separat på kommande lönesida och ingår INTE här.
-  html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('cost')" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;cursor:pointer;"><span class="bchev" data-bsec-toggle="cost">▾</span> KOSTNADER</td></tr>`;
-  const costGroups=[...new Set(allBudgetRows().filter(r=>r.section==='COST').map(r=>r.category))];
-  costGroups.forEach(grp=>{
-    const grpRows=allBudgetRows().filter(r=>r.section==='COST'&&r.category===grp);
-    const grpMonthly=MONTHS.map((_,mi)=>grpRows.reduce((s,r)=>s+getVal(r.category,r.subCategory,mi),0));
-    const grpTotal=sum(grpMonthly);
-    const _cgrp='cost_'+grp;
-    html+=`<tr style="background:var(--surface2);cursor:pointer;" onclick="toggleBudgetGroup('${_cgrp.replace(/'/g,"\\'")}')">
-      <td style="font-weight:600;padding-left:10px;"><span class="bchev" data-bgrp-toggle="${_cgrp.replace(/"/g,'&quot;')}">▾</span> ${grp}</td>
-      ${grpMonthly.map(v=>`<td style="font-weight:600;text-align:center;font-size:11px;">${fmtK(v)}</td>`).join('')}
-      <td style="font-weight:700;text-align:center;border-left:1px solid var(--border);">${fmtK(grpTotal)}</td>
-    </tr>`;
-    grpRows.forEach(rd=>{
-      const vals=MONTHS.map((_,mi)=>getVal(rd.category,rd.subCategory,mi));
-      const total=sum(vals);
-      const acct=rd.accountNo?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${rd.accountNo}</span>`:'';
-      const lbl=`<div>${acct}${rd.subCategory}</div>${isCustomRow(rd)?`<div style="font-size:9px;color:var(--text3);font-style:italic;">Manuellt</div>`:''}`;
-      html+=`<tr data-bsec="cost" data-bgrp="${_cgrp.replace(/"/g,'&quot;')}">
-        <td style="padding-left:24px;color:var(--text2);font-size:11px;">${lbl}</td>
-        ${MONTHS.map((_,mi)=>inputCell(rd.category,rd.subCategory,mi)).join('')}
-        <td style="font-weight:500;text-align:center;font-size:11px;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(total)}</td>
-      </tr>`;
-    });
+  // F2-2: Leverantörsmodell ersätter BAS-kostnaderna i likviditeten. Tre hopfällbara sektioner
+  // (Härledda/Manuella/Momsavräkning); materialiserade leverantörsrader (Source='Leverantör'/'Moms')
+  // renderas här i F2-3/F2-4. Nu skal: tomma sektioner + övergångsnotis + "+ Lägg till"-knapp (stub).
+  // Hopfällning återanvänder K-COST-4 (toggleBudgetSection/data-bsec) — inga nya collapse-funktioner.
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">KOSTNADER · Leverantörer<button onclick="openSupplierModal()" style="margin-left:10px;border:0.5px solid rgba(255,255,255,0.4);border-radius:3px;background:rgba(255,255,255,0.12);color:white;cursor:pointer;font-size:10px;padding:1px 7px;">+ Lägg till leverantör</button></td></tr>`;
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:var(--surface2);color:var(--text3);font-size:10px;font-style:italic;padding:4px 10px;">Leverantörsmodell under uppbyggnad — kostnader visas när leverantörer lagts till.</td></tr>`;
+  [['sup_derived','Härledda leverantörer'],['sup_manual','Manuella leverantörer'],['sup_vat','Momsavräkning']].forEach(([secKey,secLabel])=>{
+    html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('${secKey}')" style="background:var(--surface2);font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer;"><span class="bchev" data-bsec-toggle="${secKey}">▾</span> ${secLabel}</td></tr>`;
+    html+=`<tr data-bsec="${secKey}"><td colspan="${MONTHS.length+2}" style="padding:4px 24px;font-size:11px;color:var(--text3);font-style:italic;">Inga leverantörer än</td></tr>`;
   });
   html+=sumRow('Total Kostnader',costMonthly,costTotal);
   html+=tbRow('Resultat (Nettoomsättning − Kostnader)',resultatMonthly,resultatTotal);
@@ -5999,7 +5984,7 @@ function renderBudgetTable(){
   document.getElementById('budget-kpi').style.gridTemplateColumns='repeat(3,minmax(0,1fr))';
   document.getElementById('budget-kpi').innerHTML=`
     <div class="kpi-card" id="kpi-rev-total" onclick="window.toggleRevUnderlag()" style="cursor:pointer;"><div class="kpi-label">Budgeterad försäljning (total) <span id="kpi-rev-ind" style="color:var(--accent);font-style:normal;">▾</span></div><div class="kpi-value" style="color:var(--accent)">${fmtKr(revTotal)}</div><div class="kpi-delta neu">Varav Prenumeration ${fmtKr(licPrenSum)} · klicka för underlag</div></div>
-    <div class="kpi-card"><div class="kpi-label">Budgeterade kostnader (totalt)</div><div class="kpi-value" style="color:var(--red)">${fmtKr(costTotal)}</div><div class="kpi-delta neu">BAS-konton · helår ${year}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Budgeterade kostnader (totalt)</div><div class="kpi-value" style="color:var(--red)">${fmtKr(costTotal)}</div><div class="kpi-delta neu">Leverantörer · helår ${year}</div></div>
     <div class="kpi-card"><div class="kpi-label">Resultat</div><div class="kpi-value" style="color:${resultatTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatTotal)}</div><div class="kpi-delta neu">Nettoomsättning − kostnader · helår ${year}</div></div>`;
 
   restoreNoteDots();
@@ -6008,6 +5993,8 @@ function renderBudgetTable(){
 }
 
 function updateBudgetTotals(){}
+// F2-2: stub — leverantörs-modal (skapa/redigera härledd/manuell/momsavräkning) byggs i F2-3.
+function openSupplierModal(){}
 
 // M1: Åtgärder-dropdown. Samma mönster som toggleRevDD (stäng andra paneler, stoppa propagation så
 // global klick-utanför-handlern (6834) inte direkt stänger den). Panelens egen onclick stänger vid postval.
