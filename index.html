@@ -4736,7 +4736,7 @@ async function importMonthActuals(versionId,monthIndex,includedAvtalIds=null){
     if(incl&&!incl.has(String(it.Id)))return;
     const d=kaCashflowDate(it);
     if(!d||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
-    perType[it.Type]+=(it.Amount||0);importedIds.push(it.Id);
+    perType[it.Type]+=(it.Amount||0)*(1+(it.VatRate!=null?it.VatRate:25)/100);importedIds.push(it.Id);   // K3: inkl moms (likviditet, avtal — cachad VatRate)
   });});
   const Mkey=MONTHS[monthIndex];const today=new Date().toISOString().substring(0,10);const SRC='Avtal (likviditet)';
   Object.keys(perType).forEach(type=>{
@@ -4826,7 +4826,7 @@ async function openImportFornyelseModal(versionId,preMonth){
   let _frSavedAll={};
   try{
     const r=await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`);
-    if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _frSavedAll=Object.fromEntries(arr.filter(x=>x.Source===(currentBudgetMode==='resultat'?'Förnyelse (resultat)':'Förnyelse')).map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,licenseDateTo:x.RefDate?String(x.RefDate).substring(0,10):null,srcAmount:x.SrcAmount,srcProb:x.SrcProb,srcDate:x.SrcDate?String(x.SrcDate).substring(0,10):null,importedBy:x.ImportedBy||'',importedAt:x.ImportedAt?String(x.ImportedAt).substring(0,10):''}]));}
+    if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _frSavedAll=Object.fromEntries(arr.filter(x=>x.Source===(currentBudgetMode==='resultat'?'Förnyelse (resultat)':'Förnyelse')).map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,licenseDateTo:x.RefDate?String(x.RefDate).substring(0,10):null,srcAmount:x.SrcAmount,srcProb:x.SrcProb,srcDate:x.SrcDate?String(x.SrcDate).substring(0,10):null,importedBy:x.ImportedBy||'',importedAt:x.ImportedAt?String(x.ImportedAt).substring(0,10):'',vatRate:x.VatRate}]));}
   }catch(e){
     try{_frSavedAll=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'{}');}catch(e2){_frSavedAll={};}
   }
@@ -4960,14 +4960,14 @@ async function openImportFornyelseModal(versionId,preMonth){
       const cust=(allCustomers||[]).find(c=>String(c.Id)===String(p.custId));const post=cust?_frLatestOfType(cust,p.type):null;
       if(Math.round((p.amount||0)*(p.prob||0)/100)>0)imported++;
       const _refDate=post&&post.DateTo?String(post.DateTo).substring(0,10):null;
-      saved[p.custId+'_'+p.type]={amount:p.amount,prob:p.prob,date:p.date,licenseDateTo:_refDate,importedAt:today};
-      assumptions.push({itemKey:p.custId+'_'+p.type,amount:p.amount,prob:p.prob,assumeDate:p.date,refDate:_refDate,type:p.type,importedBy,srcAmount:(post&&post.Amount!=null)?post.Amount:null,srcProb:cust?calculateRiskScoreClient(cust).renewalProb:null,srcDate:(post&&post.DateTo)?String(post.DateTo).substring(0,10):null});
+      saved[p.custId+'_'+p.type]={amount:p.amount,prob:p.prob,date:p.date,licenseDateTo:_refDate,importedAt:today,vatRate:(post&&post.VatRate!=null)?post.VatRate:null};
+      assumptions.push({itemKey:p.custId+'_'+p.type,amount:p.amount,prob:p.prob,assumeDate:p.date,refDate:_refDate,type:p.type,importedBy,srcAmount:(post&&post.Amount!=null)?post.Amount:null,srcProb:cust?calculateRiskScoreClient(cust).renewalProb:null,srcDate:(post&&post.DateTo)?String(post.DateTo).substring(0,10):null,vatRate:(post&&post.VatRate!=null)?post.VatRate:null});
     });
     // /rows-cellerna byggs från HELA mergade setet: DB (_frSavedAll: amount/prob/date; type ur nyckeln custId_type)
     // ⊕ sessionens checked picks (override/tillägg) − removals. Komplett projektion → ingen månadsförlust.
     const merged={};
-    Object.entries(_frSavedAll||{}).forEach(([k,e])=>{merged[k]={amount:_frParse(e.amount),prob:_frParse(e.prob),date:e.date,type:k.split('_').pop()};});
-    picks.forEach(p=>{merged[p.custId+'_'+p.type]={amount:p.amount,prob:p.prob,date:p.date,type:p.type};});
+    Object.entries(_frSavedAll||{}).forEach(([k,e])=>{merged[k]={amount:_frParse(e.amount),prob:_frParse(e.prob),date:e.date,type:k.split('_').pop(),vatRate:e.vatRate};});
+    picks.forEach(p=>{const _vc=(allCustomers||[]).find(c=>String(c.Id)===String(p.custId));const _vp=_vc?_frLatestOfType(_vc,p.type):null;merged[p.custId+'_'+p.type]={amount:p.amount,prob:p.prob,date:p.date,type:p.type,vatRate:(_vp&&_vp.VatRate!=null)?_vp.VatRate:null};});
     removals.forEach(k=>{delete merged[k];});
     if(currentBudgetMode==='resultat'){const entriesP=Object.entries(merged).map(([k,m])=>{const us=k.split('_');const type=us.pop();const custId=us.join('_');const ed=(window._frEdits||{})[k]||{};let df=(ed.dateFrom!=null&&ed.dateFrom!=='')?ed.dateFrom:null,dt=(ed.dateTo!=null&&ed.dateTo!=='')?ed.dateTo:null;if(!df||!dt){let o=_frSavedAll[k]?.licenseDateTo||null;if(!o){const cust=(allCustomers||[]).find(c=>String(c.Id)===String(custId));const post=cust?_frLatestOfType(cust,type):null;o=post&&post.DateTo?String(post.DateTo).substring(0,10):null;}if(o){const s=new Date(o);s.setDate(s.getDate()+1);if(!df)df=s.toISOString().substring(0,10);const e2=new Date(s);e2.setFullYear(e2.getFullYear()+1);e2.setDate(e2.getDate()-1);if(!dt)dt=e2.toISOString().substring(0,10);}}return {amount:m.amount,prob:m.prob,dateFrom:df,dateTo:dt,type:m.type};});try{await rebuildSourceRowsPeriodized(versionId,'Förnyelse (resultat)','Nyförsäljning',entriesP);}catch(e){alert('Kunde inte spara importen.');return;}}
     else try{await rebuildSourceRows(versionId,'Förnyelse',Object.values(merged));}catch(e){alert('Kunde inte spara importen.');return;}
@@ -5005,7 +5005,7 @@ async function openImportPipelineModal(versionId,preMonth){
   let _ppSavedAll={};
   try{
     const r=await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`);
-    if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _ppSavedAll=Object.fromEntries(arr.filter(x=>x.Source===(currentBudgetMode==='resultat'?'Pipeline (resultat)':'Pipeline (viktat)')).map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,invoiceDate:x.RefDate?String(x.RefDate).substring(0,10):null,srcAmount:x.SrcAmount,srcProb:x.SrcProb,srcDate:x.SrcDate?String(x.SrcDate).substring(0,10):null,importedBy:x.ImportedBy||'',importedAt:x.ImportedAt?String(x.ImportedAt).substring(0,10):''}]));}
+    if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _ppSavedAll=Object.fromEntries(arr.filter(x=>x.Source===(currentBudgetMode==='resultat'?'Pipeline (resultat)':'Pipeline (viktat)')).map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,invoiceDate:x.RefDate?String(x.RefDate).substring(0,10):null,srcAmount:x.SrcAmount,srcProb:x.SrcProb,srcDate:x.SrcDate?String(x.SrcDate).substring(0,10):null,importedBy:x.ImportedBy||'',importedAt:x.ImportedAt?String(x.ImportedAt).substring(0,10):'',vatRate:x.VatRate}]));}
   }catch(e){
     try{_ppSavedAll=JSON.parse(localStorage.getItem('pipelineImport_'+versionId)||'{}');}catch(e2){_ppSavedAll={};}
   }
@@ -5134,14 +5134,14 @@ async function openImportPipelineModal(versionId,preMonth){
       const items=prospectRevCache[p.prospectId]||[];const it=items.find(x=>String(x.Id)===String(p.itemId));
       if(Math.round((p.amount||0)*(p.prob||0)/100)>0)imported++;
       const _refDate=it&&it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null;
-      saved[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,invoiceDate:_refDate,type:it?it.Type:null,importedAt:today};
-      assumptions.push({itemKey:p.prospectId+'_'+p.itemId,amount:p.amount,prob:p.prob,assumeDate:p.date,refDate:_refDate,type:it?it.Type:null,importedBy,srcAmount:(it&&it.Amount!=null)?it.Amount:null,srcProb:(it&&it.Probability!=null)?it.Probability:null,srcDate:(it&&it.InvoiceDate)?String(it.InvoiceDate).substring(0,10):null});
+      saved[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,invoiceDate:_refDate,type:it?it.Type:null,importedAt:today,vatRate:(it&&it.VatRate!=null)?it.VatRate:null};
+      assumptions.push({itemKey:p.prospectId+'_'+p.itemId,amount:p.amount,prob:p.prob,assumeDate:p.date,refDate:_refDate,type:it?it.Type:null,importedBy,srcAmount:(it&&it.Amount!=null)?it.Amount:null,srcProb:(it&&it.Probability!=null)?it.Probability:null,srcDate:(it&&it.InvoiceDate)?String(it.InvoiceDate).substring(0,10):null,vatRate:(it&&it.VatRate!=null)?it.VatRate:null});
     });
     // /rows-cellerna byggs från HELA mergade setet: DB (_ppSavedAll: amount/prob/date; type härleds ur prospectRevCache via nyckeln prospectId_itemId)
     // ⊕ sessionens checked picks (override/tillägg) − removals. Komplett projektion → ingen månadsförlust.
     const merged={};
-    Object.entries(_ppSavedAll||{}).forEach(([k,e])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));merged[k]={amount:_ppParse(e.amount),prob:_ppParse(e.prob),date:e.date,type:it?it.Type:null};});
-    picks.forEach(p=>{const it=(prospectRevCache[p.prospectId]||[]).find(x=>String(x.Id)===String(p.itemId));merged[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,type:it?it.Type:null};});
+    Object.entries(_ppSavedAll||{}).forEach(([k,e])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));merged[k]={amount:_ppParse(e.amount),prob:_ppParse(e.prob),date:e.date,type:it?it.Type:null,vatRate:e.vatRate};});
+    picks.forEach(p=>{const it=(prospectRevCache[p.prospectId]||[]).find(x=>String(x.Id)===String(p.itemId));merged[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,type:it?it.Type:null,vatRate:(it&&it.VatRate!=null)?it.VatRate:null};});
     removals.forEach(k=>{delete merged[k];});
     if(currentBudgetMode==='resultat'){const entriesP=Object.entries(merged).map(([k,m])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));const ed=(window._ppEdits||{})[k]||{};const df=(ed.dateFrom!=null&&ed.dateFrom!=='')?ed.dateFrom:(it&&it.DateFrom?String(it.DateFrom).substring(0,10):null);const dt=(ed.dateTo!=null&&ed.dateTo!=='')?ed.dateTo:(it&&it.DateTo?String(it.DateTo).substring(0,10):null);return {amount:m.amount,prob:m.prob,dateFrom:df,dateTo:dt,type:m.type};});try{await rebuildSourceRowsPeriodized(versionId,'Pipeline (resultat)','Nyförsäljning',entriesP);}catch(e){alert('Kunde inte spara importen.');return;}}
     else try{await rebuildSourceRows(versionId,'Pipeline (viktat)',Object.values(merged));}catch(e){alert('Kunde inte spara importen.');return;}
@@ -6056,7 +6056,7 @@ async function rebuildSourceRows(versionId,source,entries){
   let rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();
   if(!Array.isArray(rows))rows=[];
   rows.forEach(r=>{if(r.Category===REV_CATEGORY&&(r.Source||'')===source)MONTHS.forEach(m=>r[m]=0);});   // nollställ FÖRE ackumulering
-  (entries||[]).forEach(e=>{const sub=REV_CAT_TO_SUB[e.type];const d=new Date(e.date);const weighted=Math.round((e.amount||0)*(e.prob||0)/100);
+  (entries||[]).forEach(e=>{const sub=REV_CAT_TO_SUB[e.type];const d=new Date(e.date);const weighted=Math.round((e.amount||0)*(e.prob||0)/100*(1+(e.vatRate!=null?e.vatRate:25)/100));   // K3: inkl moms (likviditet — antagandets vatRate, self-contained)
     if(!sub||isNaN(d)||weighted<=0)return;
     const ld=new Date(d);ld.setDate(ld.getDate()+30);
     if(ld.getFullYear()!==year)return;   // likviditet (faktura+30) i annat år → ingår ej i denna matris
@@ -6434,7 +6434,7 @@ async function _underlagAfterRemove(vid,source){
       return {amount:a.Amount,prob:a.Prob,dateFrom:from,dateTo:to,type:a.Type};});
     await rebuildSourceRowsPeriodized(vid,source,cat,entries);
   }else{
-    const remaining=rem.map(a=>({amount:a.Amount,prob:a.Prob,date:a.AssumeDate,type:a.Type}));
+    const remaining=rem.map(a=>({amount:a.Amount,prob:a.Prob,date:a.AssumeDate,type:a.Type,vatRate:a.VatRate}));
     await rebuildSourceRows(vid,source,remaining);
   }
   if(String(vid)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${vid}/rows`)).json();renderBudgetTable();}catch(e){}}
