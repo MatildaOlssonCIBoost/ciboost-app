@@ -5525,35 +5525,57 @@ function renderResultatBudgetTable(){
   const aktiveradeMonthly=sumRowsMonthly([{cat:'Aktiverade kostnader',sub:'Kostnader utveckling & personal'}]);
   html+=calcRow('Summa aktiverade kostnader',aktiveradeMonthly,sum(aktiveradeMonthly));
 
-  // Rörelsens kostnader (mörk)
+  // K-COST-3: BAS-kontogrupp ur COST_ROWS_DEF (cat=grupp, sub=namn → matchar BUDGET_ROWS_DEF-spreaden,
+  // så saveBudget-berikningen sätter accountNo automatiskt). costAccountRow = redigerbar rad "{konto} {namn}".
+  const basGroupRows=grp=>COST_ROWS_DEF.filter(c=>c.group===grp).map(c=>({cat:grp,sub:c.name,account:c.account}));
+  const costAccountRow=(grp,c)=>{const acct=c.account?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>`:'';return `<tr style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;">${acct}${c.name}</td>${MONTHS.map((_,mi)=>inputCell(grp,c.name,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(grp,c.name)))}</td></tr>`;};
+
+  // Rörelsens kostnader (mörk) — Varu/Övriga externa = BAS-konton (data-drivet); Personalkostnader = inline (lönesida).
   html+=headerRow('▸ Rörelsens kostnader',DARK);
-  html+=inputRow('Rörelsens kostnader','Direkta kostnader',24);
+  const varuRows=basGroupRows('Varu- och materialkostnader');
+  const varuMonthly=sumRowsMonthly(varuRows);
+  html+=groupSumRow('Varu- och materialkostnader',varuMonthly,sum(varuMonthly),16);
+  varuRows.forEach(c=>html+=costAccountRow('Varu- och materialkostnader',c));
+  const ovrRows=basGroupRows('Övriga externa kostnader');
+  const ovrMonthly=sumRowsMonthly(ovrRows);
+  html+=groupSumRow('Övriga externa kostnader',ovrMonthly,sum(ovrMonthly),16);
+  ovrRows.forEach(c=>html+=costAccountRow('Övriga externa kostnader',c));
+  // Personalkostnader BEHÅLLS inline (formel-skatterna från Lön-fliken) — fylls av kommande lönesida.
   const persRows=[{cat:'Personalkostnader',sub:'Soc avg'},{cat:'Personalkostnader',sub:'Pension'},{cat:'Personalkostnader',sub:'Löneskatt'},{cat:'Personalkostnader',sub:'Övriga personalkostnader'}];
   const persMonthly=sumRowsMonthly(persRows);
   html+=groupSumRow('Personalkostnader',persMonthly,sum(persMonthly),16);
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="padding-left:36px;font-size:10px;color:var(--text3);font-style:italic;">hanteras på lönesidan – kommande</td></tr>`;
   persRows.forEach(r=>html+=inputRow(r.cat,r.sub,36));
-  html+=inputRow('Rörelsens kostnader','Marknadsföring',24);
-  html+=inputRow('Rörelsens kostnader','Produktutveckling, delvis ej aktiverad del',24);
-  html+=inputRow('Rörelsens kostnader','Övriga kostnader',24);
-  html+=inputRow('Rörelsens kostnader','Service Fee',24);
-  const kostnaderRows=[{cat:'Rörelsens kostnader',sub:'Direkta kostnader'},...persRows,{cat:'Rörelsens kostnader',sub:'Marknadsföring'},{cat:'Rörelsens kostnader',sub:'Produktutveckling, delvis ej aktiverad del'},{cat:'Rörelsens kostnader',sub:'Övriga kostnader'},{cat:'Rörelsens kostnader',sub:'Service Fee'}];
-  const kostnaderMonthly=sumRowsMonthly(kostnaderRows);
+  // = Summa rörelsens kostnader = Varu + Övriga externa + Personal (Avskrivningar hålls UTANFÖR).
+  const kostnaderMonthly=MONTHS.map((_,i)=>varuMonthly[i]+ovrMonthly[i]+persMonthly[i]);
   html+=calcRow('Summa rörelsens kostnader',kostnaderMonthly,sum(kostnaderMonthly));
 
-  // Resultat före avskrivningar
+  // Avskrivningar (NY — BAS 7810, data-drivet; ligger UTANFÖR rörelsekostnaderna)
+  html+=headerRow('▸ Avskrivningar',DARK);
+  const avskRows=basGroupRows('Avskrivningar');
+  const avskMonthly=sumRowsMonthly(avskRows);
+  html+=groupSumRow('Avskrivningar',avskMonthly,sum(avskMonthly),16);
+  avskRows.forEach(c=>html+=costAccountRow('Avskrivningar',c));
+
+  // Resultat före avskrivningar — OFÖRÄNDRAD formel (netto − rörelsekostnader + aktiverade add-back)
   const resultatMonthly=MONTHS.map((_,i)=>nettoMonthly[i]-kostnaderMonthly[i]+aktiveradeMonthly[i]);
   const resultatTotal=sum(resultatMonthly);
   html+=calcRow('Resultat före avskrivningar',resultatMonthly,resultatTotal,DARK,true);
+  // Resultat efter avskrivningar = före − avskrivningar (NY)
+  const resultatEfterMonthly=MONTHS.map((_,i)=>resultatMonthly[i]-avskMonthly[i]);
+  const resultatEfterTotal=sum(resultatEfterMonthly);
+  html+=calcRow('Resultat efter avskrivningar',resultatEfterMonthly,resultatEfterTotal,DARK,true);
 
   html+='</tbody></table></div>';
   document.getElementById('budget-content').innerHTML=html;
 
-  document.getElementById('budget-kpi').style.gridTemplateColumns='repeat(4,minmax(0,1fr))';
+  document.getElementById('budget-kpi').style.gridTemplateColumns='repeat(5,minmax(0,1fr))';
   document.getElementById('budget-kpi').innerHTML=`
     <div class="kpi-card" id="kpi-rev-total" onclick="window.toggleRevUnderlag()" style="cursor:pointer;"><div class="kpi-label">Nettoomsättning <span id="kpi-rev-ind" style="color:var(--accent);font-style:normal;">▾</span></div><div class="kpi-value" style="color:var(--accent)">${fmtKr(sum(nettoMonthly))}</div><div class="kpi-delta neu">Helår ${year} · klicka för underlag</div></div>
     <div class="kpi-card"><div class="kpi-label">Aktiverade kostnader</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(sum(aktiveradeMonthly))}</div><div class="kpi-delta neu">utveckling & personal</div></div>
-    <div class="kpi-card"><div class="kpi-label">Rörelsens kostnader</div><div class="kpi-value" style="color:var(--red)">${fmtKr(sum(kostnaderMonthly))}</div><div class="kpi-delta neu">totalt</div></div>
-    <div class="kpi-card"><div class="kpi-label">Resultat före avskrivn.</div><div class="kpi-value" style="color:${resultatTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatTotal)}</div><div class="kpi-delta neu">helår ${year}</div></div>`;
+    <div class="kpi-card"><div class="kpi-label">Rörelsens kostnader</div><div class="kpi-value" style="color:var(--red)">${fmtKr(sum(kostnaderMonthly))}</div><div class="kpi-delta neu">Varu + Övriga externa + Personal</div></div>
+    <div class="kpi-card"><div class="kpi-label">Resultat före avskrivn.</div><div class="kpi-value" style="color:${resultatTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatTotal)}</div><div class="kpi-delta neu">helår ${year}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Resultat efter avskrivn.</div><div class="kpi-value" style="color:${resultatEfterTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatEfterTotal)}</div><div class="kpi-delta neu">efter ${fmtKr(sum(avskMonthly))} avskrivningar</div></div>`;
   restoreNoteDots();
   applyBudgetLockState();
 }
