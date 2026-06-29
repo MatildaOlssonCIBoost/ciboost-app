@@ -6242,18 +6242,18 @@ function parseExcelResult(wb){
   if(!ws||!ws['!ref'])return null;
   const range=XLSX.utils.decode_range(ws['!ref']);
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};   // .v = beräknat värde (ej formel .f)
-  const SKIP=/summa|bruttovinst|rörelsens|^resultat|%/i;
   const out=[];
-  // IMP-1b: importera BARA kostnader. Kol A har sektionsrubriker; "Rörelsens kostnader" markerar var kostnadssektionen
-  // börjar. Allt FÖRE den (intäktssektionen, 3000-serien) hoppas helt → CIBoost-intäkterna skrivs aldrig över av Excel.
+  // IMP-1b/1c: importera BARA kostnadssektionen (efter "Rörelsens kostnader") OCH bara rader med numeriskt
+  // BAS-konto (3-4 siffror) i kol A. Rubrik/summa/nyckeltal-rader har TEXT i kol A (ofta tomt kol B) → matchar
+  // ej /^[0-9]{3,4}$/ → hoppas automatiskt (gamla kol-B-only-skippen missade dem). Intäkter (3000) hoppas av sektionsgaten.
   let inCostSection=false;
   for(let r=5;r<=range.e.r;r++){
     const acct=cv(r,0),name=cv(r,1);
     if(acct!=null&&/rörelsens kostnader/i.test(String(acct))){inCostSection=true;continue;}   // kostnadssektionen börjar — hoppa rubrikraden
     if(!inCostSection)continue;                                  // före rubriken = intäktssektion → hoppa ALLA rader (3000-serien)
-    if(acct==null||String(acct).trim()==='')continue;            // ingen BAS-konto → hoppa
-    if(name&&SKIP.test(String(name)))continue;                   // summarad → hoppa
-    const row={accountNo:String(acct).trim(),name:name!=null?String(name).trim():''};
+    const acctStr=acct!=null?String(acct).trim():'';
+    if(!/^[0-9]{3,4}$/.test(acctStr))continue;                   // bara numeriskt BAS-konto → rubriker/summor/nyckeltal (text i kol A) hoppas
+    const row={accountNo:acctStr,name:name!=null?String(name).trim():''};
     MONTHS.forEach((m,i)=>{const v=cv(r,3+i);row[m]=(typeof v==='number')?v:(parseFloat(v)||0);});   // D-O = c 3..14
     out.push(row);
   }
