@@ -1260,6 +1260,11 @@ const COST_ROWS_DEF = [
   // Avskrivningar
   { group:'Avskrivningar', account:'7810', name:'Avskrivningar immateriella' },
 ];
+// RES-1: Aktiverat arbete för egen räkning (intäktssidan). Egen def — importeras (3850/3870), renderas mellan Summa nettoomsättning och Summa rörelsens intäkter.
+const AKTIVERAT_ROWS_DEF = [
+  { group:'Aktiverat arbete', account:'3850', name:'Aktiverat arbete (omkostnader)' },
+  { group:'Aktiverat arbete', account:'3870', name:'Aktiverat arbete (personal)' },
+];
 const BUDGET_ROWS_DEF = [
   {section:'REVENUE', category:'Revenue', subCategory:'Licens (prenumeration)', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Licens (fast pris)', type:'revenue'},
@@ -5584,13 +5589,18 @@ function renderResultatBudgetTable(){
   const nettoMonthly=MONTHS.map((_,i)=>periodMonthly[i]+nyMonthly[i]);
   html+=headerRow('▸ Rörelsens intäkter',WARM_BG,WARM_TEXT);
   html+=calcRow('Nettoomsättning',nettoMonthly,sum(nettoMonthly));
-  html+=calcRow('Summa rörelsens intäkter',nettoMonthly,sum(nettoMonthly));
+  html+=groupSumRow('Summa nettoomsättning',nettoMonthly,sum(nettoMonthly),10);
 
-  // Aktiverade kostnader (mörk — kostnadssektion)
-  html+=resSecHdr('Aktiverade kostnader','raktiverade',DARK);
-  html+=inputRow('Aktiverade kostnader','Kostnader utveckling & personal',24,null,'raktiverade','rc_Aktiverade');
-  const aktiveradeMonthly=sumRowsMonthly([{cat:'Aktiverade kostnader',sub:'Kostnader utveckling & personal'}]);
-  html+=calcRow('Summa aktiverade kostnader',aktiveradeMonthly,sum(aktiveradeMonthly));
+  // RES-1: Aktiverat arbete för egen räkning (3850/3870) — INTÄKTSSIDAN (def-drivet), mellan Summa nettoomsättning och Summa rörelsens intäkter.
+  // Rader renderas inline (costAccountRow def:as senare i funktionen) — editbara, autosparas som Category='Aktiverat arbete'.
+  html+=resSecHdr('Aktiverat arbete för egen räkning','raktiverat',WARM_BG,WARM_TEXT);
+  AKTIVERAT_ROWS_DEF.forEach(c=>{html+=`<tr data-bsec="raktiverat" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;"><span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>${c.name}</td>${MONTHS.map((_,mi)=>inputCell('Aktiverat arbete',c.name,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly('Aktiverat arbete',c.name)))}</td></tr>`;});
+  const aktiveratMonthly=sumRowsMonthly(AKTIVERAT_ROWS_DEF.map(c=>({cat:c.group,sub:c.name})));
+  html+=groupSumRow('Summa aktiverat arbete för egen räkning',aktiveratMonthly,sum(aktiveratMonthly),10);
+
+  // Summa rörelsens intäkter = nettoomsättning + aktiverat arbete (ekonomens struktur)
+  const rorelseIntaktMonthly=MONTHS.map((_,i)=>nettoMonthly[i]+aktiveratMonthly[i]);
+  html+=calcRow('Summa rörelsens intäkter',rorelseIntaktMonthly,sum(rorelseIntaktMonthly));
 
   // K-COST-3: BAS-kontogrupp ur COST_ROWS_DEF (cat=grupp, sub=namn → matchar BUDGET_ROWS_DEF-spreaden,
   // så saveBudget-berikningen sätter accountNo automatiskt). costAccountRow = redigerbar rad "{konto} {namn}".
@@ -5623,8 +5633,9 @@ function renderResultatBudgetTable(){
   html+=resGrpHdr('Avskrivningar',avskMonthly,sum(avskMonthly),'rc_Avskrivningar',16);
   avskRows.forEach(c=>html+=costAccountRow('Avskrivningar',c,'ravskrivningar'));
 
-  // Resultat före avskrivningar — OFÖRÄNDRAD formel (netto − rörelsekostnader + aktiverade add-back)
-  const resultatMonthly=MONTHS.map((_,i)=>nettoMonthly[i]-kostnaderMonthly[i]+aktiveradeMonthly[i]);
+  // RES-1: Resultat före avskrivningar = (netto + aktiverat) − rörelsekostnader. Aktiverat flyttat till intäktssidan
+  // (Summa rörelsens intäkter) → samma matematik som gamla "netto − kostnader + aktiverade" (add-back), nettoeffekt noll.
+  const resultatMonthly=MONTHS.map((_,i)=>rorelseIntaktMonthly[i]-kostnaderMonthly[i]);
   const resultatTotal=sum(resultatMonthly);
   html+=calcRow('Resultat före avskrivningar',resultatMonthly,resultatTotal,DARK,true);
   // Resultat efter avskrivningar = före − avskrivningar (NY)
@@ -5638,7 +5649,7 @@ function renderResultatBudgetTable(){
   document.getElementById('budget-kpi').style.gridTemplateColumns='repeat(5,minmax(0,1fr))';
   document.getElementById('budget-kpi').innerHTML=`
     <div class="kpi-card" id="kpi-rev-total" onclick="window.toggleRevUnderlag()" style="cursor:pointer;"><div class="kpi-label">Nettoomsättning <span id="kpi-rev-ind" style="color:var(--accent);font-style:normal;">▾</span></div><div class="kpi-value" style="color:var(--accent)">${fmtKr(sum(nettoMonthly))}</div><div class="kpi-delta neu">Helår ${year} · klicka för underlag</div></div>
-    <div class="kpi-card"><div class="kpi-label">Aktiverade kostnader</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(sum(aktiveradeMonthly))}</div><div class="kpi-delta neu">utveckling & personal</div></div>
+    <div class="kpi-card"><div class="kpi-label">Aktiverat arbete</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(sum(aktiveratMonthly))}</div><div class="kpi-delta neu">3850 + 3870 · egen räkning</div></div>
     <div class="kpi-card"><div class="kpi-label">Rörelsens kostnader</div><div class="kpi-value" style="color:var(--red)">${fmtKr(sum(kostnaderMonthly))}</div><div class="kpi-delta neu">Varu + Övriga externa + Personal</div></div>
     <div class="kpi-card"><div class="kpi-label">Resultat före avskrivn.</div><div class="kpi-value" style="color:${resultatTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatTotal)}</div><div class="kpi-delta neu">helår ${year}</div></div>
     <div class="kpi-card"><div class="kpi-label">Resultat efter avskrivn.</div><div class="kpi-value" style="color:${resultatEfterTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatEfterTotal)}</div><div class="kpi-delta neu">efter ${fmtKr(sum(avskMonthly))} avskrivningar</div></div>`;
@@ -6264,18 +6275,17 @@ function parseExcelResult(wb){
   const range=XLSX.utils.decode_range(ws['!ref']);
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};   // .v = beräknat värde (ej formel .f)
   const out=[];
-  // IMP-1b/1c: importera BARA kostnadssektionen (efter "Rörelsens kostnader") OCH bara rader med numeriskt
-  // BAS-konto (3-4 siffror) i kol A. Rubrik/summa/nyckeltal-rader har TEXT i kol A (ofta tomt kol B) → matchar
-  // ej /^[0-9]{3,4}$/ → hoppas automatiskt (gamla kol-B-only-skippen missade dem). Intäkter (3000) hoppas av sektionsgaten.
-  let inCostSection=false;
+  // RES-1: section-taggad routing — läs ALLA numeriska konton i hela arket → findResultDef → behåll bara träffar (cost/aktiverat).
+  // Konton UTAN def-träff (3000-serien intäkter = appens slots; 8xxx finansiella tills RES-2) HOPPAS. Ingen cost-section-gate längre.
+  // Rubriker/summor/nyckeltal har TEXT i kol A → matchar ej /^[0-9]{3,4}$/ → hoppas.
   for(let r=5;r<=range.e.r;r++){
     const acct=cv(r,0),name=cv(r,1);
-    if(acct!=null&&/rörelsens kostnader/i.test(String(acct))){inCostSection=true;continue;}   // kostnadssektionen börjar — hoppa rubrikraden
-    if(!inCostSection)continue;                                  // före rubriken = intäktssektion → hoppa ALLA rader (3000-serien)
     const acctStr=acct!=null?String(acct).trim():'';
-    if(!/^[0-9]{3,4}$/.test(acctStr))continue;                   // bara numeriskt BAS-konto → rubriker/summor/nyckeltal (text i kol A) hoppas
-    const colC=cv(r,2);   // DEF-2: kol C (c=2) första ord → disambiguerar dubblettkonton (5990/6540) vid skrivning
-    const row={accountNo:acctStr,name:name!=null?String(name).trim():'',colCWord:colC!=null?String(colC).trim().split(/\s+/)[0]:''};
+    if(!/^[0-9]{3,4}$/.test(acctStr))continue;                   // bara numeriska konton
+    const colC=cv(r,2);const colCWord=colC!=null?String(colC).trim().split(/\s+/)[0]:'';   // kol C första ord → dubblett-disambiguering (5990/6540)
+    const def=findResultDef(acctStr,colCWord);
+    if(!def)continue;                                            // 3000-serien (intäkter) / 8xxx (finans, RES-2) utan def → hoppas
+    const row={accountNo:acctStr,name:name!=null?String(name).trim():'',colCWord,section:def.section,defGroup:def.group,defName:def.name};
     MONTHS.forEach((m,i)=>{const v=cv(r,3+i);row[m]=(typeof v==='number')?v:(parseFloat(v)||0);});   // D-O = c 3..14
     out.push(row);
   }
@@ -6329,14 +6339,16 @@ async function handleExcelFile(e){
     if(prev)prev.innerHTML=`Hittade <b>${resultRows.length}</b> kostnadsrader (resultat) + <b>${liqRows.length}</b> utbetalningar (likviditet).<br>Resultat → ${rTxt}<br>Likviditet → ${lTxt}`;
   }catch(err){console.error('[handleExcelFile]',err);window._excelResult=null;window._excelLiquidity=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Kunde inte läsa filen — är det en giltig .xlsx?</span>';}
 }
-// DEF-2: mappa importens accountNo (+ kol C första ord för dubblettkonton) → COST_ROWS_DEF-rad.
-// Vanligt konto → unik def. Dubblettkonto (flera def delar account, t.ex. 5990/6540) → kol C första ord (case-insensitive includes mot def-namnet). Okänt → null.
-function findCostDef(accountNo,colCWord){
+// RES-1: section-taggad master-def — mappa importens accountNo → {group,name,section} över COST ∪ AKTIVERAT (FINANS i RES-2).
+// Cost: dubblett-disambiguering via kol C (5990/6540). Aktiverat: 3850/3870. Okänt (3000-serien intäkter = appens slots; 8xxx tills RES-2) → null → hoppas.
+function findResultDef(accountNo,colCWord){
   const acct=String(accountNo||'').trim();
-  const defs=COST_ROWS_DEF.filter(c=>c.account&&c.account===acct);
-  if(defs.length===1)return defs[0];                                          // vanligt konto → unik def
-  if(defs.length>1){const w=String(colCWord||'').trim().toLowerCase();return (w&&defs.find(d=>d.name.toLowerCase().includes(w)))||defs[0];}   // dubblett → kol C
-  return null;                                                               // okänt konto → fallback
+  const costs=COST_ROWS_DEF.filter(c=>c.account&&c.account===acct);
+  if(costs.length===1)return {group:costs[0].group,name:costs[0].name,section:'cost'};                          // vanligt kostnadskonto → unik def
+  if(costs.length>1){const w=String(colCWord||'').trim().toLowerCase();const d=(w&&costs.find(x=>x.name.toLowerCase().includes(w)))||costs[0];return {group:d.group,name:d.name,section:'cost'};}   // dubblett → kol C
+  const akt=AKTIVERAT_ROWS_DEF.find(c=>c.account===acct);
+  if(akt)return {group:akt.group,name:akt.name,section:'aktiverat'};                                            // aktiverat arbete (3850/3870)
+  return null;                                                                                                  // 3000-serien / 8xxx → hoppas
 }
 // Skriv resultat → /rows. DEF-2: varje importrad → def-rad (Category=grupp, SubCategory=def-namn) så resultat-rendern (def-driven) visar den.
 // Match på DEF-NYCKEL (Category+SubCategory), EJ bara AccountNo (5990/6540 ×2 kräver SubCategory). Okänt konto → fallback 'Övrig kostnad'. Additiv GET-merge → härledd-omräkning.
@@ -6344,12 +6356,11 @@ async function writeExcelResult(rows,tid){
   let existing=await (await apiFetch(`${API}/budget-versions/${tid}/rows`)).json();
   if(!Array.isArray(existing))existing=[];
   rows.forEach(ir=>{
-    const def=findCostDef(ir.accountNo,ir.colCWord);
-    const cat=def?def.group:'Övriga externa kostnader';
-    const sub=def?def.name:'Övrig kostnad';                                   // okänt konto → den tomma def-raden (renderas)
-    const acctNo=def?(def.account||null):null;
+    // RES-1: parse har redan resolvat def (defGroup/defName/section) → route: cost→kostnadsgrupp, aktiverat→'Aktiverat arbete'. Match på def-nyckel (Category+SubCategory).
+    const cat=ir.defGroup,sub=ir.defName;
+    if(!cat||!sub)return;
     let row=existing.find(r=>r.Category===cat&&r.SubCategory===sub);          // DEF-NYCKEL (distinkt för dubbletterna)
-    if(!row){row={Category:cat,SubCategory:sub,AccountNo:acctNo};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
+    if(!row){row={Category:cat,SubCategory:sub,AccountNo:ir.accountNo};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
     MONTHS.forEach(m=>row[m]=Math.round(Number(ir[m])||0));
   });
   const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
