@@ -6274,7 +6274,8 @@ function parseExcelResult(wb){
     if(!inCostSection)continue;                                  // före rubriken = intäktssektion → hoppa ALLA rader (3000-serien)
     const acctStr=acct!=null?String(acct).trim():'';
     if(!/^[0-9]{3,4}$/.test(acctStr))continue;                   // bara numeriskt BAS-konto → rubriker/summor/nyckeltal (text i kol A) hoppas
-    const row={accountNo:acctStr,name:name!=null?String(name).trim():''};
+    const colC=cv(r,2);   // DEF-2: kol C (c=2) första ord → disambiguerar dubblettkonton (5990/6540) vid skrivning
+    const row={accountNo:acctStr,name:name!=null?String(name).trim():'',colCWord:colC!=null?String(colC).trim().split(/\s+/)[0]:''};
     MONTHS.forEach((m,i)=>{const v=cv(r,3+i);row[m]=(typeof v==='number')?v:(parseFloat(v)||0);});   // D-O = c 3..14
     out.push(row);
   }
@@ -6328,13 +6329,27 @@ async function handleExcelFile(e){
     if(prev)prev.innerHTML=`Hittade <b>${resultRows.length}</b> kostnadsrader (resultat) + <b>${liqRows.length}</b> utbetalningar (likviditet).<br>Resultat → ${rTxt}<br>Likviditet → ${lTxt}`;
   }catch(err){console.error('[handleExcelFile]',err);window._excelResult=null;window._excelLiquidity=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Kunde inte läsa filen — är det en giltig .xlsx?</span>';}
 }
-// Skriv resultat → /rows (match AccountNo, additiv GET-merge) → härledd-omräkning.
+// DEF-2: mappa importens accountNo (+ kol C första ord för dubblettkonton) → COST_ROWS_DEF-rad.
+// Vanligt konto → unik def. Dubblettkonto (flera def delar account, t.ex. 5990/6540) → kol C första ord (case-insensitive includes mot def-namnet). Okänt → null.
+function findCostDef(accountNo,colCWord){
+  const acct=String(accountNo||'').trim();
+  const defs=COST_ROWS_DEF.filter(c=>c.account&&c.account===acct);
+  if(defs.length===1)return defs[0];                                          // vanligt konto → unik def
+  if(defs.length>1){const w=String(colCWord||'').trim().toLowerCase();return (w&&defs.find(d=>d.name.toLowerCase().includes(w)))||defs[0];}   // dubblett → kol C
+  return null;                                                               // okänt konto → fallback
+}
+// Skriv resultat → /rows. DEF-2: varje importrad → def-rad (Category=grupp, SubCategory=def-namn) så resultat-rendern (def-driven) visar den.
+// Match på DEF-NYCKEL (Category+SubCategory), EJ bara AccountNo (5990/6540 ×2 kräver SubCategory). Okänt konto → fallback 'Övrig kostnad'. Additiv GET-merge → härledd-omräkning.
 async function writeExcelResult(rows,tid){
   let existing=await (await apiFetch(`${API}/budget-versions/${tid}/rows`)).json();
   if(!Array.isArray(existing))existing=[];
   rows.forEach(ir=>{
-    let row=existing.find(r=>r.AccountNo!=null&&String(r.AccountNo)===String(ir.accountNo));   // match på AccountNo (intäktsrader AccountNo=null → bevaras)
-    if(!row){row={Category:'Importerad',SubCategory:ir.name||ir.accountNo,AccountNo:ir.accountNo};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
+    const def=findCostDef(ir.accountNo,ir.colCWord);
+    const cat=def?def.group:'Övriga externa kostnader';
+    const sub=def?def.name:'Övrig kostnad';                                   // okänt konto → den tomma def-raden (renderas)
+    const acctNo=def?(def.account||null):null;
+    let row=existing.find(r=>r.Category===cat&&r.SubCategory===sub);          // DEF-NYCKEL (distinkt för dubbletterna)
+    if(!row){row={Category:cat,SubCategory:sub,AccountNo:acctNo};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
     MONTHS.forEach(m=>row[m]=Math.round(Number(ir[m])||0));
   });
   const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
