@@ -1222,23 +1222,42 @@ const ACTION_TYPES = ['Möte','Samtal','E-post','Demo','Offert','Uppföljning','
 const DEFAULT_RECIPIENTS = ['Ann-Sofie Forsmark','CI-Labs','Influence','Influence People','Johan Jansson','Lotta Murvall'];
 // Ekonomens exakta BAS-konton (gemensam kostnadsdef för likviditet + resultat). group =
 // resultaträknings-grupp, account = BAS-kontonr ('' = ingen kontokoppling), name = radnamn.
-// Personalkonton (7210-7622) hanteras separat på kommande lönesida och ingår INTE här.
+// 4 grupper inkl Personalkostnader. Dubblettkonton (5990/6540) har DISTINKTA namn (disambigueras i import via kol C — DEF-2).
 const COST_ROWS_DEF = [
+  // Varu- och materialkostnader
   { group:'Varu- och materialkostnader', account:'4611', name:'Underkonsulter extern' },
   { group:'Varu- och materialkostnader', account:'4699', name:'Vidarefakturerade kostnader' },
+  // Övriga externa kostnader
   { group:'Övriga externa kostnader', account:'5090', name:'Service fee koncern' },
   { group:'Övriga externa kostnader', account:'5410', name:'Förbrukningsinventarier' },
   { group:'Övriga externa kostnader', account:'5420', name:'Programvaror & licenser' },
   { group:'Övriga externa kostnader', account:'5800', name:'Resekostnader' },
   { group:'Övriga externa kostnader', account:'5830', name:'Kost och logi' },
   { group:'Övriga externa kostnader', account:'5900', name:'Reklam och PR' },
-  { group:'Övriga externa kostnader', account:'5990', name:'Marknadsföring och reklam' },
+  { group:'Övriga externa kostnader', account:'5990', name:'Marknadsföring och reklam - Wow Media AB' },
+  { group:'Övriga externa kostnader', account:'5990', name:'Marknadsföring och reklam - LinkedIn' },
   { group:'Övriga externa kostnader', account:'6072', name:'Representation ej avdragsgill' },
   { group:'Övriga externa kostnader', account:'6212', name:'Telefonikostnader' },
-  { group:'Övriga externa kostnader', account:'6540', name:'IT-tjänster' },
+  { group:'Övriga externa kostnader', account:'6540', name:'IT-tjänster - Amanda AI' },
+  { group:'Övriga externa kostnader', account:'6540', name:'IT-tjänster - Utlägg' },
   { group:'Övriga externa kostnader', account:'6550', name:'Konsultarvoden' },
   { group:'Övriga externa kostnader', account:'6570', name:'Bankkostnader' },
   { group:'Övriga externa kostnader', account:'',     name:'Övrig kostnad' },
+  // Personalkostnader (importeras från ekonomens fil; lönesida-formelintegration supersedad)
+  { group:'Personalkostnader', account:'7210', name:'Lön tjänstemän' },
+  { group:'Personalkostnader', account:'7290', name:'Förändr sem löneskuld' },
+  { group:'Personalkostnader', account:'7299', name:'Periodisering lönekostnader' },
+  { group:'Personalkostnader', account:'7389', name:'Förmån sjukvårdsförsäkring' },
+  { group:'Personalkostnader', account:'7399', name:'Motkontering av förmån' },
+  { group:'Personalkostnader', account:'7410', name:'Pensionsförsäkringspremier' },
+  { group:'Personalkostnader', account:'7415', name:'Löneväxling pension' },
+  { group:'Personalkostnader', account:'7510', name:'Arbetsgivaravgifter' },
+  { group:'Personalkostnader', account:'7519', name:'Soc.avgifter uppl semester' },
+  { group:'Personalkostnader', account:'7530', name:'Särskild löneskatt' },
+  { group:'Personalkostnader', account:'7570', name:'AMF enl avtal' },
+  { group:'Personalkostnader', account:'7621', name:'Friskvård avdragsgill' },
+  { group:'Personalkostnader', account:'7622', name:'Sjukvårdsförsäkring avdragsgill' },
+  // Avskrivningar
   { group:'Avskrivningar', account:'7810', name:'Avskrivningar immateriella' },
 ];
 const BUDGET_ROWS_DEF = [
@@ -5588,12 +5607,11 @@ function renderResultatBudgetTable(){
   const ovrMonthly=sumRowsMonthly(ovrRows);
   html+=resGrpHdr('Övriga externa kostnader',ovrMonthly,sum(ovrMonthly),'rc_Övriga externa kostnader',16);
   ovrRows.forEach(c=>html+=costAccountRow('Övriga externa kostnader',c,'rrorelse'));
-  // Personalkostnader BEHÅLLS inline (formel-skatterna från Lön-fliken) — fylls av kommande lönesida.
-  const persRows=[{cat:'Personalkostnader',sub:'Soc avg'},{cat:'Personalkostnader',sub:'Pension'},{cat:'Personalkostnader',sub:'Löneskatt'},{cat:'Personalkostnader',sub:'Övriga personalkostnader'}];
+  // DEF-1: Personalkostnader nu DEF-DRIVEN ur COST_ROWS_DEF (mönster som Övriga externa kostnader) — fylls av Excel-import (DEF-2).
+  const persRows=basGroupRows('Personalkostnader');
   const persMonthly=sumRowsMonthly(persRows);
   html+=resGrpHdr('Personalkostnader',persMonthly,sum(persMonthly),'rc_Personalkostnader',16);
-  html+=`<tr data-bsec="rrorelse" data-bgrp="rc_Personalkostnader"><td colspan="${MONTHS.length+2}" style="padding-left:36px;font-size:10px;color:var(--text3);font-style:italic;">hanteras på lönesidan – kommande</td></tr>`;
-  persRows.forEach(r=>html+=inputRow(r.cat,r.sub,36,null,'rrorelse','rc_Personalkostnader'));
+  persRows.forEach(c=>html+=costAccountRow('Personalkostnader',c,'rrorelse'));
   // = Summa rörelsens kostnader = Varu + Övriga externa + Personal (Avskrivningar hålls UTANFÖR).
   const kostnaderMonthly=MONTHS.map((_,i)=>varuMonthly[i]+ovrMonthly[i]+persMonthly[i]);
   html+=calcRow('Summa rörelsens kostnader',kostnaderMonthly,sum(kostnaderMonthly));
