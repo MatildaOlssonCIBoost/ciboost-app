@@ -1000,6 +1000,8 @@
           <div class="rev-dd-item" id="mi-rolling" onclick="toggleBudgetRolling()" style="display:none;">⟳ Sätt som löpande</div>
           <div id="mi-sep2" style="display:none;height:1px;background:var(--border);margin:4px 6px;"></div>
           <div class="rev-dd-item" id="mi-delete" onclick="deleteBudgetVersion()" style="display:none;color:var(--red);">🗑 Radera version</div>
+          <div style="height:1px;background:var(--border);margin:4px 6px;"></div>
+          <div class="rev-dd-item" onclick="openSupplierTemplatesView()">⚙ Standardleverantörer…</div>
         </div>
       </div>
       <div id="budget-import-group" style="display:none;align-items:center;gap:6px;margin-left:auto;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);">
@@ -1272,6 +1274,7 @@ let currentMain='start', currentSub={pipeline:'oversikt',kunder:'oversikt',finan
 let currentTpId=null, currentTpType=null, currentTpModalTab=1;
 let budgetVersions=[], currentBudgetVersionId=null, budgetRows=[];
 let supplierRows=[];   // F2-3: leverantörsmodell-config (SupplierRows) för aktuell likviditetsversion
+let supplierTemplates=[];   // ST-3: global standardleverantörs-mall (SupplierTemplates)
 // Row comments/notes are stored per budget version in localStorage so they are
 // unique to each version and only carried over when a budget is explicitly copied.
 let budgetNotes={};
@@ -7049,6 +7052,96 @@ async function seedSuppliersFromTemplates(liqVersionId){
     const seeded=await (await apiFetch(`${API}/budget-versions/${liqVersionId}/suppliers`)).json();
     await rebuildSupplierRows(liqVersionId,Array.isArray(seeded)?seeded:[]);   // override: seedade suppliers (lid ej i minne)
   }catch(e){console.error('[seedSuppliersFromTemplates]',e);}
+}
+// ST-3: hanteringsvy för den globala standardleverantörs-mallen (SupplierTemplates). Åtgärder → "⚙ Standardleverantörer…".
+async function openSupplierTemplatesView(){
+  document.getElementById('budget-actions-panel')&&(document.getElementById('budget-actions-panel').style.display='none');
+  try{supplierTemplates=await (await apiFetch(`${API}/supplier-templates`)).json();if(!Array.isArray(supplierTemplates))supplierTemplates=[];}catch(e){supplierTemplates=[];}
+  renderSupplierTemplatesView();
+}
+function renderSupplierTemplatesView(){
+  const typeLbl=t=>t==='derived'?'Härledd':t==='vat'?'Momsavräkning':'Manuell';
+  const rows=(supplierTemplates||[]).map((s,i)=>{
+    const src=typeof s.SourceRows==='string'?(JSON.parse(s.SourceRows||'[]')):(s.SourceRows||[]);
+    const srcLbl=src.length?src.map(e=>e.accountNo||'?').join(', '):(s.Type==='derived'?'ingen källa':'');
+    const ruleLbl=s.Type==='derived'?` · ${s.PaymentShift?'+'+s.PaymentShift+' mån':'samma mån'} · moms ${s.VatFactor!=null?Number(s.VatFactor)+'%':'–'} · ${({month:'mån',quarter:'kvartal',year:'år'})[s.Clumping||'month']}`:'';
+    const nm=String(s.Name||'').replace(/</g,'&lt;');
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:5px;font-size:12px;cursor:pointer;" onclick="openSupplierTemplateModal(${i})"><div style="flex:1;min-width:0;"><b>${nm}</b> <span style="font-size:9px;color:var(--text3);border:0.5px solid var(--border);border-radius:3px;padding:0 4px;">${typeLbl(s.Type)}</span><div style="font-size:10px;color:var(--text3);">${srcLbl}${ruleLbl}</div></div><button onclick="event.stopPropagation();deleteSupplierTemplate(${i})" title="Ta bort" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1;flex:0 0 auto;">×</button></div>`;
+  }).join('')||'<div style="font-size:12px;color:var(--text3);font-style:italic;padding:8px;">Inga standardleverantörer än.</div>';
+  showDialog('Standardleverantörer (mall)',
+    `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Global mall som auto-seedar nya likviditetsbudgetar (config, inga belopp).</div>
+     <div style="max-height:300px;overflow:auto;">${rows}</div>
+     <button onclick="openSupplierTemplateModal()" style="margin-top:8px;width:100%;padding:7px;border:1px dashed var(--border);border-radius:8px;background:none;color:var(--text2);cursor:pointer;font-size:12px;">+ Lägg till standardleverantör</button>`,
+    async()=>true,'Stäng');
+}
+// ST-3: template-modal — som openSupplierModal MEN inga belopp + käll-koppling på BAS-konto ur COST_ROWS_DEF (ej parad resultat).
+function openSupplierTemplateModal(idx){
+  const existing=(idx!=null&&idx>=0)?supplierTemplates[idx]:null;
+  const curType=existing?existing.Type:'manual';
+  const escA=s=>String(s||'').replace(/"/g,'&quot;');
+  const escH=s=>String(s||'').replace(/</g,'&lt;');
+  const existingSrc=existing&&existing.SourceRows?(typeof existing.SourceRows==='string'?JSON.parse(existing.SourceRows||'[]'):existing.SourceRows):[];
+  const isSrcChecked=acct=>existingSrc.some(e=>e.accountNo===acct);
+  const dShift=existing&&existing.PaymentShift!=null?Number(existing.PaymentShift):0;
+  const dVat=existing&&existing.VatFactor!=null?Number(existing.VatFactor):25;
+  const dClump=existing&&existing.Clumping?existing.Clumping:'month';
+  const selIf=(a,b)=>String(a)===String(b)?'selected':'';
+  const srcListHtml=`<div style="max-height:160px;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:4px;">${COST_ROWS_DEF.filter(c=>c.account).map(c=>`<label style="display:flex;align-items:center;gap:6px;padding:3px 5px;font-size:11px;cursor:pointer;"><input type="checkbox" class="supt-src-cb" data-acct="${escA(c.account)}" ${isSrcChecked(c.account)?'checked':''} style="width:14px;height:14px;flex:0 0 auto;"><span style="color:var(--text2);"><span style="color:var(--text3);">${escH(c.account)}</span> ${escH(c.name)} <span style="color:var(--text3);font-size:9px;">${escH(c.group)}</span></span></label>`).join('')}</div>`;
+  const body=`
+    <div class="modal-field"><label>Namn</label><input id="supt-name" class="edit-input" value="${escA(existing?existing.Name:'')}" placeholder="t.ex. Hyra, Underkonsulter"></div>
+    <div class="modal-field" style="margin-top:10px;"><label>Typ</label><select id="supt-type" class="edit-input" onchange="updateSupplierTemplateFields()">
+      <option value="manual" ${curType==='manual'?'selected':''}>Manuell leverantör</option>
+      <option value="derived" ${curType==='derived'?'selected':''}>Härledd (ur resultatkonto)</option>
+      <option value="vat" ${curType==='vat'?'selected':''}>Momsavräkning</option>
+    </select></div>
+    <div id="supt-derived-fields" style="margin-top:12px;display:${curType==='derived'?'block':'none'};">
+      <label style="font-size:11px;color:var(--text2);">Källkonto(n) (BAS) — matchar parad resultatbudget per accountNo</label>
+      <div style="margin-top:5px;">${srcListHtml}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;">
+        <div style="display:flex;flex-direction:column;"><label style="font-size:10px;color:var(--text3);">Förskjutning</label><select id="supt-shift" class="edit-input" style="padding:4px;font-size:11px;"><option value="0" ${selIf(dShift,0)}>Samma mån</option><option value="1" ${selIf(dShift,1)}>+1 mån</option><option value="2" ${selIf(dShift,2)}>+2 mån</option></select></div>
+        <div style="display:flex;flex-direction:column;"><label style="font-size:10px;color:var(--text3);">Moms</label><select id="supt-vat" class="edit-input" style="padding:4px;font-size:11px;"><option value="25" ${selIf(dVat,25)}>25%</option><option value="12" ${selIf(dVat,12)}>12%</option><option value="6" ${selIf(dVat,6)}>6%</option><option value="0" ${selIf(dVat,0)}>Ingen</option></select></div>
+        <div style="display:flex;flex-direction:column;"><label style="font-size:10px;color:var(--text3);">Klumpning</label><select id="supt-clump" class="edit-input" style="padding:4px;font-size:11px;"><option value="month" ${selIf(dClump,'month')}>Varje mån</option><option value="quarter" ${selIf(dClump,'quarter')}>Kvartal</option><option value="year" ${selIf(dClump,'year')}>År</option></select></div>
+      </div>
+    </div>
+    <div id="supt-manual-note" style="margin-top:12px;display:${curType==='manual'?'block':'none'};"><div style="font-size:11px;color:var(--text3);font-style:italic;padding:8px;border:1px dashed var(--border);border-radius:6px;">Manuell standardleverantör seedas utan belopp — månadsbelopp fylls per budget.</div></div>
+    <div id="supt-vat-note" style="margin-top:12px;display:${curType==='vat'?'block':'none'};"><div style="font-size:11px;color:var(--text3);font-style:italic;padding:8px;border:1px dashed var(--border);border-radius:6px;">Momsavräkning beräknas automatiskt (F2-5).</div></div>
+    ${existing?`<button onclick="deleteSupplierTemplate(${idx})" style="margin-top:14px;width:100%;padding:7px;border:1px solid var(--red);border-radius:8px;background:none;color:var(--red);font-size:12px;cursor:pointer;">Ta bort</button>`:''}`;
+  showDialog(existing?'Redigera standardleverantör':'Ny standardleverantör',body,async()=>{
+    const name=document.getElementById('supt-name').value.trim();
+    const type=document.getElementById('supt-type').value;
+    if(!name){alert('Ange ett namn.');return false;}
+    const base=existing?{...existing}:{};
+    base.Name=name;base.Type=type;
+    if(type==='derived'){
+      const sourceRows=[...document.querySelectorAll('.supt-src-cb:checked')].map(cb=>({accountNo:cb.dataset.acct}));
+      const vf=parseFloat(document.getElementById('supt-vat')?.value);
+      base.SourceRows=JSON.stringify(sourceRows);base.PaymentShift=parseInt(document.getElementById('supt-shift')?.value)||0;base.VatFactor=isNaN(vf)?null:vf;base.Clumping=document.getElementById('supt-clump')?.value||'month';
+    }
+    if(existing)supplierTemplates[idx]=base;else supplierTemplates.push(base);
+    await saveSupplierTemplates();
+    renderSupplierTemplatesView();   // tillbaka till listan (return false → handleDialogSave river ej den nya overlayen)
+    return false;
+  },existing?'Spara':'Lägg till');
+}
+function updateSupplierTemplateFields(){
+  const t=document.getElementById('supt-type')?.value;
+  const show=(id,on)=>{const e=document.getElementById(id);if(e)e.style.display=on?'block':'none';};
+  show('supt-derived-fields',t==='derived');show('supt-manual-note',t==='manual');show('supt-vat-note',t==='vat');
+}
+// ST-3: PUT /supplier-templates (full-replace) → reload global mall.
+async function saveSupplierTemplates(){
+  const payload=(supplierTemplates||[]).map((s,i)=>({name:s.Name,type:s.Type,sourceRows:s.SourceRows||null,paymentShift:s.PaymentShift!=null?s.PaymentShift:null,vatFactor:s.VatFactor!=null?s.VatFactor:null,clumping:s.Clumping||null,sortOrder:i}));
+  try{
+    await apiFetch(`${API}/supplier-templates`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    supplierTemplates=await (await apiFetch(`${API}/supplier-templates`)).json();if(!Array.isArray(supplierTemplates))supplierTemplates=[];
+  }catch(e){console.error('[saveSupplierTemplates]',e);alert('Kunde inte spara standardleverantörer.');}
+}
+async function deleteSupplierTemplate(idx){
+  if(idx==null||idx<0||!supplierTemplates[idx])return;
+  if(!confirm(`Ta bort standardleverantör "${supplierTemplates[idx].Name}"?`))return;
+  supplierTemplates.splice(idx,1);
+  await saveSupplierTemplates();
+  renderSupplierTemplatesView();
 }
 async function createPairedCounterpart(source){
   const oppType = source.BudgetType==='Resultatbudget'?'Likviditetsbudget':'Resultatbudget';
