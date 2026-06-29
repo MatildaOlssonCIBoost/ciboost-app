@@ -6939,12 +6939,14 @@ function openNewBudgetVersion(){
     <div class="modal-field" style="margin-top:10px;"><label>Motpart</label><select id="bv-pair-mode" class="edit-input">
       <option value="match">Skapa matchande motpart (motsatt typ)</option>
       <option value="none">Ingen motpart (länka senare)</option>
-    </select><div style="font-size:10px;color:var(--text3);margin-top:4px;">Matchande skapar en tom budget av motsatt typ med speglat namn och parar dem.</div></div>`,
+    </select><div style="font-size:10px;color:var(--text3);margin-top:4px;">Matchande skapar en tom budget av motsatt typ med speglat namn och parar dem.</div></div>
+    <label class="modal-field" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="bv-seed" checked style="width:15px;height:15px;flex:0 0 auto;"><span style="font-size:12px;color:var(--text2);">Seeda likviditetsbudgetar med standardleverantörer</span></label>`,
     async()=>{
       const name=document.getElementById('bv-name').value.trim();
       const year=parseInt(document.getElementById('bv-year').value);
       const budgetType=document.getElementById('bv-type').value;
       if(!name)return false;
+      const seed=document.getElementById('bv-seed')?.checked;
       const r=await apiFetch(`${API}/budget-versions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,year,budgetType,createdBy:'Matilda Olsson'})});
       const created=await r.json();
       currentBudgetVersionId=created.Id;
@@ -6953,8 +6955,17 @@ function openNewBudgetVersion(){
       let _loaded=false;
       if(pairMode==='match'){ try{ if(await createPairedCounterpart(created))_loaded=true; }catch(e){} }   // motpart-fel avbryter ej (primärversionen finns kvar)
       if(!_loaded) await loadBudgetVersions();   // match-success laddade redan → ingen dubbel; annars (none/fel) ladda nu
-      budgetRows=[];
-      renderBudgetTable();
+      // ST-2: seeda EN ren likviditetsbudget med standardleverantörer (motparter seedas av createPairedCounterpart → ingen dubbel-seed). Gate på kryssrutan.
+      if(seed&&budgetType==='Likviditetsbudget'){
+        await seedSuppliersFromTemplates(created.Id);
+        currentBudgetMode='likviditet';
+        try{supplierRows=await (await apiFetch(`${API}/budget-versions/${created.Id}/suppliers`)).json();if(!Array.isArray(supplierRows))supplierRows=[];}catch(e){supplierRows=[];}
+        try{budgetRows=await (await apiFetch(`${API}/budget-versions/${created.Id}/rows`)).json();if(!Array.isArray(budgetRows))budgetRows=[];}catch(e){budgetRows=[];}
+        renderBudgetTable();
+      }else{
+        budgetRows=[];
+        renderBudgetTable();
+      }
       return true;
     });
 }
@@ -7027,6 +7038,18 @@ function mirrorBudgetName(name, toMode){
 }
 // PAR-3c: gemensam helper — skapar en TOM motpart (motsatt typ, speglat namn, samma år) och parar source↔motpart.
 // Används av länka-dialogen (PAR-3c-1) + skapa-dialogen (PAR-3c-2). try/catch → fel avbryter ej anroparen; källversionen finns kvar. Ingen roll (PAR-4).
+// ST-2: seeda en NY likviditetsbudget med globala standardleverantörer (config, INGA belopp). try/catch → seed-fel avbryter ej skapandet.
+// GET /supplier-templates → PUT /suppliers (full-replace, ny version har tomma) → rebuildSupplierRows (materialisera; härledda=0 tills parad+fylld).
+async function seedSuppliersFromTemplates(liqVersionId){
+  try{
+    const templates=await (await apiFetch(`${API}/supplier-templates`)).json();
+    if(!Array.isArray(templates)||!templates.length)return;
+    const payload=templates.map((t,i)=>({name:t.Name,type:t.Type,sourceRows:t.SourceRows||null,paymentShift:t.PaymentShift!=null?t.PaymentShift:null,vatFactor:t.VatFactor!=null?t.VatFactor:null,clumping:t.Clumping||null,manualAmounts:null,sortOrder:t.SortOrder!=null?t.SortOrder:i}));
+    await apiFetch(`${API}/budget-versions/${liqVersionId}/suppliers`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const seeded=await (await apiFetch(`${API}/budget-versions/${liqVersionId}/suppliers`)).json();
+    await rebuildSupplierRows(liqVersionId,Array.isArray(seeded)?seeded:[]);   // override: seedade suppliers (lid ej i minne)
+  }catch(e){console.error('[seedSuppliersFromTemplates]',e);}
+}
 async function createPairedCounterpart(source){
   const oppType = source.BudgetType==='Resultatbudget'?'Likviditetsbudget':'Resultatbudget';
   const toMode  = oppType==='Likviditetsbudget'?'likviditet':'resultat';
@@ -7036,6 +7059,7 @@ async function createPairedCounterpart(source){
     const counterpart = await r.json();
     await apiFetch(`${API}/budget-versions/${source.Id}/pair`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({pairedId:counterpart.Id})});
     await loadBudgetVersions();
+    if(oppType==='Likviditetsbudget'){await seedSuppliersFromTemplates(counterpart.Id);}   // ST-2: seeda den likviditet-motpart vi skapade (alltid; motpart-skapande implicerar komplett budget)
     return counterpart;
   }catch(e){ alert('Kunde inte skapa matchande motpart.'); return null; }
 }
