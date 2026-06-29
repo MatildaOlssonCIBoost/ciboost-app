@@ -6954,6 +6954,9 @@ function budgetAutoSaveHandler(e){
 function updateNewBudgetPairList(){
   const mode=document.getElementById('bv-pair-mode')?.value;
   const valdTyp=document.getElementById('bv-type')?.value;
+  // Dynamiska motpartsval efter vald typ (namnger motsatt typ). Körs FÖRE ev. tidiga returns nedan.
+  const pm=document.getElementById('bv-pair-mode');
+  if(pm){const motsattTyp=valdTyp==='Resultatbudget'?'likviditetsbudget':'resultatbudget';const setOpt=(val,txt)=>{const o=pm.querySelector(`option[value="${val}"]`);if(o)o.textContent=txt;};setOpt('match',`Skapa och länka till ny ${motsattTyp}`);setOpt('link',`Länka till befintlig ${motsattTyp}`);setOpt('none','Ingen länkning (länka senare)');}
   const wrap=document.getElementById('bv-pair-existing-wrap'),selEl=document.getElementById('bv-pair-existing');
   if(!wrap||!selEl)return;
   if(mode!=='link'){wrap.style.display='none';return;}
@@ -6974,18 +6977,16 @@ function openNewBudgetVersion(){
     </select><div style="font-size:10px;color:var(--text3);margin-top:4px;">Typen kan inte ändras efteråt.</div></div>
     <div class="modal-field" style="margin-top:10px;"><label>År</label><input id="bv-year" class="edit-input" type="number" value="${new Date().getFullYear()}"></div>
     <div class="modal-field" style="margin-top:10px;"><label>Motpart</label><select id="bv-pair-mode" class="edit-input" onchange="updateNewBudgetPairList()">
-      <option value="match">Skapa matchande motpart (motsatt typ)</option>
-      <option value="link">Länka befintlig motpart…</option>
-      <option value="none">Ingen motpart (länka senare)</option>
-    </select><div style="font-size:10px;color:var(--text3);margin-top:4px;">Matchande skapar en tom budget av motsatt typ med speglat namn och parar dem.</div></div>
-    <div class="modal-field" id="bv-pair-existing-wrap" style="margin-top:10px;display:none;"><label>Befintlig motpart att länka</label><select id="bv-pair-existing" class="edit-input"></select></div>
-    <label class="modal-field" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="bv-seed" checked style="width:15px;height:15px;flex:0 0 auto;"><span style="font-size:12px;color:var(--text2);">Seeda likviditetsbudgetar med standardleverantörer</span></label>`,
+      <option value="match">Skapa och länka till ny resultatbudget</option>
+      <option value="link">Länka till befintlig resultatbudget</option>
+      <option value="none">Ingen länkning (länka senare)</option>
+    </select></div>
+    <div class="modal-field" id="bv-pair-existing-wrap" style="margin-top:10px;display:none;"><label>Befintlig motpart att länka</label><select id="bv-pair-existing" class="edit-input"></select></div>`,
     async()=>{
       const name=document.getElementById('bv-name').value.trim();
       const year=parseInt(document.getElementById('bv-year').value);
       const budgetType=document.getElementById('bv-type').value;
       if(!name)return false;
-      const seed=document.getElementById('bv-seed')?.checked;
       const r=await apiFetch(`${API}/budget-versions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,year,budgetType,createdBy:'Matilda Olsson'})});
       const created=await r.json();
       currentBudgetVersionId=created.Id;
@@ -6998,8 +6999,8 @@ function openNewBudgetVersion(){
         if(bId){ try{ await apiFetch(`${API}/budget-versions/${created.Id}/pair`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({pairedId:bId})}); }catch(e){} await loadBudgetVersions(); _loaded=true; }   // forgiving: tom/NaN → ingen parning → laddas som none
       }
       if(!_loaded) await loadBudgetVersions();   // match/link-success laddade redan → ingen dubbel; annars (none/fel) ladda nu
-      // ST-2: seeda EN ren likviditetsbudget med standardleverantörer (motparter seedas av createPairedCounterpart → ingen dubbel-seed). Gate på kryssrutan.
-      if(seed&&budgetType==='Likviditetsbudget'){
+      // ST-2: seeda EN ren likviditetsbudget med standardleverantörer (motparter seedas av createPairedCounterpart → ingen dubbel-seed). Alltid seedad.
+      if(budgetType==='Likviditetsbudget'){
         await seedSuppliersFromTemplates(created.Id);
         currentBudgetMode='likviditet';
         try{supplierRows=await (await apiFetch(`${API}/budget-versions/${created.Id}/suppliers`)).json();if(!Array.isArray(supplierRows))supplierRows=[];}catch(e){supplierRows=[];}
