@@ -1227,18 +1227,14 @@ const COST_ROWS_DEF = [
   { group:'Varu- och materialkostnader', account:'4699', name:'Vidarefakturerade kostnader' },
   // Övriga externa kostnader
   { group:'Övriga externa kostnader', account:'5090', name:'Service fee koncern' },
-  { group:'Övriga externa kostnader', account:'5410', name:'Förbrukningsinventarier' },
   { group:'Övriga externa kostnader', account:'5420', name:'Programvaror & licenser' },
-  { group:'Övriga externa kostnader', account:'5800', name:'Resekostnader' },
-  { group:'Övriga externa kostnader', account:'5830', name:'Kost och logi' },
+  { group:'Övriga externa kostnader', account:'58xx', name:'Resekostnader' },
   { group:'Övriga externa kostnader', account:'5900', name:'Reklam och PR' },
   { group:'Övriga externa kostnader', account:'5990', name:'Marknadsföring och reklam - Wow Media AB' },
   { group:'Övriga externa kostnader', account:'5990', name:'Marknadsföring och reklam - LinkedIn' },
-  { group:'Övriga externa kostnader', account:'6072', name:'Representation ej avdragsgill' },
   { group:'Övriga externa kostnader', account:'6212', name:'Telefonikostnader' },
   { group:'Övriga externa kostnader', account:'6540', name:'IT-tjänster - Amanda AI' },
   { group:'Övriga externa kostnader', account:'6540', name:'IT-tjänster - Utlägg' },
-  { group:'Övriga externa kostnader', account:'6550', name:'Konsultarvoden' },
   { group:'Övriga externa kostnader', account:'6570', name:'Bankkostnader' },
   { group:'Övriga externa kostnader', account:'',     name:'Övrig kostnad' },
   // Personalkostnader (importeras från ekonomens fil; lönesida-formelintegration supersedad)
@@ -1255,8 +1251,9 @@ const COST_ROWS_DEF = [
   { group:'Personalkostnader', account:'7570', name:'AMF enl avtal' },
   { group:'Personalkostnader', account:'7621', name:'Friskvård avdragsgill' },
   { group:'Personalkostnader', account:'7622', name:'Sjukvårdsförsäkring avdragsgill' },
-  // Avskrivningar
+  // Avskrivningar och finansiella poster
   { group:'Avskrivningar', account:'7810', name:'Avskrivningar immateriella' },
+  { group:'Avskrivningar', account:'8xxx', name:'Finansiella poster' },
 ];
 // RES-1: Aktiverat arbete för egen räkning (intäktssidan). Egen def — importeras (3850/3870), renderas mellan Summa nettoomsättning och Summa rörelsens intäkter.
 const AKTIVERAT_ROWS_DEF = [
@@ -6183,14 +6180,14 @@ async function rebuildSupplierRows(versionId,suppliersOverride){
 // LEV-B: recomputeDerivedSuppliers + syncPairedLiquiditySuppliers borttagna (härledning rivd — ingen omräkning behövs).
 
 // ─── IMP-1: Excel-import (ekonomens prognosfil → resultatbudget) ─────────────────────
-// Läser fliken 'Prognos och likviditetsprognos': kol A=BAS-konto, B=namn, D-O=Jan-Dec, rad 6+ (r=5+).
+// Läser ekonomens importflik (fliknamn i Sheets-anropet nedan): kol A=BAS-konto, B=namn, D-O=Jan-Dec, rad 6+ (r=5+).
 // Läser cell.v (BERÄKNAT värde, ej formel). Hoppar summarader. Match på AccountNo (additiv). Likviditet = IMP-2.
 function openExcelImportModal(){
   if(typeof XLSX==='undefined'){alert('Excel-biblioteket (SheetJS) laddas ännu — vänta en sekund och försök igen.');return;}
   if(!currentBudgetVersionId){alert('Öppna en budgetversion först.');return;}
   window._excelResult=null;window._excelLiquidity=null;window._excelResultTargetId=null;window._excelLiquidityTargetId=null;
   showDialog('Importera från Excel',
-    `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Läser fliken <b>'Prognos och likviditetsprognos'</b> → resultatets kostnader (kol A/B) + likviditetens utbetalningar → manuella leverantörer (kol V). En fil fyller <b>båda</b> budgetarna via paret.</div>
+    `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Läser fliken <b>'Förslag till Sune'</b> → resultatets kostnader (kol A/B) + likviditetens utbetalningar → manuella leverantörer (kol V). En fil fyller <b>båda</b> budgetarna via paret.</div>
      <input type="file" id="excel-file-input" accept=".xlsx" onchange="handleExcelFile(event)" style="font-size:12px;width:100%;">
      <div id="excel-preview" style="margin-top:12px;font-size:12px;color:var(--text2);"></div>`,
     async()=>{
@@ -6211,7 +6208,7 @@ function excelTargetResultVersion(){
 }
 // Parsa resultat-delen ur workbook. Returnerar null om fliken saknas.
 function parseExcelResult(wb){
-  const ws=wb.Sheets['Prognos och likviditetsprognos'];
+  const ws=wb.Sheets['Förslag till Sune'];
   if(!ws||!ws['!ref'])return null;
   const range=XLSX.utils.decode_range(ws['!ref']);
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};   // .v = beräknat värde (ej formel .f)
@@ -6222,7 +6219,7 @@ function parseExcelResult(wb){
   for(let r=5;r<=range.e.r;r++){
     const acct=cv(r,0),name=cv(r,1);
     const acctStr=acct!=null?String(acct).trim():'';
-    if(!/^[0-9]{3,4}$/.test(acctStr))continue;                   // bara numeriska konton
+    if(!/^[0-9]{1,4}(xx|xxx)?$/i.test(acctStr))continue;         // numeriska konton + aggregat-strängar (58xx, 8xxx)
     const colC=cv(r,2);const colCWord=colC!=null?String(colC).trim().split(/\s+/)[0]:'';   // kol C första ord → dubblett-disambiguering (5990/6540)
     const def=findResultDef(acctStr,colCWord);
     if(!def)continue;                                            // 3000-serien (intäkter) / 8xxx (finans, RES-2) utan def → hoppas
@@ -6242,7 +6239,7 @@ function excelTargetLiquidityVersion(){
 }
 // IMP-2: parsa likviditet-delen — BARA UTBETALNINGAR (mellan "Summa in" och "Summa ut"). Kol V=namn (c=21), Z-AK=Jan-Dec (c=25..36).
 function parseExcelLiquidity(wb){
-  const ws=wb.Sheets['Prognos och likviditetsprognos'];
+  const ws=wb.Sheets['Förslag till Sune'];
   if(!ws||!ws['!ref'])return null;
   const range=XLSX.utils.decode_range(ws['!ref']);
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};
@@ -6270,7 +6267,7 @@ async function handleExcelFile(e){
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
     const resultRows=parseExcelResult(wb);
-    if(resultRows==null){window._excelResult=null;window._excelLiquidity=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Fliken \'Prognos och likviditetsprognos\' hittades inte i filen.</span>';return;}
+    if(resultRows==null){window._excelResult=null;window._excelLiquidity=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Fliken \'Förslag till Sune\' hittades inte i filen.</span>';return;}
     const liqRows=parseExcelLiquidity(wb)||[];
     window._excelResult=resultRows;window._excelLiquidity=liqRows;
     const rtgt=excelTargetResultVersion();window._excelResultTargetId=rtgt?rtgt.Id:null;
