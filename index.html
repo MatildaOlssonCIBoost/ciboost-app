@@ -5602,29 +5602,44 @@ function renderResultatBudgetTable(){
   const costAccountRow=(grp,c,bsec)=>{const acct=c.account?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>`:'';return `<tr data-bsec="${bsec}" data-bgrp="rc_${grp.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;">${acct}${c.sub}</td>${MONTHS.map((_,mi)=>inputCell(grp,c.sub,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(grp,c.sub)))}</td></tr>`;};
 
   // Rörelsens kostnader (mörk) — Varu/Övriga externa = BAS-konton (data-drivet); Personalkostnader = inline (lönesida).
+  // RES-B: en samlad "Rörelsens kostnader"-sektion, driftrader i fast bild-ordning (ordning från render-listan, group-fälten i DEF orörda så DB-nycklar matchar).
   html+=resSecHdr('Rörelsens kostnader','rrorelse',DARK);
-  const varuRows=basGroupRows('Varu- och materialkostnader');
-  const varuMonthly=sumRowsMonthly(varuRows);
-  html+=resGrpHdr('Varu- och materialkostnader',varuMonthly,sum(varuMonthly),'rc_Varu- och materialkostnader',16);
-  varuRows.forEach(c=>html+=costAccountRow('Varu- och materialkostnader',c,'rrorelse'));
-  const ovrRows=basGroupRows('Övriga externa kostnader');
-  const ovrMonthly=sumRowsMonthly(ovrRows);
-  html+=resGrpHdr('Övriga externa kostnader',ovrMonthly,sum(ovrMonthly),'rc_Övriga externa kostnader',16);
-  ovrRows.forEach(c=>html+=costAccountRow('Övriga externa kostnader',c,'rrorelse'));
-  // DEF-1: Personalkostnader nu DEF-DRIVEN ur COST_ROWS_DEF (mönster som Övriga externa kostnader) — fylls av Excel-import (DEF-2).
+  // Driftrader i EXAKT ordning enligt ekonomens Sune-flik. {cat,sub} måste matcha COST_ROWS_DEF verbatim (group + name).
+  const driftOrder=[
+    {cat:'Varu- och materialkostnader',sub:'Underkonsulter extern'},
+    {cat:'Övriga externa kostnader',sub:'Reklam och PR'},
+    {cat:'Övriga externa kostnader',sub:'Marknadsföring och reklam - Wow Media AB'},
+    {cat:'Övriga externa kostnader',sub:'Marknadsföring och reklam - LinkedIn'},
+    {cat:'Övriga externa kostnader',sub:'Programvaror & licenser'},
+    {cat:'Övriga externa kostnader',sub:'Telefonikostnader'},
+    {cat:'Övriga externa kostnader',sub:'IT-tjänster - Amanda AI'},
+    {cat:'Övriga externa kostnader',sub:'IT-tjänster - Utlägg'},
+    {cat:'Övriga externa kostnader',sub:'Resekostnader'},
+    {cat:'Övriga externa kostnader',sub:'Övrig kostnad'},
+    {cat:'Övriga externa kostnader',sub:'Bankkostnader'},
+    {cat:'Varu- och materialkostnader',sub:'Vidarefakturerade kostnader'},
+    {cat:'Övriga externa kostnader',sub:'Service fee koncern'},
+  ];
+  // koppla varje driftrad till dess COST_ROWS_DEF-post (för konto-nr + verifiering att alla matchar)
+  const driftRows=driftOrder.map(d=>{const def=COST_ROWS_DEF.find(c=>c.group===d.cat&&c.name===d.sub);return def?{cat:def.group,sub:def.name,account:def.account}:{cat:d.cat,sub:d.sub,account:'',_MISSING:true};});
+  const driftMonthly=sumRowsMonthly(driftRows.map(c=>({cat:c.cat,sub:c.sub})));
+  html+=resGrpHdr('Rörelsens kostnader',driftMonthly,sum(driftMonthly),'rc_Rörelsens kostnader',16);
+  driftRows.forEach(c=>html+=costAccountRow(c.cat,c,'rrorelse'));
+  html+=calcRow('Summa rörelsens kostnader, inkl Service fee',driftMonthly,sum(driftMonthly));
+  // Personalkostnader — eget block med egen summa
   const persRows=basGroupRows('Personalkostnader');
   const persMonthly=sumRowsMonthly(persRows);
+  html+=resSecHdr('Personalkostnader','rpersonal',DARK);
   html+=resGrpHdr('Personalkostnader',persMonthly,sum(persMonthly),'rc_Personalkostnader',16);
-  persRows.forEach(c=>html+=costAccountRow('Personalkostnader',c,'rrorelse'));
-  // = Summa rörelsens kostnader = Varu + Övriga externa + Personal (Avskrivningar hålls UTANFÖR).
-  const kostnaderMonthly=MONTHS.map((_,i)=>varuMonthly[i]+ovrMonthly[i]+persMonthly[i]);
-  html+=calcRow('Summa rörelsens kostnader',kostnaderMonthly,sum(kostnaderMonthly));
+  persRows.forEach(c=>html+=costAccountRow('Personalkostnader',c,'rpersonal'));
+  html+=calcRow('Summa personalkostnader',persMonthly,sum(persMonthly));
+  const kostnaderMonthly=MONTHS.map((_,i)=>driftMonthly[i]+persMonthly[i]);
 
   // Avskrivningar (NY — BAS 7810, data-drivet; ligger UTANFÖR rörelsekostnaderna)
-  html+=resSecHdr('Avskrivningar','ravskrivningar',DARK);
+  html+=resSecHdr('Avskrivningar och finansiella poster','ravskrivningar',DARK);
   const avskRows=basGroupRows('Avskrivningar');
   const avskMonthly=sumRowsMonthly(avskRows);
-  html+=resGrpHdr('Avskrivningar',avskMonthly,sum(avskMonthly),'rc_Avskrivningar',16);
+  html+=resGrpHdr('Avskrivningar och finansiella poster',avskMonthly,sum(avskMonthly),'rc_Avskrivningar',16);
   avskRows.forEach(c=>html+=costAccountRow('Avskrivningar',c,'ravskrivningar'));
 
   // RES-1: Resultat före avskrivningar = (netto + aktiverat) − rörelsekostnader. Aktiverat flyttat till intäktssidan
