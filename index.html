@@ -7179,6 +7179,7 @@ function renderCardRenewalStatus(item, customerId, allItems){
   const _avslutad = rel && rel.RelationType==='ended';
   const _harEfterfoljare = (allItems||[]).some(x=>x.RenewedFromId===item.Id) || (Array.isArray(linksCache)?linksCache:[]).some(l=>l.FromRevenueId===item.Id);
   const _isLic = item.Type==='ARR' || item.Type==='Fastpris';
+  if(!_isLic) return '';   // Consulting/Utbildning = leverans, ingen fornyelse/churn-UI
   const _dagar = item.DateTo ? (new Date(item.DateTo)-new Date())/86400000 : null;
   const _autoAvslut = _isLic && _dagar!==null && _dagar < -30 && !_avslutad && !_harEfterfoljare;
   // 1. AVSLUTAD manuell (bekräftad) — neutral grå
