@@ -2373,16 +2373,18 @@ function getRevRelations(customerId){
   if(Object.keys(map).length)return map;
   try{return JSON.parse(localStorage.getItem(`revrelation-${customerId}`)||'{}');}catch(e){return{};}
 }
-async function setRevRelation(customerId,parentId,rel){
-  // 3b: skriv till DB (rel='upgrade'/'downgrade' → POST; tomt/'renewal' → DELETE). Uppdatera cachen direkt så vyn speglar utan omladdning.
+async function setRevRelation(customerId,parentId,rel,revenueIdOverride,churnReason){
+  // 3b/4b: rel-sträng (upgrade/downgrade/ended) → POST; tomt/'renewal' → DELETE. Uppdatera cachen direkt så vyn speglar utan omladdning.
+  // revenueIdOverride: när relationen gäller en annan post än parentId (churn: parentId=null, revenueId=posten). churnReason: anledning vid 'ended'.
+  const rid = revenueIdOverride!=null ? revenueIdOverride : parentId;
   try{
     if(rel&&rel!=='renewal'){
-      const payload={revenueId:parentId,customerId:customerId!=null?customerId:null,relationType:rel,registeredBy:(window._currentUserName||'okand'),decisionDate:new Date().toISOString().slice(0,10)};
+      const payload={revenueId:rid,customerId:customerId!=null?customerId:null,relationType:rel,churnReason:churnReason!=null?churnReason:null,registeredBy:(window._currentUserName||'okand'),decisionDate:new Date().toISOString().slice(0,10)};
       await apiFetch(`${API}/revenue-relations`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      if(window._revRelations)window._revRelations[parentId]={RevenueId:parentId,CustomerId:customerId,RelationType:rel,RegisteredBy:payload.registeredBy,DecisionDate:payload.decisionDate};
+      if(window._revRelations)window._revRelations[rid]={RevenueId:rid,CustomerId:customerId,RelationType:rel,ChurnReason:payload.churnReason,RegisteredBy:payload.registeredBy,DecisionDate:payload.decisionDate};
     }else{
-      await apiFetch(`${API}/revenue-relations/${parentId}`,{method:'DELETE'});
-      if(window._revRelations)delete window._revRelations[parentId];
+      await apiFetch(`${API}/revenue-relations/${rid}`,{method:'DELETE'});
+      if(window._revRelations)delete window._revRelations[rid];
     }
   }catch(e){console.warn('setRevRelation misslyckades:',e);}
 }
@@ -2544,7 +2546,7 @@ function valueChurnPct(){
   });
   return base>0?Math.max(0,Math.min(1,churned/base)):0;
 }
-const CHURN_REASONS=['Budget','Dåligt utnyttjande','Kundnöjdhet','Behov förändrat','Teamkonstellation','Annat','Vet ej'];
+const CHURN_REASONS = ['Kostnad/budget','Dåligt utnyttjande','Uppfyllde ej förväntan','Förändrad teamkonstellation','Nyckelperson slutade','Annat fokus','Ej angiven','Annat'];
 // Churnade kunder (markerade via Förnyelse-sektionen) flyttas till Arkiv → Tidigare
 // kunder via en lokal markering med anledning + datum.
 function getChurnedCustomers(){try{return JSON.parse(localStorage.getItem('churned-customers')||'{}');}catch(e){return{};}}
@@ -2579,29 +2581,40 @@ async function loadRenewalItems(id){
         ${status}
       </div>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
-        <div class="modal-field" style="flex:1;min-width:140px;"><label>Utfall</label><select id="renewal-outcome-${i}" class="edit-input" onchange="document.getElementById('renewal-reason-wrap-${i}').style.display=this.value==='Churnade'?'block':'none';"><option>Ej registrerat</option><option>Förnyade</option><option>Churnade</option><option>Pausad</option></select></div>
+        <div class="modal-field" style="flex:1;min-width:140px;"><label>Utfall</label><select id="renewal-outcome-${i}" class="edit-input" onchange="document.getElementById('renewal-reason-wrap-${i}').style.display=this.value==='Churnade'?'block':'none';"><option>Ej registrerat</option><option>Förnyade</option><option>Churnade</option><option>Under förhandling</option></select></div>
         <div class="modal-field"><label>Beslutsdatum</label><input id="renewal-date-${i}" type="date" class="edit-input" value="${todayStr}"></div>
-        <button class="btn-sm" onclick="saveRenewalOutcomeItem(${id},${i},${amount})">Spara</button>
+        <button class="btn-sm" onclick="saveRenewalOutcomeItem(${id},${i},${amount},${it.Id})">Spara</button>
       </div>
-      <div class="modal-field" id="renewal-reason-wrap-${i}" style="display:none;margin-top:8px;"><label>Anledning (flyttas till arkiv)</label><select id="renewal-reason-${i}" class="edit-input">${CHURN_REASONS.map(r=>`<option>${r}</option>`).join('')}</select></div>
+      <div class="modal-field" id="renewal-reason-wrap-${i}" style="display:none;margin-top:8px;"><label>Anledning (flyttas till arkiv)</label><div id="renewal-reason-${i}" style="display:flex;flex-direction:column;gap:4px;">${CHURN_REASONS.map(reason=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" class="renewal-reason-cb-${i}" value="${reason}" ${reason==='Annat'?`onchange="document.getElementById('renewal-reason-other-${i}').style.display=this.checked?'block':'none';"`:''}>${reason}</label>`).join('')}<input type="text" id="renewal-reason-other-${i}" class="edit-input" placeholder="Beskriv annan orsak..." style="display:none;margin-top:4px;"></div></div>
     </div>`;
   }).join('');
 }
-async function saveRenewalOutcomeItem(id,i,amount){
+async function saveRenewalOutcomeItem(id,i,amount,revenueId){
   const outcome=document.getElementById(`renewal-outcome-${i}`)?.value;
   const decisionDate=document.getElementById(`renewal-date-${i}`)?.value||null;
   if(!outcome||outcome==='Ej registrerat')return;
-  const churnReason=outcome==='Churnade'?(document.getElementById(`renewal-reason-${i}`)?.value||'Vet ej'):null;
+  // 4b: las checkbox-orsaker (flerval) + fritext vid Annat
+  let churnReason=null;
+  if(outcome==='Churnade'){
+    const checked=Array.from(document.querySelectorAll(`.renewal-reason-cb-${i}:checked`)).map(cb=>cb.value);
+    const otherTxt=(document.getElementById(`renewal-reason-other-${i}`)?.value||'').trim();
+    const reasons=checked.map(r=>r==='Annat'&&otherTxt?`Annat: ${otherTxt}`:r).filter(Boolean);
+    churnReason=reasons.length?reasons.join(', '):'Ej angiven';
+  }
   try{
+    // behall /renewalOutcome for churn-modellen (kalibrering)
     const r=await apiFetch(`${API}/renewalOutcome`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:id,outcome,decisionDate,amount,churnReason})});
     if(outcome==='Churnade'){
-      setCustomerChurned(id,churnReason);
-      showSaveIndicator('✓ Kund churnad – flyttad till arkiv','#1a7a50');
+      // 4b: skriv churn per POST till RevenueRelations (delad DB, per licenspost)
+      if(revenueId!=null){
+        await setRevRelation(id,null,'ended',revenueId,churnReason);
+      }
+      showSaveIndicator('✓ Avslutad – sparad','#1a7a50');
       closeModalDirect();updateArkivStatsBar();if(currentMain==='arkiv')renderArkivCurrent();
     } else {
-      showSaveIndicator(r.ok?'✓ Förnyelseutfall sparat':'⚠ Kunde inte spara',r.ok?'#1a7a50':'#a32d2d');
+      showSaveIndicator(r.ok?'✓ Utfall sparat':'⚠ Kunde inte spara',r.ok?'#1a7a50':'#a32d2d');
     }
-  }catch(e){console.error('saveRenewalOutcomeItem',e);showSaveIndicator('⚠ Nätverksfel','#a32d2d');}
+  }catch(e){console.error('saveRenewalOutcomeItem',e);showSaveIndicator('⚠ Natverksfel','#a32d2d');}
 }
 function getCustomerRiskFactors(c){
   if(!c||!c.Id)return[];
