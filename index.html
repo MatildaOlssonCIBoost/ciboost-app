@@ -1314,7 +1314,6 @@ let perSources={arr:true,fast:true,utb:true,cons:true};
 let currentMain='start', currentSub={pipeline:'oversikt',kunder:'oversikt',finansiellt:'prognos',trialpilot:'trials',arkiv:'tidigare'};
 let currentTpId=null, currentTpType=null, currentTpModalTab=1;
 let budgetVersions=[], currentBudgetVersionId=null, budgetRows=[];
-let supplierRows=[];   // F2-3: leverantörsmodell-config (SupplierRows) för aktuell likviditetsversion
 // Row comments/notes are stored per budget version in localStorage so they are
 // unique to each version and only carried over when a budget is explicitly copied.
 let budgetNotes={};
@@ -5499,8 +5498,6 @@ async function loadBudgetVersion(){
     showMessage('<strong>Fel: API returnerade ogiltigt JSON-svar.</strong><br>Kolla att ciboost-api-v2 är uppe och svarar normalt.','var(--red)');
     return;
   }
-  // F2-3: ladda leverantörsmodell-config (SupplierRows) — bara likviditet (resultat har inga).
-  if(currentBudgetMode==='likviditet'){try{supplierRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/suppliers`)).json();if(!Array.isArray(supplierRows))supplierRows=[];}catch(e){supplierRows=[];}}else{supplierRows=[];}
   // M1: visa version-specifika Åtgärder-poster + import-grupp; togglad menytext + roll-status i raden.
   ['mi-copy','mi-rename','mi-pair','mi-primary','mi-rolling','mi-delete'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='flex';});
   ['mi-sep1','mi-sep2'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='block';});
@@ -6074,14 +6071,9 @@ function renderBudgetTable(){
 function updateBudgetTotals(){}
 
 // LEV-AB-2b: openSupplierModal borttagen (config-driven supplier-modal rivd — leverantörer är nu fria BudgetRows Source='Leverantör').
-// F2-3a: typ-växling — visa/dölj fält-wrappers per vald typ.
-function updateSupplierModalFields(){
-  const t=document.getElementById('sup-type')?.value;
-  const show=(id,on)=>{const e=document.getElementById(id);if(e)e.style.display=on?'block':'none';};
-  show('sup-manual-fields',t==='manual');show('sup-derived-fields',t==='derived');show('sup-vat-fields',t==='vat');
-}
+// LEV-AB-2c: updateSupplierModalFields borttagen (dödkod — enda anroparen var den rivna modalen).
 // LEV-AB-2b: deleteSupplier/saveSuppliers/rebuildSupplierRows borttagna (config-driven supplier-modell rivd).
-// Leverantörer är nu fria BudgetRows Source='Leverantör' (fast lista LEV-AB-1, import LEV-AB-2a). supplierRows-state rivs i 2c.
+// Leverantörer är nu fria BudgetRows Source='Leverantör' (fast lista LEV-AB-1, import LEV-AB-2a). supplierRows-state rivet (LEV-AB-2c).
 
 // ─── IMP-1: Excel-import (ekonomens prognosfil → resultatbudget) ─────────────────────
 // Läser ekonomens importflik (fliknamn i Sheets-anropet nedan): kol A=BAS-konto, B=namn, D-O=Jan-Dec, rad 6+ (r=5+).
@@ -6237,7 +6229,6 @@ async function runExcelImport(){
     if(window._excelResult&&window._excelResult.length&&window._excelResultTargetId!=null){await writeExcelResult(window._excelResult,window._excelResultTargetId);rCount=window._excelResult.length;}
     if(window._excelLiquidity&&window._excelLiquidity.length&&window._excelLiquidityTargetId!=null){await writeExcelLiquidity(window._excelLiquidity,window._excelLiquidityTargetId);lCount=window._excelLiquidity.length;}
     try{budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();if(!Array.isArray(budgetRows))budgetRows=[];}catch(e){}
-    if(currentBudgetMode==='likviditet'){try{supplierRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/suppliers`)).json();if(!Array.isArray(supplierRows))supplierRows=[];}catch(e){}}
     renderBudgetTable();
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
     showSaveIndicator(`✓ ${rCount} resultatrader + ${lCount} leverantörer importerade`,'#1a7a50');
@@ -6872,7 +6863,6 @@ function openNewBudgetVersion(){
       // LEV-C: ST-seed borttagen. Ladda den nya likviditetsbudgetens data (tom) så rendern visar den.
       if(budgetType==='Likviditetsbudget'){
         currentBudgetMode='likviditet';
-        try{supplierRows=await (await apiFetch(`${API}/budget-versions/${created.Id}/suppliers`)).json();if(!Array.isArray(supplierRows))supplierRows=[];}catch(e){supplierRows=[];}
         try{budgetRows=await (await apiFetch(`${API}/budget-versions/${created.Id}/rows`)).json();if(!Array.isArray(budgetRows))budgetRows=[];}catch(e){budgetRows=[];}
         renderBudgetTable();
       }else{
