@@ -2094,6 +2094,25 @@ function updateRiPaymentExpected(prefix){
 // K2: momssats per post. vatVal läser satsen (null om tom). updateVatIncl visar live "Inkl. moms" = Belopp ex moms × (1+sats/100).
 function vatVal(prefix){const v=parseFloat(document.getElementById(`${prefix}-vat`)?.value);return isNaN(v)?null:v;}
 function updateVatIncl(prefix){const amt=parseFloat(document.getElementById(`${prefix}-amount`)?.value)||0;const vat=parseFloat(document.getElementById(`${prefix}-vat`)?.value);const rate=isNaN(vat)?25:vat;const el=document.getElementById(`${prefix}-vat-incl`);if(!el)return;el.textContent=Math.round(amt*(1+rate/100)).toLocaleString('sv-SE')+' kr';}
+function setRenewMode(mode){
+  var m=document.getElementById('rn-mode'); if(m)m.value=mode;
+  var rf=document.getElementById('rn-renew-fields'); if(rf)rf.style.display=mode==='renew'?'block':'none';
+  var cw=document.getElementById('rn-churn-wrap'); if(cw)cw.style.display=mode==='ended'?'block':'none';
+  var bR=document.getElementById('rn-btn-renew'), bE=document.getElementById('rn-btn-ended');
+  if(bR){bR.style.background=mode==='renew'?'#e8845c':'#fff';bR.style.color=mode==='renew'?'#fff':'var(--text2)';bR.style.borderColor=mode==='renew'?'#e8845c':'var(--border)';}
+  if(bE){bE.style.background=mode==='ended'?'#e8845c':'#fff';bE.style.color=mode==='ended'?'#fff':'var(--text2)';bE.style.borderColor=mode==='ended'?'#e8845c':'var(--border)';}
+  var note=document.getElementById('rn-mode-note');
+  if(note)note.textContent=mode==='ended'?'Avtalet avslutas – ingen ny period skapas. Ange orsak nedan.':'En ny period skapas. Beloppet jämförs mot nuvarande för att avgöra churn.';
+}
+function updateRenewEffect(origAmt){
+  var el=document.getElementById('rn-effect-note'); if(!el)return;
+  var amt=parseInt(document.getElementById('rn-amount')?.value)||0;
+  var diff=amt-(origAmt||0);
+  if(!amt){el.textContent='';return;}
+  if(diff>0)el.textContent='Uppgradering (+'+diff.toLocaleString('sv-SE')+' kr) – räknas inte som churn.';
+  else if(diff<0)el.textContent='Nedgradering ('+diff.toLocaleString('sv-SE')+' kr) – mellanskillnaden räknas som churn.';
+  else el.textContent='Förnyelse på samma nivå – ingen churn.';
+}
 async function editProspectRevItem(id,itemId){
   const items=await loadProspectRevenues(id);
   const it=items.find(x=>x.Id===itemId);if(!it)return;
@@ -2496,14 +2515,18 @@ function openRenewRevenue(customerId,itemId,defaultRelation){
     const origLabel=`${orig.Type} · ${fmtRenewPeriod(orig.DateFrom,orig.DateTo)}`;
     const relPrev=defaultRelation||getRevRelations(customerId)[String(itemId)]||'renewal';
     showDialog('Avsluta / förnya intäktspost',
-      `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Förnya skapar en ny period på <strong>samma kund</strong>. För övergångar mellan kundkort, använd 'Länka till tidigare avtal' på den nya posten istället.</div>
-      <div style="background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:12px;color:var(--text2);">Länkas till: <strong>${origLabel}</strong> (${Math.round(orig.Amount||0).toLocaleString('sv-SE')} kr)</div>
-      <div class="modal-field"><label>Typ av förändring</label><select id="rn-relation" class="edit-input" onchange="var _e=this.value==='ended';document.getElementById('rn-relation-note').textContent=this.value==='upgrade'?'Uppgradering räknas inte som churn.':this.value==='downgrade'?'Endast mellanskillnaden i värde räknas som churn.':this.value==='ended'?'Avtalet avslutas — ingen ny period skapas. Ange orsak nedan.':'Förnyelse på samma nivå.';var _rf=document.getElementById('rn-renew-fields');if(_rf)_rf.style.display=_e?'none':'block';var _cw=document.getElementById('rn-churn-wrap');if(_cw)_cw.style.display=_e?'block':'none';"><option value="renewal" ${relPrev==='renewal'?'selected':''}>Förnyelse (samma nivå)</option><option value="upgrade" ${relPrev==='upgrade'?'selected':''}>Uppgraderad till (ingen churn)</option><option value="downgrade" ${relPrev==='downgrade'?'selected':''}>Nedgraderad till (churn = mellanskillnad)</option><option value="ended" ${relPrev==='ended'?'selected':''}>Avsluta (ingen förnyelse)</option></select></div>
-      <div id="rn-relation-note" style="font-size:11px;color:var(--text3);margin-top:4px;">${relPrev==='upgrade'?'Uppgradering räknas inte som churn.':relPrev==='downgrade'?'Endast mellanskillnaden i värde räknas som churn.':'Förnyelse på samma nivå.'}</div>
+      `<div style="background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:12px;color:var(--text2);">Gäller: <strong>${origLabel}</strong> (${Math.round(orig.Amount||0).toLocaleString('sv-SE')} kr)</div>
+      <div style="display:flex;gap:8px;margin-bottom:4px;">
+        <button type="button" id="rn-btn-renew" onclick="setRenewMode('renew')" style="flex:1;padding:9px;border:1px solid ${relPrev==='ended'?'var(--border)':'#e8845c'};border-radius:8px;background:${relPrev==='ended'?'#fff':'#e8845c'};color:${relPrev==='ended'?'var(--text2)':'#fff'};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">Förnya</button>
+        <button type="button" id="rn-btn-ended" onclick="setRenewMode('ended')" style="flex:1;padding:9px;border:1px solid ${relPrev==='ended'?'#e8845c':'var(--border)'};border-radius:8px;background:${relPrev==='ended'?'#e8845c':'#fff'};color:${relPrev==='ended'?'#fff':'var(--text2)'};font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">Ingen förnyelse</button>
+      </div>
+      <input type="hidden" id="rn-mode" value="${relPrev==='ended'?'ended':'renew'}">
+      <div id="rn-mode-note" style="font-size:11px;color:var(--text3);margin:4px 0 8px;">${relPrev==='ended'?'Avtalet avslutas – ingen ny period skapas. Ange orsak nedan.':'En ny period skapas. Beloppet jämförs mot nuvarande för att avgöra churn.'}</div>
       <div id="rn-renew-fields" style="display:${relPrev==='ended'?'none':'block'};">
       <div class="modal-field" style="margin-top:10px;"><label>Typ</label><select id="rn-type" class="edit-input"><option value="ARR" ${orig.Type==='ARR'?'selected':''}>Prenumeration</option><option value="Fastpris" ${orig.Type==='Fastpris'?'selected':''}>Fast pris</option><option value="Utbildning" ${orig.Type==='Utbildning'?'selected':''}>Utbildning</option><option value="Consulting" ${orig.Type==='Consulting'?'selected':''}>Consulting</option></select></div>
-      <div class="modal-grid" style="margin-top:10px;"><div class="modal-field"><label>Nytt belopp ex moms (kr)</label><input id="rn-amount" type="number" class="edit-input" value="${orig.Amount||0}" oninput="updateVatIncl('rn')"></div><div class="modal-field"><label>Moms %</label><input id="rn-vat" type="number" step="0.01" class="edit-input" value="${orig.VatRate!=null?orig.VatRate:25}" oninput="updateVatIncl('rn')"></div></div>
+      <div class="modal-grid" style="margin-top:10px;"><div class="modal-field"><label>Nytt belopp ex moms (kr)</label><input id="rn-amount" type="number" class="edit-input" value="${orig.Amount||0}" oninput="updateVatIncl('rn');updateRenewEffect(${orig.Amount||0})"></div><div class="modal-field"><label>Moms %</label><input id="rn-vat" type="number" step="0.01" class="edit-input" value="${orig.VatRate!=null?orig.VatRate:25}" oninput="updateVatIncl('rn')"></div></div>
       <div class="modal-field" style="margin-top:6px;font-size:11px;color:var(--text3);"><span id="rn-vat-incl">${Math.round((orig.Amount||0)*(1+(orig.VatRate!=null?orig.VatRate:25)/100)).toLocaleString('sv-SE')} kr</span> inkl. moms (importeras)</div>
+      <div id="rn-effect-note" style="font-size:11px;color:var(--text3);margin-top:4px;">Förnyelse på samma nivå – ingen churn.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
         <div class="modal-field"><label>Från datum</label><input id="rn-from" type="date" class="edit-input" value="${newStart}"></div>
         <div class="modal-field"><label>Till datum</label><input id="rn-to" type="date" class="edit-input" value="${newEnd}"></div>
@@ -2513,7 +2536,10 @@ function openRenewRevenue(customerId,itemId,defaultRelation){
       </div>
       <div class="modal-field" id="rn-churn-wrap" style="display:${relPrev==='ended'?'block':'none'};margin-top:10px;"><label>Anledning till avslut</label><div style="display:flex;flex-direction:column;gap:4px;">${CHURN_REASONS.map(reason=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" class="renewal-reason-cb-modal" value="${reason}" ${reason==='Annat'?`onchange="document.getElementById('renewal-reason-other-modal').style.display=this.checked?'block':'none';"`:''}>${reason}</label>`).join('')}<input type="text" id="renewal-reason-other-modal" class="edit-input" placeholder="Beskriv annan orsak..." style="display:none;margin-top:4px;"></div></div>`,
       async()=>{
-        const relation=document.getElementById('rn-relation')?.value||'renewal';
+        const _mode=document.getElementById('rn-mode')?.value||'renew';
+        const _newAmt=parseInt(document.getElementById('rn-amount')?.value)||0;
+        const _origAmt=orig.Amount||0;
+        const relation=_mode==='ended'?'ended':(_newAmt>_origAmt?'upgrade':(_newAmt<_origAmt?'downgrade':'renewal'));
         if(relation==='ended'){
           // 3a2: Avsluta/churn per post — läs checkbox-orsaker (samma mönster som saveRenewalOutcomeItem). INGEN ny period skapas.
           const checked=Array.from(document.querySelectorAll('.renewal-reason-cb-modal:checked')).map(cb=>cb.value);
@@ -2590,7 +2616,7 @@ function computeChurnedFromData(){
     const cid=r.CustomerId; if(cid==null)return;
     const date=r.DecisionDate?String(r.DecisionDate).slice(0,10):null;
     const prev=out[cid];
-    if(!prev||(date&&(!prev.date||date>prev.date))){ out[cid]={reason:r.ChurnReason||'Ej förnyat',date:date||(prev?prev.date:null),source:'manual'}; }
+    if(!prev||(date&&(!prev.date||date>prev.date))){ out[cid]={reason:r.ChurnReason||'Ej förnyat',date:date||(prev?prev.date:null),source:'manual',revenueId:r.RevenueId}; }
   });
   // B: auto — bara om cacherna är laddade
   if(_churnCachesReady()){
@@ -2600,7 +2626,7 @@ function computeChurnedFromData(){
       if(out[c.Id]&&out[c.Id].source==='manual')return;
       const posts=(custRevCache[c.Id]||[]).filter(p=>(p.Type==='ARR'||p.Type==='Fastpris')&&p.DateTo);
       const autoPost=posts.find(p=>daysLeft(p.DateTo)<-30 && !endedByPost[p.Id] && !childParentIds.has(p.Id) && !linkFromIds.has(p.Id));
-      if(autoPost)out[c.Id]={reason:'Ej förnyat',date:String(autoPost.DateTo).slice(0,10),source:'auto'};
+      if(autoPost)out[c.Id]={reason:'Ej förnyat',date:String(autoPost.DateTo).slice(0,10),source:'auto',revenueId:autoPost.Id};
     });
   }
   _churnMemo={sig,val:out};
@@ -7865,6 +7891,7 @@ function renderArkivTidigare(){
       <td>${_statusBadge}</td>
       <td>${arr?fmtKr(arr):'–'}</td>
       <td style="white-space:nowrap;">
+        ${(_st&&churned[c.Id]&&churned[c.Id].revenueId!=null)?`<button class="btn-sm" style="border:0.5px solid #f0997b;color:#993c1d;background:#fff;" onclick="openRenewRevenue(${c.Id},${churned[c.Id].revenueId},'ended')" title="${_st==='auto'?'Satt orsak':'Redigera beslut'}">${_st==='auto'?'Satt orsak':'Redigera'}</button>`:''}
         <button class="ark-expand-btn" onclick="toggleArkivTidigareExpand(${c.Id})" title="Historik">📜</button>
         <button class="btn-sm" onclick="reactivateAsProspect(${c.Id})" title="Återaktivera">↻</button>
         <button class="btn-sm" style="background:var(--red);color:white;" onclick="addCustomerToBlocklist(${c.Id})" title="Spärrlista">⛔</button>
@@ -7877,7 +7904,7 @@ function toggleArkivTidigareExpand(id){
   const existing=document.getElementById(`ark-tid-exp-${id}`);
   if(existing){existing.remove();return;}
   const c=allCustomers.find(x=>x.Id===id);if(!c||!row)return;
-  row.insertAdjacentHTML('afterend',`<tr id="ark-tid-exp-${id}" class="ark-expand-row"><td colspan="6">Kund sedan: <strong>${c.CustomerSince?new Date(c.CustomerSince).toLocaleDateString('sv-SE'):'–'}</strong> · Licens slutade: <strong>${c.LicenseEnd?new Date(c.LicenseEnd).toLocaleDateString('sv-SE'):'–'}</strong>${c.Notes?`<br>Anteckning: ${c.Notes}`:''}</td></tr>`);
+  row.insertAdjacentHTML('afterend',`<tr id="ark-tid-exp-${id}" class="ark-expand-row"><td colspan="7">Kund sedan: <strong>${c.CustomerSince?new Date(c.CustomerSince).toLocaleDateString('sv-SE'):'–'}</strong> · Licens slutade: <strong>${c.LicenseEnd?new Date(c.LicenseEnd).toLocaleDateString('sv-SE'):'–'}</strong>${c.Notes?`<br>Anteckning: ${c.Notes}`:''}</td></tr>`);
 }
 function reactivateAsProspect(custId){
   const c=allCustomers.find(x=>x.Id===custId);if(!c)return;
