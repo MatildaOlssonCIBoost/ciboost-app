@@ -1260,6 +1260,28 @@ const AKTIVERAT_ROWS_DEF = [
   { group:'Aktiverat arbete', account:'3850', name:'Aktiverat arbete (omkostnader)' },
   { group:'Aktiverat arbete', account:'3870', name:'Aktiverat arbete (personal)' },
 ];
+// LEV-AB: fast leverantörslista för likviditetsbudgeten. Ordning enligt ekonomens Sune-flik (bild).
+// Rader lagras som BudgetRows med Source='Leverantör', Category='Leverantör', SubCategory=namn (verbatim, styr import/export-matchning).
+const LEVERANTOR_ROWS_DEF = [
+  'Utbetalning lön',
+  'Övrigt via utlägg',
+  'Söderberg&Partners Pension',
+  'Söderberg&Partners sjukförsäkring',
+  'Compileit',
+  'Amanda AI',
+  'Wow Media',
+  'Entercard (linkedin)',
+  'Influence',
+  'IT-partner',
+  'Tele2',
+  'Bankavg',
+  'Övrigt',
+  'NBP/NGA',
+  'Skatteverket - soc.avg',
+  'Skatteverket - f-skatt',
+  'Skatteverket - moms',
+  'Skatteverket - övrigt',
+];
 const BUDGET_ROWS_DEF = [
   {section:'REVENUE', category:'Revenue', subCategory:'Licens (prenumeration)', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Licens (fast pris)', type:'revenue'},
@@ -6058,6 +6080,18 @@ function renderBudgetTable(){
     } else {
       html+=`<tr data-bsec="${secKey}"><td colspan="${MONTHS.length+2}" style="padding:4px 24px;font-size:11px;color:var(--text3);font-style:italic;">Momsavräkning byggs i F2-5</td></tr>`;
     }
+  });
+  // LEV-AB-1: fast editbar leverantörslista (Source='Leverantör'). Egen source-map (getVal filtrerar bort Source-rader).
+  const levMap={};
+  (budgetRows||[]).filter(r=>(r.Source||'')==='Leverantör'&&r.Category==='Leverantör').forEach(r=>{levMap[r.SubCategory]=r;});
+  const levGetVal=(sub,mi)=>{const s=levMap[sub]||{};return Number(s[MONTHS[mi]])||0;};
+  const levInputCell=(sub,mi)=>{const val=levGetVal(sub,mi);return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;"><input class="budget-input" type="number" data-cat="Leverantör" data-sub="${String(sub).replace(/"/g,'&quot;')}" data-month="${MONTHS[mi]}" data-source="Leverantör" value="${val||''}" placeholder="0" oninput="updateBudgetTotals()"></div></td>`;};
+  const levRowMonthly=sub=>MONTHS.map((_,mi)=>levGetVal(sub,mi));
+  html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('lev_fast')" style="background:var(--surface2);font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer;"><span class="bchev" data-bsec-toggle="lev_fast">▾</span> Leverantörer (fast lista)</td></tr>`;
+  LEVERANTOR_ROWS_DEF.forEach(sub=>{
+    const vals=levRowMonthly(sub);const tot=vals.reduce((a,b)=>a+b,0);
+    const nm=String(sub).replace(/</g,'&lt;');
+    html+=`<tr data-bsec="lev_fast"><td style="padding-left:24px;font-size:12px;">${nm}</td>${MONTHS.map((_,mi)=>levInputCell(sub,mi)).join('')}<td style="font-weight:500;text-align:right;font-size:11px;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(tot)}</td></tr>`;
   });
   html+=sumRow('Total Kostnader',costMonthly,costTotal);
   html+=tbRow('Resultat (Nettoomsättning − Kostnader)',resultatMonthly,resultatTotal);
