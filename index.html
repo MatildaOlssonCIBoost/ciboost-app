@@ -2535,9 +2535,12 @@ function valueChurnPct(){
       const child=childByParent[it.Id];
       const amt=it.Amount||0;
       const expired=new Date(it.DateTo)<today;
-      if(!child&&!expired)return; // fortfarande aktiv → ingen förnyelsehändelse
+      const _ended=rel[String(it.Id)]==='ended'; // Steg 4/4c: manuellt avslut (RelationType='ended')
+      if(!child&&!expired&&!_ended)return; // aktiv OCH ej manuellt avslutad → ingen förnyelsehändelse
       base+=amt;
-      if(child){
+      if(_ended){
+        churned+=amt; // manuellt avslut → full churn, vinner över upgrade/downgrade; räknas en gång (if/else) oavsett expired/barn
+      } else if(child){
         let relation=rel[String(it.Id)];
         if(!relation)relation=(child.Amount||0)>=amt?'upgrade':'downgrade';
         if(relation==='downgrade')churned+=Math.max(0,amt-(child.Amount||0));
