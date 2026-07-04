@@ -1054,8 +1054,8 @@
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Företag</th><th>Bransch / Kundansvarig</th><th>Utgick</th><th>Orsak</th><th>ARR</th><th></th></tr></thead>
-        <tbody id="ark-tid-body"><tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+        <thead><tr><th>Företag</th><th>Bransch / Kundansvarig</th><th>Utgick</th><th>Orsak</th><th>Status</th><th>ARR</th><th></th></tr></thead>
+        <tbody id="ark-tid-body"><tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -7795,15 +7795,18 @@ function renderArkivTidigare(){
   const reasonOf=c=>{const ch=churned[c.Id];return ch?ch.reason:(c.LostReason||'Ej förnyat');};
   const items=arkivedCustomers().filter(c=>(!q||(c.Company||'').toLowerCase().includes(q))&&(!owner||c._owner===owner)&&(!ind||c.Industry===ind)&&(!reason||reasonOf(c)===reason)&&(!year||(c.LicenseEnd&&new Date(c.LicenseEnd).getFullYear()==year)));
   const tbody=document.getElementById('ark-tid-body');if(!tbody)return;
-  if(!items.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text3);font-size:13px;">Inga arkiverade kunder matchar.</td></tr>';return;}
+  if(!items.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3);font-size:13px;">Inga arkiverade kunder matchar.</td></tr>';return;}
   tbody.innerHTML=items.map(c=>{
     const r=reasonOf(c);
     const arr=customerValue(c);
+    const _st=(churned[c.Id]&&churned[c.Id].source)||null;
+    const _statusBadge=_st==='manual'?'<span class="badge b-green">Bekräftad</span>':_st==='auto'?'<span class="badge b-amber">Ej bekräftad</span>':'<span class="badge b-gray">-</span>';
     return`<tr id="ark-tid-row-${c.Id}">
       <td><strong>${c.Company||'–'}</strong>${c.Contact?`<div style="font-size:11px;color:var(--text3);">${c.Contact}</div>`:''}</td>
       <td>${c.Industry||'–'}<div style="font-size:11px;color:var(--text3);">${c._owner||'–'}</div></td>
       <td>${c.LicenseEnd?new Date(c.LicenseEnd).toLocaleDateString('sv-SE'):'–'}</td>
       <td><span class="badge b-gray">${r}</span></td>
+      <td>${_statusBadge}</td>
       <td>${arr?fmtKr(arr):'–'}</td>
       <td style="white-space:nowrap;">
         <button class="ark-expand-btn" onclick="toggleArkivTidigareExpand(${c.Id})" title="Historik">📜</button>
