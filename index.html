@@ -555,6 +555,7 @@
     <button class="nav-tab" onclick="switchMain('finansiellt',this)">Finansiellt</button>
     <button class="nav-tab" onclick="switchMain('arkiv',this)">Arkiv <span class="count" id="ark-nav-count">-</span></button>
   </div>
+  <div id="me-select-wrap" style="margin-left:auto;"></div>
 </nav>
 
 <div class="stats-bar" id="stats-pipeline">
@@ -8129,6 +8130,21 @@ updateArkivStatsBar();
 startKpiObserver();
 cfTipInit();
 // Startsidan är första vyn — dölj pipeline-statistik/underflikar som visas i default-markup.
+// Tråd 5: "Vem är du?"-identitet ur OWNERS (ingen auth) → window._currentUserName, persisterad i localStorage.
+// Fyller RegisteredBy vid churn-skrivning (annars 'okand'). Laddas före init.
+window._currentUserName = localStorage.getItem('ciboost_me')||null;
+function setCurrentUser(name){
+  window._currentUserName = name||null;
+  if(name)localStorage.setItem('ciboost_me',name); else localStorage.removeItem('ciboost_me');
+}
+function renderMeSelect(){
+  const el=document.getElementById('me-select-wrap');if(!el)return;
+  el.innerHTML=`<select id="me-select" onchange="setCurrentUser(this.value)" style="font-size:12px;padding:3px 8px;border-radius:6px;border:0.5px solid var(--border);background:#fff;">
+    <option value="">Vem är du?</option>
+    ${OWNERS.map(o=>`<option value="${o}"${window._currentUserName===o?' selected':''}>${o}</option>`).join('')}
+  </select>`;
+}
+renderMeSelect();
 switchMain('start',document.querySelector('.nav-tab'));
 loadCustomers();
 loadProspects();
