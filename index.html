@@ -1641,6 +1641,9 @@ async function prefetchAllCustomerRevenues(){
   updateStats();renderTable();
   if(currentMain==='kunder'&&currentSub.kunder==='licenstidslinje')renderLicenstidslinje();
   if(currentMain==='start')renderStart();
+  // Steg 5: custRevCache+linksCache nu fyllda → auto-B-churn kan beräknas; uppdatera arkiv-vyn/räknaren
+  if(typeof updateArkivStatsBar==='function')updateArkivStatsBar();
+  if(currentMain==='arkiv'&&typeof renderArkivCurrent==='function')renderArkivCurrent();
   // Cache-guard: stats-baren (fs-arr) räknar ARR via arrAnnualizedAt → räkna om nu
   // när custRevCache är fylld, annars visar den 0 om den renderats före prefetch.
   if(currentMain==='finansiellt'&&typeof updateFinStatsBar==='function')updateFinStatsBar();
@@ -2549,7 +2552,46 @@ function valueChurnPct(){
 const CHURN_REASONS = ['Kostnad/budget','Dåligt utnyttjande','Uppfyllde ej förväntan','Förändrad teamkonstellation','Nyckelperson slutade','Annat fokus','Ej angiven','Annat'];
 // Churnade kunder (markerade via Förnyelse-sektionen) flyttas till Arkiv → Tidigare
 // kunder via en lokal markering med anledning + datum.
-function getChurnedCustomers(){try{return JSON.parse(localStorage.getItem('churned-customers')||'{}');}catch(e){return{};}}
+// Steg 5: churn-källan är nu DB-driven (RevenueRelations RelationType='ended') istället för localStorage.
+// A (manuell/Bekräftad): kund har en 'ended'-relation i _revRelations. B (auto/Ej bekräftad): ARR/Fastpris-post
+// utgången >30d utan 'ended', utan RenewedFromId-barn, utan RevenueLinks-efterföljare. B körs BARA när cacherna
+// är laddade (custRevCache + linksCache + _revRelations) för att undvika falsk auto-arkivering. Memo via signatur.
+let _churnMemo={sig:null,val:null};
+function _churnCachesReady(){
+  return allCustomers.length>0 && allCustomers.every(c=>custRevCache[c.Id]!==undefined) && Array.isArray(linksCache) && window._revRelations!=null;
+}
+function computeChurnedFromData(){
+  const rr=window._revRelations||{};
+  const sig=Object.keys(rr).length+'|'+Object.keys(custRevCache).length+'|'+(Array.isArray(linksCache)?linksCache.length:-1)+'|'+allCustomers.length+'|'+(_churnCachesReady()?1:0);
+  if(_churnMemo.sig===sig)return _churnMemo.val;
+  const out={};
+  // A: manuella 'ended'-relationer (per kund, senaste DecisionDate vinner)
+  const endedByPost={};
+  Object.values(rr).forEach(r=>{ if(!r||r.RelationType!=='ended')return; endedByPost[r.RevenueId]=r;
+    const cid=r.CustomerId; if(cid==null)return;
+    const date=r.DecisionDate?String(r.DecisionDate).slice(0,10):null;
+    const prev=out[cid];
+    if(!prev||(date&&(!prev.date||date>prev.date))){ out[cid]={reason:r.ChurnReason||'Ej förnyat',date:date||(prev?prev.date:null),source:'manual'}; }
+  });
+  // B: auto — bara om cacherna är laddade
+  if(_churnCachesReady()){
+    const childParentIds=new Set(); Object.values(custRevCache).forEach(arr=>{ if(Array.isArray(arr))arr.forEach(p=>{ if(p&&p.RenewedFromId!=null)childParentIds.add(p.RenewedFromId); }); });
+    const linkFromIds=new Set((Array.isArray(linksCache)?linksCache:[]).map(l=>l.FromRevenueId));
+    allCustomers.forEach(c=>{
+      if(out[c.Id]&&out[c.Id].source==='manual')return;
+      const posts=(custRevCache[c.Id]||[]).filter(p=>(p.Type==='ARR'||p.Type==='Fastpris')&&p.DateTo);
+      const autoPost=posts.find(p=>daysLeft(p.DateTo)<-30 && !endedByPost[p.Id] && !childParentIds.has(p.Id) && !linkFromIds.has(p.Id));
+      if(autoPost)out[c.Id]={reason:'Ej förnyat',date:String(autoPost.DateTo).slice(0,10),source:'auto'};
+    });
+  }
+  _churnMemo={sig,val:out};
+  return out;
+}
+function getChurnedCustomers(){
+  const computed=computeChurnedFromData();
+  if(Object.keys(computed).length||_churnCachesReady())return computed;
+  try{return JSON.parse(localStorage.getItem('churned-customers')||'{}');}catch(e){return{};}
+}
 function setCustomerChurned(id,reason){const m=getChurnedCustomers();m[String(id)]={reason:reason||'Ej förnyat',date:new Date().toISOString().substring(0,10)};localStorage.setItem('churned-customers',JSON.stringify(m));}
 function renderRenewalSectionHtml(c){
   const urgent=c._days!==null&&c._days<0;
