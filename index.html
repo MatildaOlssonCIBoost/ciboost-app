@@ -2626,7 +2626,7 @@ async function loadRenewalItems(id){
   catch(e){el.innerHTML='<div class="modal-card" style="font-size:12px;color:var(--text3);">Kunde inte ladda intäktsposter.</div>';return;}
   const today=new Date();today.setHours(0,0,0,0);
   const within30=new Date(today.getTime()+30*86400000);
-  const expiring=(Array.isArray(items)?items:[]).filter(it=>it.Type==='ARR'&&it.DateTo&&new Date(it.DateTo)<=within30)
+  const expiring=(Array.isArray(items)?items:[]).filter(it=>(it.Type==='ARR'||it.Type==='Fastpris')&&it.DateTo&&new Date(it.DateTo)<=within30)
     .sort((a,b)=>new Date(a.DateTo)-new Date(b.DateTo));
   if(!expiring.length){el.innerHTML='<div class="modal-card" style="font-size:12px;color:var(--text3);">Inga prenumerationsavtal som löpt ut eller löper ut inom 30 dagar.</div>';return;}
   const todayStr=new Date().toISOString().substring(0,10);
