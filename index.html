@@ -6243,7 +6243,7 @@ function openExcelImportModal(){
   if(!currentBudgetVersionId){alert('Öppna en budgetversion först.');return;}
   window._excelResult=null;window._excelLiquidity=null;window._excelResultTargetId=null;window._excelLiquidityTargetId=null;
   showDialog('Importera från Excel',
-    `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Läser fliken <b>'Förslag till Sune'</b> → resultatets kostnader (kol A/B) + likviditetens utbetalningar → manuella leverantörer (kol V). En fil fyller <b>båda</b> budgetarna via paret.</div>
+    `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Läser fliken <b>'Import Sune'</b> → resultatets kostnader (kol A/B) + likviditetens utbetalningar → manuella leverantörer (kol V). En fil fyller <b>båda</b> budgetarna via paret.</div>
      <input type="file" id="excel-file-input" accept=".xlsx" onchange="handleExcelFile(event)" style="font-size:12px;width:100%;">
      <div id="excel-preview" style="margin-top:12px;font-size:12px;color:var(--text2);"></div>`,
     async()=>{
@@ -6262,9 +6262,14 @@ function excelTargetResultVersion(){
   if(cur.PairedVersionId!=null){const mate=budgetVersions.find(v=>String(v.Id)===String(cur.PairedVersionId));if(mate&&budgetTypeMode(mate.BudgetType)==='resultat')return mate;}
   return null;
 }
+// LEV-AB-2a: hitta importfliken via prefix "Import Sune" (ekonomen kan lägga datum efter, t.ex. "Import Sune 2026-07"). Första matchande flik vinner.
+function findImportSheet(wb){
+  const nm=(wb.SheetNames||[]).find(n=>String(n).trim().toLowerCase().startsWith('import sune'));
+  return nm?wb.Sheets[nm]:null;
+}
 // Parsa resultat-delen ur workbook. Returnerar null om fliken saknas.
 function parseExcelResult(wb){
-  const ws=wb.Sheets['Förslag till Sune'];
+  const ws=findImportSheet(wb);
   if(!ws||!ws['!ref'])return null;
   const range=XLSX.utils.decode_range(ws['!ref']);
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};   // .v = beräknat värde (ej formel .f)
@@ -6295,7 +6300,7 @@ function excelTargetLiquidityVersion(){
 }
 // IMP-2: parsa likviditet-delen — BARA UTBETALNINGAR (mellan "Summa in" och "Summa ut"). Kol V=namn (c=21), Z-AK=Jan-Dec (c=25..36).
 function parseExcelLiquidity(wb){
-  const ws=wb.Sheets['Förslag till Sune'];
+  const ws=findImportSheet(wb);
   if(!ws||!ws['!ref'])return null;
   const range=XLSX.utils.decode_range(ws['!ref']);
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};
@@ -6323,7 +6328,7 @@ async function handleExcelFile(e){
     const buf=await file.arrayBuffer();
     const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
     const resultRows=parseExcelResult(wb);
-    if(resultRows==null){window._excelResult=null;window._excelLiquidity=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Fliken \'Förslag till Sune\' hittades inte i filen.</span>';return;}
+    if(resultRows==null){window._excelResult=null;window._excelLiquidity=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Fliken \'Import Sune\' hittades inte i filen.</span>';return;}
     const liqRows=parseExcelLiquidity(wb)||[];
     window._excelResult=resultRows;window._excelLiquidity=liqRows;
     const rtgt=excelTargetResultVersion();window._excelResultTargetId=rtgt?rtgt.Id:null;
@@ -6360,22 +6365,22 @@ async function writeExcelResult(rows,tid){
   const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
   await apiFetch(`${API}/budget-versions/${tid}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
 }
-// IMP-2: skriv likviditet → /suppliers (match Name, Type='manual', additiv) → rebuildSupplierRows (materialisera).
-// Utbetalningar är NEGATIVA i Excel; manuella leverantörer lagras POSITIVT (costMonthly/cashflow förväntar positiv kostnad) → Math.abs.
+// LEV-AB-2a: skriv likviditet -> BudgetRows Source='Leverantor' direkt (ersatter /suppliers+rebuildSupplierRows).
+// Utbetalningar ar NEGATIVA i Excel -> kostnad POSITIV (costMonthly forvantar pos) -> negera.
+// Skriver BARA rader vars namn finns i LEVERANTOR_ROWS_DEF (exakt, case-insensitivt) -> delsummor/inbetalningar/okanda hoppas.
 async function writeExcelLiquidity(rows,lid){
-  let sups=await (await apiFetch(`${API}/budget-versions/${lid}/suppliers`)).json();
-  if(!Array.isArray(sups))sups=[];
+  const defSet=new Set(LEVERANTOR_ROWS_DEF.map(n=>n.trim().toLowerCase()));
+  let existing=await (await apiFetch(`${API}/budget-versions/${lid}/rows`)).json();
+  if(!Array.isArray(existing))existing=[];
   rows.forEach(ir=>{
-    const ma={};MONTHS.forEach(m=>ma[m]=Math.round(-(Number(ir[m])||0)));   // negera: utbetalning(neg i Excel)→kostnad(pos); momsåterbäring(pos)→negativ kostnad(pengar in)
-    const key=String(ir.name).trim().toLowerCase();
-    let s=sups.find(x=>x.Type==='manual'&&String(x.Name||'').trim().toLowerCase()===key);   // match Name (bara manual; härledda/moms orörda)
-    if(!s){sups.push({Name:ir.name,Type:'manual',ManualAmounts:JSON.stringify(ma)});}        // ny → manuell leverantör
-    else{s.ManualAmounts=JSON.stringify(ma);}                                                 // befintlig → uppdatera belopp
+    const name=String(ir.name||'').trim();
+    if(!defSet.has(name.toLowerCase()))return;   // hoppa allt som inte ar en av de 18 fasta leverantorerna
+    let row=existing.find(r=>(r.Source||'')==='Leverantör'&&r.Category==='Leverantör'&&String(r.SubCategory||'').trim().toLowerCase()===name.toLowerCase());
+    if(!row){row={Category:'Leverantör',SubCategory:name,Source:'Leverantör'};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
+    MONTHS.forEach(m=>row[m]=Math.round(-(Number(ir[m])||0)));
   });
-  const payload=sups.map((s,i)=>({name:s.Name,type:s.Type,sourceRows:s.SourceRows||null,paymentShift:s.PaymentShift!=null?s.PaymentShift:null,vatFactor:s.VatFactor!=null?s.VatFactor:null,clumping:s.Clumping||null,manualAmounts:s.ManualAmounts||null,sortOrder:i}));
-  await apiFetch(`${API}/budget-versions/${lid}/suppliers`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  const fresh=await (await apiFetch(`${API}/budget-versions/${lid}/suppliers`)).json();
-  await rebuildSupplierRows(lid,Array.isArray(fresh)?fresh:[]);   // materialisera (override: lid:s suppliers, ej i minne om current≠lid)
+  const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
+  await apiFetch(`${API}/budget-versions/${lid}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
 }
 // IMP-2: kör båda delar (paret-routing). En fil → resultat + likviditet. Oparad → bara den halva vars mål finns.
 async function runExcelImport(){
