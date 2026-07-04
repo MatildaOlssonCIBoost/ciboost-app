@@ -5647,10 +5647,17 @@ function renderResultatBudgetTable(){
   const resultatMonthly=MONTHS.map((_,i)=>rorelseIntaktMonthly[i]-kostnaderMonthly[i]);
   const resultatTotal=sum(resultatMonthly);
   html+=calcRow('Resultat före avskrivningar',resultatMonthly,resultatTotal,DARK,true);
-  // Resultat efter avskrivningar = före − avskrivningar (NY)
-  const resultatEfterMonthly=MONTHS.map((_,i)=>resultatMonthly[i]-avskMonthly[i]);
-  const resultatEfterTotal=sum(resultatEfterMonthly);
-  html+=calcRow('Resultat efter avskrivningar',resultatEfterMonthly,resultatEfterTotal,DARK,true);
+  // RES-C: summarad för avskrivningar + finans (7810 + 8xxx ligger båda i avskMonthly)
+  html+=calcRow('Summa avskrivningar och finansiella poster',avskMonthly,sum(avskMonthly));
+  // Beräknat resultat = Resultat före avskrivningar − (avskrivningar + finans). Matchar ekonomens =D53+D48.
+  const beraknatMonthly=MONTHS.map((_,i)=>resultatMonthly[i]-avskMonthly[i]);
+  const beraknatTotal=sum(beraknatMonthly);
+  html+=calcRow('Beräknat resultat',beraknatMonthly,beraknatTotal,DARK,true);
+  // Procentrad per månad + helår: Beräknat resultat / Summa rörelsens intäkter (ekonomens =D55/D14). Delning med 0 → tomt.
+  const pctCell=(num,den)=>den!==0?(Math.round(num/den*1000)/10)+'%':'–';
+  const rorIntTotal=sum(rorelseIntaktMonthly);
+  const pctMonthCells=MONTHS.map((_,i)=>`<td style="text-align:center;font-size:11px;color:var(--text2);">${pctCell(beraknatMonthly[i],rorelseIntaktMonthly[i])}</td>`).join('');
+  html+=`<tr style="background:var(--surface);font-weight:600;"><td style="padding-left:16px;">%</td>${pctMonthCells}<td style="text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${pctCell(beraknatTotal,rorIntTotal)}</td></tr>`;
 
   html+='</tbody></table></div>';
   document.getElementById('budget-content').innerHTML=html;
@@ -5661,7 +5668,7 @@ function renderResultatBudgetTable(){
     <div class="kpi-card"><div class="kpi-label">Aktiverat arbete</div><div class="kpi-value" style="color:var(--blue)">${fmtKr(sum(aktiveratMonthly))}</div><div class="kpi-delta neu">3850 + 3870 · egen räkning</div></div>
     <div class="kpi-card"><div class="kpi-label">Rörelsens kostnader</div><div class="kpi-value" style="color:var(--red)">${fmtKr(sum(kostnaderMonthly))}</div><div class="kpi-delta neu">Varu + Övriga externa + Personal</div></div>
     <div class="kpi-card"><div class="kpi-label">Resultat före avskrivn.</div><div class="kpi-value" style="color:${resultatTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatTotal)}</div><div class="kpi-delta neu">helår ${year}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Resultat efter avskrivn.</div><div class="kpi-value" style="color:${resultatEfterTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(resultatEfterTotal)}</div><div class="kpi-delta neu">efter ${fmtKr(sum(avskMonthly))} avskrivningar</div></div>`;
+    <div class="kpi-card"><div class="kpi-label">Beräknat resultat</div><div class="kpi-value" style="color:${beraknatTotal>=0?'var(--green)':'var(--red)'}">${fmtKr(beraknatTotal)}</div><div class="kpi-delta neu">${rorIntTotal!==0?pctCell(beraknatTotal,rorIntTotal)+' av rörelsens intäkter':'helår '+year}</div></div>`;
   restoreNoteDots();
   applyBudgetLockState();
   applyBudgetCollapse();
