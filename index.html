@@ -738,7 +738,7 @@
   </button>
 </div>
 <div class="sub-tabs-bar" id="subtabs-arkiv" style="display:none;">
-  <button class="sub-tab active" onclick="switchSub('arkiv','tidigare',this)">Tidigare kunder</button>
+  <button class="sub-tab active" onclick="switchSub('arkiv','tidigare',this)">Tidigare avtal</button>
   <button class="sub-tab" onclick="switchSub('arkiv','tester',this)">Avslutade tester</button>
   <button class="sub-tab" onclick="switchSub('arkiv','sovande',this)">Sovande</button>
   <button class="sub-tab" onclick="switchSub('arkiv','dokument',this)">Dokument &amp; mallar</button>
@@ -2354,8 +2354,38 @@ function buildRenewalChainsFromLinks({byId,custOfPost,links,focusIds}={}){
 }
 // Relation mellan en avslutad licensrad och dess efterföljare (för korrekt churn):
 // 'upgrade' = uppgraderad (ingen churn), 'downgrade' = nedgraderad (churn = mellanskillnad).
-function getRevRelations(customerId){try{return JSON.parse(localStorage.getItem(`revrelation-${customerId}`)||'{}');}catch(e){return{};}}
-function setRevRelation(customerId,parentId,rel){const m=getRevRelations(customerId);if(rel&&rel!=='renewal')m[String(parentId)]=rel;else delete m[String(parentId)];localStorage.setItem(`revrelation-${customerId}`,JSON.stringify(m));}
+// Steg 3a: DB-cache for revenue-relations (fylls vid sidladdning, las synkront av getRevRelation).
+window._revRelations = window._revRelations || {};
+async function loadRevRelations(){
+  try{
+    const res = await apiFetch(`${API}/revenue-relations`);
+    const rows = await res.json();
+    const map = {};
+    if(Array.isArray(rows)) rows.forEach(r=>{ map[r.RevenueId] = r; });
+    window._revRelations = map;
+    return map;
+  }catch(e){ console.warn('loadRevRelations misslyckades:', e); return window._revRelations||{}; }
+}
+function getRevRelations(customerId){
+  // 3b: bygg per-kund-map ur DB-cachen (window._revRelations, keyad på RevenueId). Behåll localStorage som fallback tills backend live.
+  const cache=window._revRelations||{};const map={};
+  Object.values(cache).forEach(r=>{if(r&&String(r.CustomerId)===String(customerId)&&r.RelationType)map[String(r.RevenueId)]=r.RelationType;});
+  if(Object.keys(map).length)return map;
+  try{return JSON.parse(localStorage.getItem(`revrelation-${customerId}`)||'{}');}catch(e){return{};}
+}
+async function setRevRelation(customerId,parentId,rel){
+  // 3b: skriv till DB (rel='upgrade'/'downgrade' → POST; tomt/'renewal' → DELETE). Uppdatera cachen direkt så vyn speglar utan omladdning.
+  try{
+    if(rel&&rel!=='renewal'){
+      const payload={revenueId:parentId,customerId:customerId!=null?customerId:null,relationType:rel,registeredBy:(window._currentUserName||'okand'),decisionDate:new Date().toISOString().slice(0,10)};
+      await apiFetch(`${API}/revenue-relations`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(window._revRelations)window._revRelations[parentId]={RevenueId:parentId,CustomerId:customerId,RelationType:rel,RegisteredBy:payload.registeredBy,DecisionDate:payload.decisionDate};
+    }else{
+      await apiFetch(`${API}/revenue-relations/${parentId}`,{method:'DELETE'});
+      if(window._revRelations)delete window._revRelations[parentId];
+    }
+  }catch(e){console.warn('setRevRelation misslyckades:',e);}
+}
 // Steg 2c: spegla förnyelselänkningen in i RevenueLinks (M:N) parallellt med
 // RenewedFromId (backup). Best-effort — får ALDRIG bryta den primära sparningen.
 async function postRevenueLink(fromId,toId){
@@ -2476,7 +2506,7 @@ function openRenewRevenue(customerId,itemId){
       async()=>{
         const amount=parseInt(document.getElementById('rn-amount').value)||0;if(!amount)return false;
         const relation=document.getElementById('rn-relation')?.value||'renewal';
-        setRevRelation(customerId,itemId,relation);
+        await setRevRelation(customerId,itemId,relation);
         const resp=await apiFetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('rn-type').value,amount,dateFrom:document.getElementById('rn-from').value||null,dateTo:document.getElementById('rn-to').value||null,description:document.getElementById('rn-desc').value||null,invoiceDate:document.getElementById('rn-invoice-date')?.value||null,vatRate:vatVal('rn'),renewedFromId:itemId})});
         // Spegla länken till RevenueLinks (steg 2c) med nya postens Id ur 201-svaret.
         let newId=null;try{newId=(await resp.json()).id;}catch(e){}
@@ -3405,7 +3435,7 @@ function kaRenderChart(items,years,types,TC,extraHtml){
   document.getElementById('ka-chart-wrap').innerHTML=`<div style="max-width:${CW}px;margin:0 auto;"><svg viewBox="0 0 ${CW} ${CH}" width="100%" style="display:block;overflow:visible;">${bars}</svg></div>${legendHtml}${extraHtml||''}`;
 }
 // ─── KUNDER ──────────────────────────────────────────────
-async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));updateStats();renderTable();renderRevSummary();if(currentMain==='start')renderStart();prefetchAllCustomerRevenues();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="10"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
+async function loadCustomers(){try{const res=await apiFetch(`${API}/customers`);allCustomers=await res.json();allCustomers=allCustomers.map(c=>({...c,_owner:inferOwner(c),_days:daysLeft(c.LicenseEnd)}));await loadRevRelations();updateStats();renderTable();renderRevSummary();if(currentMain==='start')renderStart();prefetchAllCustomerRevenues();}catch(e){document.getElementById('table-body').innerHTML=`<tr><td colspan="10"><div class="empty">Kunde inte hämta data</div></td></tr>`;}}
 async function loadRecipients(){try{const r=await apiFetch(`${API}/commission-recipients`);const data=await r.json();if(data.length)allRecipients=data.map(d=>d.Name);}catch(e){}}
 function updateStats(){const churned=getChurnedCustomers();const cs=allCustomers.filter(c=>!churned[c.Id]);
   // Tre koncern-deduperade avtalssiffror (cs = ej churnade), respekterar revSources.
