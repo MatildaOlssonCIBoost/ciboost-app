@@ -6612,8 +6612,15 @@ function openExcelImportModal(){
   if(typeof XLSX==='undefined'){alert('Excel-biblioteket (SheetJS) laddas ännu — vänta en sekund och försök igen.');return;}
   if(!currentBudgetVersionId){alert('Öppna en budgetversion först.');return;}
   window._excelResult=null;window._excelLiquidity=null;window._excelResultTargetId=null;window._excelLiquidityTargetId=null;
+  const _rt=excelTargetResultVersion(),_lt=excelTargetLiquidityVersion();
+  const _esc=s=>String(s||'').replace(/</g,'&lt;');
+  let _intro;
+  if(_rt&&_lt)_intro=`Läser fliken <b>'Import Sune'</b> och fyller:<br>Resultat → <b>${_esc(_rt.Name)}</b> · Likviditet → <b>${_esc(_lt.Name)}</b>`;
+  else if(_rt)_intro=`Läser fliken <b>'Import Sune'</b> och fyller:<br>Resultat → <b>${_esc(_rt.Name)}</b>.<br><span style="color:var(--amber);">Ingen parad likviditetsbudget — den delen hoppas.</span>`;
+  else if(_lt)_intro=`Läser fliken <b>'Import Sune'</b> och fyller:<br>Likviditet → <b>${_esc(_lt.Name)}</b>.<br><span style="color:var(--amber);">Ingen parad resultatbudget — den delen hoppas.</span>`;
+  else _intro=`Läser fliken <b>'Import Sune'</b>. <span style="color:var(--amber);">Ingen kopplad budget hittad.</span>`;
   showDialog('Importera från Excel',
-    `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Läser fliken <b>'Import Sune'</b> → resultatets kostnader (kol A/B) + likviditetens utbetalningar → manuella leverantörer (kol V). En fil fyller <b>båda</b> budgetarna via paret.</div>
+    `<div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5;">${_intro}</div>
      <input type="file" id="excel-file-input" accept=".xlsx" onchange="handleExcelFile(event)" style="font-size:12px;width:100%;">
      <div id="excel-preview" style="margin-top:12px;font-size:12px;color:var(--text2);"></div>`,
     async()=>{
@@ -6708,9 +6715,7 @@ async function handleExcelFile(e){
     window._excelResult=resultRows;window._excelLiquidity=liqRows;
     const rtgt=excelTargetResultVersion();window._excelResultTargetId=rtgt?rtgt.Id:null;
     const ltgt=excelTargetLiquidityVersion();window._excelLiquidityTargetId=ltgt?ltgt.Id:null;
-    const rTxt=rtgt?`<b>${esc(rtgt.Name)}</b> (${rtgt.Year})`:`<span style="color:var(--amber);">⚠ ingen resultatbudget kopplad — hoppas</span>`;
-    const lTxt=ltgt?`<b>${esc(ltgt.Name)}</b> (${ltgt.Year})`:`<span style="color:var(--amber);">⚠ ingen likviditetsbudget kopplad — hoppas</span>`;
-    if(prev)prev.innerHTML=`Hittade <b>${resultRows.length}</b> kostnadsrader (resultat) + <b>${liqRows.length}</b> utbetalningar (likviditet).<br>Resultat → ${rTxt}<br>Likviditet → ${lTxt}`;
+    if(prev)prev.innerHTML=`Hittade <b>${resultRows.length}</b> kostnadsrader (resultat) + <b>${liqRows.length}</b> utbetalningar (likviditet).`;
   }catch(err){console.error('[handleExcelFile]',err);window._excelResult=null;window._excelLiquidity=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Kunde inte läsa filen — är det en giltig .xlsx?</span>';}
 }
 // RES-1: section-taggad master-def — mappa importens accountNo → {group,name,section} över COST ∪ AKTIVERAT (FINANS i RES-2).
