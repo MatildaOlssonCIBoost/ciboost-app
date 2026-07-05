@@ -2034,7 +2034,8 @@ function renderKanban(){
       const _exp=_kanbanExpanded.has(p.Id);
       const _toggle=_ritems.length?`<div onclick="event.stopPropagation();toggleKanbanCard(${p.Id},this)" style="font-size:10px;color:var(--text3);cursor:pointer;user-select:none;margin-bottom:2px;"><span class="kc-chev">${_exp?'▴':'▾'}</span> ${_ritems.length} intäktspost${_ritems.length>1?'er':''}</div>`:'';
       const _detail=_ritems.length?`<div class="kc-rev-detail" style="display:${_exp?'block':'none'};background:var(--surface2);border-radius:6px;padding:6px 8px;margin-bottom:3px;">${_detailRows}</div>`:'';
-      const revHtml=_summary+_toggle+_detail;
+      const _wonSummary=`<div style="margin:5px 0 3px;padding-top:5px;border-top:1px solid var(--border);"><div style="font-size:14px;font-weight:600;color:var(--green);line-height:1.1;">${fmtKr(_total)}</div>${(()=>{const _cd=p.ClosedAt?new Date(p.ClosedAt):null;return (_cd&&!isNaN(_cd))?`<div style="font-size:10px;color:var(--text3);margin-top:2px;">Vunnen ${_cd.toLocaleDateString('sv-SE')}</div>`:'';})()}</div>`;
+      const revHtml=(isWon?_wonSummary:_summary)+_toggle+_detail;
       let actionHtml='';
       if(p.NextActionType||p.NextActionDate){
         const hasDate=!!p.NextActionDate;
@@ -2126,7 +2127,7 @@ async function onCardDrop(e,targetId,stage){
   if(ids.length>1&&(stage==='Closed Won'||stage==='Closed Lost')){showSaveIndicator('Ett spar kan inte stangas i klump - stang korten ett i taget via respektive kort','#C8842F');return;}
   if(ids.length===1&&ids[0]===targetId)return;
   const moved=[];
-  ids.forEach(id=>{const p=allProspects.find(x=>x.Id===id);if(!p)return;if(p.Stage!==stage){p.Stage=stage;p.UpdatedAt=new Date().toISOString();moved.push(p);if(p.Track){p.Track=null;try{apiFetch(`${API}/prospects/${p.Id}/track`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({track:''})});}catch(e){}}}});
+  ids.forEach(id=>{const p=allProspects.find(x=>x.Id===id);if(!p)return;if(p.Stage!==stage){p.Stage=stage;p.UpdatedAt=new Date().toISOString();moved.push(p);if((stage==='Closed Won'||stage==='Closed Lost')&&!p.ClosedAt){p.ClosedAt=new Date().toISOString().slice(0,10);}if(p.Track){p.Track=null;try{apiFetch(`${API}/prospects/${p.Id}/track`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({track:''})});}catch(e){}}}});
   const order=getPipelineOrder();
   let arr=(order[stage]||[]).slice();
   (allProspects.filter(x=>x.Stage===stage).map(x=>x.Id)).forEach(xid=>{if(!arr.includes(xid))arr.push(xid);});
@@ -2156,7 +2157,7 @@ async function onColDrop(e,stage){
   ids.forEach(id=>{
     const p=allProspects.find(x=>x.Id===id);if(!p)return;
     const stageChanged=p.Stage!==stage;
-    if(stageChanged){p.Stage=stage;p.UpdatedAt=new Date().toISOString();moved.push(p);if(p.Track){p.Track=null;try{apiFetch(`${API}/prospects/${p.Id}/track`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({track:''})});}catch(e){}}}
+    if(stageChanged){p.Stage=stage;p.UpdatedAt=new Date().toISOString();moved.push(p);if((stage==='Closed Won'||stage==='Closed Lost')&&!p.ClosedAt){p.ClosedAt=new Date().toISOString().slice(0,10);}if(p.Track){p.Track=null;try{apiFetch(`${API}/prospects/${p.Id}/track`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({track:''})});}catch(e){}}}
     arr=arr.filter(x=>x!==id);
     arr.push(id);
   });
