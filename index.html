@@ -656,6 +656,7 @@
         <option>Matilda Olsson</option><option>Alexandra Henningson</option>
       </select>
       <select id="filter-pipe-industry" onchange="renderKanban()" style="font-size:12px;"><option value="">Alla branscher</option></select>
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin-left:4px;"><input type="checkbox" id="show-activities" onchange="toggleShowActivities()" style="width:14px;height:14px;cursor:pointer;">Visa aktiviteter</label>
       <button class="btn-primary" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;" onclick="openNewProspect()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
         Ny prospect
@@ -1964,8 +1965,13 @@ function groupCardsByTrack(cards, cardObjs, stage){
   });
   return out.join('');
 }
+function _getShowActivities(){const el=document.getElementById('show-activities');if(el)return el.checked;try{return localStorage.getItem('showActivities')==='1';}catch(e){return false;}}
+function _initShowActivities(){const el=document.getElementById('show-activities');if(!el||el._init)return;el._init=true;try{el.checked=localStorage.getItem('showActivities')==='1';}catch(e){}}
+function toggleShowActivities(){const el=document.getElementById('show-activities');try{localStorage.setItem('showActivities',el&&el.checked?'1':'0');}catch(e){}renderKanban();}
 function renderKanban(){
   renderPipeOverviewKpis();
+  _initShowActivities();
+  const _showAct=_getShowActivities();
   // P-1: säkerställ att ProspectRevenues är cachade så korten kan visa intäktsrader.
   // Engångs-förladdning + omritning; sync-anropare (switchMain, drag, filter) påverkas ej.
   if((allProspects||[]).some(p=>!prospectRevCache[p.Id])&&!window._kanbanRevPrefetching){
@@ -2024,7 +2030,7 @@ function renderKanban(){
       const totalVal=revTotal||p.ValueMax||p.ValueMin||p.Value||0;
       const totalValStr=totalVal?Math.round(totalVal/1000)+'k kr':'';
       const isWaiting=!!p.WaitingForResponse;
-      const statusBlock=!isWon&&!isLost?(isWaiting?`<div style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);background:var(--surface1);padding:2px 8px;border-radius:20px;margin-bottom:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Inväntar svar</div>`:`<div class="kc-status"><span class="status-dot agera"></span><span style="font-size:11px;font-weight:500;color:var(--amber);">AGERA</span></div>`):'';
+      const statusBlock=_showAct&&!isWon&&!isLost?(isWaiting?`<div style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);background:var(--surface1);padding:2px 8px;border-radius:20px;margin-bottom:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Inväntar svar</div>`:`<div class="kc-status"><span class="status-dot agera"></span><span style="font-size:11px;font-weight:500;color:var(--amber);">AGERA</span></div>`):'';
       const _cardHtml=`<div class="kanban-card ${isWon?'won':isLost?'lost':''}${isWaiting?' waiting':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" ondragover="onCardDragOver(event)" ondragleave="onCardDragLeave(event)" ondrop="onCardDrop(event,${p.Id},'${stage.replace(/'/g,"\\'")}')" onclick="openProspectModal(${p.Id})">
         ${statusBlock}
         <div class="kc-name">${p.Company||'-'}</div><span onclick="event.stopPropagation();toggleProspectStar(${p.Id})" title="${p.Starred?'Ta bort stjarna':'Stjarnmarkera'}" style="position:absolute;top:8px;right:10px;cursor:pointer;font-size:14px;line-height:1;color:${p.Starred?'#EF9F27':'var(--text3)'};z-index:2;">${p.Starred?'★':'☆'}</span>
@@ -2032,7 +2038,7 @@ function renderKanban(){
         <div class="kc-owner"${_oc?` style="background:${_oc.bg};color:${_oc.fg};"`:''}>${p.Owner||'–'}</div>
         <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span>${p.Track?`<span title="Spår: ${(p.Track||'').replace(/"/g,'&quot;')}" style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--purple-bg,#EEEDFE);color:var(--purple,#534AB7);font-weight:500;flex:0 0 auto;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(p.Track||'').replace(/</g,'&lt;')}</span>`:''}</div>
         ${revHtml}
-        ${actionHtml}
+        ${_showAct?actionHtml:''}
         ${isLost&&p.LostReason?`<div class="kc-lost-reason">Orsak: ${p.LostReason}</div>`:''}
         <div class="kc-days">Pipe: ${daysInPipe}d · Steg: ${daysInStage}d</div>
       </div>`;
