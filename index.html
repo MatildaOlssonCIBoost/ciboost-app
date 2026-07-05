@@ -410,6 +410,7 @@
   .status-dot.waiting { background: var(--blue); box-shadow: 0 0 0 2px var(--blue-bg); }
   .kanban-card.won { border-color: #C0DD97; background: var(--green-bg); }
   .kanban-card.lost { border-color: #F7C1C1; background: var(--red-bg); opacity: 0.75; }
+  .kanban-card.waiting { border-style: dashed; border-color: #B4B2A9; background: var(--surface); }
   .kc-name { font-weight: 500; font-size: 13px; margin-bottom: 1px; }
   .kc-contact { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
   .kc-owner { font-size: 10px; padding: 1px 7px; border-radius: 10px; background: var(--amber-bg); color: var(--amber); font-weight: 500; display: inline-block; margin-bottom: 5px; }
@@ -2018,8 +2019,8 @@ function renderKanban(){
       const totalVal=revTotal||p.ValueMax||p.ValueMin||p.Value||0;
       const totalValStr=totalVal?Math.round(totalVal/1000)+'k kr':'';
       const isWaiting=!!p.WaitingForResponse;
-      const statusBlock=!isWon&&!isLost?`<div class="kc-status"><span class="status-dot ${isWaiting?'waiting':'agera'}"></span><span style="font-size:11px;font-weight:500;color:${isWaiting?'var(--blue)':'var(--amber)'};">${isWaiting?'Inväntar svar':'AGERA'}</span></div>`:'';
-      const _cardHtml=`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" ondragover="onCardDragOver(event)" ondragleave="onCardDragLeave(event)" ondrop="onCardDrop(event,${p.Id},'${stage.replace(/'/g,"\\'")}')" onclick="openProspectModal(${p.Id})">
+      const statusBlock=!isWon&&!isLost?`<div class="kc-status">${isWaiting?`<span style="font-size:12px;line-height:1;color:var(--text3);flex:0 0 auto;">⏱</span><span style="font-size:11px;font-weight:500;color:var(--text3);">Inväntar svar</span>`:`<span class="status-dot agera"></span><span style="font-size:11px;font-weight:500;color:var(--amber);">AGERA</span>`}</div>`:'';
+      const _cardHtml=`<div class="kanban-card ${isWon?'won':isLost?'lost':''}${isWaiting?' waiting':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" ondragover="onCardDragOver(event)" ondragleave="onCardDragLeave(event)" ondrop="onCardDrop(event,${p.Id},'${stage.replace(/'/g,"\\'")}')" onclick="openProspectModal(${p.Id})">
         ${statusBlock}
         <div class="kc-name">${p.Company||'-'}</div><span onclick="event.stopPropagation();toggleProspectStar(${p.Id})" title="${p.Starred?'Ta bort stjarna':'Stjarnmarkera'}" style="position:absolute;top:8px;right:10px;cursor:pointer;font-size:14px;line-height:1;color:${p.Starred?'#EF9F27':'var(--text3)'};z-index:2;">${p.Starred?'★':'☆'}</span>
         <div class="kc-contact">${p.Contact||'–'}</div>
