@@ -399,7 +399,7 @@
   .kanban-col-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 2px; margin-bottom: 8px; }
   .kanban-col-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
   .kanban-col-count { font-size: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; color: var(--text3); }
-  .kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.1s, opacity 0.1s; }
+  .kanban-card { position:relative; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.1s, opacity 0.1s; }
   .kanban-card:hover { border-color: var(--accent); }
   .kanban-card.dragging { opacity: 0.4; cursor: grabbing; }
   .kanban-card.drop-above { box-shadow: 0 -2px 0 0 var(--accent); }
@@ -1558,7 +1558,7 @@ function startKpiObserver(){
 }
 function inferOwner(c){if(c.Owner)return c.Owner;if(c.Notes?.includes('Alexandra'))return 'Alexandra Henningson';return 'Matilda Olsson';}
 // P-3: färgskild ägartagg per OWNERS-index (cyklar i paletten). Okänd/tom → null → behåll dagens neutrala amber-klass.
-const _OWNER_PAL=[{bg:'#E6F1FB',fg:'#0C447C'},{bg:'#EEEDFE',fg:'#3C3489'},{bg:'#E1F5EE',fg:'#0F6E56'},{bg:'#FAECE7',fg:'#993C1D'}];
+const _OWNER_PAL=[{bg:'#FBEAF0',fg:'#993556'},{bg:'#EEEDFE',fg:'#3C3489'},{bg:'#E1F5EE',fg:'#0F6E56'},{bg:'#FAECE7',fg:'#993C1D'}];
 function ownerColor(name){const i=OWNERS.indexOf(name);if(i<0)return null;return _OWNER_PAL[i%_OWNER_PAL.length];}
 function fmtShortDate(d){if(!d)return'';const dt=new Date(d);return`${dt.getDate()}/${dt.getMonth()+1}`;}
 function daysPill(days){
@@ -2021,7 +2021,7 @@ function renderKanban(){
       const statusBlock=!isWon&&!isLost?`<div class="kc-status"><span class="status-dot ${isWaiting?'waiting':'agera'}"></span><span style="font-size:11px;font-weight:500;color:${isWaiting?'var(--blue)':'var(--amber)'};">${isWaiting?'Inväntar svar':'AGERA'}</span></div>`:'';
       const _cardHtml=`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" ondragover="onCardDragOver(event)" ondragleave="onCardDragLeave(event)" ondrop="onCardDrop(event,${p.Id},'${stage.replace(/'/g,"\\'")}')" onclick="openProspectModal(${p.Id})">
         ${statusBlock}
-        <div class="kc-name" style="display:flex;align-items:center;gap:6px;"><span onclick="event.stopPropagation();toggleProspectStar(${p.Id})" title="${p.Starred?'Ta bort stjarna':'Stjarnmarkera'}" style="cursor:pointer;font-size:14px;line-height:1;color:${p.Starred?'#EF9F27':'var(--text3)'};flex:0 0 auto;">${p.Starred?'★':'☆'}</span><span style="flex:1;">${p.Company||'-'}</span></div>
+        <div class="kc-name">${p.Company||'-'}</div><span onclick="event.stopPropagation();toggleProspectStar(${p.Id})" title="${p.Starred?'Ta bort stjarna':'Stjarnmarkera'}" style="position:absolute;top:8px;right:10px;cursor:pointer;font-size:14px;line-height:1;color:${p.Starred?'#EF9F27':'var(--text3)'};z-index:2;">${p.Starred?'★':'☆'}</span>
         <div class="kc-contact">${p.Contact||'–'}</div>
         <div class="kc-owner"${_oc?` style="background:${_oc.bg};color:${_oc.fg};"`:''}>${p.Owner||'–'}</div>
         <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span>${p.Track?`<span title="Spår: ${(p.Track||'').replace(/"/g,'&quot;')}" style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--purple-bg,#EEEDFE);color:var(--purple,#534AB7);font-weight:500;flex:0 0 auto;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(p.Track||'').replace(/</g,'&lt;')}</span>`:''}</div>
