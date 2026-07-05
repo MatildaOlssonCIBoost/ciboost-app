@@ -1983,6 +1983,16 @@ function saveFieldOverlay(kind,id,obj){if(id==null)return;const m=getFieldOverla
 function applyFieldOverlay(kind,list){const m=getFieldOverlay(kind);(list||[]).forEach(o=>{const ov=m[String(o.Id)];if(ov)Object.keys(ov).forEach(k=>{if(o[k]===undefined||o[k]===null||o[k]==='')o[k]=ov[k];});});return list;}
 function getPipelineOrder(){try{return JSON.parse(localStorage.getItem('pipelineOrder')||'{}');}catch(e){return{};}}
 function setPipelineOrder(o){localStorage.setItem('pipelineOrder',JSON.stringify(o));}
+async function setProspectTrack(id,value){
+    const p=allProspects.find(x=>x.Id===id); if(!p)return;
+    const prev=p.Track; const nytt=(value||'').trim()||null;
+    p.Track=nytt;
+    renderKanban();
+    try{
+      const r=await apiFetch(`${API}/prospects/${id}/track`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({track:nytt})});
+      if(!r.ok)throw new Error('PUT track misslyckades');
+    }catch(e){ p.Track=prev; renderKanban(); console.error('setProspectTrack',e); }
+  }
 async function toggleProspectStar(id){
     const p=allProspects.find(x=>x.Id===id); if(!p)return;
     const nyttVarde=!p.Starred;
@@ -2320,6 +2330,7 @@ function renderProspectBody(p,acts){
         <div class="modal-card"><div class="modal-grid">
           <div class="modal-field"><label>Stage</label><select id="p-stage" ${is} onchange="onStageChange()">${stageOpts}</select></div>
           <div class="modal-field"><label>Källa</label><select id="p-source" ${is}>${srcOpts}</select></div>
+          <div class="modal-field"><label>Spår</label><input ${is} id="p-track" list="track-list" value="${p?.Track||''}" placeholder="t.ex. VD-program 26/27" onchange="setProspectTrack(currentProspectId,this.value)"><datalist id="track-list">${[...new Set(allProspects.map(x=>x.Track).filter(Boolean))].map(t=>`<option value="${(t||'').replace(/"/g,'&quot;')}">`).join('')}</datalist></div>
           <div class="modal-field"><label>Score</label><input ${is} id="p-score" type="number" min="0" max="100" value="${p?.Score||''}"></div>
         </div></div></div>
       <div id="prob-section" style="display:${showProb?'flex':'none'};flex-direction:column;gap:8px;">
