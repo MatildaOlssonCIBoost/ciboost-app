@@ -1964,10 +1964,8 @@ function groupCardsByTrack(cards, cardObjs, stage){
   });
   return out.join('');
 }
-function _bindKanbanWheel(){const b=document.getElementById('kanban-board');if(!b||b._wheelBound)return;b._wheelBound=true;b.addEventListener('wheel',e=>{if(e.deltaY===0)return;if(b.scrollWidth<=b.clientWidth)return;e.preventDefault();b.scrollLeft+=e.deltaY;},{passive:false});}
 function renderKanban(){
   renderPipeOverviewKpis();
-  setTimeout(_bindKanbanWheel,0);
   // P-1: säkerställ att ProspectRevenues är cachade så korten kan visa intäktsrader.
   // Engångs-förladdning + omritning; sync-anropare (switchMain, drag, filter) påverkas ej.
   if((allProspects||[]).some(p=>!prospectRevCache[p.Id])&&!window._kanbanRevPrefetching){
