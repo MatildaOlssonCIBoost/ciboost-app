@@ -1891,6 +1891,8 @@ function renderPipeOverviewKpis(){
 }
 // P-1b: håller utfällda pipeline-kort öppna över omritningar; togglar DOM direkt utan renderKanban.
 let _kanbanExpanded=new Set();
+  let _trackExpanded=new Set();
+  function toggleTrackExpand(stage,track){const k=stage+'::'+track;if(_trackExpanded.has(k))_trackExpanded.delete(k);else _trackExpanded.add(k);renderKanban();}
 function toggleKanbanCard(id,el){
   const card=el.closest('.kanban-card');if(!card)return;
   const detail=card.querySelector('.kc-rev-detail');const chev=el.querySelector('.kc-chev');
@@ -1898,6 +1900,63 @@ function toggleKanbanCard(id,el){
   if(open)_kanbanExpanded.add(id);else _kanbanExpanded.delete(id);
   if(detail)detail.style.display=open?'block':'none';
   if(chev)chev.textContent=open?'▴':'▾';
+}
+function _trackInitials(name){
+  const n=(name||'').trim(); if(!n)return '?';
+  const parts=n.split(/\s+/);
+  if(parts.length===1)return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0]+parts[parts.length-1][0]).toUpperCase();
+}
+function _trackColor(track){
+  // stabil hash -> en av CIBoost-palettens toner
+  const pal=[['#EEEDFE','#3C3489'],['#E1F5EE','#085041'],['#FAECE7','#712B13'],['#E6F1FB','#0C447C'],['#FAEEDA','#633806']];
+  let h=0; const s=track||''; for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
+  return pal[h%pal.length];
+}
+function renderTrackCard(track, items, stage){
+  const n=items.length;
+  const totViktat=items.reduce((s,it)=>s+(it.viktat||0),0);
+  const orgs=[...new Set(items.map(it=>it.company).filter(Boolean))];
+  const [bg,fg]=_trackColor(track);
+  const circles=orgs.slice(0,4).map((o,i)=>`<div style="width:22px;height:22px;border-radius:50%;background:${bg};border:1.5px solid var(--surface);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:${fg};${i>0?'margin-left:-6px;':''}flex:0 0 auto;">${_trackInitials(o)}</div>`).join('');
+  const extra=orgs.length>4?`<div style="width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1.5px solid var(--surface);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--text3);margin-left:-6px;flex:0 0 auto;">+${orgs.length-4}</div>`:'';
+  const tesc=(track||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const _exp=_trackExpanded.has(stage+'::'+track);
+  const innerHtml=_exp?items.map(it=>it.html).join(''):'';
+  return `<div class="track-card" data-track="${tesc}" data-stage="${stage.replace(/'/g,"\\'")}" style="border:0.5px solid #AFA9EC;border-left:3px solid ${fg};border-radius:0 10px 10px 0;background:${_exp?'var(--surface1)':'var(--surface)'};margin-bottom:8px;padding:${_exp?'8px':'10px 12px'};">
+    <div onclick="toggleTrackExpand('${stage.replace(/'/g,"\\'")}','${tesc}')" style="cursor:pointer;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;"><span style="font-size:13px;color:${fg};flex:0 0 auto;">⛿</span><span style="font-size:11px;font-weight:600;color:${fg};letter-spacing:0.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">SPÅR · ${tesc.toUpperCase()}</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"><span style="font-size:11px;background:var(--surface2);padding:2px 8px;border-radius:5px;color:var(--text2);">${n} kort</span><span style="font-size:11px;background:var(--surface2);padding:2px 8px;border-radius:5px;color:var(--text2);">${fmtKr(totViktat)}</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;">${circles}${extra}</div>
+        <span style="font-size:11px;color:var(--accent,#534AB7);display:flex;align-items:center;gap:3px;flex:0 0 auto;">${_exp?'▴ Fäll in':'▾ Fäll ut'}</span>
+      </div>
+    </div>
+    ${innerHtml}
+  </div>`;
+}
+function groupCardsByTrack(cards, cardObjs, stage){
+  if(!Array.isArray(cardObjs))return '';
+  // rakna hur manga kort per spar i denna stage
+  const trackCount={};
+  cardObjs.forEach(c=>{ if(c.track)trackCount[c.track]=(trackCount[c.track]||0)+1; });
+  const out=[];
+  const renderedTracks=new Set();
+  cardObjs.forEach(c=>{
+    if(c.track && trackCount[c.track]>=2){
+      // spar med >=2 kort -> ett spar-kort pa forsta forekomstens position
+      if(!renderedTracks.has(c.track)){
+        renderedTracks.add(c.track);
+        const items=cardObjs.filter(x=>x.track===c.track);
+        out.push(renderTrackCard(c.track, items, stage));
+      }
+      // efterfoljande kort i samma spar: hoppa (ingar i spar-kortet)
+    } else {
+      // ospårat eller ensamt spar -> vanligt kort
+      out.push(c.html);
+    }
+  });
+  return out.join('');
 }
 function renderKanban(){
   renderPipeOverviewKpis();
@@ -1917,7 +1976,7 @@ function renderKanban(){
   board.innerHTML=STAGES.map(stage=>{
     const cards=pipeOrderedIds(stage,filtered.filter(p=>p.Stage===stage)).slice().sort((a,b)=>(b.Starred?1:0)-(a.Starred?1:0));
     const isWon=stage==='Closed Won',isLost=stage==='Closed Lost';
-    const cardsHtml=cards.length?cards.map(p=>{
+    const _cardObjs=cards.length?cards.map(p=>{
       const srcColor=SOURCE_COLORS[p.Source]||'#8b90b0';
       const _oc=ownerColor(p.Owner);
       const val=p.ValueMin&&p.ValueMax?`${Math.round(p.ValueMin/1000)}k–${Math.round(p.ValueMax/1000)}k`:p.ValueMax?Math.round(p.ValueMax/1000)+'k':p.ValueMin?Math.round(p.ValueMin/1000)+'k':p.Value?Math.round(p.Value/1000)+'k':'';
@@ -1960,7 +2019,7 @@ function renderKanban(){
       const totalValStr=totalVal?Math.round(totalVal/1000)+'k kr':'';
       const isWaiting=!!p.WaitingForResponse;
       const statusBlock=!isWon&&!isLost?`<div class="kc-status"><span class="status-dot ${isWaiting?'waiting':'agera'}"></span><span style="font-size:11px;font-weight:500;color:${isWaiting?'var(--blue)':'var(--amber)'};">${isWaiting?'Inväntar svar':'AGERA'}</span></div>`:'';
-      return`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" ondragover="onCardDragOver(event)" ondragleave="onCardDragLeave(event)" ondrop="onCardDrop(event,${p.Id},'${stage.replace(/'/g,"\\'")}')" onclick="openProspectModal(${p.Id})">
+      const _cardHtml=`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" ondragover="onCardDragOver(event)" ondragleave="onCardDragLeave(event)" ondrop="onCardDrop(event,${p.Id},'${stage.replace(/'/g,"\\'")}')" onclick="openProspectModal(${p.Id})">
         ${statusBlock}
         <div class="kc-name" style="display:flex;align-items:center;gap:6px;"><span onclick="event.stopPropagation();toggleProspectStar(${p.Id})" title="${p.Starred?'Ta bort stjarna':'Stjarnmarkera'}" style="cursor:pointer;font-size:14px;line-height:1;color:${p.Starred?'#EF9F27':'var(--text3)'};flex:0 0 auto;">${p.Starred?'★':'☆'}</span><span style="flex:1;">${p.Company||'-'}</span></div>
         <div class="kc-contact">${p.Contact||'–'}</div>
@@ -1971,7 +2030,9 @@ function renderKanban(){
         ${isLost&&p.LostReason?`<div class="kc-lost-reason">Orsak: ${p.LostReason}</div>`:''}
         <div class="kc-days">Pipe: ${daysInPipe}d · Steg: ${daysInStage}d</div>
       </div>`;
-    }).join(''):`<div style="border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:11px;color:var(--text3);">Tom</div>`;
+      return {id:p.Id, track:(p.Track||'').trim()||null, company:p.Company||'-', owner:p.Owner, viktat:_viktat, html:_cardHtml};
+    }):null;
+    const cardsHtml=cards.length?groupCardsByTrack(cards, _cardObjs, stage):`<div style="border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:11px;color:var(--text3);">Tom</div>`;
     return`<div class="kanban-col" data-stage="${stage}" ondragover="onColDragOver(event)" ondragleave="onColDragLeave(event)" ondrop="onColDrop(event,'${stage.replace(/'/g,"\\'")}')"><div class="kanban-col-header"><span class="kanban-col-title" style="${isWon?'color:var(--green)':isLost?'color:var(--red)':''}">${stage}</span><span class="kanban-col-count">${cards.length}</span></div>${cardsHtml}</div>`;
   }).join('');
 }
