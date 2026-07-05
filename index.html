@@ -3623,6 +3623,83 @@ function updateStats(){const churned=getChurnedCustomers();const cs=allCustomers
 // Intäktstabellen (ARR/Fastpris/Utbildning/Consulting) ovanför kundlistan.
 // Hämtar värden från värdefliken (custTypeValues) och speglar aktuell filtrering
 // så att den även visar en enskild kunds fördelning när man filtrerat ned dit.
+function _underlagInfoText(cat,mode,yrs,showF,showFu){
+  const katOrd={all:'all försäljning, alla avtalstyper',arr:'prenumerationsavtal',fast:'avtal med fast pris',utb:'utbildningsavtal',cons:'consultingavtal'};
+  const katIntakt={all:'intäkt, alla avtalstyper',arr:'prenumerationsintäkt',fast:'intäkt (fast pris)',utb:'utbildningsintäkt',cons:'consultingintäkt'};
+  const arTxt=yrs&&yrs.length?(yrs.length===1?String(yrs[0]):yrs.slice(0,-1).join(', ')+' och '+yrs[yrs.length-1]):null;
+  if(mode==='likviditet'){
+    if(arTxt){
+      const subj=cat==='all'?`All försäljning under ${arTxt}, alla avtalstyper`:`Försäljning av ${katOrd[cat]} under ${arTxt}`;
+      return `${subj}. Ett avtal räknas till ett år om dess likviditetsdatum (fakturadatum + 30 dagar) infaller det året. Hela beloppet räknas på det datumet.`;
+    }
+    const subj=cat==='all'?'Värdet av alla aktiva avtal':`Värdet av aktiva ${katOrd[cat]}`;
+    const inkl=(showF&&showFu)?' Inkluderar även tidigare och framtida kunder.':(showF?' Inkluderar även tidigare kunder.':(showFu?' Inkluderar även framtida kunder.':' Endast avtal som löper idag ingår.'));
+    return `${subj} just nu. Hela beloppet räknas på likviditetsdatumet (fakturadatum + 30 dagar).${inkl}`;
+  }else{
+    if(arTxt){
+      const subj=cat==='all'?`Periodiserad intäkt för ${arTxt}, alla avtalstyper`:`Periodiserad ${katIntakt[cat]} för ${arTxt}`;
+      return `${subj}. Varje avtals belopp fördelas jämnt över sin avtalsperiod, och andelen som faller inom dessa år räknas med.`;
+    }
+    const subj=cat==='all'?'Periodiserad intäkt för innevarande år, alla avtalstyper':`Periodiserad ${katIntakt[cat]} för innevarande år`;
+    return `${subj}. Varje avtals belopp fördelas jämnt över sin avtalsperiod.`;
+  }
+}
+function openSummaryUnderlag(cat){
+  const data=(typeof getFiltered==='function')?getFiltered():allCustomers;
+  const mode=revSummaryMode;
+  const yrs=overviewYears.size?[...overviewYears].sort():null;
+  const typeOf={arr:'ARR',fast:'Fastpris',utb:'Utbildning',cons:'Consulting'};
+  const wantType=cat==='all'?null:typeOf[cat];
+  const _now=Date.now();
+  const rows=[];
+  data.forEach(c=>{
+    const items=custRevCache[c.Id]; if(!Array.isArray(items))return;
+    items.forEach(i=>{
+      if(wantType&&i.Type!==wantType)return;
+      const srcOn={ARR:revSources.arr,Fastpris:revSources.fast,Utbildning:revSources.utb,Consulting:revSources.cons};
+      if(!srcOn[i.Type])return;
+      let belopp=0, datumTxt='';
+      if(yrs){
+        if(mode==='likviditet'){
+          const cf=kaCashflowDate(i); if(!cf||!yrs.includes(cf.getFullYear()))return;
+          belopp=i.Amount||0; datumTxt=cf.toISOString().slice(0,10);
+        }else{
+          let s=0; yrs.forEach(y=>{s+=calcYearTotalItems([i],y);});
+          if(s<=0)return; belopp=s;
+          datumTxt=(i.DateFrom?i.DateFrom.slice(0,10):'?')+' – '+(i.DateTo?i.DateTo.slice(0,10):'?');
+        }
+      }else{
+        if(mode==='likviditet'){
+          if(!i.DateFrom||!i.DateTo)return;
+          const f=new Date(i.DateFrom).getTime(), t=new Date(i.DateTo).getTime();
+          if(!(f<=_now&&_now<=t))return;
+          belopp=i.Amount||0;
+          const cf=kaCashflowDate(i); datumTxt=cf?cf.toISOString().slice(0,10):'';
+        }else{
+          const y=new Date().getFullYear(); const s=calcYearTotalItems([i],y);
+          if(s<=0)return; belopp=s;
+          datumTxt=(i.DateFrom?i.DateFrom.slice(0,10):'?')+' – '+(i.DateTo?i.DateTo.slice(0,10):'?');
+        }
+      }
+      rows.push({company:c.Company||'-',typ:i.Type,desc:i.Description||'',datum:datumTxt,belopp:Math.round(belopp)});
+    });
+  });
+  rows.sort((a,b)=>b.belopp-a.belopp);
+  const total=rows.reduce((s,r)=>s+r.belopp,0);
+  const catLbl=cat==='all'?'Total':(cat==='arr'?'Prenumeration':cat==='fast'?'Fast pris':cat==='utb'?'Utbildning':'Consulting');
+  const datumHead=mode==='likviditet'?'Likviditet':'Avtalsperiod';
+  const vardeTxt=mode==='likviditet'?'totalt värde':'periodiserat värde';
+  const info=_underlagInfoText(cat,mode,yrs,showFormerCustomers,showFutureCustomers);
+  const body=`<div style="padding:10px 12px;background:var(--accent-bg,#eef);border-radius:8px;display:flex;gap:9px;align-items:flex-start;margin-bottom:12px;"><span style="flex:0 0 auto;color:var(--accent);font-weight:700;">ⓘ</span><div style="font-size:12px;color:var(--text2);line-height:1.55;">${info}</div></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">${catLbl} · ${vardeTxt} · ${rows.length} poster</div>
+    <div style="max-height:48vh;overflow:auto;border:0.5px solid var(--border);border-radius:8px;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr style="position:sticky;top:0;background:var(--surface2);"><th style="text-align:left;padding:7px 10px;">Kund</th><th style="text-align:left;padding:7px 10px;">Avtal</th><th style="text-align:left;padding:7px 10px;">${datumHead}</th><th style="text-align:right;padding:7px 10px;">Belopp</th></tr></thead>
+    <tbody>${rows.length?rows.map(r=>`<tr style="border-top:0.5px solid var(--border);"><td style="padding:7px 10px;">${r.company}</td><td style="padding:7px 10px;color:var(--text2);">${r.typ}${r.desc?' · '+r.desc:''}</td><td style="padding:7px 10px;color:var(--text3);white-space:nowrap;">${r.datum}</td><td style="padding:7px 10px;text-align:right;font-weight:600;white-space:nowrap;">${r.belopp.toLocaleString('sv-SE')} kr</td></tr>`).join(''):'<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--text3);">Inga poster</td></tr>'}</tbody>
+    <tfoot><tr style="border-top:1px solid var(--border);background:var(--surface2);"><td colspan="3" style="padding:9px 10px;font-weight:700;">Summa</td><td style="padding:9px 10px;text-align:right;font-weight:700;white-space:nowrap;">${total.toLocaleString('sv-SE')} kr</td></tr></tfoot>
+    </table></div>`;
+  showDialog(`Underlag · ${catLbl}`, body, null, null, 'Stäng');
+}
 function renderRevSummary(){const el=document.getElementById('rev-summary');if(!el)return;if(typeof renderYearDD==='function')renderYearDD();const data=(typeof getFiltered==='function')?getFiltered():allCustomers;
   const year=new Date().getFullYear();
   const T=overviewYears.size?(()=>{const _t={pren:0,fast:0,utb:0,cons:0};data.forEach(c=>{const v=customerYearTypeValues(c,revSummaryMode,overviewYears,revSources);_t.pren+=v.arr;_t.fast+=v.fast;_t.utb+=v.utb;_t.cons+=v.cons;});_t.total=_t.pren+_t.fast+_t.utb+_t.cons;return _t;})():revSummaryTotals(data,revSummaryMode,year);
@@ -3640,9 +3717,9 @@ function renderRevSummary(){const el=document.getElementById('rev-summary');if(!
   ];
   const toggle=`<div class="result-toggle"><button class="result-btn ${revSummaryMode==='likviditet'?'active':''}" onclick="setRevSummaryMode('likviditet')">Försäljning</button><button class="result-btn ${revSummaryMode==='resultat'?'active':''}" onclick="setRevSummaryMode('resultat')">Resultat</button></div>`;
   const barHtml=cats.map(c=>pct(c.val)>0?`<div style="width:${pct(c.val)}%;background:${c.bar};"></div>`:'').join('');
-  const cardsHtml=cats.map(c=>`<div style="padding:8px 10px;border-top:2px solid ${c.bar};background:var(--surface2);border-radius:0 0 6px 6px;"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);"><span style="width:8px;height:8px;border-radius:50%;background:${c.bar};flex:0 0 auto;"></span>${c.label}</div><div style="font-size:14px;font-weight:600;color:${c.txt};margin-top:2px;">${fmtKr(c.val)}</div><div style="font-size:10px;color:var(--text3);">${pctTxt(c.val)}</div></div>`).join('');
+  const catKey=['arr','fast','utb','cons'];const cardsHtml=cats.map((c,ci)=>`<div onclick="openSummaryUnderlag('${catKey[ci]}')" style="padding:8px 10px;border-top:2px solid ${c.bar};background:var(--surface2);border-radius:0 0 6px 6px;cursor:pointer;" title="Visa underlag"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);"><span style="width:8px;height:8px;border-radius:50%;background:${c.bar};flex:0 0 auto;"></span>${c.label}</div><div style="font-size:14px;font-weight:600;color:${c.txt};margin-top:2px;">${fmtKr(c.val)}</div><div style="font-size:10px;color:var(--accent,#d85a30);display:flex;align-items:center;gap:3px;">ⓘ Visa underlag</div></div>`).join('');
   el.innerHTML=`<div style="grid-column:1/-1;background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;">`
-    +`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;"><div style="font-size:18px;font-weight:700;color:#D85A30;">${fmtKr(T.total)}</div><div style="font-size:12px;color:var(--text2);flex:1;">${_rubrik} · ${orgCount(data)} kunder</div>${toggle}</div>`
+    +`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;"><div onclick="openSummaryUnderlag('all')" style="font-size:18px;font-weight:700;color:#D85A30;cursor:pointer;" title="Visa underlag">${fmtKr(T.total)} <span style="font-size:12px;font-weight:400;">ⓘ</span></div><div style="font-size:12px;color:var(--text2);flex:1;">${_rubrik} · ${orgCount(data)} kunder</div>${toggle}</div>`
     +`<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--surface2);margin-bottom:10px;">${barHtml}</div>`
     +`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">${cardsHtml}</div>`
     +`</div>`;}
