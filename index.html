@@ -6643,21 +6643,24 @@ function parseExcelResult(wb){
   if(!ws||!ws['!ref'])return null;
   const range=XLSX.utils.decode_range(ws['!ref']);
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};   // .v = beräknat värde (ej formel .f)
-  const out=[];
+  const out=[];const unmatched=[];
   // RES-1: section-taggad routing — läs ALLA numeriska konton i hela arket → findResultDef → behåll bara träffar (cost/aktiverat).
   // Konton UTAN def-träff (3000-serien intäkter = appens slots; 8xxx finansiella tills RES-2) HOPPAS. Ingen cost-section-gate längre.
   // Rubriker/summor/nyckeltal har TEXT i kol A → matchar ej /^[0-9]{3,4}$/ → hoppas.
   for(let r=5;r<=range.e.r;r++){
     const acct=cv(r,0),name=cv(r,1);
     const acctStr=acct!=null?String(acct).trim():'';
-    if(!/^[0-9]{1,4}(xx|xxx)?$/i.test(acctStr))continue;         // numeriska konton + aggregat-strängar (58xx, 8xxx)
+    const nmeStr=String(name||'').trim();
+    // Konto-lös namn-fallback: släpp igenom rader med TOM kol A vars namn börjar med "övrig k" (Övrig kst, moms). Övriga konto-lösa (rubriker/Summa) hoppas.
+    if(!/^[0-9]{1,4}(xx|xxx)?$/i.test(acctStr)&&!(!acctStr&&/^övrig k/i.test(nmeStr)))continue;   // numeriska konton + aggregat-strängar (58xx, 8xxx) + Övrig k-fallback
     const colC=cv(r,2);const colCWord=colC!=null?String(colC).trim().split(/\s+/)[0]:'';   // kol C första ord → dubblett-disambiguering (5990/6540)
-    const def=findResultDef(acctStr,colCWord);
-    if(!def)continue;                                            // 3000-serien (intäkter) / 8xxx (finans, RES-2) utan def → hoppas
+    const def=findResultDef(acctStr,colCWord,name);
+    if(!def){if(acctStr)unmatched.push(acctStr+' · '+nmeStr);continue;}   // numeriskt konto utan def-träff → logga tyst bortfall (D)
     const row={accountNo:acctStr,name:name!=null?String(name).trim():'',colCWord,section:def.section,defGroup:def.group,defName:def.name};
     MONTHS.forEach((m,i)=>{const v=cv(r,3+i);row[m]=(typeof v==='number')?v:(parseFloat(v)||0);});   // D-O = c 3..14
     out.push(row);
   }
+  window._excelResultUnmatched=unmatched;   // D: numeriska konton utan def-träff → visas i import-bekräftelsen
   return out;
 }
 // Målversion (likviditet): current om likviditetsbudget, annars parad likviditet (resultat→PairedVersionId).
@@ -6712,13 +6715,15 @@ async function handleExcelFile(e){
 }
 // RES-1: section-taggad master-def — mappa importens accountNo → {group,name,section} över COST ∪ AKTIVERAT (FINANS i RES-2).
 // Cost: dubblett-disambiguering via kol C (5990/6540). Aktiverat: 3850/3870. Okänt (3000-serien intäkter = appens slots; 8xxx tills RES-2) → null → hoppas.
-function findResultDef(accountNo,colCWord){
+function findResultDef(accountNo,colCWord,name){
   const acct=String(accountNo||'').trim();
   const costs=COST_ROWS_DEF.filter(c=>c.account&&c.account===acct);
   if(costs.length===1)return {group:costs[0].group,name:costs[0].name,section:'cost'};                          // vanligt kostnadskonto → unik def
   if(costs.length>1){const w=String(colCWord||'').trim().toLowerCase();const d=(w&&costs.find(x=>x.name.toLowerCase().includes(w)))||costs[0];return {group:d.group,name:d.name,section:'cost'};}   // dubblett → kol C
   const akt=AKTIVERAT_ROWS_DEF.find(c=>c.account===acct);
   if(akt)return {group:akt.group,name:akt.name,section:'aktiverat'};                                            // aktiverat arbete (3850/3870)
+  // Konto-lös fallback (utlovad ovan): tom kol A + namn "Övrig k..." → defen med account:'' (Övrig kostnad).
+  if(!acct&&/^övrig k/i.test(String(name||'').trim())){const d=COST_ROWS_DEF.find(c=>c.account===''&&c.name==='Övrig kostnad');if(d)return {group:d.group,name:d.name,section:'cost'};}
   return null;                                                                                                  // 3000-serien / 8xxx → hoppas
 }
 // Skriv resultat → /rows. DEF-2: varje importrad → def-rad (Category=grupp, SubCategory=def-namn) så resultat-rendern (def-driven) visar den.
@@ -6765,7 +6770,9 @@ async function runExcelImport(){
     try{budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();if(!Array.isArray(budgetRows))budgetRows=[];}catch(e){}
     renderBudgetTable();
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
-    showSaveIndicator(`✓ ${rCount} resultatrader + ${lCount} leverantörer importerade`,'#1a7a50');
+    const _um=window._excelResultUnmatched||[];   // D: tysta bortfall (numeriskt konto utan def-träff)
+    showSaveIndicator(`✓ ${rCount} resultatrader + ${lCount} leverantörer importerade${_um.length?` · ⚠ ${_um.length} konto${_um.length>1?'n':''} utan def`:''}`,'#1a7a50');
+    if(_um.length)console.warn('[import] konton utan def-träff (hoppade):',_um);
   }catch(e){console.error('[runExcelImport]',e);alert('Kunde inte skriva importen.');}
 }
 
