@@ -637,6 +637,7 @@
   <div class="main">
     <div class="kpi-grid" id="pipe-overview-kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;"></div>
     <div class="filters" id="pipe-filters-bar" style="margin-bottom:12px;">
+      <input type="text" id="pipe-search" placeholder="Sök prospect..." oninput="renderKanban()" style="padding:7px 11px;border:0.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;min-width:180px;">
       <select id="filter-source" onchange="renderKanban()" style="font-size:12px;">
         <option value="">Alla källor</option>
         <option>Wow</option><option>Hemsida demo</option><option>30-dagars</option>
@@ -1909,7 +1910,8 @@ function renderKanban(){
   const srcFilter=document.getElementById('filter-source')?.value||'';
   const ownerFilter=document.getElementById('filter-pipe-owner')?.value||'';
   const indFilter=document.getElementById('filter-pipe-industry')?.value||'';
-  const filtered=allProspects.filter(p=>(!srcFilter||p.Source===srcFilter)&&(!ownerFilter||p.Owner===ownerFilter)&&(!indFilter||p.Industry===indFilter));
+  const qFilter=(document.getElementById('pipe-search')?.value||'').trim().toLowerCase();
+  const filtered=allProspects.filter(p=>(!srcFilter||p.Source===srcFilter)&&(!ownerFilter||p.Owner===ownerFilter)&&(!indFilter||p.Industry===indFilter)&&(!qFilter||((p.Company||'')+' '+(p.Contact||'')+' '+(p.Role||'')).toLowerCase().includes(qFilter)));
   const today=new Date();today.setHours(0,0,0,0);
   const board=document.getElementById('kanban-board');
   board.innerHTML=STAGES.map(stage=>{
