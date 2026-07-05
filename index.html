@@ -2010,6 +2010,7 @@ function renderKanban(){
   board.innerHTML=STAGES.map(stage=>{
     const cards=pipeOrderedIds(stage,filtered.filter(p=>p.Stage===stage)).slice().sort((a,b)=>(b.Starred?1:0)-(a.Starred?1:0));
     const isWon=stage==='Closed Won',isLost=stage==='Closed Lost';
+    const _early=STAGES.indexOf(stage)<3;
     const _cardObjs=cards.length?cards.map(p=>{
       const srcColor=SOURCE_COLORS[p.Source]||'#8b90b0';
       const _oc=ownerColor(p.Owner);
@@ -2060,7 +2061,7 @@ function renderKanban(){
         <div class="kc-contact">${p.Contact||'–'}</div>
         <div class="kc-owner"${_oc?` style="background:${_oc.bg};color:${_oc.fg};"`:''}>${p.Owner||'–'}</div>
         <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span>${p.Track?`<span title="Spår: ${(p.Track||'').replace(/"/g,'&quot;')}" style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--purple-bg,#EEEDFE);color:var(--purple,#534AB7);font-weight:500;flex:0 0 auto;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(p.Track||'').replace(/</g,'&lt;')}</span>`:''}</div>
-        ${revHtml}
+        ${_early?'':revHtml}
         ${_showAct?actionHtml:''}
         ${isLost&&p.LostReason?`<div class="kc-lost-reason">Orsak: ${p.LostReason}</div>`:''}
         <div class="kc-days">Pipe: ${daysInPipe}d · Steg: ${daysInStage}d</div>
