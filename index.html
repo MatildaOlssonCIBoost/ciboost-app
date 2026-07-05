@@ -1965,7 +1965,7 @@ function renderKanban(){
         <div class="kc-name" style="display:flex;align-items:center;gap:6px;"><span onclick="event.stopPropagation();toggleProspectStar(${p.Id})" title="${p.Starred?'Ta bort stjarna':'Stjarnmarkera'}" style="cursor:pointer;font-size:14px;line-height:1;color:${p.Starred?'#EF9F27':'var(--text3)'};flex:0 0 auto;">${p.Starred?'★':'☆'}</span><span style="flex:1;">${p.Company||'-'}</span></div>
         <div class="kc-contact">${p.Contact||'–'}</div>
         <div class="kc-owner"${_oc?` style="background:${_oc.bg};color:${_oc.fg};"`:''}>${p.Owner||'–'}</div>
-        <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span></div>
+        <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span>${p.Track?`<span title="Spår: ${(p.Track||'').replace(/"/g,'&quot;')}" style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--purple-bg,#EEEDFE);color:var(--purple,#534AB7);font-weight:500;flex:0 0 auto;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(p.Track||'').replace(/</g,'&lt;')}</span>`:''}</div>
         ${revHtml}
         ${actionHtml}
         ${isLost&&p.LostReason?`<div class="kc-lost-reason">Orsak: ${p.LostReason}</div>`:''}
