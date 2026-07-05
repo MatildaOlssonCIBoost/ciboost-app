@@ -5404,11 +5404,12 @@ async function openImportFornyelseModal(versionId,preMonth){
   const year=Number(ver.Year)||new Date().getFullYear();
   const ex=document.getElementById('import-fornyelse-overlay');if(ex)ex.remove();
   const ov=document.createElement('div');ov.id='import-fornyelse-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:flex-start;padding-left:32px;';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:620px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
-    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:10px;">Importera förnyelser · <span id="fr-month-lbl"></span> ${year}</h3><input type="hidden" id="fr-month"><div id="fr-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;">${MONTHS.map((m,i)=>`<button type="button" onclick="window._frPickMonth(${i})" style="flex:1;min-width:34px;padding:5px 4px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;">${m}</button>`).join('')}</div></div>
-    <div id="fr-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
-    <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="fr-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-fornyelse-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="fr-import-btn" class="btn-primary" onclick="window._frImport()" style="padding:8px 16px;" disabled>Importera</button></div></div>
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px;';
+  const _frIntro=currentBudgetMode==='resultat'?`Kryssade förnyelser skrivs <b>periodiserat (ex moms)</b> till <b>${String(ver.Name||'').replace(/</g,'&lt;')}</b>.`:`Kryssade förnyelser skrivs på <b>betalmånaden (inkl moms)</b> till <b>${String(ver.Name||'').replace(/</g,'&lt;')}</b>.`;
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:1040px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
+    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:6px;">Importera förnyelser · ${year}</h3><div style="font-size:11px;color:var(--text3);line-height:1.5;">${_frIntro} <span style="color:var(--text3);">Grå = befintligt avtal (kontext, skrivs ej) · grön = förnyelsens viktade belopp.</span></div></div>
+    <div id="fr-body" style="overflow:auto;flex:1;"></div>
+    <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="fr-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-fornyelse-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="fr-import-btn" class="btn-primary" onclick="window._frImport()" style="padding:8px 16px;" disabled>Importera valda</button></div></div>
   </div>`;
   document.body.appendChild(ov);
   // DB4: förladda antaganden från DB (delat mellan användare). Render läser denna minnesvariabel synkront. Fallback: localStorage.
@@ -5424,77 +5425,49 @@ async function openImportFornyelseModal(versionId,preMonth){
   const _frParse=s=>Number(String(s).replace(/[^0-9.\-]/g,''))||0;
   // Senaste licens-posten av en typ (ARR/Fastpris) ur custRevCache — ger belopp, beskrivning, period, default-fakturadatum.
   const _frLatestOfType=(c,t)=>{const items=custRevCache[c.Id]||[];const r=items.filter(i=>i.Type===t&&i.DateTo);return r.length?r.reduce((a,b)=>new Date(b.DateTo)>new Date(a.DateTo)?b:a):null;};
-  // Persist + live-omräkning: viktat + likviditetsmånad (faktura+30, samma mönster som kaCashflowDate) + summa + knapp-state.
+  // ETAPP 1 (tabellmodal): delade helpers — läge, hist. churn, default-period, radstate, skivor (grå=avtal, grön=förnyelse), kandidater.
+  const _isRes=currentBudgetMode==='resultat';
+  const _frChurn=computeHistoricChurnPct();
+  const _frDefPeriod=(post)=>{const o=post&&post.DateTo?String(post.DateTo).substring(0,10):null;if(!o)return{from:'',to:''};const s=new Date(o);s.setDate(s.getDate()+1);const from=s.toISOString().substring(0,10);const e2=new Date(s);e2.setFullYear(e2.getFullYear()+1);e2.setDate(e2.getDate()-1);return{from,to:e2.toISOString().substring(0,10)};};
+  const _frState=(c,type,post)=>{const key=c.Id+'_'+type;const e=window._frEdits[key]||{};const sv=_frSavedAll[key];const dp=_frDefPeriod(post);return{key,sv,dateV:e.date!=null?e.date:(sv&&sv.date?sv.date:(post.DateTo?String(post.DateTo).substring(0,10):'')),amtV:e.amount!=null?e.amount:(sv?String(sv.amount):String(post.Amount||0)),probV:e.prob!=null?e.prob:(sv?String(sv.prob):String(calculateRiskScoreClient(c).renewalProb)),fromV:e.dateFrom!=null?e.dateFrom:dp.from,toV:e.dateTo!=null?e.dateTo:dp.to,chk:e.checked!=null?e.checked:(sv?true:false)};};
+  const _frCells=(post,st)=>{const amount=_frParse(st.amtV),prob=Math.max(0,Math.min(100,_frParse(st.probV)));const gray=spreadPeriodAcrossMonths(Math.round(post.Amount||0),post.DateFrom?String(post.DateFrom).substring(0,10):null,post.DateTo?String(post.DateTo).substring(0,10):null,year);let green=Array(12).fill(0),firstGreen=-1,yearW=0;if(_isRes){green=spreadPeriodAcrossMonths(Math.round(amount*prob/100),st.fromV||null,st.toV||null,year);yearW=green.reduce((a,b)=>a+b,0);firstGreen=green.findIndex(v=>v>0);}else{const vat=(post.VatRate!=null?post.VatRate:25);const winc=Math.round(amount*prob/100*(1+vat/100));const d=new Date(st.dateV);if(!isNaN(d)){const ld=new Date(d);ld.setDate(ld.getDate()+30);if(ld.getFullYear()===year){green[ld.getMonth()]=winc;firstGreen=ld.getMonth();yearW=winc;}}}return{gray,green,firstGreen,yearW};};
+  const _frCands=()=>{const out=[];['ARR','Fastpris'].forEach(type=>{(allCustomers||[]).forEach(c=>{const post=_frLatestOfType(c,type);if(!post||!post.DateTo||(post.Amount||0)<=0)return;const key=c.Id+'_'+type;const e=window._frEdits[key];const sv=_frSavedAll[key];const effDate=(e&&e.date!=null)?e.date:(sv&&sv.date?sv.date:String(post.DateTo).substring(0,10));const d=new Date(effDate);if(!(!isNaN(d)&&d.getFullYear()===year)&&!sv)return;out.push({c,post,type});});});out.sort((a,b)=>((a.type==='ARR'?0:1)-(b.type==='ARR'?0:1))||String(a.c.Company||'').localeCompare(String(b.c.Company||''),'sv'));return out;};
+  window._frToggleAll=(on)=>{document.querySelectorAll('#fr-body .fr-cb').forEach(cb=>cb.checked=on);window._frRecalc();};
+  // Persist + live-omräkning: viktat + summa + knapp-state (tabell).
   window._frRecalc=()=>{
     let n=0,tot=0;
     document.querySelectorAll('#fr-body .fr-row').forEach(row=>{
       const cb=row.querySelector('.fr-cb');const key=cb.dataset.cust+'_'+cb.dataset.type;
-      const dateV=row.querySelector('.fr-date').value,amtV=row.querySelector('.fr-amount').value,probV=row.querySelector('.fr-prob').value;
-      const _fromEl=row.querySelector('.fr-from'),_toEl=row.querySelector('.fr-to');
-      const _ed={date:dateV,amount:amtV,prob:probV,checked:cb.checked};if(_fromEl){_ed.dateFrom=_fromEl.value;_ed.dateTo=_toEl?_toEl.value:'';}
-      window._frEdits[key]=_ed;
-      const amount=_frParse(amtV);const prob=Math.max(0,Math.min(100,_frParse(probV)));
-      const weighted=Math.round(amount*prob/100);
-      row.querySelector('.fr-weighted').textContent=weighted.toLocaleString('sv-SE')+' kr';
-      if(currentBudgetMode==='resultat'){const fr=_fromEl?_fromEl.value:'',to=_toEl?_toEl.value:'';row.querySelector('.fr-liqmonth').textContent=(fr||to)?('Period: '+(fr||'?')+'–'+(to||'?')):'Period: –';}
-      else{const d=new Date(dateV);let liq='–';if(!isNaN(d)){const ld=new Date(d);ld.setDate(ld.getDate()+30);liq=MONTHS[ld.getMonth()];}row.querySelector('.fr-liqmonth').textContent='Likviditet: '+liq;}
-      if(cb.checked){n++;tot+=weighted;}
+      const st={amtV:row.querySelector('.fr-amount')?.value||'',probV:row.querySelector('.fr-prob')?.value||'',dateV:row.querySelector('.fr-date')?.value||'',fromV:row.querySelector('.fr-from')?.value||'',toV:row.querySelector('.fr-to')?.value||''};
+      window._frEdits[key]={date:st.dateV,amount:st.amtV,prob:st.probV,dateFrom:st.fromV,dateTo:st.toV,checked:cb.checked};
+      const cells=_frCells(row._frPost,st);
+      const wEl=row.querySelector('.fr-weighted');if(wEl)wEl.textContent=Math.round(cells.yearW).toLocaleString('sv-SE')+' kr';
+      if(cb.checked){n++;tot+=cells.yearW;}
     });
-    const e=document.getElementById('fr-summary');if(e)e.textContent=`${n} förnyelser · viktat ${Math.round(tot).toLocaleString('sv-SE')} kr`;
+    const e=document.getElementById('fr-summary');if(e)e.textContent=`${n} förnyelser ikryssade · viktat ${Math.round(tot).toLocaleString('sv-SE')} kr ${_isRes?'ex moms':'inkl moms'} ${year}`;
     const btn=document.getElementById('fr-import-btn');if(btn)btn.disabled=n===0;
+    const all=document.getElementById('fr-all');if(all){const cbs=[...document.querySelectorAll('#fr-body .fr-cb')];all.checked=cbs.length>0&&cbs.every(c=>c.checked);}
   };
   window._frRender=()=>{
-    const mi=Number(document.getElementById('fr-month').value);
-    document.getElementById('fr-month-lbl').textContent=MONTHS[mi];
-    document.getElementById('fr-import-btn').textContent='Importera till '+MONTHS[mi];
-    // Färgkort som actuals-modalen, men bara de två återkommande licenstyperna (= det aggregateFornyelseRows förnyar).
-    const _tc={ARR:{bg:'#EAF3DE',color:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5'}};
-    const _tl={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)'};
-    const churnPct=computeHistoricChurnPct();const fk=v=>Math.round(v).toLocaleString('sv-SE');
+    const cands=_frCands();
+    const _tc={ARR:{bg:'#EAF3DE',color:'#3B6D11',lbl:'Licens (prenumeration)'},Fastpris:{bg:'#E6F1FB',color:'#185FA5',lbl:'Licens (fast pris)'}};
+    const fk=v=>v?Math.round(v).toLocaleString('sv-SE'):'–';
     const inp='padding:2px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);';
-    // Sparade antaganden (variant A) → ändrings-markör per post. DB4: läses från förladdade _frSavedAll (DB, fallback localStorage).
-    const _frSaved=_frSavedAll;
-    let html='';
-    // Filter på licens-postens (latestOfType) DateTo-MÅNAD === mi — matchar fixade aggregateFornyelseRows (LicenseEnd-månaden).
-    // Effektivt fakturadatum (ev. redigerat i _frEdits) styr vilken flik posten hör till → datumändring flyttar posten.
-    [['ARR','ARR'],['Fastpris','Fastpris']].forEach(([grp,type])=>{
-      const tc=_tc[type];
-      const posts=(allCustomers||[]).map(c=>({c,post:_frLatestOfType(c,type)})).filter(({c,post})=>{
-        if(!post||!post.DateTo||(post.Amount||0)<=0)return false;
-        const e=window._frEdits[c.Id+'_'+type];const effDate=(e&&e.date!=null)?e.date:post.DateTo.substring(0,10);
-        const d=new Date(effDate);return !isNaN(d)&&d.getFullYear()===year&&d.getMonth()===mi;
-      });
-      if(!posts.length)return;
-      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${subLabel(_tl[type])}</div>`;
-      posts.forEach(({c,post})=>{const e=window._frEdits[c.Id+'_'+type]||{};
-        const sv=_frSaved[c.Id+'_'+type];
-        const dateV=e.date!=null?e.date:(sv?sv.date:post.DateTo.substring(0,10));
-        const amtV=e.amount!=null?e.amount:(sv?String(sv.amount):String(post.Amount||0));
-        const probV=e.prob!=null?e.prob:(sv?String(sv.prob):String(calculateRiskScoreClient(c).renewalProb));
-        const chk=e.checked!=null?e.checked:(sv?true:false);
-        const period=`${post.DateFrom?post.DateFrom.substring(0,10):'?'} – ${post.DateTo.substring(0,10)}`;const desc=post.Description||'';
-        // C6: redigerbar förnyelseperiod (styr periodiseringen) — ENDAST resultat-läge. Default = härledd (origDateTo+1 → +1 år).
-        const _frOrigTo=post.DateTo?String(post.DateTo).substring(0,10):null;
-        let _frDefFrom='',_frDefTo='';if(_frOrigTo){const s=new Date(_frOrigTo);s.setDate(s.getDate()+1);_frDefFrom=s.toISOString().substring(0,10);const e2=new Date(s);e2.setFullYear(e2.getFullYear()+1);e2.setDate(e2.getDate()-1);_frDefTo=e2.toISOString().substring(0,10);}
-        const _frFromV=e.dateFrom!=null?e.dateFrom:_frDefFrom;const _frToV=e.dateTo!=null?e.dateTo:_frDefTo;
-        const _frPeriodInputs=currentBudgetMode==='resultat'?`<div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Avtalsperiod:<input type="date" class="fr-from" value="${_frFromV}" oninput="window._frRecalc()" style="width:130px;${inp}"><span>–</span><input type="date" class="fr-to" value="${_frToV}" oninput="window._frRecalc()" style="width:130px;${inp}"></div>`:'';
-        // Ändrings-markör: ● Ny om aldrig importerad; ↻ Ändrad (klickbar → importerat vs nuvarande) om underlag/licens-DateTo skiljer sig.
-        const curDateTo=post.DateTo?post.DateTo.substring(0,10):null;
-        const curProb=calculateRiskScoreClient(c).renewalProb;const curAmount=post.Amount||0;
-        let marker='';
-        if(!sv){
-          marker=' <span style="color:#185FA5;font-size:10px;font-weight:600;">● Ny</span>';
-        } else {
-          const underlagDiff=sv.srcAmount!=null&&(Math.round(_frParse(sv.amount))!==Math.round(_frParse(sv.srcAmount))||Math.round(_frParse(sv.prob))!==Math.round(_frParse(sv.srcProb))||(sv.date||'')!==(sv.srcDate||''));
-          const kallaDiff=sv.srcAmount!=null&&(Math.round(_frParse(sv.srcAmount))!==Math.round(curAmount)||Math.round(_frParse(sv.srcProb))!==Math.round(curProb)||(sv.srcDate||'')!==(curDateTo||''));
-          let flags='';
-          if(underlagDiff)flags+=` <span onclick="window._frShowDiff('${c.Id}_${type}')" title="Budgeten avviker från källans värde vid import" style="cursor:pointer;color:#3C3489;background:#EEEDFE;border-radius:8px;padding:1px 7px;font-size:9px;font-weight:600;">⟷ Budget · underlag ändrat</span>`;
-          if(kallaDiff)flags+=` <span onclick="window._frShowDiff('${c.Id}_${type}')" title="Källan har ändrats sedan import" style="cursor:pointer;color:#854F0B;background:#FAEEDA;border-radius:8px;padding:1px 7px;font-size:9px;font-weight:600;">⚠ Källan uppdaterad</span>`;
-          marker=flags;
-        }
-        html+=`<div class="fr-row" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);${sv?'border-left:3px solid #1D9E75;':''}border-radius:8px;margin-bottom:6px;background:var(--surface);"><input type="checkbox" class="fr-cb" data-cust="${c.Id}" data-type="${type}" ${chk?'checked':''} onchange="window._frRecalc()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.Company||('Kund '+c.Id)}${marker}</div><div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc?desc+' · ':''}${period}</div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Faktura:<input type="text" class="fr-date" value="${dateV}" oninput="window._frRecalc()" onchange="window._frRender()" style="width:92px;${inp}">Belopp:<input type="text" class="fr-amount" value="${amtV}" oninput="window._frRecalc()" style="width:84px;text-align:right;${inp}"></div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Viktning:<input type="text" class="fr-prob" value="${probV}" oninput="window._frRecalc()" style="width:40px;text-align:right;${inp}">% · Hist. churn: ${Math.round(churnPct*100)}%</div>${_frPeriodInputs}${sv?`<div style="font-size:10px;color:#0F6E56;margin-top:6px;display:flex;align-items:center;gap:4px;"><span style="font-size:11px;">✓</span> Importerad av ${sv.importedBy||'okänd'}${sv.importedAt?' · '+sv.importedAt:''}</div>`:`<div style="font-size:10px;color:var(--text3);margin-top:6px;">Ej importerad · default-värden</div>`}</div><div style="text-align:right;flex:0 0 auto;"><div class="fr-weighted" style="font-size:13px;font-weight:600;">${fk(Math.round(_frParse(amtV)*_frParse(probV)/100))} kr</div><div class="fr-liqmonth" style="font-size:10px;color:var(--text3);">Likviditet: –</div>${sv?`<button onclick="window._frDeletePost('${c.Id}_${type}')" title="Radera importerad post" style="margin-top:5px;width:18px;height:18px;border:0.5px solid var(--border);border-radius:3px;background:none;cursor:pointer;color:var(--red);font-size:11px;line-height:1;padding:0;">×</button>`:''}</div></div>`;});
-      html+=`</div>`;});
-    document.getElementById('fr-body').innerHTML=html||`<div style="padding:30px;text-align:center;color:var(--text3);">Inga förnyelser i ${MONTHS[mi]}.</div>`;
+    const esc=s=>String(s||'').replace(/</g,'&lt;');
+    const thM=MONTHS.map(m=>`<th style="padding:5px 3px;font-size:9px;color:var(--text3);font-weight:600;text-align:right;">${m}</th>`).join('');
+    const _pmap={};
+    const body=cands.map(({c,post,type})=>{
+      _pmap[c.Id+'_'+type]=post;
+      const st=_frState(c,type,post);const cells=_frCells(post,st);const tc=_tc[type];
+      const marker=st.sv?` <span style="color:#0F6E56;font-size:10px;">✓</span>`:` <span style="color:#185FA5;font-size:10px;font-weight:600;">● Ny</span>`;
+      const oldPeriod=`${post.DateFrom?String(post.DateFrom).substring(0,10):'?'} → ${post.DateTo?String(post.DateTo).substring(0,10):'?'}`;
+      const monthCells=MONTHS.map((m,mi)=>{const g=cells.gray[mi],gr=cells.green[mi];return `<td style="text-align:right;font-size:10px;padding:2px 3px;${mi===cells.firstGreen?'border-left:2px solid #1a7a50;':''}">${g>0?`<div style="color:var(--text3);">${fk(g)}</div>`:''}${gr>0?`<div style="color:#1a7a50;font-weight:700;">${fk(gr)}</div>`:(g>0?'':'<span style="color:var(--text3);">–</span>')}</td>`;}).join('');
+      const fields=_isRes?`Ny period:<input type="date" class="fr-from" value="${st.fromV}" oninput="window._frRecalc()" onchange="window._frRender()" style="width:128px;${inp}"><span>–</span><input type="date" class="fr-to" value="${st.toV}" oninput="window._frRecalc()" onchange="window._frRender()" style="width:128px;${inp}">`:`Faktura:<input type="text" class="fr-date" value="${st.dateV}" oninput="window._frRecalc()" onchange="window._frRender()" style="width:96px;${inp}">`;
+      return `<tr class="fr-row" data-key="${c.Id}_${type}"><td style="padding:6px 6px;text-align:center;vertical-align:top;"><input type="checkbox" class="fr-cb" data-cust="${c.Id}" data-type="${type}" ${st.chk?'checked':''} onchange="window._frRecalc()" style="width:16px;height:16px;cursor:pointer;"></td><td style="padding:6px 8px;min-width:210px;vertical-align:top;"><div style="font-size:13px;font-weight:500;">${esc(c.Company||('Kund '+c.Id))}${marker}</div>${post.Description?`<div style="font-size:10px;color:var(--text3);">${esc(post.Description)}</div>`:''}<div style="margin-top:2px;"><span style="font-size:10px;font-weight:600;color:${tc.color};background:${tc.bg};border-radius:4px;padding:1px 6px;">${subLabel(tc.lbl)}</span></div><div style="font-size:10px;color:var(--text3);margin-top:4px;">Gamla: ${oldPeriod}</div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">${fields} Belopp:<input type="text" class="fr-amount" value="${st.amtV}" oninput="window._frRecalc()" onchange="window._frRender()" style="width:82px;text-align:right;${inp}"> Viktning:<input type="text" class="fr-prob" value="${st.probV}" oninput="window._frRecalc()" onchange="window._frRender()" style="width:38px;text-align:right;${inp}">% <span style="color:var(--text3);">hist. churn ${Math.round(_frChurn*100)}%</span></div></td>${monthCells}<td class="fr-weighted" style="padding:6px 8px;text-align:right;font-weight:700;font-size:12px;vertical-align:top;">${fk(cells.yearW)} kr</td></tr>`;
+    }).join('');
+    const bodyEl=document.getElementById('fr-body');if(!bodyEl)return;
+    bodyEl.innerHTML=cands.length?`<table style="width:100%;border-collapse:collapse;"><thead style="position:sticky;top:0;background:var(--surface);box-shadow:0 1px 0 var(--border);z-index:1;"><tr><th style="padding:6px;text-align:center;"><input type="checkbox" id="fr-all" onchange="window._frToggleAll(this.checked)" title="Markera alla" style="width:16px;height:16px;cursor:pointer;"></th><th style="padding:6px 8px;text-align:left;font-size:9px;color:var(--text3);font-weight:600;">Förnyelse</th>${thM}<th style="padding:6px 8px;text-align:right;font-size:9px;color:var(--text3);font-weight:600;">Viktat</th></tr></thead><tbody>${body}</tbody></table>`:`<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Inga förnyelsekandidater i ${year}.</div>`;
+    document.querySelectorAll('#fr-body .fr-row').forEach(row=>{row._frPost=_pmap[row.dataset.key];});
     window._frRecalc();
   };
   // Radera inskickad post direkt i modalen (#2/radering commit C): återanvänder deleteUnderlagPost (PUT remove + matris-synk),
@@ -5566,11 +5539,10 @@ async function openImportFornyelseModal(versionId,preMonth){
     if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
     document.getElementById('import-fornyelse-overlay')?.remove();
-    alert(imported+' förnyelser importerade.');
+    if(typeof showSaveIndicator==='function')showSaveIndicator(`✓ ${imported} förnyelser importerade (${currentBudgetMode==='resultat'?'periodiserat ex moms':'betalmånad inkl moms'})`,'#1a7a50');
   };
-  // Markera vald månadsknapp (navy) + sätt dolt #fr-month + rendera.
-  window._frPickMonth=(mi)=>{document.getElementById('fr-month').value=mi;document.querySelectorAll('#fr-month-btns button').forEach((b,j)=>{const on=j===mi;b.style.background=on?'#1E2340':'transparent';b.style.color=on?'#fff':'var(--text2)';b.style.borderColor=on?'#1E2340':'var(--border)';b.style.fontWeight=on?'600':'400';});window._frRender();};
-  window._frPickMonth(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
+  // ETAPP 1: tabellmodal — ingen månadsflik. Rendera hela kandidatlistan direkt.
+  window._frRender();
 }
 // Pipeline-import-modal (per månad), speglar openImportFornyelseModal-strukturen. STEG 1: tomt skelett (ingen beräkning än).
 async function openImportPipelineModal(versionId,preMonth){
