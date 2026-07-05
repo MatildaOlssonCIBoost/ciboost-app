@@ -5420,8 +5420,8 @@ async function openImportFornyelseModal(versionId,preMonth){
   }catch(e){
     try{_frSavedAll=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'{}');}catch(e2){_frSavedAll={};}
   }
-  // ETAPP 2: förnyelseperioden (dateFrom/dateTo) finns bara i localStorage-snapshoten (DB saknar periodkolumner) → layra in i _frSavedAll för förkryssning/pre-fyll.
-  try{const _lsP=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'{}');Object.entries(_lsP).forEach(([k,v])=>{if(_frSavedAll[k]&&v){if(v.dateFrom!=null)_frSavedAll[k].dateFrom=v.dateFrom;if(v.dateTo!=null)_frSavedAll[k].dateTo=v.dateTo;}});}catch(e){}
+  // ETAPP 3B: förnyelseperioden (dateFrom/dateTo) läses ur BudgetMemory ('fornyelsePeriods', DB vinner) med localStorage-fallback → layra in i _frSavedAll för förkryssning/pre-fyll.
+  try{if(_bmCache[versionId]===undefined)await bmLoad(versionId);const _fp=bmGet(versionId,'fornyelsePeriods')||(()=>{const fi=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'{}');const pm={};Object.entries(fi).forEach(([k,v])=>{if(v&&(v.dateFrom||v.dateTo))pm[k]={dateFrom:v.dateFrom||null,dateTo:v.dateTo||null};});return pm;})();Object.entries(_fp).forEach(([k,v])=>{if(_frSavedAll[k]&&v){if(v.dateFrom!=null)_frSavedAll[k].dateFrom=v.dateFrom;if(v.dateTo!=null)_frSavedAll[k].dateTo=v.dateTo;}});}catch(e){}
   window._frSummary=()=>{}; // sammanräkning sker i _frRecalc
   window._frEdits={};       // redigeringar per kund+typ (date/amount/prob/checked), överlever _frRender (för datumflytt mellan flikar)
   const _frParse=s=>Number(String(s).replace(/[^0-9.\-]/g,''))||0;
@@ -5548,6 +5548,7 @@ async function openImportFornyelseModal(versionId,preMonth){
     if(currentBudgetMode==='resultat'){const entriesP=Object.entries(merged).map(([k,m])=>{const us=k.split('_');const type=us.pop();const custId=us.join('_');const ed=(window._frEdits||{})[k]||{};let df=(ed.dateFrom!=null&&ed.dateFrom!=='')?ed.dateFrom:null,dt=(ed.dateTo!=null&&ed.dateTo!=='')?ed.dateTo:null;if(!df||!dt){let o=_frSavedAll[k]?.licenseDateTo||null;if(!o){const cust=(allCustomers||[]).find(c=>String(c.Id)===String(custId));const post=cust?_frLatestOfType(cust,type):null;o=post&&post.DateTo?String(post.DateTo).substring(0,10):null;}if(o){const s=new Date(o);s.setDate(s.getDate()+1);if(!df)df=s.toISOString().substring(0,10);const e2=new Date(s);e2.setFullYear(e2.getFullYear()+1);e2.setDate(e2.getDate()-1);if(!dt)dt=e2.toISOString().substring(0,10);}}return {amount:m.amount,prob:m.prob,dateFrom:df,dateTo:dt,type:m.type};});try{await rebuildSourceRowsPeriodized(versionId,'Förnyelse (resultat)','Nyförsäljning',entriesP);}catch(e){alert('Kunde inte spara importen.');return;}}
     else try{await rebuildSourceRows(versionId,'Förnyelse',Object.values(merged));}catch(e){alert('Kunde inte spara importen.');return;}
     localStorage.setItem('fornyelseImport_'+versionId,JSON.stringify(saved));
+    const _fpMap={};Object.entries(saved).forEach(([k,v])=>{if(v&&(v.dateFrom||v.dateTo))_fpMap[k]={dateFrom:v.dateFrom||null,dateTo:v.dateTo||null};});bmSet(versionId,'fornyelsePeriods',_fpMap);   // ETAPP 3B: dubbelskriv perioden till delat minne
     // DB3: spara antagandena även i DB (delat mellan användare). Behåll localStorage tills DB5. Fel bryter ej importen.
     try{ await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:SRC,assumptions,remove:removals})}); }catch(e){ console.warn('Kunde ej spara antaganden till DB (localStorage finns kvar):',e); }
     if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
@@ -5935,9 +5936,33 @@ async function loadBudgetVersions(){
   }catch(e){}
 }
 
+// ETAPP 3B: delat budgetminne via BudgetMemory-API. _bmCache per version; union-läs (DB vinner) + dubbelskriv localStorage under övergången.
+let _bmCache={};
+async function bmLoad(versionId){
+  if(versionId==null||versionId==='')return {};
+  try{const r=await apiFetch(`${API}/budget-memory/${versionId}`);const d=r.ok?await r.json():null;_bmCache[versionId]=(d&&typeof d==='object')?d:{};}
+  catch(e){_bmCache[versionId]=_bmCache[versionId]||{};}
+  await _bmMigrate(versionId);
+  return _bmCache[versionId];
+}
+function bmGet(versionId,key){const v=_bmCache[versionId];return v?v[key]:undefined;}
+async function bmSet(versionId,key,obj){
+  if(versionId==null||versionId==='')return;
+  if(!_bmCache[versionId])_bmCache[versionId]={};
+  _bmCache[versionId][key]=obj;
+  try{const r=await apiFetch(`${API}/budget-memory/${versionId}/${key}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)});if(!r.ok)throw new Error('HTTP '+r.status);}
+  catch(e){console.warn('[bmSet] DB-fel — localStorage-kopian kvar:',e);if(typeof showSaveIndicator==='function')showSaveIndicator('⚠ Minne sparat lokalt (ej delat ännu)','#a5761b');}
+}
+// Engångs-migrering per version: localStorage-värden som DB saknar → ladda upp till BudgetMemory.
+async function _bmMigrate(versionId){
+  const c=_bmCache[versionId]||{};
+  if(c.avtalSnapshot===undefined){try{const ls=JSON.parse(localStorage.getItem('importedAvtalResultat_'+versionId)||'null');if(ls&&ls.items)await bmSet(versionId,'avtalSnapshot',ls);}catch(e){}}
+  if(c.fornyelsePeriods===undefined){try{const fi=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'null');if(fi){const pm={};Object.entries(fi).forEach(([k,v])=>{if(v&&(v.dateFrom||v.dateTo))pm[k]={dateFrom:v.dateFrom||null,dateTo:v.dateTo||null};});if(Object.keys(pm).length)await bmSet(versionId,'fornyelsePeriods',pm);}}catch(e){}}
+}
 async function loadBudgetVersion(){
   const sel=document.getElementById('budget-version-select');
   currentBudgetVersionId=sel.value;
+  bmLoad(currentBudgetVersionId);   // ETAPP 3B: förladda delat budgetminne (fire-and-forget; modaler väntar via guard)
   // Notes are scoped to the selected version (empty when nothing is selected).
   loadBudgetNotes(currentBudgetVersionId);
   const buttons=['mi-copy','mi-rename','mi-pair','mi-primary','mi-rolling','mi-delete','mi-sep1','mi-sep2','budget-import-group','budget-role-status'];
@@ -6958,7 +6983,9 @@ async function importAllAvtalResultat(versionId){
   const TYPE_ORDER={ARR:0,Fastpris:1,Utbildning:2,Consulting:3};
   const esc=s=>String(s||'').replace(/</g,'&lt;');
   const snapKey='importedAvtalResultat_'+versionId;
-  let snap=null;try{snap=JSON.parse(localStorage.getItem(snapKey)||'null');}catch(e){}
+  if(_bmCache[versionId]===undefined){try{await bmLoad(versionId);}catch(e){}}
+  let snap=bmGet(versionId,'avtalSnapshot');   // DB vinner
+  if(snap===undefined){try{snap=JSON.parse(localStorage.getItem(snapKey)||'null');}catch(e){snap=null;}}
   const hasSnap=!!(snap&&snap.items);
   const custById={};(allCustomers||[]).forEach(c=>custById[c.Id]=c);
   const rows=[];
@@ -7032,7 +7059,9 @@ async function importAllAvtalResultat(versionId){
     const btn=document.getElementById('iar-import-btn');if(btn)btn.textContent='Importerar…';
     try{await rebuildSourceRowsPeriodized(versionId,'Avtal (resultat)','Periodiserade intäkter',entries);}catch(e){alert('Kunde inte importera avtal.');if(btn)btn.textContent='Importera valda';return;}
     const items={};sel.forEach(r=>{items[r.id]={amount:r.amount,from:r.from,to:r.to};});
-    try{localStorage.setItem(snapKey,JSON.stringify({importedAt:new Date().toISOString().substring(0,10),items}));}catch(e){}
+    const _snapObj={importedAt:new Date().toISOString().substring(0,10),items};
+    try{localStorage.setItem(snapKey,JSON.stringify(_snapObj));}catch(e){}
+    bmSet(versionId,'avtalSnapshot',_snapObj);   // ETAPP 3B: dubbelskriv till delat minne
     if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
     document.getElementById('import-avtalres-overlay')?.remove();
     if(typeof showSaveIndicator==='function')showSaveIndicator(`✓ ${sel.length} avtal importerade (periodiserat)`,'#1a7a50');
