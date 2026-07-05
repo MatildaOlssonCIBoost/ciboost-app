@@ -6025,7 +6025,7 @@ async function loadBudgetVersion(){
   // C4: visa de tre import-knapparna i BÅDA lägen. Avtals-knappen grenar — resultat=bulk periodiserad
   // (importAllAvtalResultat), likviditet=per-månads kassaflöde (openImportActualsModal). Förnyelse/Pipe
   // öppnar samma modaler i båda lägen (modalerna grenar internt via C3).
-  const iaBtn=document.getElementById('btn-import-actuals');if(iaBtn){iaBtn.style.display='flex';iaBtn.onclick=currentBudgetMode==='resultat'?()=>importAllAvtalResultat(currentBudgetVersionId):()=>openImportActualsModal(currentBudgetVersionId);iaBtn.textContent=currentBudgetMode==='resultat'?'⇪ Avtal (alla)':'⇪ Actuals/mån';}
+  const iaBtn=document.getElementById('btn-import-actuals');if(iaBtn){iaBtn.style.display='flex';iaBtn.onclick=currentBudgetMode==='resultat'?()=>importAllAvtalResultat(currentBudgetVersionId):()=>openImportActualsModal(currentBudgetVersionId);iaBtn.textContent=currentBudgetMode==='resultat'?'⇪ Avtal (välj)':'⇪ Actuals/mån';}
   const frBtn=document.getElementById('btn-import-fornyelse');if(frBtn)frBtn.style.display='flex';
   const ppBtn=document.getElementById('btn-import-pipeline-mod');if(ppBtn)ppBtn.style.display='flex';
   await loadBudgetLocks(currentBudgetVersionId);
@@ -6938,20 +6938,104 @@ async function rebuildSourceRowsPeriodized(versionId,source,category,entries){
   await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   return rows;
 }
-// AVTAL bulk (resultat, A): periodiserar ALLA avtal ur custRevCache → 'Avtal (resultat)' under Periodiserade
-// intäkter. Går EJ via per-månads-importMonthActuals (kassaflödesformad). Regenererbart (källa=custRevCache),
-// inga assumptions. ↳ Avtal-slotens klick i resultat → denna (confirm + bulk). Andra arg (mi) ignoreras.
+// AVTAL (resultat): tabellmodal — välj vilka avtal ur custRevCache som periodiseras in i 'Avtal (resultat)'
+// under Periodiserade intäkter (ex moms, via rebuildSourceRowsPeriodized). Ersätter tidigare bulk+confirm.
+// Går EJ via per-månads-importMonthActuals (kassaflödesformad). Regenererbart (källa=custRevCache), inga assumptions.
+// STEG 2: tabellmodal — välj vilka avtal som periodiseras in i resultatbudgeten.
+// Behåller namnet importAllAvtalResultat så knappen (6028) OCH ↳ Avtal-cellerna (resAutoSlot) öppnar den.
+// Snapshot importedAvtalResultat_[versionId] = {importedAt, items:{[Id]:{amount,from,to}}} → Ny/Ändrad/Borttagen-flaggor.
 async function importAllAvtalResultat(versionId){
-  if(!confirm('Importera alla avtal periodiserat till Periodiserade intäkter? Ersätter tidigare avtals-import i denna resultatbudget.'))return;
   if(!Object.keys(custRevCache||{}).length){try{await prefetchAllCustomerRevenues();}catch(e){}}
-  const entries=[];
+  if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(versionId));if(!ver)return;
+  const year=Number(ver.Year)||new Date().getFullYear();
+  const fk=v=>v?Math.round(v).toLocaleString('sv-SE'):'–';
+  const M_ABBR=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+  const _per=d=>{if(!d)return'?';const dt=new Date(d);return isNaN(dt)?'?':M_ABBR[dt.getMonth()]+' '+String(dt.getFullYear()).slice(2);};
+  const P_CLASS={ARR:'p-arr',Fastpris:'p-fast',Utbildning:'p-utb',Consulting:'p-cons'};
+  const TYPE_ORDER={ARR:0,Fastpris:1,Utbildning:2,Consulting:3};
+  const esc=s=>String(s||'').replace(/</g,'&lt;');
+  const snapKey='importedAvtalResultat_'+versionId;
+  let snap=null;try{snap=JSON.parse(localStorage.getItem(snapKey)||'null');}catch(e){}
+  const hasSnap=!!(snap&&snap.items);
+  const custById={};(allCustomers||[]).forEach(c=>custById[c.Id]=c);
+  const rows=[];
   Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{
     if(!REV_CAT_TO_SUB[it.Type]||!(it.Amount>0))return;
-    entries.push({amount:it.Amount,prob:100,dateFrom:it.DateFrom?String(it.DateFrom).substring(0,10):null,dateTo:it.DateTo?String(it.DateTo).substring(0,10):null,type:it.Type});
+    const from=it.DateFrom?String(it.DateFrom).substring(0,10):null,to=it.DateTo?String(it.DateTo).substring(0,10):null;
+    const months=spreadPeriodAcrossMonths(Math.round(it.Amount),from,to,year);
+    if(!months.some(v=>v>0))return;   // ingen periodisering i versionsåret → hoppa (som rebuildSourceRowsPeriodized)
+    const c=custById[Number(cid)];
+    rows.push({id:it.Id,company:c?(c.Company||('Kund '+cid)):('Kund '+cid),desc:it.Description||'',type:it.Type,from,to,amount:Math.round(it.Amount),months,yrsum:months.reduce((a,b)=>a+b,0)});
   });});
-  try{await rebuildSourceRowsPeriodized(versionId,'Avtal (resultat)','Periodiserade intäkter',entries);}catch(e){alert('Kunde inte importera avtal.');return;}
-  if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
-  alert(entries.length+' avtalsposter importerade (periodiserat).');
+  rows.forEach(r=>{const s=hasSnap?snap.items[r.id]:null;
+    if(!hasSnap){r.flag='';r.checked=false;}                                                   // första gången → allt avkryssat
+    else if(!s){r.flag='new';r.checked=false;}                                                 // Ny → rosa, avkryssad
+    else if(s.amount!==r.amount||(s.from||null)!==r.from||(s.to||null)!==r.to){r.flag='changed';r.checked=true;r.old=s;}   // Ändrad → amber, förkryssad
+    else{r.flag='';r.checked=true;}                                                            // oförändrad → förkryssad
+  });
+  const presentIds=new Set(rows.map(r=>String(r.id)));
+  const deleted=hasSnap?Object.entries(snap.items).filter(([id])=>!presentIds.has(String(id))).map(([id,s])=>({id,...s})):[];
+  rows.sort((a,b)=>(TYPE_ORDER[a.type]-TYPE_ORDER[b.type])||String(a.company).localeCompare(String(b.company),'sv'));
+  const changeCnt=rows.filter(r=>r.flag).length+deleted.length;
+  const ex=document.getElementById('import-avtalres-overlay');if(ex)ex.remove();
+  const ov=document.createElement('div');ov.id='import-avtalres-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px;';
+  const thM=MONTHS.map(m=>`<th style="padding:6px 4px;font-size:10px;color:var(--text3);font-weight:600;text-align:right;">${m}</th>`).join('');
+  const rowHtml=r=>{
+    const bg=r.flag==='new'?'#fdf3f3':(r.flag==='changed'?'#fdf7ec':'var(--surface)');
+    const bl=r.flag==='new'?'#d99':(r.flag==='changed'?'#d9a441':'transparent');
+    const flagTxt=r.flag==='new'?' <span style="color:#a32d2d;font-size:10px;font-weight:600;">● Ny</span>':(r.flag==='changed'?' <span style="color:#a5761b;font-size:10px;font-weight:600;">● Ändrad</span>':'');
+    const chgSub=r.flag==='changed'?`<div style="font-size:10px;color:#a5761b;">Importerat ${fk(r.old.amount)} → nu ${fk(r.amount)}</div>`:'';
+    const cells=r.months.map(v=>`<td style="text-align:right;font-size:11px;padding:2px 4px;">${v>0?`<span class="${P_CLASS[r.type]}">${fk(v)}</span>`:'<span style="color:var(--text3);">–</span>'}</td>`).join('');
+    return `<tr style="background:${bg};border-left:3px solid ${bl};">
+      <td style="padding:6px 8px;text-align:center;"><input type="checkbox" class="iar-cb" data-id="${r.id}" data-yr="${r.yrsum}" ${r.checked?'checked':''} onchange="window._iarSummary()" style="width:16px;height:16px;cursor:pointer;"></td>
+      <td style="padding:6px 8px;min-width:170px;"><div style="font-size:13px;font-weight:500;">${esc(r.company)}${flagTxt}</div>${r.desc?`<div style="font-size:10px;color:var(--text3);">${esc(r.desc)}</div>`:''}${chgSub}<div style="margin-top:3px;"><span class="${P_CLASS[r.type]}">${typeLabel(r.type)}</span></div></td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--text2);white-space:nowrap;">${_per(r.from)} → ${_per(r.to)}</td>
+      ${cells}
+      <td style="padding:6px 8px;text-align:right;font-weight:700;font-size:12px;">${fk(r.yrsum)}</td>
+    </tr>`;
+  };
+  const delHtml=deleted.map(d=>`<tr style="background:var(--surface2);opacity:0.6;"><td style="padding:6px 8px;text-align:center;color:var(--text3);">–</td><td style="padding:6px 8px;text-decoration:line-through;color:var(--text3);font-size:12px;">Avtal #${esc(d.id)} <span style="font-size:10px;">(borttaget)</span></td><td colspan="${MONTHS.length+2}" style="font-size:11px;color:var(--text3);padding:6px 8px;">Fanns i förra importen — rensas vid re-import</td></tr>`).join('');
+  const introSnap=hasSnap?`<br>Senast importerad ${esc(String(snap.importedAt||'').substring(0,10))}${changeCnt?` · <b>${changeCnt}</b> ändring${changeCnt>1?'ar':''} sedan dess`:''}`:'';
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:1040px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
+    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);">
+      <h3 style="font-size:16px;font-weight:600;margin-bottom:6px;">Importera avtal · periodiserat ${year}</h3>
+      <div style="font-size:11px;color:var(--text3);line-height:1.5;">Kryssade avtal skrivs periodiserat (ex moms) till <b>Periodiserade intäkter</b> i <b>${esc(ver.Name)}</b>. Ersätter tidigare avtalsimport.${introSnap}</div>
+    </div>
+    <div style="overflow:auto;flex:1;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead style="position:sticky;top:0;background:var(--surface);box-shadow:0 1px 0 var(--border);z-index:1;"><tr>
+          <th style="padding:8px;text-align:center;"><input type="checkbox" id="iar-all" onchange="window._iarToggleAll(this.checked)" title="Markera alla" style="width:16px;height:16px;cursor:pointer;"></th>
+          <th style="padding:8px;text-align:left;font-size:10px;color:var(--text3);font-weight:600;">Kund</th>
+          <th style="padding:8px;text-align:left;font-size:10px;color:var(--text3);font-weight:600;">Period</th>
+          ${thM}
+          <th style="padding:8px;text-align:right;font-size:10px;color:var(--text3);font-weight:600;">Årssumma</th>
+        </tr></thead>
+        <tbody>${rows.map(rowHtml).join('')||`<tr><td colspan="${MONTHS.length+4}" style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Inga avtal med periodisering i ${year}.</td></tr>`}${delHtml}</tbody>
+      </table>
+    </div>
+    <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div id="iar-summary" style="font-size:12px;color:var(--text2);"></div>
+      <div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-avtalres-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="iar-import-btn" class="btn-primary" onclick="window._iarImport()" style="padding:8px 16px;">Importera valda</button></div>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  window._iarSummary=()=>{const cbs=[...document.querySelectorAll('.iar-cb:checked')];const tot=cbs.reduce((s,c)=>s+(Number(c.dataset.yr)||0),0);const e=document.getElementById('iar-summary');if(e)e.textContent=`${cbs.length} avtal ikryssade · ${Math.round(tot).toLocaleString('sv-SE')} kr periodiserat ${year}`;const all=document.getElementById('iar-all');const total=document.querySelectorAll('.iar-cb').length;if(all)all.checked=total>0&&cbs.length===total;};
+  window._iarToggleAll=(on)=>{document.querySelectorAll('.iar-cb').forEach(cb=>cb.checked=on);window._iarSummary();};
+  window._iarImport=async()=>{
+    const chSet=new Set([...document.querySelectorAll('.iar-cb:checked')].map(c=>String(c.dataset.id)));
+    const sel=rows.filter(r=>chSet.has(String(r.id)));
+    const entries=sel.map(r=>({amount:r.amount,prob:100,dateFrom:r.from,dateTo:r.to,type:r.type}));
+    const btn=document.getElementById('iar-import-btn');if(btn)btn.textContent='Importerar…';
+    try{await rebuildSourceRowsPeriodized(versionId,'Avtal (resultat)','Periodiserade intäkter',entries);}catch(e){alert('Kunde inte importera avtal.');if(btn)btn.textContent='Importera valda';return;}
+    const items={};sel.forEach(r=>{items[r.id]={amount:r.amount,from:r.from,to:r.to};});
+    try{localStorage.setItem(snapKey,JSON.stringify({importedAt:new Date().toISOString().substring(0,10),items}));}catch(e){}
+    if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
+    document.getElementById('import-avtalres-overlay')?.remove();
+    if(typeof showSaveIndicator==='function')showSaveIndicator(`✓ ${sel.length} avtal importerade (periodiserat)`,'#1a7a50');
+  };
+  window._iarSummary();
 }
 // Display-helpers (#3): översätter DATAVÄRDEN (SubCategory / Type) → UI-etikett.
 // Rör ALDRIG datavärdena själva (de lagras i DB BudgetRows.SubCategory / CustomerRevenues.Type
