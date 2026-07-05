@@ -3148,12 +3148,12 @@ function startDictation(targetId,btn){
   if(!SR){showSaveIndicator('Talinmatning stöds inte i denna webbläsare','#a32d2d');return;}
   const el=document.getElementById(targetId);if(!el)return;
   const stop=()=>{if(window._rec){try{window._rec.stop();}catch(e){}}};
-  if(window._rec){const wasSame=window._recBtn===btn;if(window._recBtn){window._recBtn.classList.remove('rec-active');window._recBtn.textContent='🎤';}stop();window._rec=null;window._recBtn=null;if(wasSame)return;}
+  if(window._rec){const wasSame=window._recBtn===btn;if(window._recBtn){window._recBtn.classList.remove('rec-active');window._recBtn.textContent='🎙️';}stop();window._rec=null;window._recBtn=null;if(wasSame)return;}
   const rec=new SR();rec.lang='sv-SE';rec.interimResults=true;rec.continuous=true;
   window._rec=rec;window._recBtn=btn;btn.classList.add('rec-active');btn.textContent='⏺';
   const base=el.value?el.value.replace(/\s+$/,'')+' ':'';let finalT='';
   rec.onresult=(e)=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)finalT+=t+' ';else interim+=t;}el.value=base+finalT+interim;};
-  const reset=()=>{btn.classList.remove('rec-active');btn.textContent='🎤';if(window._rec===rec){window._rec=null;window._recBtn=null;}};
+  const reset=()=>{btn.classList.remove('rec-active');btn.textContent='🎙️';if(window._rec===rec){window._rec=null;window._recBtn=null;}};
   rec.onerror=reset;rec.onend=reset;
   try{rec.start();}catch(e){reset();}
 }
@@ -3180,11 +3180,11 @@ function renderKontaktloggHtml(type,id,item,acts){
           <div class="modal-field"><label>Typ</label><select id="${formId}-type" class="edit-input">${ACTION_TYPES.map(a=>`<option>${a}</option>`).join('')}</select></div>
           <div class="modal-field"><label>Datum</label><input id="${formId}-date" type="date" class="edit-input" value="${new Date().toISOString().substring(0,10)}"></div>
         </div>
-        <div class="modal-field" style="margin-top:8px;"><label style="display:flex;justify-content:space-between;align-items:center;">Anteckningar <button type="button" class="mic-btn" onclick="startDictation('${formId}-note',this)" title="Diktera (Chrome)">🎤</button></label><textarea id="${formId}-note" class="edit-input" style="height:60px;resize:vertical;" placeholder="Minnesanteckningar från mötet/samtalet"></textarea></div>
+        <div class="modal-field" style="margin-top:8px;"><label style="display:flex;justify-content:space-between;align-items:center;">Anteckningar <button type="button" class="mic-btn" onclick="startDictation('${formId}-note',this)" title="Diktera (Chrome)">🎙️</button></label><textarea id="${formId}-note" class="edit-input" style="height:60px;resize:vertical;" placeholder="Minnesanteckningar från mötet/samtalet"></textarea></div>
         <div style="border-top:1px dashed var(--border);margin:16px -2px 14px;"></div>
         <div class="modal-section-label" style="margin:0 0 8px;color:#b85a00;">Nästa steg</div>
         <div class="modal-grid">
-          <div class="modal-field"><label style="display:flex;justify-content:space-between;align-items:center;">Vad ska göras <button type="button" class="mic-btn" onclick="startDictation('${formId}-next',this)" title="Diktera (Chrome)">🎤</button></label><input id="${formId}-next" class="edit-input" placeholder="Vad ska göras härnäst?"></div>
+          <div class="modal-field"><label style="display:flex;justify-content:space-between;align-items:center;">Vad ska göras <button type="button" class="mic-btn" onclick="startDictation('${formId}-next',this)" title="Diktera (Chrome)">🎙️</button></label><input id="${formId}-next" class="edit-input" placeholder="Vad ska göras härnäst?"></div>
           <div class="modal-field"><label>Datum</label><input id="${formId}-nextdate" type="date" class="edit-input"></div>
         </div>
         <div style="margin-top:8px;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="${formId}-waiting" style="width:16px;height:16px;cursor:pointer;flex:0 0 auto;"><span style="font-size:12px;color:var(--text2);">Inväntar svar</span></div>
