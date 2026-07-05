@@ -395,6 +395,11 @@
   .pipe-divider { width: 1px; height: 28px; background: var(--border); }
   .pipe-filters { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 24px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .kanban { display: flex; gap: 10px; padding: 16px 24px; overflow-x: auto; min-height: calc(100vh - 220px); align-items: flex-start; background: var(--bg); }
+  #kanban-board::-webkit-scrollbar { height: 10px; }
+  #kanban-board::-webkit-scrollbar-track { background: var(--surface1); border-radius: 6px; }
+  #kanban-board::-webkit-scrollbar-thumb { background: #CFCDC4; border-radius: 6px; }
+  #kanban-board::-webkit-scrollbar-thumb:hover { background: #B4B2A9; }
+  #kanban-board { scrollbar-width: thin; scrollbar-color: #CFCDC4 var(--surface1); }
   .kanban-col { min-width: 240px; width: 240px; flex-shrink: 0; min-height: calc(100vh - 240px); display: flex; flex-direction: column; }
   .kanban-dropzone { flex: 1 1 auto; min-height: 80px; border-radius: 8px; margin-top: 4px; transition: background 0.12s; }
   .kanban-col.drop-active .kanban-dropzone { background: var(--accent-bg); outline: 2px dashed var(--accent); outline-offset: -4px; }
@@ -412,7 +417,7 @@
   .status-dot.waiting { background: var(--blue); box-shadow: 0 0 0 2px var(--blue-bg); }
   .kanban-card.won { border-color: #C0DD97; background: var(--green-bg); }
   .kanban-card.lost { border-color: #F7C1C1; background: var(--red-bg); opacity: 0.75; }
-  .kanban-card.waiting { background: var(--surface); }
+  .kanban-card.waiting:not(.won):not(.lost) { background: var(--surface); }
   .kc-name { font-weight: 500; font-size: 13px; margin-bottom: 1px; }
   .kc-contact { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
   .kc-owner { font-size: 10px; padding: 1px 7px; border-radius: 10px; background: var(--amber-bg); color: var(--amber); font-weight: 500; display: inline-block; margin-bottom: 5px; }
@@ -1959,8 +1964,10 @@ function groupCardsByTrack(cards, cardObjs, stage){
   });
   return out.join('');
 }
+function _bindKanbanWheel(){const b=document.getElementById('kanban-board');if(!b||b._wheelBound)return;b._wheelBound=true;b.addEventListener('wheel',e=>{if(e.deltaY===0)return;if(b.scrollWidth<=b.clientWidth)return;e.preventDefault();b.scrollLeft+=e.deltaY;},{passive:false});}
 function renderKanban(){
   renderPipeOverviewKpis();
+  setTimeout(_bindKanbanWheel,0);
   // P-1: säkerställ att ProspectRevenues är cachade så korten kan visa intäktsrader.
   // Engångs-förladdning + omritning; sync-anropare (switchMain, drag, filter) påverkas ej.
   if((allProspects||[]).some(p=>!prospectRevCache[p.Id])&&!window._kanbanRevPrefetching){
