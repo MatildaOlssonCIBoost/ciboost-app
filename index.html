@@ -1980,6 +1980,16 @@ async function markNextDone(id){
 function _getShowActivities(){const el=document.getElementById('show-activities');if(el)return el.checked;try{return localStorage.getItem('showActivities')==='1';}catch(e){return false;}}
 function _initShowActivities(){const el=document.getElementById('show-activities');if(!el||el._init)return;el._init=true;try{el.checked=localStorage.getItem('showActivities')==='1';}catch(e){}}
 function toggleShowActivities(){const el=document.getElementById('show-activities');try{localStorage.setItem('showActivities',el&&el.checked?'1':'0');}catch(e){}renderKanban();}
+function editNextStep(type,id){
+  let cur={};
+  if(type==='prospect'){const p=allProspects.find(x=>x.Id===id);if(p)cur={text:p.NextActionType||'',date:p.NextActionDate?String(p.NextActionDate).substring(0,10):'',waiting:!!p.WaitingForResponse};}
+  const fid=`kontakt-${type}-${id}`;
+  const t=document.getElementById(fid+'-next'),d=document.getElementById(fid+'-nextdate'),w=document.getElementById(fid+'-waiting');
+  if(t)t.value=cur.text||'';
+  if(d)d.value=cur.date||'';
+  if(w)w.checked=!!cur.waiting;
+  if(t){t.scrollIntoView({behavior:'smooth',block:'center'});t.focus();}
+}
 function renderKanban(){
   renderPipeOverviewKpis();
   _initShowActivities();
@@ -3203,7 +3213,7 @@ function renderKontaktloggHtml(type,id,item,acts){
   // (senaste öppna) så att översta nästa steg-rutan + AGERA/INVÄNTAR visas likadant
   // som för prospects.
   if(type!=='prospect'){const entries=Object.values(getActNext(type,id)).filter(ns=>ns.text||ns.date);if(entries.length){const latest=entries.slice().sort((a,b)=>new Date(b.date||0)-new Date(a.date||0))[0];nextType=latest.text||'';nextDate=latest.date||'';waiting=!!latest.waiting;}}
-  const stepBox=(nextType||nextDate)?`<div style="background:var(--blue-bg);border:1px solid var(--blue);border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Nästa steg</div><div style="margin-top:4px;font-size:13px;color:var(--blue);">${nextType||'–'}${nextDate?' · '+new Date(nextDate).toLocaleDateString('sv-SE'):''}</div></div><span class="badge ${waiting?'b-blue':'b-amber'}">${waiting?'INVÄNTAR':'AGERA'}</span></div>`:'';
+  const stepBox=(nextType||nextDate)?`<div style="background:var(--blue-bg);border:1px solid var(--blue);border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;">Nästa steg</div><div style="margin-top:4px;font-size:13px;color:var(--blue);">${nextType||'–'}${nextDate?' · '+new Date(nextDate).toLocaleDateString('sv-SE'):''}</div></div><div style="display:flex;align-items:center;gap:8px;flex:0 0 auto;"><button onclick="editNextStep('${type}',${id})" title="Redigera nästa steg" style="border:none;background:none;cursor:pointer;padding:2px;display:inline-flex;color:var(--blue);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><span class="badge ${waiting?'b-blue':'b-amber'}">${waiting?'INVÄNTAR':'AGERA'}</span></div>`:'';
   let localActs=[];
   if(type==='trial'||type==='pilot'){try{localActs=JSON.parse(localStorage.getItem(`${type}-activities-${id}`)||'[]');}catch(e){}}
   if(type==='customer'){try{localActs=JSON.parse(localStorage.getItem(`customer-activities-${id}`)||'[]');}catch(e){}}
