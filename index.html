@@ -3585,6 +3585,9 @@ function renderRevSummary(){const el=document.getElementById('rev-summary');if(!
   const year=new Date().getFullYear();
   const T=revSummaryTotals(data,revSummaryMode,year);
   const mainLabel=revSummaryMode==='likviditet'?'Total försäljning':'Total intäkt';
+  const _vardeTxt=revSummaryMode==='likviditet'?'totalt värde':'periodiserat värde';
+  const _urvalTxt=(showFormerCustomers&&showFutureCustomers)?'Alla tidigare, aktiva och framtida avtal':(showFormerCustomers?'Alla tidigare och aktiva avtal':(showFutureCustomers?'Alla aktiva och framtida avtal':'Alla aktiva avtal'));
+  const _rubrik=`${_urvalTxt} (${_vardeTxt})`;
   const pct=v=>T.total>0?v/T.total*100:0;
   const pctTxt=v=>T.total>0?Math.round(v/T.total*100)+'% av total':'–';
   const cats=[
@@ -3597,7 +3600,7 @@ function renderRevSummary(){const el=document.getElementById('rev-summary');if(!
   const barHtml=cats.map(c=>pct(c.val)>0?`<div style="width:${pct(c.val)}%;background:${c.bar};"></div>`:'').join('');
   const cardsHtml=cats.map(c=>`<div style="padding:8px 10px;border-top:2px solid ${c.bar};background:var(--surface2);border-radius:0 0 6px 6px;"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);"><span style="width:8px;height:8px;border-radius:50%;background:${c.bar};flex:0 0 auto;"></span>${c.label}</div><div style="font-size:14px;font-weight:600;color:${c.txt};margin-top:2px;">${fmtKr(c.val)}</div><div style="font-size:10px;color:var(--text3);">${pctTxt(c.val)}</div></div>`).join('');
   el.innerHTML=`<div style="grid-column:1/-1;background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;">`
-    +`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;"><div style="font-size:18px;font-weight:700;color:#D85A30;">${fmtKr(T.total)}</div><div style="font-size:12px;color:var(--text2);flex:1;">${mainLabel} · ${orgCount(data)} kunder</div>${toggle}</div>`
+    +`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;"><div style="font-size:18px;font-weight:700;color:#D85A30;">${fmtKr(T.total)}</div><div style="font-size:12px;color:var(--text2);flex:1;">${_rubrik} · ${orgCount(data)} kunder</div>${toggle}</div>`
     +`<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--surface2);margin-bottom:10px;">${barHtml}</div>`
     +`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">${cardsHtml}</div>`
     +`</div>`;}
