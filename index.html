@@ -1272,24 +1272,31 @@ const AKTIVERAT_ROWS_DEF = [
 // LEV-AB: fast leverantörslista för likviditetsbudgeten. Ordning enligt ekonomens Sune-flik (bild).
 // Rader lagras som BudgetRows med Source='Leverantör', Category='Leverantör', SubCategory=namn (verbatim, styr import/export-matchning).
 const LEVERANTOR_ROWS_DEF = [
-  'Utbetalning lön',
-  'Övrigt via utlägg',
-  'Söderberg&Partners Pension',
-  'Söderberg&Partners sjukförsäkring',
-  'Compileit',
-  'Amanda AI',
-  'Wow Media',
-  'Entercard (linkedin)',
-  'Influence',
-  'IT-partner',
-  'Tele2',
-  'Bankavg',
-  'Övrigt',
-  'NBP/NGA',
-  'Skatteverket - soc.avg',
-  'Skatteverket - f-skatt',
-  'Skatteverket - moms',
-  'Skatteverket - övrigt',
+  {name:'Utbetalning lön', grupp:'lon'},
+  {name:'Övrigt via utlägg', grupp:'lon'},
+  {name:'Söderberg&Partners Pension', grupp:'lev'},
+  {name:'Söderberg&Partners sjukförsäkring', grupp:'lev'},
+  {name:'Compileit', grupp:'lev'},
+  {name:'Amanda AI', grupp:'lev'},
+  {name:'Wow Media', grupp:'lev'},
+  {name:'Entercard (linkedin)', grupp:'lev'},
+  {name:'Influence', grupp:'lev'},
+  {name:'IT-partner', grupp:'lev'},
+  {name:'Tele2', grupp:'lev'},
+  {name:'Bankavg', grupp:'lev'},
+  {name:'Övrigt', grupp:'lev'},
+  {name:'NBP/NGA', grupp:'koncern'},
+  {name:'Skatteverket - soc.avg', grupp:'skv'},
+  {name:'Skatteverket - f-skatt', grupp:'skv'},
+  {name:'Skatteverket - moms', grupp:'skv'},
+  {name:'Skatteverket - övrigt', grupp:'skv'},
+];
+// LEV-grupper i Excel-ordning + delsumma-etiketter (STEG 3).
+const LEV_GROUPS = [
+  {key:'lon', label:'Delsumma löneutbetalning'},
+  {key:'lev', label:'Delsumma leverantörsbetalningar'},
+  {key:'koncern', label:'Delsumma koncernbetalningar'},
+  {key:'skv', label:'Delsumma SKV'},
 ];
 const BUDGET_ROWS_DEF = [
   {section:'REVENUE', category:'Revenue', subCategory:'Licens (prenumeration)', type:'revenue'},
@@ -6544,7 +6551,7 @@ function renderBudgetTable(){
     // = Summa — ren visning (text, ej .budget-input, ej i budgetRows → sparas aldrig)
     html+=`<tr style="background:var(--surface2);"><td style="padding-left:24px;font-size:11px;font-weight:700;">= Summa</td>${MONTHS.map((_,mi)=>`<td style="text-align:right;font-size:11px;font-weight:700;">${fmtK(sumVals[mi])}</td>`).join('')}<td style="font-weight:700;text-align:right;border-left:1px solid var(--border);">${fmtK(sum(sumVals))}</td></tr>`;
   });
-  html+=sumRow('Total Revenue',revMonthly,revTotal,'#fde7d6');
+  html+=sumRow('Summa in',revMonthly,revTotal,'#fde7d6');
 
   html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">KOSTNADER · Leverantörer</td></tr>`;
   // LEV-AB-1: fast editbar leverantörslista (Source='Leverantör'). Egen source-map (getVal filtrerar bort Source-rader).
@@ -6554,13 +6561,26 @@ function renderBudgetTable(){
   const levInputCell=(sub,mi)=>{const val=levGetVal(sub,mi);return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;"><input class="budget-input" type="number" data-cat="Leverantör" data-sub="${String(sub).replace(/"/g,'&quot;')}" data-month="${MONTHS[mi]}" data-source="Leverantör" value="${val||''}" placeholder="0" oninput="updateBudgetTotals()"></div></td>`;};
   const levRowMonthly=sub=>MONTHS.map((_,mi)=>levGetVal(sub,mi));
   html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('lev_fast')" style="background:var(--surface2);font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer;"><span class="bchev" data-bsec-toggle="lev_fast">▾</span> Leverantörer (fast lista)</td></tr>`;
-  LEVERANTOR_ROWS_DEF.forEach(sub=>{
-    const vals=levRowMonthly(sub);const tot=vals.reduce((a,b)=>a+b,0);
-    const nm=String(sub).replace(/</g,'&lt;');
-    html+=`<tr data-bsec="lev_fast"><td style="padding-left:24px;font-size:12px;">${nm}</td>${MONTHS.map((_,mi)=>levInputCell(sub,mi)).join('')}<td style="font-weight:500;text-align:right;font-size:11px;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(tot)}</td></tr>`;
+  // STEG 3: gruppvis rendering (Excel-ordning) med delsumma per grupp, sedan Summa ut / Månadens netto / saldokedja.
+  const utMonthly=Array(12).fill(0);
+  LEV_GROUPS.forEach(g=>{
+    const gr=LEVERANTOR_ROWS_DEF.filter(r=>r.grupp===g.key);
+    gr.forEach(r=>{
+      const vals=levRowMonthly(r.name);const tot=vals.reduce((a,b)=>a+b,0);
+      const nm=String(r.name).replace(/</g,'&lt;');
+      html+=`<tr data-bsec="lev_fast"><td style="padding-left:24px;font-size:12px;">${nm}</td>${MONTHS.map((_,mi)=>levInputCell(r.name,mi)).join('')}<td style="font-weight:500;text-align:right;font-size:11px;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(tot)}</td></tr>`;
+    });
+    const dMonthly=MONTHS.map((_,mi)=>gr.reduce((s,r)=>s+levGetVal(r.name,mi),0));
+    dMonthly.forEach((v,i)=>utMonthly[i]+=v);
+    html+=sumRow(g.label,dMonthly,dMonthly.reduce((a,b)=>a+b,0));
   });
-  html+=sumRow('Total Kostnader',costMonthly,costTotal);
-  html+=tbRow('Resultat (Nettoomsättning − Kostnader)',resultatMonthly,resultatTotal);
+  // Summa ut = summan av de fyra delsummorna (negativ eftersom utbetalningar är negativa).
+  html+=sumRow('Summa ut',utMonthly,utMonthly.reduce((a,b)=>a+b,0));
+  // Månadens netto + saldokedja via SAMMA computeCashflow-logik som kassaflödeskortet (kort 3).
+  const cfLiq=computeCashflow(budgetRows,getOpeningCash(year),getFinancing(currentBudgetVersionId,year));
+  html+=tbRow('Månadens netto',cfLiq.net,cfLiq.net.reduce((a,b)=>a+b,0));
+  html+=sumRow('Ingående saldo',cfLiq.ingaende,cfLiq.ingaende[0]);
+  html+=sumRow('Utgående saldo',cfLiq.closing,cfLiq.closing[11]);
 
   html+='</tbody></table></div>';
   document.getElementById('budget-content').innerHTML=html;
@@ -6656,8 +6676,10 @@ function parseExcelLiquidity(wb){
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};
   const SKIP=/summa|netto|saldo/i;
   const out=[];let inPayments=false;
+  window._excelOpeningCash=null;   // STEG 3/D: ingående saldo ur importen (nollställs per parse)
   for(let r=0;r<=range.e.r;r++){
     const name=cv(r,21);   // kol V
+    if(name!=null&&/^ingående saldo/i.test(String(name).trim())){const _o=cv(r,25);window._excelOpeningCash=(typeof _o==='number')?Math.round(_o):(parseFloat(String(_o).replace(/[^0-9.\-]/g,''))||null);continue;}   // första månad (kol Z) → ingående kassa
     if(name!=null&&/^summa in/i.test(String(name).trim())){inPayments=true;continue;}   // inbetalningar slut → utbetalningar börjar
     if(name!=null&&/^summa ut/i.test(String(name).trim()))break;                          // utbetalningar slut
     if(!inPayments)continue;                                                              // inbetalningssektion → hoppa
@@ -6720,7 +6742,7 @@ async function writeExcelResult(rows,tid){
 // SIGN: Excel-utbetalningar ar NEGATIVA -> lagras RATT (negativt) enligt ekonomens konvention. Ingen negering.
 // Skriver BARA rader vars namn finns i LEVERANTOR_ROWS_DEF (exakt, case-insensitivt) -> delsummor/inbetalningar/okanda hoppas.
 async function writeExcelLiquidity(rows,lid){
-  const defSet=new Set(LEVERANTOR_ROWS_DEF.map(n=>n.trim().toLowerCase()));
+  const defSet=new Set(LEVERANTOR_ROWS_DEF.map(r=>r.name.trim().toLowerCase()));
   let existing=await (await apiFetch(`${API}/budget-versions/${lid}/rows`)).json();
   if(!Array.isArray(existing))existing=[];
   rows.forEach(ir=>{
@@ -6739,6 +6761,7 @@ async function runExcelImport(){
   try{
     if(window._excelResult&&window._excelResult.length&&window._excelResultTargetId!=null){await writeExcelResult(window._excelResult,window._excelResultTargetId);rCount=window._excelResult.length;}
     if(window._excelLiquidity&&window._excelLiquidity.length&&window._excelLiquidityTargetId!=null){await writeExcelLiquidity(window._excelLiquidity,window._excelLiquidityTargetId);lCount=window._excelLiquidity.length;}
+    if(window._excelOpeningCash!=null&&window._excelLiquidityTargetId!=null){const _lv=(budgetVersions||[]).find(v=>String(v.Id)===String(window._excelLiquidityTargetId));if(_lv&&_lv.Year&&typeof setOpeningCash==='function')setOpeningCash(_lv.Year,window._excelOpeningCash);}   // STEG 3/D: ingående saldo → localStorage
     try{budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();if(!Array.isArray(budgetRows))budgetRows=[];}catch(e){}
     renderBudgetTable();
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
