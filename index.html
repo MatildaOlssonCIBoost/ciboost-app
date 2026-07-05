@@ -1902,39 +1902,30 @@ function toggleKanbanCard(id,el){
   if(detail)detail.style.display=open?'block':'none';
   if(chev)chev.textContent=open?'▴':'▾';
 }
-function _trackInitials(name){
-  const n=(name||'').trim(); if(!n)return '?';
-  const parts=n.split(/\s+/);
-  if(parts.length===1)return parts[0].slice(0,2).toUpperCase();
-  return (parts[0][0]+parts[parts.length-1][0]).toUpperCase();
-}
-function _trackColor(track){
-  // stabil hash -> en av CIBoost-palettens toner
-  const pal=[['#EEEDFE','#3C3489'],['#E1F5EE','#085041'],['#FAECE7','#712B13'],['#E6F1FB','#0C447C'],['#FAEEDA','#633806']];
-  let h=0; const s=track||''; for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
-  return pal[h%pal.length];
-}
 function renderTrackCard(track, items, stage){
   const n=items.length;
   const totViktat=items.reduce((s,it)=>s+(it.viktat||0),0);
-  const orgs=[...new Set(items.map(it=>it.company).filter(Boolean))];
-  const [bg,fg]=_trackColor(track);
-  const circles=orgs.slice(0,4).map((o,i)=>`<div style="width:22px;height:22px;border-radius:50%;background:${bg};border:1.5px solid var(--surface);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:${fg};${i>0?'margin-left:-6px;':''}flex:0 0 auto;">${_trackInitials(o)}</div>`).join('');
-  const extra=orgs.length>4?`<div style="width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1.5px solid var(--surface);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--text3);margin-left:-6px;flex:0 0 auto;">+${orgs.length-4}</div>`:'';
+  const totTotal=items.reduce((s,it)=>s+(it.total||0),0);
+  const _samlad=totTotal>0?Math.round(totViktat/totTotal*100):0;
+  const owners=[...new Set(items.map(it=>it.owner).filter(Boolean))];
+  const ownerTags=owners.map(o=>{const _oc=ownerColor(o);return `<span style="font-size:10px;font-weight:500;padding:2px 9px;border-radius:20px;${_oc?`background:${_oc.bg};color:${_oc.fg};`:'background:var(--surface2);color:var(--text2);'}white-space:nowrap;">${(o||'').replace(/</g,'&lt;')}</span>`;}).join('');
   const tesc=(track||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const _exp=_trackExpanded.has(stage+'::'+track);
   const innerHtml=_exp?items.map(it=>it.html).join(''):'';
-  return `<div class="track-card" data-track="${tesc}" data-stage="${stage.replace(/'/g,"\\'")}" style="border:0.5px solid #AFA9EC;border-left:3px solid ${fg};border-radius:0 10px 10px 0;background:${_exp?'var(--surface1)':'var(--surface)'};margin-bottom:8px;padding:${_exp?'8px':'10px 12px'};">
+  const LILA='#7F77DD',LILA_D='#3C3489',LILA_BG='#EEEDFE';
+  const stack=_exp?'':`<div style="position:absolute;top:6px;left:6px;right:-6px;height:100%;background:var(--surface);border:0.5px solid var(--border);border-radius:0 10px 10px 0;z-index:0;"></div><div style="position:absolute;top:3px;left:3px;right:-3px;height:100%;background:var(--surface);border:0.5px solid var(--border);border-radius:0 10px 10px 0;z-index:0;"></div>`;
+  return `<div style="position:relative;margin-bottom:8px;">${stack}<div class="track-card" data-track="${tesc}" data-stage="${stage.replace(/'/g,"\\'")}" style="position:relative;z-index:1;border:0.5px solid var(--border);border-left:3px solid ${LILA};border-radius:0 10px 10px 0;background:${_exp?'var(--surface1)':'var(--surface)'};padding:${_exp?'8px':'12px 14px'};">
     <div onclick="toggleTrackExpand('${stage.replace(/'/g,"\\'")}','${tesc}')" style="cursor:pointer;">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;"><span style="font-size:13px;color:${fg};flex:0 0 auto;">⛿</span><span style="font-size:11px;font-weight:600;color:${fg};letter-spacing:0.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">SPÅR · ${tesc.toUpperCase()}</span></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"><span style="font-size:11px;background:var(--surface2);padding:2px 8px;border-radius:5px;color:var(--text2);">${n} kort</span><span style="font-size:11px;background:var(--surface2);padding:2px 8px;border-radius:5px;color:var(--text2);">${fmtKr(totViktat)}</span></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;">${circles}${extra}</div>
-        <span style="font-size:11px;color:var(--accent,#534AB7);display:flex;align-items:center;gap:3px;flex:0 0 auto;">${_exp?'▴ Fäll in':'▾ Fäll ut'}</span>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;"><span style="font-size:15px;color:${LILA_D};flex:0 0 auto;">⛃</span><span style="font-size:13px;font-weight:600;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${tesc}</span><span style="flex:0 0 auto;background:${LILA_BG};color:${LILA_D};font-size:10px;font-weight:600;min-width:17px;height:17px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;">${n}</span></div>
+      ${ownerTags?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:9px;">${ownerTags}</div>`:''}
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px;">
+        <div style="min-width:0;"><div style="font-size:16px;font-weight:600;color:var(--blue);line-height:1.1;">${fmtKr(totViktat)}</div><div style="font-size:9px;color:var(--text3);margin-top:1px;">viktat av ${fmtKr(totTotal)}</div></div>
+        <div style="flex:0 0 auto;text-align:center;background:#E6F1FB;color:#0C447C;border-radius:6px;padding:3px 7px;"><div style="font-size:13px;font-weight:700;line-height:1.1;">${_samlad}%</div><div style="font-size:8px;">samlad viktning</div></div>
       </div>
+      <div style="border-top:0.5px solid var(--border);margin-top:9px;padding-top:8px;text-align:center;"><span style="font-size:11px;color:${LILA_D};font-weight:600;display:inline-flex;align-items:center;gap:3px;">${_exp?'▴ Fäll in':'▾ Fäll ut '+n+' kort'}</span></div>
     </div>
     ${innerHtml}
-  </div>`;
+  </div></div>`;
 }
 function groupCardsByTrack(cards, cardObjs, stage){
   if(!Array.isArray(cardObjs))return '';
@@ -2031,7 +2022,7 @@ function renderKanban(){
         ${isLost&&p.LostReason?`<div class="kc-lost-reason">Orsak: ${p.LostReason}</div>`:''}
         <div class="kc-days">Pipe: ${daysInPipe}d · Steg: ${daysInStage}d</div>
       </div>`;
-      return {id:p.Id, track:(p.Track||'').trim()||null, company:p.Company||'-', owner:p.Owner, viktat:_viktat, html:_cardHtml};
+      return {id:p.Id, track:(p.Track||'').trim()||null, company:p.Company||'-', owner:p.Owner, viktat:_viktat, total:_total, html:_cardHtml};
     }):null;
     const cardsHtml=cards.length?groupCardsByTrack(cards, _cardObjs, stage):`<div style="border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:11px;color:var(--text3);">Tom</div>`;
     return`<div class="kanban-col" data-stage="${stage}" ondragover="onColDragOver(event)" ondragleave="onColDragLeave(event)" ondrop="onColDrop(event,'${stage.replace(/'/g,"\\'")}')"><div class="kanban-col-header"><span class="kanban-col-title" style="${isWon?'color:var(--green)':isLost?'color:var(--red)':''}">${stage}</span><span class="kanban-col-count">${cards.length}</span></div>${cardsHtml}</div>`;
