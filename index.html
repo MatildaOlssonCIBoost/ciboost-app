@@ -1966,6 +1966,7 @@ async function markNextDone(id){
   const today=new Date().toISOString().substring(0,10);
   const note=oldType+' · ✓ Genomfört';
   try{await apiFetch(`${API}/activities`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prospectId:id,type:oldType,note,date:today,createdBy:'Matilda Olsson'})});}catch(e){console.error('markNextDone activity error',e);}
+  clearFreeNext('prospect',id);
   p.NextActionType=null;p.NextActionDate=null;p.WaitingForResponse=0;
   try{await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});}catch(e){console.error('markNextDone put error',e);}
   renderKanban();
@@ -3179,6 +3180,7 @@ function saveManualRisk(id){
 function actNextKey(type,id){return `actnext-${type}-${id}`;}
 function getActNext(type,id){try{return JSON.parse(localStorage.getItem(actNextKey(type,id))||'{}');}catch(e){return{};}}
 function setActNextEntry(type,id,actKey,data){const m=getActNext(type,id);if(data&&(data.text||data.date))m[String(actKey)]={text:data.text||'',date:data.date||'',waiting:!!data.waiting};else delete m[String(actKey)];localStorage.setItem(actNextKey(type,id),JSON.stringify(m));}
+function clearFreeNext(type,id){const m=getActNext(type,id);let ch=false;for(const k of Object.keys(m)){if(String(k).startsWith('ns-')){delete m[k];ch=true;}}if(ch)localStorage.setItem(actNextKey(type,id),JSON.stringify(m));}
 async function deleteFreeNext(type,id,key){
   if(!confirm('Ta bort detta nasta steg?'))return;
   setActNextEntry(type,id,key,null);
@@ -3288,7 +3290,7 @@ async function addKontakt(type,id){
     if(p){if(hasNext){p.NextActionType=next||null;p.NextActionDate=nextDate||null;}p.WaitingForResponse=waiting?1:0;
       try{await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});}catch(e){}}
     let acts=[];try{const r=await apiFetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}
-    if(hasNext){const key=createdId||('ns-'+act.CreatedAt);setActNextEntry('prospect',id,key,{text:next,date:nextDate||'',waiting});}
+    if(hasNext){clearFreeNext('prospect',id);const key=createdId||('ns-'+act.CreatedAt);setActNextEntry('prospect',id,key,{text:next,date:nextDate||'',waiting});}
     renderProspectBody(p,acts);renderKanban();
   } else if(type==='trial'||type==='pilot'){
     const lkey=`${type}-activities-${id}`;
