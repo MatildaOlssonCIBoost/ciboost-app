@@ -5137,7 +5137,7 @@ function computeCashflow(rows,opening,financing){
   const sumBy=pred=>M.map(m=>(rows||[]).filter(pred).reduce((s,r)=>s+(Number(r[m])||0),0));
   const cashIn=sumBy(r=>r.Category==='Revenue');
   const cashOut=sumBy(r=>r.Category!=='Revenue');
-  const net=cashIn.map((v,i)=>v-cashOut[i]);
+  const net=cashIn.map((v,i)=>v+cashOut[i]);   // SIGN: cashOut nu negativ (Excel-tecken) → netto = in + ut
   const closing=[],closingNoFin=[],ingaende=[];let bal=Number(opening)||0,balNF=Number(opening)||0;
   net.forEach((n,i)=>{ingaende.push(bal);bal+=n+fin[i];closing.push(bal);balNF+=n;closingNoFin.push(balNF);});
   return {months:M,cashIn,cashOut,net,closing,ingaende,financing:fin,closingNoFin};
@@ -5180,13 +5180,13 @@ function cashflowChartSvg(cf,opts={}){
   // Använder den globala isBudgetMonthLocked. showLocks=false → all locked=false → byte-identisk output.
   const locked=cf.months.map(m=>showLocks&&isBudgetMonthLocked(m));
   const lastLockedIx=locked.lastIndexOf(true);
-  const c3W=620,c3H=210,c3mid=92,c3padB=22,maxFlow=Math.max(...cf.cashIn,...cf.cashOut,1),fbh=v=>Math.round(v/maxFlow*64);
+  const c3W=620,c3H=210,c3mid=92,c3padB=22,maxFlow=Math.max(...cf.cashIn,...cf.cashOut.map(Math.abs),1),fbh=v=>Math.round(v/maxFlow*64);
   const c3slot=(c3W-44)/cf.months.length,c3bx=i=>34+i*c3slot,c3bw=c3slot*0.46;
   const bMin=Math.min(...cf.closing,0),bMax=Math.max(...cf.closing,1),bY=v=>Math.round(12+(1-(v-bMin)/Math.max(1,bMax-bMin))*(c3H-c3padB-12));
   // Per-stapel-attribut: låst (eller showLocks=false) → solid som tidigare; olåst i showLocks-läge → tonad (fill+opacity, ingen kant).
   const inAttr=i=>(locked[i]||!showLocks)?`fill="#1E2340" opacity="0.88"`:`fill="#1E2340" opacity="0.5"`;
   const outAttr=i=>(locked[i]||!showLocks)?`fill="#7c8bbf" opacity="0.9"`:`fill="#7c8bbf" opacity="0.55"`;
-  const c3bars=cf.months.map((m,i)=>`<rect x="${Math.round(c3bx(i))}" y="${c3mid-fbh(cf.cashIn[i])}" width="${Math.round(c3bw)}" height="${fbh(cf.cashIn[i])}" rx="1" ${inAttr(i)}/><rect x="${Math.round(c3bx(i))}" y="${c3mid}" width="${Math.round(c3bw)}" height="${fbh(cf.cashOut[i])}" rx="1" ${outAttr(i)}/><text x="${Math.round(c3bx(i)+c3bw/2)}" y="${c3H-5}" font-size="${fs(8)}" fill="var(--text3)" text-anchor="middle">${m}</text>`).join('');
+  const c3bars=cf.months.map((m,i)=>`<rect x="${Math.round(c3bx(i))}" y="${c3mid-fbh(cf.cashIn[i])}" width="${Math.round(c3bw)}" height="${fbh(cf.cashIn[i])}" rx="1" ${inAttr(i)}/><rect x="${Math.round(c3bx(i))}" y="${c3mid}" width="${Math.round(c3bw)}" height="${fbh(Math.abs(cf.cashOut[i]))}" rx="1" ${outAttr(i)}/><text x="${Math.round(c3bx(i)+c3bw/2)}" y="${c3H-5}" font-size="${fs(8)}" fill="var(--text3)" text-anchor="middle">${m}</text>`).join('');
   const balPtArr=cf.closing.map((v,i)=>`${Math.round(c3bx(i)+c3bw/2)},${bY(v)}`);
   const balPts=balPtArr.join(' ');
   // Balanslinje: i showLocks-läge solid över utfall, streckad över prognos. Annars en enda solid (oförändrad).
@@ -5248,7 +5248,7 @@ function renderCashflowCard(opts){
   const financingAdj=(fromIdx===0&&toIdx===11)?financing:financing.map((v,i)=>(i<fromIdx||i>toIdx)?0:v);
   const cf=computeCashflow(rowsAdj,opening,financingAdj);
   const verSel=`<select onchange="${handlers.version}(this.value)" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;max-width:280px;">${liq.map(v=>{const mark=(isPrimaryBudgetVersion(v)?'★ ':'')+(isRollingBudgetVersion(v)?'⟳ ':'');const sel=String(v.Id)===String(ver.Id)?' selected':'';return`<option value="${v.Id}"${sel}>${mark}${v.Name} (${v.Year}) · #${v.Id}</option>`;}).join('')}</select>`;
-  const inT=cf.cashIn.slice(showFromIdx,toIdx+1).reduce((a,b)=>a+b,0),outT=cf.cashOut.slice(showFromIdx,toIdx+1).reduce((a,b)=>a+b,0),netT=inT-outT,finT=financingAdj.slice(showFromIdx,toIdx+1).reduce((a,b)=>a+b,0);
+  const inT=cf.cashIn.slice(showFromIdx,toIdx+1).reduce((a,b)=>a+b,0),outT=cf.cashOut.slice(showFromIdx,toIdx+1).reduce((a,b)=>a+b,0),netT=inT+outT,finT=financingAdj.slice(showFromIdx,toIdx+1).reduce((a,b)=>a+b,0);
   // Nyckeltal: max kapitalbehov (lägsta utgående balans), total netto (drift), total finansiering, antal negativa månader.
   // Nyckeltal räknas på synliga månader [showFromIdx,toIdx]. minIdx mappas tillbaka till absolut månad (+showFromIdx).
   const visClosing=cf.closing.slice(showFromIdx,toIdx+1);
@@ -5787,13 +5787,13 @@ async function renderStyrelse(){
   const _utfallGrans=Math.min(_grans,X);
   const incSolid=_sM(rollRows,r=>r.Category==='Revenue',0,_utfallGrans);
   const incTrans=_sM(rollRows,r=>r.Category==='Revenue',_utfallGrans+1,X);
-  const costSolid=_sM(rollRows,r=>r.Category!=='Revenue',0,_utfallGrans);
-  const costTrans=_sM(rollRows,r=>r.Category!=='Revenue',_utfallGrans+1,X);
+  const costSolid=Math.abs(_sM(rollRows,r=>r.Category!=='Revenue',0,_utfallGrans));   // SIGN: kostnad negativ i lagring → stapel på magnitud
+  const costTrans=Math.abs(_sM(rollRows,r=>r.Category!=='Revenue',_utfallGrans+1,X));
   const incBudget=_sM(primRows,r=>r.Category==='Revenue',0,X);
-  const costBudget=_sM(primRows,r=>r.Category!=='Revenue',0,X);
+  const costBudget=Math.abs(_sM(primRows,r=>r.Category!=='Revenue',0,X));
   const _money=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
   const cW=460,cH=200,zero=100,maxBar=76,axL=52;
-  const maxV=Math.max(_sM(primRows,r=>r.Category==='Revenue',0,11),_sM(rollRows,r=>r.Category==='Revenue',0,11),_sM(primRows,r=>r.Category!=='Revenue',0,11),_sM(rollRows,r=>r.Category!=='Revenue',0,11),1);
+  const maxV=Math.max(_sM(primRows,r=>r.Category==='Revenue',0,11),_sM(rollRows,r=>r.Category==='Revenue',0,11),Math.abs(_sM(primRows,r=>r.Category!=='Revenue',0,11)),Math.abs(_sM(rollRows,r=>r.Category!=='Revenue',0,11)),1);
   const bh=v=>Math.round(Math.max(0,v)/maxV*maxBar);
   const grid=[1,0.5].flatMap(f=>[{y:zero-Math.round(maxBar*f),v:maxV*f},{y:zero+Math.round(maxBar*f),v:-maxV*f}]).map(g=>`<line x1="${axL}" y1="${g.y}" x2="${cW-12}" y2="${g.y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 2"/><text x="${axL-4}" y="${g.y+3}" font-size="8" fill="var(--text3)" text-anchor="end">${(g.v/1000000).toFixed(1)} Mkr</text>`).join('');
   const BW=36;
@@ -5824,7 +5824,7 @@ async function renderStyrelse(){
   const prenBudget=_sM(primRows,r=>r.Category==='Revenue'&&r.SubCategory==='Licens (prenumeration)',0,X);
   // Värde = summa 0..X (hela vald period). Rubrik Utfall/Prognos = ETIKETT styrd av X vs _grans (ej olika summa).
   const incVal=_sM(rollRows,r=>r.Category==='Revenue',0,X);
-  const costVal=_sM(rollRows,r=>r.Category!=='Revenue',0,X);
+  const costVal=Math.abs(_sM(rollRows,r=>r.Category!=='Revenue',0,X));
   const prenVal=_sM(rollRows,r=>r.Category==='Revenue'&&r.SubCategory==='Licens (prenumeration)',0,X);
   const _col2=X<=_grans?'Utfall':'Prognos';
   const _tsek=v=>Math.round(v/1000).toLocaleString('sv-SE');   // TSEK
@@ -6166,7 +6166,7 @@ function renderResultatBudgetTable(){
   // RES-ORDER: Resultat före avskrivningar renderas FÖRE Avskrivningar-sektionen (ekonomens Import Sune-ordning).
   // RES-1: Resultat före avskrivningar = (netto + aktiverat) − rörelsekostnader. Aktiverat flyttat till intäktssidan
   // (Summa rörelsens intäkter) → samma matematik som gamla "netto − kostnader + aktiverade" (add-back), nettoeffekt noll.
-  const resultatMonthly=MONTHS.map((_,i)=>rorelseIntaktMonthly[i]-kostnaderMonthly[i]);
+  const resultatMonthly=MONTHS.map((_,i)=>rorelseIntaktMonthly[i]+kostnaderMonthly[i]);   // SIGN: kostnader negativa (Excel)
   const resultatTotal=sum(resultatMonthly);
   html+=calcRow('Resultat före avskrivningar',resultatMonthly,resultatTotal,DARK,true);
 
@@ -6179,7 +6179,7 @@ function renderResultatBudgetTable(){
   // RES-C: summarad för avskrivningar + finans (7810 + 8xxx ligger båda i avskMonthly)
   html+=calcRow('Summa avskrivningar och finansiella poster',avskMonthly,sum(avskMonthly));
   // Beräknat resultat = Resultat före avskrivningar − (avskrivningar + finans). Matchar ekonomens =D53+D48.
-  const beraknatMonthly=MONTHS.map((_,i)=>resultatMonthly[i]-avskMonthly[i]);
+  const beraknatMonthly=MONTHS.map((_,i)=>resultatMonthly[i]+avskMonthly[i]);   // SIGN: avskrivningar negativa (Excel)
   const beraknatTotal=sum(beraknatMonthly);
   html+=calcRow('Beräknat resultat',beraknatMonthly,beraknatTotal,DARK,true);
   // Procentrad per månad + helår: Beräknat resultat / Summa rörelsens intäkter (ekonomens =D55/D14). Delning med 0 → tomt.
@@ -6418,7 +6418,7 @@ function renderBudgetTable(){
   // F2-2: likviditetens kostnader = materialiserade leverantörsrader (Source='Leverantör'/'Moms', skrivs i F2-4),
   // INTE längre BAS-defs. = 0 tills F2-4 materialiserar. Konsistent med computeCashflow (Category!=='Revenue').
   const costMonthly=MONTHS.map((_,mi)=>budgetRows.filter(r=>r.Source==='Leverantör'||r.Source==='Moms').reduce((s,r)=>s+(Number(r[MONTHS[mi]])||0),0));
-  const resultatMonthly=revMonthly.map((v,i)=>v-costMonthly[i]);
+  const resultatMonthly=revMonthly.map((v,i)=>v+costMonthly[i]);   // SIGN: costMonthly negativ (Excel) → netto = in + ut
 
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const revTotal=sum(revMonthly);
@@ -6710,13 +6710,14 @@ async function writeExcelResult(rows,tid){
     if(!cat||!sub)return;
     let row=existing.find(r=>r.Category===cat&&r.SubCategory===sub);          // DEF-NYCKEL (distinkt för dubbletterna)
     if(!row){row={Category:cat,SubCategory:sub,AccountNo:ir.accountNo};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
+    // SIGN: lagra rått Excel-tecken (kostnader negativa) — samma konvention genom hela appen.
     MONTHS.forEach(m=>row[m]=Math.round(Number(ir[m])||0));
   });
   const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
   await apiFetch(`${API}/budget-versions/${tid}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
 }
 // LEV-AB-2a: skriv likviditet -> BudgetRows Source='Leverantor' direkt (ersatter /suppliers+rebuildSupplierRows).
-// Utbetalningar ar NEGATIVA i Excel -> kostnad POSITIV (costMonthly forvantar pos) -> negera.
+// SIGN: Excel-utbetalningar ar NEGATIVA -> lagras RATT (negativt) enligt ekonomens konvention. Ingen negering.
 // Skriver BARA rader vars namn finns i LEVERANTOR_ROWS_DEF (exakt, case-insensitivt) -> delsummor/inbetalningar/okanda hoppas.
 async function writeExcelLiquidity(rows,lid){
   const defSet=new Set(LEVERANTOR_ROWS_DEF.map(n=>n.trim().toLowerCase()));
@@ -6727,7 +6728,7 @@ async function writeExcelLiquidity(rows,lid){
     if(!defSet.has(name.toLowerCase()))return;   // hoppa allt som inte ar en av de 18 fasta leverantorerna
     let row=existing.find(r=>(r.Source||'')==='Leverantör'&&r.Category==='Leverantör'&&String(r.SubCategory||'').trim().toLowerCase()===name.toLowerCase());
     if(!row){row={Category:'Leverantör',SubCategory:name,Source:'Leverantör'};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
-    MONTHS.forEach(m=>row[m]=Math.round(-(Number(ir[m])||0)));
+    MONTHS.forEach(m=>row[m]=Math.round(Number(ir[m])||0));   // rått Excel-tecken (utbetalningar negativa)
   });
   const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
   await apiFetch(`${API}/budget-versions/${lid}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
