@@ -2056,12 +2056,63 @@ async function onColDrop(e,stage){
   }
   if(stageChanged&&(stage==='Closed Won'||stage==='Closed Lost'))onProspectClosed(p,stage);
 }
+async function directConvertProspect(id){
+  const p=allProspects.find(x=>x.Id===id); if(!p)return;
+  // 1. hamta prospektets aktiviteter + intakter
+  let acts=[],revs=[];
+  try{const r=await apiFetch(`${API}/activities/prospect/${id}`);if(r.ok)acts=await r.json();}catch(e){}
+  try{revs=await loadProspectRevenues(id);}catch(e){}
+  acts=Array.isArray(acts)?acts:[]; revs=Array.isArray(revs)?revs:[];
+  // 2. bygg kund-body direkt fran prospektet (samma mappning som formularet, prospektet lamnas orort)
+  const body={
+    company:p.Company||'Ny kund', subName:p.SubName||null, parentCompany:p.ParentCompany||null,
+    employees:p.Employees||null, industry:p.Industry||null,
+    contact:p.Contact||null, contactRole:p.Role||null, contactEmail:p.Email||null, contactPhone:p.Phone||null,
+    owner:p.Owner||null, notes:p.Notes||null, licenseType:'Team', risk:'Low'
+  };
+  // 3. POST /customers -> newId
+  let created=null,newId=null;
+  try{const r=await apiFetch(`${API}/customers`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});try{created=await r.json();}catch(e){}}catch(e){console.error('directConvert POST',e);}
+  newId=created?.Id??created?.id??null;
+  if(!newId){showSaveIndicator?.('⚠ Kunde inte skapa kund','#a32d2d');return;}
+  // 4. kopiera aktiviteter + intakter till nya kunden (samma endpoints som createCustomer)
+  for(const a of acts){try{await apiFetch(`${API}/activities/customer/${newId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:a.Type||a.type,note:a.Note||a.note,date:a.Date||a.date,createdBy:a.CreatedBy||a.createdBy})});}catch(e){}}
+  for(const it of revs){try{await apiFetch(`${API}/customers/${newId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:it.Type||it.type,amount:it.Amount||it.amount,dateFrom:it.DateFrom||it.dateFrom,dateTo:it.DateTo||it.dateTo,description:it.Description||it.description,invoiceDate:it.InvoiceDate||it.invoiceDate})});}catch(e){}}
+  // 5. uppdatera kundlistan sa den dyker upp direkt (prospektet orort)
+  await loadCustomers();
+  renderKanban();
+  showSaveIndicator?.('✓ '+(p.Company||'Kund')+' konverterad','#1a7a50');
+}
+function fireConfetti(){
+  const colors=['#D85A30','#639922','#1a2b4a','#EF9F27','#7F77DD'];
+  const N=90;
+  const c=document.createElement('div');
+  c.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;';
+  document.body.appendChild(c);
+  for(let i=0;i<N;i++){
+    const p=document.createElement('div');
+    const size=6+Math.random()*8;
+    const left=Math.random()*100;
+    const col=colors[i%colors.length];
+    const dur=2200+Math.random()*1600;
+    const delay=Math.random()*400;
+    const rot=Math.random()*360;
+    const drift=(Math.random()-0.5)*200;
+    p.style.cssText=`position:absolute;top:-20px;left:${left}vw;width:${size}px;height:${size*0.5}px;background:${col};opacity:0.95;transform:rotate(${rot}deg);border-radius:1px;`;
+    p.animate([
+      {transform:`translate(0,0) rotate(${rot}deg)`,opacity:1},
+      {transform:`translate(${drift}px,105vh) rotate(${rot+360*(Math.random()>0.5?1:-1)}deg)`,opacity:0.9}
+    ],{duration:dur,delay:delay,easing:'cubic-bezier(0.3,0.7,0.5,1)',fill:'forwards'});
+    c.appendChild(p);
+  }
+  setTimeout(()=>c.remove(),4600);
+}
 // Popup när ett prospekt dras till Closed won/lost.
 function onProspectClosed(p,stage){
   if(stage==='Closed Won'){
-    showDialog('Closed won 🎉',
-      `<div style="font-size:13px;color:var(--text2);margin-bottom:8px;">Grattis! Vill du konvertera <strong>${(p.Company||'prospektet').replace(/</g,'&lt;')}</strong> till en kund?</div><div style="font-size:12px;color:var(--text3);">All information (organisation, kontaktperson, värde, anteckningar och kontaktlogg) kopieras till ett nytt kundkort som du kan redigera direkt.</div>`,
-      async()=>{await convertToCustomer(p.Id);return true;},'Ja, konvertera','Inte nu');
+    showDialog('Hurra! 🎉',
+      `<div style="font-size:14px;line-height:1.6;"><strong>${(p.Company||'prospektet').replace(/</g,'&lt;')}</strong> är vunnen — konvertera till kund? Kunden skapas direkt och dyker upp i kundlistan, redo att redigera.</div>`,
+      async()=>{fireConfetti();await directConvertProspect(p.Id);return true;},'Ja, konvertera','Inte nu');
   } else if(stage==='Closed Lost'){
     const opts=['Budget','Konkurrent','Timing','Behov förändrat','Ingen respons','Annat'];
     showDialog('Closed lost',
