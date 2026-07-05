@@ -6163,18 +6163,19 @@ function renderResultatBudgetTable(){
   html+=calcRow('Summa personalkostnader',persMonthly,sum(persMonthly));
   const kostnaderMonthly=MONTHS.map((_,i)=>driftMonthly[i]+persMonthly[i]);
 
+  // RES-ORDER: Resultat före avskrivningar renderas FÖRE Avskrivningar-sektionen (ekonomens Import Sune-ordning).
+  // RES-1: Resultat före avskrivningar = (netto + aktiverat) − rörelsekostnader. Aktiverat flyttat till intäktssidan
+  // (Summa rörelsens intäkter) → samma matematik som gamla "netto − kostnader + aktiverade" (add-back), nettoeffekt noll.
+  const resultatMonthly=MONTHS.map((_,i)=>rorelseIntaktMonthly[i]-kostnaderMonthly[i]);
+  const resultatTotal=sum(resultatMonthly);
+  html+=calcRow('Resultat före avskrivningar',resultatMonthly,resultatTotal,DARK,true);
+
   // Avskrivningar (NY — BAS 7810, data-drivet; ligger UTANFÖR rörelsekostnaderna)
   html+=resSecHdr('Avskrivningar och finansiella poster','ravskrivningar',DARK);
   const avskRows=basGroupRows('Avskrivningar');
   const avskMonthly=sumRowsMonthly(avskRows);
   html+=resGrpHdr('Avskrivningar och finansiella poster',avskMonthly,sum(avskMonthly),'rc_Avskrivningar',16);
   avskRows.forEach(c=>html+=costAccountRow('Avskrivningar',c,'ravskrivningar'));
-
-  // RES-1: Resultat före avskrivningar = (netto + aktiverat) − rörelsekostnader. Aktiverat flyttat till intäktssidan
-  // (Summa rörelsens intäkter) → samma matematik som gamla "netto − kostnader + aktiverade" (add-back), nettoeffekt noll.
-  const resultatMonthly=MONTHS.map((_,i)=>rorelseIntaktMonthly[i]-kostnaderMonthly[i]);
-  const resultatTotal=sum(resultatMonthly);
-  html+=calcRow('Resultat före avskrivningar',resultatMonthly,resultatTotal,DARK,true);
   // RES-C: summarad för avskrivningar + finans (7810 + 8xxx ligger båda i avskMonthly)
   html+=calcRow('Summa avskrivningar och finansiella poster',avskMonthly,sum(avskMonthly));
   // Beräknat resultat = Resultat före avskrivningar − (avskrivningar + finans). Matchar ekonomens =D53+D48.
