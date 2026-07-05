@@ -6662,7 +6662,7 @@ function parseExcelResult(wb){
     if(!/^[0-9]{1,4}(xx|xxx)?$/i.test(acctStr)&&!(!acctStr&&/^övrig k/i.test(nmeStr)))continue;   // numeriska konton + aggregat-strängar (58xx, 8xxx) + Övrig k-fallback
     const colC=cv(r,2);const colCWord=colC!=null?String(colC).trim().split(/\s+/)[0]:'';   // kol C första ord → dubblett-disambiguering (5990/6540)
     const def=findResultDef(acctStr,colCWord,name);
-    if(!def){if(acctStr)unmatched.push(acctStr+' · '+nmeStr);continue;}   // numeriskt konto utan def-träff → logga tyst bortfall (D)
+    if(!def){if(acctStr&&!/^[38]/.test(acctStr))unmatched.push(acctStr+' '+nmeStr);continue;}   // äkta bortfall (D). AVSIKTLIGT hoppade räknas ej: 3xxx intäkter (appens egna källor; 3850/3870 har defs) + 8xxx finans (8xxx-literalen har def; övriga 8-konton = RES-2)
     const row={accountNo:acctStr,name:name!=null?String(name).trim():'',colCWord,section:def.section,defGroup:def.group,defName:def.name};
     MONTHS.forEach((m,i)=>{const v=cv(r,3+i);row[m]=(typeof v==='number')?v:(parseFloat(v)||0);});   // D-O = c 3..14
     out.push(row);
@@ -6775,8 +6775,15 @@ async function runExcelImport(){
     try{budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();if(!Array.isArray(budgetRows))budgetRows=[];}catch(e){}
     renderBudgetTable();
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
-    const _um=window._excelResultUnmatched||[];   // D: tysta bortfall (numeriskt konto utan def-träff)
-    showSaveIndicator(`✓ ${rCount} resultatrader + ${lCount} leverantörer importerade${_um.length?` · ⚠ ${_um.length} konto${_um.length>1?'n':''} utan def`:''}`,'#1a7a50');
+    const _um=window._excelResultUnmatched||[];   // D: äkta bortfall (numeriskt kostnadskonto utan def-träff)
+    const _parts=[];
+    if(rCount)_parts.push(`${rCount} kostnadsrader till resultat`);
+    if(lCount)_parts.push(`${lCount} cash out-rader till likviditet`);
+    let _msg=_parts.length?`✓ Importerat ${_parts.join(' och ')}`:'✓ Inget importerades';
+    if(_um.length===1)_msg+=` · ⚠ ${_um[0]} hittade ingen rad i appen`;
+    else if(_um.length===2)_msg+=` · ⚠ ${_um.join(', ')} hittade ingen rad i appen`;
+    else if(_um.length>2)_msg+=` · ⚠ ${_um.length} konton hittade ingen rad i appen (se konsolen)`;
+    showSaveIndicator(_msg,'#1a7a50');
     if(_um.length)console.warn('[import] konton utan def-träff (hoppade):',_um);
   }catch(e){console.error('[runExcelImport]',e);alert('Kunde inte skriva importen.');}
 }
@@ -7806,7 +7813,7 @@ async function addActivity(customerId){const type=document.getElementById('new-a
 // ─── AUTOSPARA ───────────────────────────────────────────
 let autoSaveTimer=null;let saveSeq={},saveChain={};
 function setupAutoSave(id){document.getElementById('modal-body').querySelectorAll('input,select,textarea').forEach(f=>{f.addEventListener('input',()=>{clearTimeout(autoSaveTimer);showSaveIndicator('Sparar...');autoSaveTimer=setTimeout(()=>silentSave(id),1500);});f.addEventListener('change',()=>{clearTimeout(autoSaveTimer);showSaveIndicator('Sparar...');autoSaveTimer=setTimeout(()=>silentSave(id),1500);});});}
-function showSaveIndicator(msg,color){let el=document.getElementById('save-indicator');if(!el){el=document.createElement('div');el.id='save-indicator';el.style.cssText='position:fixed;bottom:20px;right:24px;padding:6px 12px;border-radius:6px;font-size:12px;font-family:Poppins,sans-serif;z-index:300;transition:opacity 0.3s;';document.body.appendChild(el);}el.textContent=msg;el.style.background=color||'#1e2140';el.style.color='white';el.style.opacity='1';if(msg==='✓ Sparat'||msg==='✓ Budget sparad')setTimeout(()=>{el.style.opacity='0';},2000);}
+function showSaveIndicator(msg,color){let el=document.getElementById('save-indicator');if(!el){el=document.createElement('div');el.id='save-indicator';el.style.cssText='position:fixed;bottom:20px;right:24px;padding:6px 12px;border-radius:6px;font-size:12px;font-family:Poppins,sans-serif;z-index:300;transition:opacity 0.3s;max-width:min(60vw,560px);white-space:normal;line-height:1.4;text-align:right;';document.body.appendChild(el);}el.textContent=msg;el.style.maxWidth='min(60vw,560px)';el.style.whiteSpace='normal';el.style.lineHeight='1.4';el.style.background=color||'#1e2140';el.style.color='white';el.style.opacity='1';if(msg==='✓ Sparat'||msg==='✓ Budget sparad')setTimeout(()=>{el.style.opacity='0';},2000);}
 
 // Steg 2 — racefri autospar. silentSave rör DOM EN gång (ögonblicksbild av
 // on-page-fält + team/admin + lt), bumpar en per-kund sekvens och köar
