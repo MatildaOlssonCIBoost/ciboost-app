@@ -395,7 +395,9 @@
   .pipe-divider { width: 1px; height: 28px; background: var(--border); }
   .pipe-filters { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 24px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .kanban { display: flex; gap: 10px; padding: 16px 24px; overflow-x: auto; min-height: calc(100vh - 220px); align-items: flex-start; background: var(--bg); }
-  .kanban-col { min-width: 240px; width: 240px; flex-shrink: 0; min-height: calc(100vh - 240px); }
+  .kanban-col { min-width: 240px; width: 240px; flex-shrink: 0; min-height: calc(100vh - 240px); display: flex; flex-direction: column; }
+  .kanban-dropzone { flex: 1 1 auto; min-height: 80px; border-radius: 8px; margin-top: 4px; transition: background 0.12s; }
+  .kanban-col.drop-active .kanban-dropzone { background: var(--accent-bg); outline: 2px dashed var(--accent); outline-offset: -4px; }
   .kanban-col-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 2px; margin-bottom: 8px; }
   .kanban-col-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
   .kanban-col-count { font-size: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; color: var(--text3); }
@@ -404,7 +406,7 @@
   .kanban-card.dragging { opacity: 0.4; cursor: grabbing; }
   .kanban-card.drop-above { box-shadow: 0 -2px 0 0 var(--accent); }
   .kanban-card.drop-below { box-shadow: 0 2px 0 0 var(--accent); }
-  .kanban-col.drop-active { background: var(--accent-bg); outline: 2px dashed var(--accent); outline-offset: -4px; border-radius: 8px; }
+  .kanban-col.drop-active { background: var(--accent-bg); border-radius: 8px; }
   .status-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
   .status-dot.agera { background: var(--amber); box-shadow: 0 0 0 2px var(--amber-bg); }
   .status-dot.waiting { background: var(--blue); box-shadow: 0 0 0 2px var(--blue-bg); }
@@ -2032,7 +2034,7 @@ function renderKanban(){
       return {id:p.Id, track:(p.Track||'').trim()||null, company:p.Company||'-', owner:p.Owner, viktat:_viktat, total:_total, html:_cardHtml};
     }):null;
     const cardsHtml=cards.length?groupCardsByTrack(cards, _cardObjs, stage):`<div style="border:1px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:11px;color:var(--text3);">Tom</div>`;
-    return`<div class="kanban-col" data-stage="${stage}" ondragover="onColDragOver(event)" ondragleave="onColDragLeave(event)" ondrop="onColDrop(event,'${stage.replace(/'/g,"\\'")}')"><div class="kanban-col-header"><span class="kanban-col-title" style="${isWon?'color:var(--green)':isLost?'color:var(--red)':''}">${stage}</span><span class="kanban-col-count">${cards.length}</span></div>${cardsHtml}</div>`;
+    return`<div class="kanban-col" data-stage="${stage}" ondragover="onColDragOver(event)" ondragleave="onColDragLeave(event)" ondrop="onColDrop(event,'${stage.replace(/'/g,"\\'")}')"><div class="kanban-col-header"><span class="kanban-col-title" style="${isWon?'color:var(--green)':isLost?'color:var(--red)':''}">${stage}</span><span class="kanban-col-count">${cards.length}</span></div>${cardsHtml}<div class="kanban-dropzone"></div></div>`;
   }).join('');
 }
 function prospectToBody(p){return{company:p.Company||'',contact:p.Contact||'',role:p.Role||'',email:p.Email||'',phone:p.Phone||'',employees:p.Employees||null,industry:p.Industry||'',source:p.Source||'',owner:p.Owner||'',stage:p.Stage||'',score:p.Score||0,nextActionType:p.NextActionType||null,nextActionDate:p.NextActionDate||null,valueMin:p.ValueMin||null,valueMax:p.ValueMax||null,value:p.Value||0,probability:p.Probability||null,lostReason:p.LostReason||null,notes:p.Notes||'',revenueCategory:p.RevenueCategory||null,expectedStartMonth:p.ExpectedStartMonth||null,waitingForResponse:p.WaitingForResponse?1:0,subName:p.SubName||'',parentCompany:p.ParentCompany||''};}
@@ -2186,9 +2188,10 @@ function fireConfetti(){
 // Popup när ett prospekt dras till Closed won/lost.
 function onProspectClosed(p,stage){
   if(stage==='Closed Won'){
+    fireConfetti();
     showDialog('Hurra! 🎉',
       `<div style="font-size:14px;line-height:1.6;"><strong>${(p.Company||'prospektet').replace(/</g,'&lt;')}</strong> är vunnen — konvertera till kund? Kunden skapas direkt och dyker upp i kundlistan, redo att redigera.</div>`,
-      async()=>{fireConfetti();await directConvertProspect(p.Id);return true;},'Ja, konvertera','Inte nu');
+      async()=>{await directConvertProspect(p.Id);return true;},'Ja, konvertera','Inte nu');
   } else if(stage==='Closed Lost'){
     const opts=['Budget','Konkurrent','Timing','Behov förändrat','Ingen respons','Annat'];
     showDialog('Closed lost',
