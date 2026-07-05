@@ -1011,12 +1011,12 @@
           <div class="rev-dd-item" id="mi-delete" onclick="deleteBudgetVersion()" style="display:none;color:var(--red);">🗑 Radera version</div>
         </div>
       </div>
-      <div id="budget-import-group" style="display:none;align-items:center;gap:6px;margin-left:auto;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);">
+      <div id="budget-import-group" style="display:none;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);">
         <span style="font-size:11px;color:var(--text3);">Importera:</span>
         <button class="quick-btn" onclick="openImportActualsModal(currentBudgetVersionId)" id="btn-import-actuals" style="display:none;">⇪ Actuals/mån</button>
         <button class="quick-btn" onclick="openImportFornyelseModal(currentBudgetVersionId)" id="btn-import-fornyelse" style="display:none;">⟳ Förnyelser/mån</button>
         <button class="quick-btn" onclick="openImportPipelineModal(currentBudgetVersionId)" id="btn-import-pipeline-mod" style="display:none;">⇆ Pipeline/mån</button>
-        <button class="quick-btn" onclick="openExcelImportModal()" id="btn-import-excel" title="Importera resultatbudget från ekonomens Excel-prognos">⊞ Excel</button>
+        <button class="quick-btn" onclick="openExcelImportModal()" id="btn-import-excel" title="Importera resultatbudget från ekonomens Excel-prognos">⊞ Excel import</button>
       </div>
       <span id="budget-autosave-hint" style="margin-left:auto;font-size:11px;color:var(--text3);">Autospar på</span>
     </div>
@@ -6511,7 +6511,7 @@ function renderBudgetTable(){
     </tr></thead><tbody>`;
 
   // REVENUE — orange intäktsrubrik med vit text; datarader vita.
-  html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('rev')" style="background:#E8823A;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;cursor:pointer;"><span class="bchev" data-bsec-toggle="rev">▾</span> REVENUE <span style="font-weight:400;font-size:10px;color:rgba(255,255,255,0.85);margin-left:8px;">· Kassaflöde (NET30)</span></td></tr>`;
+  html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('rev')" style="background:#E8823A;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;cursor:pointer;"><span class="bchev" data-bsec-toggle="rev">▾</span> Cash in</td></tr>`;
   const _revTC={'Licens (prenumeration)':{bg:'#EAF3DE',color:'#3B6D11'},'Licens (fast pris)':{bg:'#E6F1FB',color:'#185FA5'},'Utbildning':{bg:'#FAEEDA',color:'#854F0B'},'Consulting':{bg:'#EEEDFE',color:'#3C3489'}};
   // Avvikelseflagga: live NET30-avtal per typ/månad som EJ finns i importerade ID-set (localStorage). (a) nya avtal; (b) ändrat belopp kräver sparade belopp → senare.
   const SUB_TO_TYPE={'Licens (prenumeration)':'ARR','Licens (fast pris)':'Fastpris','Utbildning':'Utbildning','Consulting':'Consulting'};
@@ -6553,7 +6553,7 @@ function renderBudgetTable(){
   });
   html+=sumRow('Summa in',revMonthly,revTotal,'#fde7d6');
 
-  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">KOSTNADER · Leverantörer</td></tr>`;
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">Cash out</td></tr>`;
   // LEV-AB-1: fast editbar leverantörslista (Source='Leverantör'). Egen source-map (getVal filtrerar bort Source-rader).
   const levMap={};
   (budgetRows||[]).filter(r=>(r.Source||'')==='Leverantör'&&r.Category==='Leverantör').forEach(r=>{levMap[r.SubCategory]=r;});
