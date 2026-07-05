@@ -6061,7 +6061,7 @@ function renderResultatBudgetTable(){
   const headerRow=(label,bg,color)=>`<tr><td colspan="${MONTHS.length+2}" style="background:${bg};color:${color||'white'};font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">${label}</td></tr>`;
   const inputRow=(cat,sub,pad,bg,bsec,bgrp)=>`<tr${bsec?` data-bsec="${bsec}" data-bgrp="${(bgrp||'').replace(/"/g,'&quot;')}"`:''} style="background:${bg||'transparent'};"><td style="padding-left:${pad||24}px;font-size:12px;">${sub}</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(cat,sub)))}</td></tr>`;
   const calcRow=(label,monthly,total,bg,strong)=>`<tr style="background:${bg||'var(--surface2)'};"><td style="font-weight:${strong?700:600};padding-left:10px;${strong?'color:white;':''}">${label}</td>${monthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:${strong?700:600};${strong?(v>=0?'color:#6fcf97;':'color:#ff9b9b;'):''}">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;border-left:1px solid var(--border);${strong?(total>=0?'color:#6fcf97;':'color:#ff9b9b;'):''}">${fmtK(total)}</td></tr>`;
-  const groupSumRow=(label,monthly,total,pad)=>`<tr style="background:var(--surface2);"><td style="font-weight:600;padding-left:${pad||16}px;">${label}</td>${monthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;border-left:1px solid var(--border);">${fmtK(total)}</td></tr>`;
+  const groupSumRow=(label,monthly,total,pad,bsec)=>`<tr${bsec?` data-bsec="${bsec}"`:''} style="background:var(--surface2);"><td style="font-weight:600;padding-left:${pad||16}px;">${label}</td>${monthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;border-left:1px solid var(--border);">${fmtK(total)}</td></tr>`;
 
   // Imported sub-rows under an income leaf (editable + deletable, like likviditet).
   const importedSubRows=(cat,sub)=>importedFor(cat,sub).map(ir=>{
@@ -6094,25 +6094,25 @@ function renderResultatBudgetTable(){
   // ↳ Manuell: redigerbar inputCell (Source=tom), autosparad.
   const resManuellRow=(cat,sub)=>`<tr data-bsec="${resRevSec(cat)}" data-bgrp="${resRevGrp(cat,sub).replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text3);">↳ Manuell</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(rowMonthly(cat,sub)))}</td></tr>`;
   // = Summa per typ = auto-källor + manuell (= leafVal; matchar groupSumRow).
-  const resSumRow=(cat,sub,autoTags)=>{const arrs=autoTags.map(t=>resSrcVals(cat,sub,t));const summa=MONTHS.map((_,mi)=>getVal(cat,sub,mi)+arrs.reduce((s,a)=>s+a[mi],0));return `<tr style="background:var(--surface2);"><td style="padding-left:24px;font-size:11px;font-weight:700;">= Summa</td>${summa.map(v=>`<td style="text-align:right;font-size:11px;font-weight:700;">${fmtK(v)}</td>`).join('')}<td style="font-weight:700;text-align:right;border-left:1px solid var(--border);">${fmtK(sum(summa))}</td></tr>`;};
+  const resSumRow=(cat,sub,autoTags)=>{const arrs=autoTags.map(t=>resSrcVals(cat,sub,t));const summa=MONTHS.map((_,mi)=>getVal(cat,sub,mi)+arrs.reduce((s,a)=>s+a[mi],0));return `<tr data-bsec="${resRevSec(cat)}" style="background:var(--surface2);"><td style="padding-left:24px;font-size:11px;font-weight:700;">= Summa</td>${summa.map(v=>`<td style="text-align:right;font-size:11px;font-weight:700;">${fmtK(v)}</td>`).join('')}<td style="font-weight:700;text-align:right;border-left:1px solid var(--border);">${fmtK(sum(summa))}</td></tr>`;};
   // K-COST-5: sektionsrubrik (nivå-1) + kostnadsgrupp-summarad (nivå-2) med chevron. Återanvänder toggleBudgetSection/Group.
   const resSecHdr=(label,secId,bg,color)=>`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('${secId}')" style="background:${bg};color:${color||'white'};font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;cursor:pointer;"><span class="bchev" data-bsec-toggle="${secId}">▾</span> ${label}</td></tr>`;
   const resGrpHdr=(label,monthly,total,grpId,pad)=>`<tr style="background:var(--surface2);cursor:pointer;" onclick="toggleBudgetGroup('${grpId.replace(/'/g,"\\'")}')"><td style="font-weight:600;padding-left:${pad||16}px;"><span class="bchev" data-bgrp-toggle="${grpId.replace(/"/g,'&quot;')}">▾</span> ${label}</td>${monthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;border-left:1px solid var(--border);">${fmtK(total)}</td></tr>`;
-  const resTypeHdr=(cat,sub)=>{const tc=_resTC[sub]||{bg:'var(--surface2)',color:'var(--text2)'};const _g=resRevGrp(cat,sub);return `<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetGroup('${_g.replace(/'/g,"\\'")}')" style="background:${tc.bg};color:${tc.color};font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer;"><span class="bchev" data-bgrp-toggle="${_g.replace(/"/g,'&quot;')}">▾</span> ${sub}</td></tr>`;};
+  const resTypeHdr=(cat,sub)=>{const tc=_resTC[sub]||{bg:'var(--surface2)',color:'var(--text2)'};const _g=resRevGrp(cat,sub);return `<tr data-bsec="${resRevSec(cat)}"><td colspan="${MONTHS.length+2}" onclick="toggleBudgetGroup('${_g.replace(/'/g,"\\'")}')" style="background:${tc.bg};color:${tc.color};font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer;"><span class="bchev" data-bgrp-toggle="${_g.replace(/"/g,'&quot;')}">▾</span> ${sub}</td></tr>`;};
 
   // Periodiserade intäkter (Category-nyckel delar aldrig med likviditet) — ↳ Avtal (auto) + ↳ Manuell + = Summa per typ.
   const periodRows=[{cat:'Periodiserade intäkter',sub:'Licens (prenumeration)'},{cat:'Periodiserade intäkter',sub:'Licens (fast pris)'},{cat:'Periodiserade intäkter',sub:'Utbildning'},{cat:'Periodiserade intäkter',sub:'Consulting'}];
   html+=resSecHdr('Periodiserade intäkter','rperiod',WARM_BG,WARM_TEXT);
   periodRows.forEach(r=>{html+=resTypeHdr(r.cat,r.sub);html+=resAutoSlot('Avtal',r.cat,r.sub,'Avtal (resultat)','importAllAvtalResultat','#3B6D11');html+=resManuellRow(r.cat,r.sub);html+=resSumRow(r.cat,r.sub,['Avtal (resultat)']);});
   const periodMonthly=sumRowsMonthly(periodRows);
-  html+=groupSumRow('Summa periodiserade intäkter',periodMonthly,sum(periodMonthly),10);
+  html+=groupSumRow('Summa periodiserade intäkter',periodMonthly,sum(periodMonthly),10,'rperiod');
 
   // Nyförsäljning — ↳ Förnyelse + ↳ Pipe (auto) + ↳ Manuell + = Summa per typ. Okvalificerat: bara Manuell + Summa.
   const nyRows=[{cat:'Nyförsäljning',sub:'Licens (prenumeration)'},{cat:'Nyförsäljning',sub:'Licens (fast pris)'},{cat:'Nyförsäljning',sub:'Utbildning'},{cat:'Nyförsäljning',sub:'Consulting'},{cat:'Nyförsäljning',sub:'Okvalificerat/okänt'}];
   html+=resSecHdr('Nyförsäljning','rny',WARM_BG,WARM_TEXT);
   nyRows.forEach(r=>{html+=resTypeHdr(r.cat,r.sub);const auto=r.sub==='Okvalificerat/okänt'?[]:['Förnyelse (resultat)','Pipeline (resultat)'];if(r.sub!=='Okvalificerat/okänt'){html+=resAutoSlot('Förnyelse',r.cat,r.sub,'Förnyelse (resultat)','openImportFornyelseModal','#BA7517');html+=resAutoSlot('Pipe',r.cat,r.sub,'Pipeline (resultat)','openImportPipelineModal','var(--text3)');}html+=resManuellRow(r.cat,r.sub);html+=resSumRow(r.cat,r.sub,auto);});
   const nyMonthly=sumRowsMonthly(nyRows);
-  html+=groupSumRow('Summa nyförsäljning',nyMonthly,sum(nyMonthly),10);
+  html+=groupSumRow('Summa nyförsäljning',nyMonthly,sum(nyMonthly),10,'rny');
 
   // Rörelsens intäkter (varm beige — intäktssektion)
   const nettoMonthly=MONTHS.map((_,i)=>periodMonthly[i]+nyMonthly[i]);
@@ -6125,7 +6125,7 @@ function renderResultatBudgetTable(){
   html+=resSecHdr('Aktiverat arbete för egen räkning','raktiverat',WARM_BG,WARM_TEXT);
   AKTIVERAT_ROWS_DEF.forEach(c=>{html+=`<tr data-bsec="raktiverat" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;"><span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>${c.name}</td>${MONTHS.map((_,mi)=>inputCell('Aktiverat arbete',c.name,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly('Aktiverat arbete',c.name)))}</td></tr>`;});
   const aktiveratMonthly=sumRowsMonthly(AKTIVERAT_ROWS_DEF.map(c=>({cat:c.group,sub:c.name})));
-  html+=groupSumRow('Summa aktiverat arbete för egen räkning',aktiveratMonthly,sum(aktiveratMonthly),10);
+  html+=groupSumRow('Summa aktiverat arbete för egen räkning',aktiveratMonthly,sum(aktiveratMonthly),10,'raktiverat');
 
   // Summa rörelsens intäkter = nettoomsättning + aktiverat arbete (ekonomens struktur)
   const rorelseIntaktMonthly=MONTHS.map((_,i)=>nettoMonthly[i]+aktiveratMonthly[i]);
@@ -6134,7 +6134,7 @@ function renderResultatBudgetTable(){
   // K-COST-3: BAS-kontogrupp ur COST_ROWS_DEF (cat=grupp, sub=namn → matchar BUDGET_ROWS_DEF-spreaden,
   // så saveBudget-berikningen sätter accountNo automatiskt). costAccountRow = redigerbar rad "{konto} {namn}".
   const basGroupRows=grp=>COST_ROWS_DEF.filter(c=>c.group===grp).map(c=>({cat:grp,sub:c.name,account:c.account}));
-  const costAccountRow=(grp,c,bsec)=>{const acct=c.account?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>`:'';return `<tr data-bsec="${bsec}" data-bgrp="rc_${grp.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;">${acct}${c.sub}</td>${MONTHS.map((_,mi)=>inputCell(grp,c.sub,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(grp,c.sub)))}</td></tr>`;};
+  const costAccountRow=(grp,c,bsec,bgrp)=>{const acct=c.account?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>`:'';const _bgrp=bgrp||('rc_'+grp);return `<tr data-bsec="${bsec}" data-bgrp="${String(_bgrp).replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;">${acct}${c.sub}</td>${MONTHS.map((_,mi)=>inputCell(grp,c.sub,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(grp,c.sub)))}</td></tr>`;};
 
   // Rörelsens kostnader (mörk) — Varu/Övriga externa = BAS-konton (data-drivet); Personalkostnader = inline (lönesida).
   // RES-B: en samlad "Rörelsens kostnader"-sektion, driftrader i fast bild-ordning (ordning från render-listan, group-fälten i DEF orörda så DB-nycklar matchar).
@@ -6159,7 +6159,7 @@ function renderResultatBudgetTable(){
   const driftRows=driftOrder.map(d=>{const def=COST_ROWS_DEF.find(c=>c.group===d.cat&&c.name===d.sub);return def?{cat:def.group,sub:def.name,account:def.account}:{cat:d.cat,sub:d.sub,account:'',_MISSING:true};});
   const driftMonthly=sumRowsMonthly(driftRows.map(c=>({cat:c.cat,sub:c.sub})));
   html+=resGrpHdr('Rörelsens kostnader',driftMonthly,sum(driftMonthly),'rc_Rörelsens kostnader',16);
-  driftRows.forEach(c=>html+=costAccountRow(c.cat,c,'rrorelse'));
+  driftRows.forEach(c=>html+=costAccountRow(c.cat,c,'rrorelse','rc_Rörelsens kostnader'));
   html+=calcRow('Summa rörelsens kostnader, inkl Service fee',driftMonthly,sum(driftMonthly));
   // Personalkostnader — eget block med egen summa
   const persRows=basGroupRows('Personalkostnader');
