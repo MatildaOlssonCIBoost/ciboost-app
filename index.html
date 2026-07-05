@@ -5152,8 +5152,9 @@ function computeCashflow(rows,opening,financing){
 // Finansiering per månad (manuell, frontend-only): lån/aktieägartillskott/kapitaltillskott. Per version+år.
 function getFinancing(vId,year){try{const a=JSON.parse(localStorage.getItem('financingByMonth_'+vId+'_'+year)||'[]');return Array.from({length:12},(_,i)=>Math.round(Number(a[i])||0));}catch(e){return Array(12).fill(0);}}
 function setFinancing(vId,year,monthIdx,val){const a=getFinancing(vId,year);a[monthIdx]=Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0);localStorage.setItem('financingByMonth_'+vId+'_'+year,JSON.stringify(a));const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();}
-function getOpeningCash(year){return Math.round(Number(localStorage.getItem('openingCash_'+year))||0);}
-function setOpeningCash(year,val){localStorage.setItem('openingCash_'+year,String(Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0)));
+// ETAPP 3C: ingående saldo per VERSION (bmSet 'openingCash', {value}). Union-läs med gammal per-år-localStorage som fallback.
+function getOpeningCash(versionId,year){const v=bmGet(versionId,'openingCash');if(v&&v.value!=null)return Math.round(Number(v.value)||0);return Math.round(Number(localStorage.getItem('openingCash_'+year))||0);}
+function setOpeningCash(versionId,year,val){const n=Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0);localStorage.setItem('openingCash_'+year,String(n));bmSet(versionId,'openingCash',{value:n});
   // Re-rendera bara den panel som FAKTISKT syns (offsetParent===null när elementet/förälder är display:none).
   // Tidigare buggen: styrelse-panelens style.display blev '' efter ett besök och låg kvar → fel panel uppdaterades.
   const sp=document.getElementById('fa-panel-styrelse');if(sp&&sp.offsetParent!==null)renderStyrelse();
@@ -5232,7 +5233,8 @@ async function renderBudgetCashflow(){
   if(!ver){el.innerHTML='<div class="fin-card" style="text-align:center;color:var(--text3);padding:40px;font-size:13px;">Ingen likviditetsbudget hittad — skapa en och märk den som ⟳ Löpande.</div>';return;}
   let rows=[];try{rows=await (await apiFetch(`${API}/budget-versions/${ver.Id}/rows`)).json();}catch(e){rows=[];}
   const year=ver.Year||new Date().getFullYear();
-  const opening=getOpeningCash(year);
+  if(_bmCache[ver.Id]===undefined)await bmLoad(ver.Id);
+  const opening=getOpeningCash(ver.Id,year);
   const financing=getFinancing(ver.Id,year);
   const fromIdx=getOpeningMonth(year);
   let toIdx=getCashflowToMonth(year);
@@ -5288,7 +5290,7 @@ function renderCashflowCard(opts){
   return `<div class="fin-card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
       <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;">Version: ${verSel}</label>
-      <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;">Ingående kassa:<input type="text" value="${opening.toLocaleString('sv-SE')}" onchange="${handlers.openingCash}(${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr per <select onchange="${handlers.openingMonth}(${year},this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;">${M.map((m,i)=>`<option value="${i}"${i===fromIdx?' selected':''}>${m}</option>`).join('')}</select></label><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;">Visa <select onchange="${handlers.showFrom}(${year},this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;">${M.map((m,i)=>i<fromIdx?'':`<option value="${i}"${i===showFromIdx?' selected':''}>${m}</option>`).join('')}</select> – <select onchange="${handlers.toMonth}(${year},this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;">${M.map((m,i)=>i<showFromIdx?'':`<option value="${i}"${i===toIdx?' selected':''}>${m}</option>`).join('')}</select></label>
+      <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;">Ingående kassa:<input type="text" value="${opening.toLocaleString('sv-SE')}" onchange="${handlers.openingCash}(${ver.Id},${year},this.value)" style="width:110px;padding:4px 8px;text-align:right;border:1px solid var(--border);border-radius:6px;font-size:12px;"> kr per <select onchange="${handlers.openingMonth}(${year},this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;">${M.map((m,i)=>`<option value="${i}"${i===fromIdx?' selected':''}>${m}</option>`).join('')}</select></label><label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;">Visa <select onchange="${handlers.showFrom}(${year},this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;">${M.map((m,i)=>i<fromIdx?'':`<option value="${i}"${i===showFromIdx?' selected':''}>${m}</option>`).join('')}</select> – <select onchange="${handlers.toMonth}(${year},this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;">${M.map((m,i)=>i<showFromIdx?'':`<option value="${i}"${i===toIdx?' selected':''}>${m}</option>`).join('')}</select></label>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;"><span style="font-size:16px;font-weight:700;color:var(--text);">Kassaflöde ${year}</span>${src?`<span style="background:#FBEEDF;color:#BA7517;font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;white-space:nowrap;">${src}</span>`:''}</div>
     <div style="border-top:1px solid var(--border);margin-bottom:14px;"></div>
@@ -5748,7 +5750,7 @@ function setStyrelseVersion(year,id){if(id)localStorage.setItem('styrelseVersion
 // localStorage-nycklar med kassaflödesvyn, men re-render går till styrelsen.
 let _styrCfYear=null;
 window.styrCfVersion=function(id){setStyrelseVersion(_styrCfYear,id);};
-window.styrCfOpening=function(y,v){setOpeningCash(y,v);renderStyrelse();};
+window.styrCfOpening=function(vid,y,v){setOpeningCash(vid,y,v);renderStyrelse();};
 window.styrCfOpeningMonth=function(y,m){setOpeningMonth(y,m);renderStyrelse();};
 window.styrCfShowFrom=function(y,m){setCashflowShowFrom(y,m);renderStyrelse();};
 window.styrCfToMonth=function(y,m){setCashflowToMonth(y,m);renderStyrelse();};
@@ -5839,10 +5841,11 @@ async function renderStyrelse(){
   _styrCfYear=year;
   await loadBudgetLocks(b3id);
   const b3ver=b3liq.find(v=>String(v.Id)===String(b3id))||primVer;
+  if(b3ver&&_bmCache[b3ver.Id]===undefined)await bmLoad(b3ver.Id);
   const _b3from=getOpeningMonth(year);
   let _b3to=getCashflowToMonth(year);if(_b3to<_b3from)_b3to=_b3from;
   let _b3show=getCashflowShowFrom(year,_b3from);if(_b3show>_b3to)_b3show=_b3to;
-  const bild3html=renderCashflowCard({ver:b3ver,liq:b3liq,year,rows:b3rows,opening:getOpeningCash(year),financing:getFinancing(b3id,year),fromIdx:_b3from,showFromIdx:_b3show,toIdx:_b3to,split:getCashflowSplit(year),src:(isRollingBudgetVersion(b3ver)?'Löpande':isPrimaryBudgetVersion(b3ver)?'Primär':'Styrelse'),handlers:{version:'styrCfVersion',openingCash:'styrCfOpening',openingMonth:'styrCfOpeningMonth',showFrom:'styrCfShowFrom',toMonth:'styrCfToMonth',split:'styrCfSplit',financing:'styrCfFinancing'}});
+  const bild3html=renderCashflowCard({ver:b3ver,liq:b3liq,year,rows:b3rows,opening:getOpeningCash(b3id,year),financing:getFinancing(b3id,year),fromIdx:_b3from,showFromIdx:_b3show,toIdx:_b3to,split:getCashflowSplit(year),src:(isRollingBudgetVersion(b3ver)?'Löpande':isPrimaryBudgetVersion(b3ver)?'Primär':'Styrelse'),handlers:{version:'styrCfVersion',openingCash:'styrCfOpening',openingMonth:'styrCfOpeningMonth',showFrom:'styrCfShowFrom',toMonth:'styrCfToMonth',split:'styrCfSplit',financing:'styrCfFinancing'}});
   // Period-väljare + källrad
   const _slPct=Math.round(X/11*100);
   const periodSlider=`<div style="padding:10px 4px 18px;"><input type="range" min="0" max="11" step="1" value="${X}" oninput="setStyrelseX(this.value)" class="styr-slider" style="width:100%;background:linear-gradient(to right,#B4B2A9 0%,#B4B2A9 ${_slPct}%,#ECEAE3 ${_slPct}%,#ECEAE3 100%);"><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px;">${MONTHS.map(m=>`<span>${m}</span>`).join('')}</div><div style="text-align:center;font-size:10px;color:var(--text3);margin-top:4px;">◀ utfall t.o.m. ${MONTHS[_grans]} · prognos därefter ▶</div></div>`;
@@ -5958,6 +5961,8 @@ async function _bmMigrate(versionId){
   const c=_bmCache[versionId]||{};
   if(c.avtalSnapshot===undefined){try{const ls=JSON.parse(localStorage.getItem('importedAvtalResultat_'+versionId)||'null');if(ls&&ls.items)await bmSet(versionId,'avtalSnapshot',ls);}catch(e){}}
   if(c.fornyelsePeriods===undefined){try{const fi=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'null');if(fi){const pm={};Object.entries(fi).forEach(([k,v])=>{if(v&&(v.dateFrom||v.dateTo))pm[k]={dateFrom:v.dateFrom||null,dateTo:v.dateTo||null};});if(Object.keys(pm).length)await bmSet(versionId,'fornyelsePeriods',pm);}}catch(e){}}
+  // ETAPP 3C: årets lokala ingående saldo blir denna versions startvärde (engångs, per version).
+  if(c.openingCash===undefined){try{const _v=(budgetVersions||[]).find(x=>String(x.Id)===String(versionId));const _y=_v&&_v.Year;const _ls=_y!=null?localStorage.getItem('openingCash_'+_y):null;if(_ls!=null&&_ls!=='')await bmSet(versionId,'openingCash',{value:Math.round(Number(_ls)||0)});}catch(e){}}
 }
 async function loadBudgetVersion(){
   const sel=document.getElementById('budget-version-select');
@@ -6597,7 +6602,7 @@ function renderBudgetTable(){
   // Summa ut = summan av de fyra delsummorna (negativ eftersom utbetalningar är negativa).
   html+=sumRow('Summa ut',utMonthly,utMonthly.reduce((a,b)=>a+b,0));
   // Månadens netto + saldokedja via SAMMA computeCashflow-logik som kassaflödeskortet (kort 3).
-  const cfLiq=computeCashflow(budgetRows,getOpeningCash(year),getFinancing(currentBudgetVersionId,year));
+  const cfLiq=computeCashflow(budgetRows,getOpeningCash(currentBudgetVersionId,year),getFinancing(currentBudgetVersionId,year));
   html+=tbRow('Månadens netto',cfLiq.net,cfLiq.net.reduce((a,b)=>a+b,0));
   html+=sumRow('Ingående saldo',cfLiq.ingaende,cfLiq.ingaende[0]);
   html+=sumRow('Utgående saldo',cfLiq.closing,cfLiq.closing[11]);
@@ -6791,7 +6796,7 @@ async function runExcelImport(){
   try{
     if(window._excelResult&&window._excelResult.length&&window._excelResultTargetId!=null){await writeExcelResult(window._excelResult,window._excelResultTargetId);rCount=window._excelResult.length;}
     if(window._excelLiquidity&&window._excelLiquidity.length&&window._excelLiquidityTargetId!=null){await writeExcelLiquidity(window._excelLiquidity,window._excelLiquidityTargetId);lCount=window._excelLiquidity.length;}
-    if(window._excelOpeningCash!=null&&window._excelLiquidityTargetId!=null){const _lv=(budgetVersions||[]).find(v=>String(v.Id)===String(window._excelLiquidityTargetId));if(_lv&&_lv.Year&&typeof setOpeningCash==='function')setOpeningCash(_lv.Year,window._excelOpeningCash);}   // STEG 3/D: ingående saldo → localStorage
+    if(window._excelOpeningCash!=null&&window._excelLiquidityTargetId!=null){const _lv=(budgetVersions||[]).find(v=>String(v.Id)===String(window._excelLiquidityTargetId));if(_lv&&_lv.Year&&typeof setOpeningCash==='function')setOpeningCash(_lv.Id,_lv.Year,window._excelOpeningCash);}   // STEG 3/D + 3C: ingående saldo → version (bmSet) + localStorage
     try{budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();if(!Array.isArray(budgetRows))budgetRows=[];}catch(e){}
     renderBudgetTable();
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
