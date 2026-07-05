@@ -3141,6 +3141,13 @@ function saveManualRisk(id){
 function actNextKey(type,id){return `actnext-${type}-${id}`;}
 function getActNext(type,id){try{return JSON.parse(localStorage.getItem(actNextKey(type,id))||'{}');}catch(e){return{};}}
 function setActNextEntry(type,id,actKey,data){const m=getActNext(type,id);if(data&&(data.text||data.date))m[String(actKey)]={text:data.text||'',date:data.date||'',waiting:!!data.waiting};else delete m[String(actKey)];localStorage.setItem(actNextKey(type,id),JSON.stringify(m));}
+async function deleteFreeNext(type,id,key){
+  if(!confirm('Ta bort detta nasta steg?'))return;
+  setActNextEntry(type,id,key,null);
+  if(type==='prospect'){const p=allProspects.find(x=>x.Id===id);let acts=[];try{const r=await apiFetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}renderProspectBody(p,acts);renderKanban();}
+  else if(type==='customer'){loadCustomerKontakt(id);}
+  else if(type==='trial'||type==='pilot'){renderTpModalBody();}
+}
 // Mikrofontranskribering (Web Speech API, fungerar i Chrome). Fyller fältet
 // löpande och pulserar medan mikrofonen är aktiv. Klick igen stoppar.
 function startDictation(targetId,btn){
@@ -3169,9 +3176,10 @@ function renderKontaktloggHtml(type,id,item,acts){
   let localActs=[];
   if(type==='trial'||type==='pilot'){try{localActs=JSON.parse(localStorage.getItem(`${type}-activities-${id}`)||'[]');}catch(e){}}
   if(type==='customer'){try{localActs=JSON.parse(localStorage.getItem(`customer-activities-${id}`)||'[]');}catch(e){}}
-  const allActs=[...(acts||[]),...localActs].sort((a,b)=>{const ad=new Date(a.Date||a.CreatedAt||0);const bd=new Date(b.Date||b.CreatedAt||0);return bd-ad;});
   const nextMap=getActNext(type,id);
-  const timeline=allActs.length?`<div style="position:relative;">${allActs.map((a,i)=>{const kind=KONTAKT_KIND[a.Type]||{color:'#888'};const d=a.Date||a.CreatedAt;const ns=nextMap[String(a.Id??a.CreatedAt)];return`<div style="position:relative;padding:0 0 14px 24px;${i<allActs.length-1?'border-left:2px solid var(--border);margin-left:5px;padding-left:18px;':'margin-left:5px;padding-left:18px;'}"><span style="position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:${kind.color};border:2px solid var(--surface);"></span><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:${kind.color};text-transform:uppercase;">${a.Type||'Annat'}</span><span style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:var(--text3);">${d?new Date(d).toLocaleDateString('sv-SE'):''}</span>${((type==='prospect'||type==='customer')&&a.Id)?`<button onclick="editTimelineActivity('${type}',${id},${a.Id})" title="Redigera aktivitet" style="border:none;background:none;color:var(--accent);cursor:pointer;font-size:12px;line-height:1;padding:0 2px;">✎</button><button onclick="deleteTimelineActivity('${type}',${id},${a.Id})" title="Ta bort aktivitet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;">×</button>`:''}</span></div>${a.Note?`<div style="font-size:12px;color:var(--text2);">${a.Note}</div>`:''}${nextStepPillHtml(ns)}${a.CreatedBy?`<div style="font-size:10px;color:var(--text3);margin-top:2px;">— ${a.CreatedBy}</div>`:''}</div>`;}).join('')}</div>`:'<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px;">Inga kontakter loggade ännu.</div>';
+  const _orphanNext=Object.entries(nextMap).filter(([k,ns])=>k.startsWith('ns-')&&(ns.text||ns.date)).map(([k,ns])=>({_nsOnly:true,_nsKey:k,Type:'Nasta steg',CreatedAt:k.slice(3),_ns:ns}));
+  const allActs=[...(acts||[]),...localActs,..._orphanNext].sort((a,b)=>{const ad=new Date(a.Date||a.CreatedAt||0);const bd=new Date(b.Date||b.CreatedAt||0);return bd-ad;});
+  const timeline=allActs.length?`<div style="position:relative;">${allActs.map((a,i)=>{const _last=i<allActs.length-1;if(a._nsOnly){const _ns=a._ns||{};const _dt=_ns.date?new Date(_ns.date).toLocaleDateString('sv-SE'):'';return`<div style="position:relative;padding:0 0 14px 24px;${_last?'border-left:2px solid var(--border);margin-left:5px;padding-left:18px;':'margin-left:5px;padding-left:18px;'}"><span style="position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid #378ADD;"></span><div style="border:1px solid var(--border);border-left:3px solid #378ADD;border-radius:0 6px 6px 0;padding:8px 10px;background:var(--surface2);"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:#185FA5;display:flex;align-items:center;gap:5px;"><span style="font-size:13px;">&#9873;</span>NÄSTA STEG</span><span style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:var(--text3);">${_dt}</span><button onclick="deleteFreeNext('${type}',${id},'${a._nsKey}')" title="Ta bort nästa steg" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;">×</button></span></div>${_ns.text?`<div style="font-size:12px;color:var(--text2);">${_ns.text.replace(/</g,'&lt;')}</div>`:''}${_ns.waiting?`<div style="margin-top:4px;"><span style="background:#1a4f7a;color:#fff;border-radius:8px;padding:1px 6px;font-size:9px;font-weight:600;">INVÄNTAR</span></div>`:''}</div></div>`;}const kind=KONTAKT_KIND[a.Type]||{color:'#888'};const d=a.Date||a.CreatedAt;const ns=nextMap[String(a.Id??a.CreatedAt)];return`<div style="position:relative;padding:0 0 14px 24px;${i<allActs.length-1?'border-left:2px solid var(--border);margin-left:5px;padding-left:18px;':'margin-left:5px;padding-left:18px;'}"><span style="position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:${kind.color};border:2px solid var(--surface);"></span><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;"><span style="font-size:12px;font-weight:600;color:${kind.color};text-transform:uppercase;">${a.Type||'Annat'}</span><span style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:var(--text3);">${d?new Date(d).toLocaleDateString('sv-SE'):''}</span>${((type==='prospect'||type==='customer')&&a.Id)?`<button onclick="editTimelineActivity('${type}',${id},${a.Id})" title="Redigera aktivitet" style="border:none;background:none;color:var(--accent);cursor:pointer;font-size:12px;line-height:1;padding:0 2px;">✎</button><button onclick="deleteTimelineActivity('${type}',${id},${a.Id})" title="Ta bort aktivitet" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;">×</button>`:''}</span></div>${a.Note?`<div style="font-size:12px;color:var(--text2);">${a.Note}</div>`:''}${nextStepPillHtml(ns)}${a.CreatedBy?`<div style="font-size:10px;color:var(--text3);margin-top:2px;">— ${a.CreatedBy}</div>`:''}</div>`;}).join('')}</div>`:'<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px;">Inga kontakter loggade ännu.</div>';
   const formId=`kontakt-${type}-${id}`;
   return`${stepBox}
     <div class="modal-section"><div class="modal-section-label">Registrera möte/samtal</div>
@@ -3204,11 +3212,11 @@ async function addKontakt(type,id){
   const hasNote=note.trim().length>0;
   const hasNext=!!(next.trim()||nextDate);
   if(!hasNote&&!hasNext)return;
-  // Endast ett verkligt möte/samtal (med anteckning) skapar en aktivitet i
-  // tidslinjen. "Nästa steg" sparas alltid som ett eget objekt kopplat till
-  // mötet (orange pill) — det blir aldrig en egen Möte-rad.
+  // Ett möte/samtal med anteckning skapar en aktivitet i tidslinjen med en
+  // orange "Nästa steg"-pill. Ett fristående "Nästa steg" (utan anteckning)
+  // sparas med egen nyckel (ns-CreatedAt) och visas som en egen blå rad i
+  // tidslinjen — det skriver inte över senaste mötets pill.
   const act={Type:t,Date:d||new Date().toISOString().substring(0,10),Note:note,CreatedBy:'Matilda Olsson',CreatedAt:new Date().toISOString()};
-  const newestKey=list=>{const a=(Array.isArray(list)?list:[]).slice().sort((x,y)=>new Date(y.CreatedAt||y.Date||0)-new Date(x.CreatedAt||x.Date||0))[0];return a?(a.Id??a.CreatedAt):null;};
   allActivitiesCache=null; // tvinga omläsning av "Senaste aktivitet" på startsidan
   if(type==='prospect'){
     let createdId=null;
