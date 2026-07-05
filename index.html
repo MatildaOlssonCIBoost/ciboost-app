@@ -1915,7 +1915,7 @@ function renderKanban(){
   const today=new Date();today.setHours(0,0,0,0);
   const board=document.getElementById('kanban-board');
   board.innerHTML=STAGES.map(stage=>{
-    const cards=pipeOrderedIds(stage,filtered.filter(p=>p.Stage===stage));
+    const cards=pipeOrderedIds(stage,filtered.filter(p=>p.Stage===stage)).slice().sort((a,b)=>(b.Starred?1:0)-(a.Starred?1:0));
     const isWon=stage==='Closed Won',isLost=stage==='Closed Lost';
     const cardsHtml=cards.length?cards.map(p=>{
       const srcColor=SOURCE_COLORS[p.Source]||'#8b90b0';
@@ -1962,7 +1962,7 @@ function renderKanban(){
       const statusBlock=!isWon&&!isLost?`<div class="kc-status"><span class="status-dot ${isWaiting?'waiting':'agera'}"></span><span style="font-size:11px;font-weight:500;color:${isWaiting?'var(--blue)':'var(--amber)'};">${isWaiting?'Inväntar svar':'AGERA'}</span></div>`:'';
       return`<div class="kanban-card ${isWon?'won':isLost?'lost':''}" draggable="true" ondragstart="onCardDragStart(event,${p.Id})" ondragend="onCardDragEnd(event)" ondragover="onCardDragOver(event)" ondragleave="onCardDragLeave(event)" ondrop="onCardDrop(event,${p.Id},'${stage.replace(/'/g,"\\'")}')" onclick="openProspectModal(${p.Id})">
         ${statusBlock}
-        <div class="kc-name">${p.Company||'-'}</div>
+        <div class="kc-name" style="display:flex;align-items:center;gap:6px;"><span onclick="event.stopPropagation();toggleProspectStar(${p.Id})" title="${p.Starred?'Ta bort stjarna':'Stjarnmarkera'}" style="cursor:pointer;font-size:14px;line-height:1;color:${p.Starred?'#EF9F27':'var(--text3)'};flex:0 0 auto;">${p.Starred?'★':'☆'}</span><span style="flex:1;">${p.Company||'-'}</span></div>
         <div class="kc-contact">${p.Contact||'–'}</div>
         <div class="kc-owner"${_oc?` style="background:${_oc.bg};color:${_oc.fg};"`:''}>${p.Owner||'–'}</div>
         <div class="kc-footer"><span class="src-dot" style="background:${srcColor};"></span><span class="src-label">${p.Source||'–'}</span></div>
@@ -1983,6 +1983,20 @@ function saveFieldOverlay(kind,id,obj){if(id==null)return;const m=getFieldOverla
 function applyFieldOverlay(kind,list){const m=getFieldOverlay(kind);(list||[]).forEach(o=>{const ov=m[String(o.Id)];if(ov)Object.keys(ov).forEach(k=>{if(o[k]===undefined||o[k]===null||o[k]==='')o[k]=ov[k];});});return list;}
 function getPipelineOrder(){try{return JSON.parse(localStorage.getItem('pipelineOrder')||'{}');}catch(e){return{};}}
 function setPipelineOrder(o){localStorage.setItem('pipelineOrder',JSON.stringify(o));}
+async function toggleProspectStar(id){
+    const p=allProspects.find(x=>x.Id===id); if(!p)return;
+    const nyttVarde=!p.Starred;
+    p.Starred=nyttVarde;            // optimistiskt
+    renderKanban();
+    try{
+      const r=await apiFetch(`${API}/prospects/${id}/starred`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({starred:nyttVarde})});
+      if(!r.ok)throw new Error('PUT starred misslyckades');
+    }catch(e){
+      p.Starred=!nyttVarde;         // rulla tillbaka vid fel
+      renderKanban();
+      console.error('toggleProspectStar',e);
+    }
+  }
 function pipeOrderedIds(stage,allCards){
   const order=getPipelineOrder()[stage]||[];
   const orderedSet=new Set(order);
