@@ -1902,6 +1902,10 @@ function toggleKanbanCard(id,el){
   if(detail)detail.style.display=open?'block':'none';
   if(chev)chev.textContent=open?'▴':'▾';
 }
+function _trackStarKey(){return 'trackstars';}
+function getTrackStars(){try{return JSON.parse(localStorage.getItem(_trackStarKey())||'[]');}catch(e){return[];}}
+function isTrackStarred(stage,track){return getTrackStars().includes(stage+'::'+track);}
+function toggleTrackStar(stage,track){const k=stage+'::'+track;let a=getTrackStars();if(a.includes(k))a=a.filter(x=>x!==k);else a.push(k);localStorage.setItem(_trackStarKey(),JSON.stringify(a));renderKanban();}
 function renderTrackCard(track, items, stage){
   const n=items.length;
   const totViktat=items.reduce((s,it)=>s+(it.viktat||0),0);
@@ -1913,10 +1917,11 @@ function renderTrackCard(track, items, stage){
   const _exp=_trackExpanded.has(stage+'::'+track);
   const innerHtml=_exp?items.map(it=>it.html).join(''):'';
   const LILA='#7F77DD',LILA_D='#3C3489',LILA_BG='#EEEDFE';
+  const _star=isTrackStarred(stage,track);
   const stack=_exp?'':`<div style="position:absolute;top:6px;left:6px;right:-6px;height:100%;background:var(--surface);border:0.5px solid var(--border);border-radius:0 10px 10px 0;z-index:0;"></div><div style="position:absolute;top:3px;left:3px;right:-3px;height:100%;background:var(--surface);border:0.5px solid var(--border);border-radius:0 10px 10px 0;z-index:0;"></div>`;
   return `<div style="position:relative;margin-bottom:8px;">${stack}<div class="track-card" data-track="${tesc}" data-stage="${stage.replace(/'/g,"\\'")}" style="position:relative;z-index:1;border:0.5px solid var(--border);border-left:3px solid ${LILA};border-radius:0 10px 10px 0;background:${_exp?'var(--surface1)':'var(--surface)'};padding:${_exp?'8px':'12px 14px'};">
     <div onclick="toggleTrackExpand('${stage.replace(/'/g,"\\'")}','${tesc}')" style="cursor:pointer;">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;"><span style="font-size:15px;color:${LILA_D};flex:0 0 auto;">⛃</span><span style="font-size:13px;font-weight:600;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${tesc}</span><span style="flex:0 0 auto;background:${LILA_BG};color:${LILA_D};font-size:10px;font-weight:600;min-width:17px;height:17px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;">${n}</span></div>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:9px;"><span style="font-size:15px;color:${LILA_D};flex:0 0 auto;">⛃</span><span style="font-size:13px;font-weight:600;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${tesc}</span><span style="flex:0 0 auto;background:${LILA_BG};color:${LILA_D};font-size:10px;font-weight:600;min-width:17px;height:17px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;">${n}</span><span onclick="event.stopPropagation();toggleTrackStar('${stage.replace(/'/g,"\\'")}','${(track||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')" title="${_star?'Ta bort stjarna':'Stjarnmarkera spar'}" style="flex:0 0 auto;margin-left:auto;cursor:pointer;font-size:14px;line-height:1;color:${_star?'#EF9F27':'var(--text3)'};">${_star?'★':'☆'}</span></div>
       ${ownerTags?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:9px;">${ownerTags}</div>`:''}
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px;">
         <div style="min-width:0;"><div style="font-size:16px;font-weight:600;color:var(--blue);line-height:1.1;">${fmtKr(totViktat)}</div><div style="font-size:9px;color:var(--text3);margin-top:1px;">viktat av ${fmtKr(totTotal)}</div></div>
