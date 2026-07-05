@@ -2096,7 +2096,7 @@ async function onCardDrop(e,targetId,stage){
   if(ids.length>1&&(stage==='Closed Won'||stage==='Closed Lost')){showSaveIndicator('Ett spar kan inte stangas i klump - stang korten ett i taget via respektive kort','#C8842F');return;}
   if(ids.length===1&&ids[0]===targetId)return;
   const moved=[];
-  ids.forEach(id=>{const p=allProspects.find(x=>x.Id===id);if(!p)return;if(p.Stage!==stage){p.Stage=stage;p.UpdatedAt=new Date().toISOString();moved.push(p);}});
+  ids.forEach(id=>{const p=allProspects.find(x=>x.Id===id);if(!p)return;if(p.Stage!==stage){p.Stage=stage;p.UpdatedAt=new Date().toISOString();moved.push(p);if(p.Track){p.Track=null;try{apiFetch(`${API}/prospects/${p.Id}/track`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({track:''})});}catch(e){}}}});
   const order=getPipelineOrder();
   let arr=(order[stage]||[]).slice();
   (allProspects.filter(x=>x.Stage===stage).map(x=>x.Id)).forEach(xid=>{if(!arr.includes(xid))arr.push(xid);});
@@ -2126,7 +2126,7 @@ async function onColDrop(e,stage){
   ids.forEach(id=>{
     const p=allProspects.find(x=>x.Id===id);if(!p)return;
     const stageChanged=p.Stage!==stage;
-    if(stageChanged){p.Stage=stage;p.UpdatedAt=new Date().toISOString();moved.push(p);}
+    if(stageChanged){p.Stage=stage;p.UpdatedAt=new Date().toISOString();moved.push(p);if(p.Track){p.Track=null;try{apiFetch(`${API}/prospects/${p.Id}/track`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({track:''})});}catch(e){}}}
     arr=arr.filter(x=>x!==id);
     arr.push(id);
   });
