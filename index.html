@@ -3217,19 +3217,19 @@ async function addKontakt(type,id){
     if(p){if(hasNext){p.NextActionType=next||null;p.NextActionDate=nextDate||null;}p.WaitingForResponse=waiting?1:0;
       try{await apiFetch(`${API}/prospects/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prospectToBody(p))});}catch(e){}}
     let acts=[];try{const r=await apiFetch(`${API}/activities/prospect/${id}`);acts=await r.json();}catch(e){}
-    if(hasNext){const key=createdId||newestKey(acts)||('ns-'+act.CreatedAt);setActNextEntry('prospect',id,key,{text:next,date:nextDate||'',waiting});}
+    if(hasNext){const key=createdId||('ns-'+act.CreatedAt);setActNextEntry('prospect',id,key,{text:next,date:nextDate||'',waiting});}
     renderProspectBody(p,acts);renderKanban();
   } else if(type==='trial'||type==='pilot'){
     const lkey=`${type}-activities-${id}`;
     let list=JSON.parse(localStorage.getItem(lkey)||'[]');
     if(hasNote){list.push(act);localStorage.setItem(lkey,JSON.stringify(list));}
-    if(hasNext){const key=hasNote?act.CreatedAt:(newestKey(list)||('ns-'+act.CreatedAt));setActNextEntry(type,id,key,{text:next,date:nextDate||'',waiting});}
+    if(hasNext){const key=hasNote?act.CreatedAt:('ns-'+act.CreatedAt);setActNextEntry(type,id,key,{text:next,date:nextDate||'',waiting});}
     renderTpModalBody();
   } else if(type==='customer'){
     let createdId=null;
     if(hasNote){let saved=false;try{const r=await apiFetch(`${API}/activities/customer/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:t,note,date:d,createdBy:'Matilda Olsson'})});if(r.ok){saved=true;try{const cj=await r.json();createdId=cj?.Id??cj?.id??null;}catch(e){}}}catch(e){}
       if(!saved){const lkey=`customer-activities-${id}`;const list=JSON.parse(localStorage.getItem(lkey)||'[]');list.push(act);localStorage.setItem(lkey,JSON.stringify(list));createdId=act.CreatedAt;}}
-    if(hasNext){let key=createdId;if(!key){let acts2=[];try{const rr=await apiFetch(`${API}/activities/customer/${id}`);if(rr.ok)acts2=await rr.json();}catch(e){}let local=[];try{local=JSON.parse(localStorage.getItem(`customer-activities-${id}`)||'[]');}catch(e){}key=newestKey([...(Array.isArray(acts2)?acts2:[]),...local])||('ns-'+act.CreatedAt);}setActNextEntry('customer',id,key,{text:next,date:nextDate||'',waiting});}
+    if(hasNext){const key=createdId||('ns-'+act.CreatedAt);setActNextEntry('customer',id,key,{text:next,date:nextDate||'',waiting});}
     showSaveIndicator(hasNote?'✓ Kontakt sparad':'✓ Nästa steg sparat','#1a7a50');
     loadCustomerKontakt(id);
     if(currentMain==='start')renderStart();
