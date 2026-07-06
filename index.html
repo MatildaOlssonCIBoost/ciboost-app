@@ -1304,6 +1304,7 @@ const BUDGET_ROWS_DEF = [
   {section:'REVENUE', category:'Revenue', subCategory:'Utbildning', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Consulting', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Okvalificerat/okänt', type:'revenue'},
+  {section:'REVENUE', category:'Revenue', subCategory:'Övriga inbetalningar', type:'revenue'},   // fristående Cash in-rad (lån/konvertibler m.m.) — renderas separat, ej som typ-sektion
   // Kostnadsrader = ekonomens BAS-konton (COST_ROWS_DEF). section:'COST', category=grupp,
   // subCategory=namn, accountNo=kontonr. Personalroller utflyttade (kommande lönesida).
   ...COST_ROWS_DEF.map(c=>({section:'COST', category:c.group, subCategory:c.name, accountNo:c.account, type:'cost'})),
@@ -7013,6 +7014,7 @@ function renderBudgetTable(){
   Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!_devCount[it.Type])return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==_bvYr)return;const _mi=d.getMonth();if(!_impSets[_mi].has(String(it.Id)))_devCount[it.Type][_mi]++;});});
   allBudgetRows().filter(r=>r.section==='REVENUE').forEach(rd=>{
     const cat=rd.category,sub=rd.subCategory,_type=SUB_TO_TYPE[sub];
+    if(sub==='Övriga inbetalningar')return;   // fristående rad — renderas separat nedan, ej som typ-sektion
     // Tre importerade estimat-källor per (cat,sub) — PLAIN TEXT, ingen .budget-input → autospar fångar dem aldrig.
     const findSrc=tag=>visibleImportedRows.find(ir=>ir.Category===cat&&ir.SubCategory===sub&&(ir.Source||'')===tag);
     const avtalRow=findSrc('Avtal (likviditet)'),fornRow=findSrc('Förnyelse'),pipeRow=findSrc('Pipeline (viktat)');
@@ -7040,6 +7042,9 @@ function renderBudgetTable(){
     // = Summa — ren visning (text, ej .budget-input, ej i budgetRows → sparas aldrig)
     html+=`<tr style="background:var(--surface2);"><td style="padding-left:24px;font-size:11px;font-weight:700;">= Summa</td>${MONTHS.map((_,mi)=>`<td style="text-align:right;font-size:11px;font-weight:700;">${fmtK(sumVals[mi])}</td>`).join('')}<td style="font-weight:700;text-align:right;border-left:1px solid var(--border);">${fmtK(sum(sumVals))}</td></tr>`;
   });
+  // Övriga inbetalningar — fristående Cash in-rad (lån/konvertibler m.m.). Category='Revenue', Source=NULL → med i Summa in (sumSection) + computeCashflow (netto/saldo). Manuellt redigerbar + Excel-importerad (samma rad).
+  const _oiSub='Övriga inbetalningar';const _oiVals=MONTHS.map((_,mi)=>getVal('Revenue',_oiSub,mi));
+  html+=`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${_oiSub}</td>${MONTHS.map((_,mi)=>inputCell('Revenue',_oiSub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(_oiVals))}</td></tr>`;
   html+=sumRow('Summa in',revMonthly,revTotal,'#fde7d6');
 
   html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">Cash out</td></tr>`;
@@ -7176,9 +7181,11 @@ function parseExcelLiquidity(wb){
   const SKIP=/summa|netto|saldo/i;
   const out=[];let inPayments=false;
   window._excelOpeningCash=null;   // STEG 3/D: ingående saldo ur importen (nollställs per parse)
+  window._excelOtherIncome=null;   // Övriga inbetalningar-raden (12 månader) ur importen (nollställs per parse)
   for(let r=0;r<=range.e.r;r++){
     const name=cv(r,21);   // kol V
     if(name!=null&&/^ingående saldo/i.test(String(name).trim())){const _o=cv(r,25);window._excelOpeningCash=(typeof _o==='number')?Math.round(_o):(parseFloat(String(_o).replace(/[^0-9.\-]/g,''))||null);continue;}   // första månad (kol Z) → ingående kassa
+    if(name!=null&&String(name).trim().toLowerCase()==='övriga inbetalningar'){window._excelOtherIncome=MONTHS.map((_,i)=>{const v=cv(r,25+i);return (typeof v==='number')?Math.round(v):Math.round(parseFloat(v)||0);});continue;}   // EXAKT etikett (trim/case-ins.) → positiva månadsvärden Z–AK. Skrivs som Revenue-rad; ingen annan intäktsrad importeras.
     if(name!=null&&/^summa in/i.test(String(name).trim())){inPayments=true;continue;}   // inbetalningar slut → utbetalningar börjar
     if(name!=null&&/^summa ut/i.test(String(name).trim()))break;                          // utbetalningar slut
     if(!inPayments)continue;                                                              // inbetalningssektion → hoppa
@@ -7251,6 +7258,12 @@ async function writeExcelLiquidity(rows,lid){
     if(!row){row={Category:'Leverantör',SubCategory:name,Source:'Leverantör'};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
     MONTHS.forEach(m=>row[m]=Math.round(Number(ir[m])||0));   // rått Excel-tecken (utbetalningar negativa)
   });
+  // Övriga inbetalningar → fristående Cash in-rad (Category='Revenue', Source=NULL). Full-replace av just den radens månader (positiva, rått). Ingen annan intäktsrad rörs.
+  if(window._excelOtherIncome){
+    let orow=existing.find(r=>!r.Source&&r.Category==='Revenue'&&String(r.SubCategory||'').trim()==='Övriga inbetalningar');
+    if(!orow){orow={Category:'Revenue',SubCategory:'Övriga inbetalningar'};MONTHS.forEach(m=>orow[m]=0);existing.push(orow);}
+    MONTHS.forEach((m,i)=>orow[m]=Math.round(Number(window._excelOtherIncome[i])||0));
+  }
   const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
   await apiFetch(`${API}/budget-versions/${lid}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
 }
@@ -7259,15 +7272,17 @@ async function runExcelImport(){
   let rCount=0,lCount=0;
   try{
     if(window._excelResult&&window._excelResult.length&&window._excelResultTargetId!=null){await writeExcelResult(window._excelResult,window._excelResultTargetId);rCount=window._excelResult.length;}
-    if(window._excelLiquidity&&window._excelLiquidity.length&&window._excelLiquidityTargetId!=null){await writeExcelLiquidity(window._excelLiquidity,window._excelLiquidityTargetId);lCount=window._excelLiquidity.length;}
+    if(window._excelLiquidityTargetId!=null&&((window._excelLiquidity&&window._excelLiquidity.length)||window._excelOtherIncome)){await writeExcelLiquidity(window._excelLiquidity||[],window._excelLiquidityTargetId);lCount=(window._excelLiquidity||[]).length;}
     if(window._excelOpeningCash!=null&&window._excelLiquidityTargetId!=null){const _lv=(budgetVersions||[]).find(v=>String(v.Id)===String(window._excelLiquidityTargetId));if(_lv&&_lv.Year&&typeof setOpeningCash==='function')setOpeningCash(_lv.Id,_lv.Year,window._excelOpeningCash);}   // STEG 3/D + 3C: ingående saldo → version (bmSet) + localStorage
     try{budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();if(!Array.isArray(budgetRows))budgetRows=[];}catch(e){}
     renderBudgetTable();
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
     const _um=window._excelResultUnmatched||[];   // D: äkta bortfall (numeriskt kostnadskonto utan def-träff)
+    const _oiWrote=window._excelLiquidityTargetId!=null&&window._excelOtherIncome&&window._excelOtherIncome.some(v=>Math.round(Number(v)||0)!==0);
     const _parts=[];
     if(rCount)_parts.push(`${rCount} kostnadsrader till resultat`);
-    if(lCount)_parts.push(`${lCount} cash out-rader till likviditet`);
+    if(lCount)_parts.push(`${lCount} cash out-rader${_oiWrote?' + Övriga inbetalningar':''} till likviditet`);
+    else if(_oiWrote)_parts.push(`Övriga inbetalningar till likviditet`);
     let _msg=_parts.length?`✓ Importerat ${_parts.join(' och ')}`:'✓ Inget importerades';
     if(_um.length===1)_msg+=` · ⚠ ${_um[0]} hittade ingen rad i appen`;
     else if(_um.length===2)_msg+=` · ⚠ ${_um.join(', ')} hittade ingen rad i appen`;
