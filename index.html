@@ -994,9 +994,6 @@
       <select id="budget-version-select" onchange="loadBudgetVersion()" style="font-size:14px;padding:6px 10px;min-width:260px;">
         <option value="">Välj budgetversion...</option>
       </select>
-      <span class="badge b-blue" id="budget-type-badge" style="display:none;"></span>
-      <span id="budget-pair-indicator" style="display:none;font-size:11px;font-weight:500;align-items:center;gap:4px;"></span>
-      <span id="budget-role-status" style="display:none;font-size:11px;font-weight:600;color:var(--text2);align-items:center;gap:6px;"></span>
       <div class="rev-dropdown">
         <button class="rev-dd-btn" onclick="toggleBudgetActionsDD(event)">⋯ Åtgärder <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="rev-dd-panel" id="budget-actions-panel" style="display:none;" onclick="document.getElementById('budget-actions-panel').style.display='none'">
@@ -1011,6 +1008,9 @@
           <div class="rev-dd-item" id="mi-delete" onclick="deleteBudgetVersion()" style="display:none;color:var(--red);">🗑 Radera version</div>
         </div>
       </div>
+      <span class="badge b-blue" id="budget-type-badge" style="display:none;"></span>
+      <span id="budget-pair-indicator" style="display:none;font-size:11px;font-weight:500;align-items:center;gap:4px;"></span>
+      <span id="budget-role-status" style="display:none;font-size:11px;font-weight:600;color:var(--text2);align-items:center;gap:6px;"></span>
       <div id="budget-import-group" style="display:none;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);">
         <span style="font-size:11px;color:var(--text3);">Importera:</span>
         <button class="quick-btn" onclick="openImportActualsModal(currentBudgetVersionId)" id="btn-import-actuals" style="display:none;">⇪ Actuals/mån</button>
@@ -5131,7 +5131,11 @@ async function faBudgetOpenView(view){
   if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
   const ofType=(budgetVersions||[]).filter(v=>v.BudgetType===budgetTypeFilter);
   const cur=(budgetVersions||[]).find(v=>String(v.Id)===String(currentBudgetVersionId));
-  if(!(cur&&cur.BudgetType===budgetTypeFilter))currentBudgetVersionId=String(getPrimaryBudgetIdForMode(view)||(ofType[0]&&ofType[0].Id)||'');
+  // Default: ⟳ Löpande-versionen (samma flagga som väljarens etikett) förväljs om den finns — även om en annan var öppen senast.
+  // Annars oförändrat: behåll aktuell om rätt typ, annars Primär → första.
+  const roll=ofType.find(v=>isRollingBudgetVersion(v));
+  if(roll)currentBudgetVersionId=String(roll.Id);
+  else if(!(cur&&cur.BudgetType===budgetTypeFilter))currentBudgetVersionId=String(getPrimaryBudgetIdForMode(view)||(ofType[0]&&ofType[0].Id)||'');
   await loadBudgetVersions();
 }
 // Delad kassaflödes-motor: cash in (Revenue)/mån, cash out (övrigt)/mån, netto, utgående balans (löpande summa).
