@@ -5338,7 +5338,7 @@ async function importMonthActuals(versionId,monthIndex,includedAvtalIds=null){
   });
   const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
   await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  localStorage.setItem('importedAvtal_'+versionId+'_'+monthIndex,JSON.stringify(importedIds));
+  setImportedActualsMonth(versionId,monthIndex,importedIds);   // ETAPP 5B: dubbelskriv localStorage + BudgetMemory ('importedActuals')
   if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
   const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
   return perType;
@@ -5349,6 +5349,7 @@ async function openImportActualsModal(versionId,preMonth){
   if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
   const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(versionId));if(!ver)return;
   const year=Number(ver.Year)||new Date().getFullYear();
+  try{if(_bmCache[versionId]===undefined)await bmLoad(versionId);}catch(e){}   // ETAPP 5B: actuals-id-set ur delat minne
   const ex=document.getElementById('import-actuals-overlay');if(ex)ex.remove();
   const ov=document.createElement('div');ov.id='import-actuals-overlay';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:flex-start;padding-left:32px;';
@@ -5365,7 +5366,7 @@ async function openImportActualsModal(versionId,preMonth){
     const mi=Number(document.getElementById('ia-month').value);
     document.getElementById('ia-month-lbl').textContent=MONTHS[mi];
     document.getElementById('ia-import-btn').textContent='Importera till '+MONTHS[mi];
-    const ik='importedAvtal_'+versionId+'_'+mi;const hasImp=localStorage.getItem(ik)!=null;const impSet=new Set(JSON.parse(localStorage.getItem(ik)||'[]').map(String));
+    const _iaSet=getImportedActualsSet(versionId,mi);const hasImp=_iaSet!=null;const impSet=new Set((_iaSet||[]).map(String));
     const custById={};(allCustomers||[]).forEach(c=>custById[c.Id]=c);
     const byType={ARR:[],Fastpris:[],Utbildning:[],Consulting:[]};
     Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!byType[it.Type])return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==year||d.getMonth()!==mi)return;const c=custById[Number(cid)];byType[it.Type].push({id:it.Id,cust:c?(c.Company||('Kund '+cid)):('Kund '+cid),amount:it.Amount||0,desc:it.Description||'',net30:d.toISOString().substring(0,10),paid:!!it.Paid,vat:(it.VatRate!=null?it.VatRate:25)});});});
@@ -5465,19 +5466,11 @@ async function openImportFornyelseModal(versionId,preMonth){
     const btn=document.getElementById('fr-import-btn');if(btn)btn.disabled=n===0;
     const all=document.getElementById('fr-all');if(all){const cbs=[...document.querySelectorAll('#fr-body .fr-cb')];all.checked=cbs.length>0&&cbs.every(c=>c.checked);}
   };
-  // ETAPP 4 SPEGLING: i resultatläge med parad likviditetsbudget — läs dess förnyelseurval (delade DB-assumptions, Source 'Förnyelse') + minne.
-  const _frMirrorOn=_isRes&&ver.PairedVersionId!=null;
-  let _frMirrorSel={},_frMirrorSnap=null;
-  if(_frMirrorOn){
-    try{if(_bmCache[ver.PairedVersionId]===undefined)await bmLoad(ver.PairedVersionId);}catch(e){}
-    try{const pr=await apiFetch(`${API}/budget-versions/${ver.PairedVersionId}/import-assumptions`);if(pr.ok){const parr=await pr.json();if(Array.isArray(parr))parr.filter(x=>x.Source==='Förnyelse').forEach(x=>{_frMirrorSel[x.ItemKey]={amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,vatRate:x.VatRate};});}}catch(e){}
-    const _fpAll=bmGet(versionId,'fornyelsePeriods');_frMirrorSnap=(_fpAll&&_fpAll._mirror)?_fpAll._mirror:null;
-  }
-  // Drift: skiljer sig likviditetens NUVARANDE urval (id-set + belopp/viktning) från snapshoten vid senaste spegling?
-  const _frMirrorDrift=()=>{if(!_frMirrorSnap)return false;const cur=Object.keys(_frMirrorSel).sort();const snap=(_frMirrorSnap.ids||[]).slice().sort();if(cur.length!==snap.length||cur.some((k,i)=>k!==snap[i]))return true;return cur.some(k=>{const s=(_frMirrorSnap.vals||{})[k]||{};const c=_frMirrorSel[k];return _frR(c.amount)!==_frR(s.amount)||_frR(c.prob)!==_frR(s.prob);});};
-  window._frRenderBanner=()=>{const be=document.getElementById('fr-banner');if(!be)return;const n=_frMirrorOn?Object.keys(_frMirrorSel).length:0;if(!_frMirrorOn||!n){be.innerHTML='';return;}const drift=_frMirrorDrift();be.innerHTML=`<div style="margin:12px 0 0;padding:10px 14px;background:#EAF2FB;border:1px solid #B9D4F0;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div style="font-size:12px;color:#185FA5;">Parad likviditetsbudget har <b>${n}</b> förnyelser importerade.${drift?'<div style="color:#854F0B;font-size:11px;margin-top:3px;">⚠ Likviditetens urval har ändrats sedan speglingen</div>':''}</div><button onclick="window._frMirror()" style="padding:6px 14px;border:none;border-radius:8px;background:#2478CC;color:#fff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;">${drift?'Spegla om':'Spegla urvalet'}</button></div>`;};
-  // Spegla: förkryssa likviditetens urval med dess belopp/viktningar. Perioden lämnas orörd (resultatspecifik, ex moms). Spara mirrorSnapshot.
-  window._frMirror=()=>{Object.entries(_frMirrorSel).forEach(([key,liq])=>{const prev=window._frEdits[key]||{};window._frEdits[key]=Object.assign({},prev,{checked:true,amount:String(liq.amount),prob:String(liq.prob)});});const _fp=bmGet(versionId,'fornyelsePeriods')||{};_fp._mirror={ids:Object.keys(_frMirrorSel),vals:Object.fromEntries(Object.entries(_frMirrorSel).map(([k,v])=>[k,{amount:_frR(v.amount),prob:_frR(v.prob)}])),at:new Date().toISOString().substring(0,10)};bmSet(versionId,'fornyelsePeriods',_fp);_frMirrorSnap=_fp._mirror;window._frRender();window._frRenderBanner();};
+  // ETAPP 4→5 SPEGLING: delad kontroller. Källa = parade likviditetens förnyelseurval (Source 'Förnyelse'); snapshot i fornyelsePeriods._mirror.
+  const _frMir=await bmMakeMirror(ver,versionId,_isRes,'Förnyelse','fornyelsePeriods',{noun:'förnyelser',onMirror:'window._frMirror()'});
+  const _frMirrorOn=_frMir.on,_frMirrorSel=_frMir.sel;
+  window._frRenderBanner=()=>_frMir.renderBanner('fr-banner');
+  window._frMirror=()=>{_frMir.applyMirror(window._frEdits);window._frRender();window._frRenderBanner();};
   window._frRender=()=>{
     const cands=_frCands();
     const _tc={ARR:{bg:'#EAF3DE',color:'#3B6D11',lbl:'Licens (prenumeration)'},Fastpris:{bg:'#E6F1FB',color:'#185FA5',lbl:'Licens (fast pris)'}};
@@ -5591,94 +5584,87 @@ async function openImportPipelineModal(versionId,preMonth){
   const year=Number(ver.Year)||new Date().getFullYear();
   const ex=document.getElementById('import-pipeline-overlay');if(ex)ex.remove();
   const ov=document.createElement('div');ov.id='import-pipeline-overlay';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:flex-start;padding-left:32px;';
-  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:620px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
-    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:10px;">Importera pipeline · <span id="pp-month-lbl"></span> ${year}</h3><input type="hidden" id="pp-month"><div id="pp-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;">${MONTHS.map((m,i)=>`<button type="button" onclick="window._ppPickMonth(${i})" style="flex:1;min-width:34px;padding:5px 4px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;">${m}</button>`).join('')}</div></div>
-    <div id="pp-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
-    <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="pp-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-pipeline-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="pp-import-btn" class="btn-primary" onclick="window._ppImport()" style="padding:8px 16px;" disabled>Importera</button></div></div>
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px;';
+  const _ppIntro=currentBudgetMode==='resultat'?`Kryssade affärer skrivs <b>periodiserat (ex moms)</b> till <b>${String(ver.Name||'').replace(/</g,'&lt;')}</b>.`:`Kryssade affärer skrivs på <b>betalmånaden (inkl moms)</b> till <b>${String(ver.Name||'').replace(/</g,'&lt;')}</b>.`;
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:1040px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
+    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:6px;">Importera pipeline · ${year}</h3><div style="font-size:11px;color:var(--text3);line-height:1.5;">${_ppIntro} <span style="color:var(--text3);">Grön = affärens viktade belopp (belopp × sannolikhet).</span></div></div>
+    <div id="pp-banner" style="padding:0 22px;"></div>
+    <div id="pp-body" style="overflow:auto;flex:1;"></div>
+    <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="pp-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-pipeline-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="pp-import-btn" class="btn-primary" onclick="window._ppImport()" style="padding:8px 16px;" disabled>Importera valda</button></div></div>
   </div>`;
   document.body.appendChild(ov);
-  // DB4: förladda antaganden från DB (delat mellan användare). Render läser denna minnesvariabel synkront. Fallback: localStorage.
+  // DB4: förladda antaganden från DB (delat mellan användare). Render läser denna minnesvariabel synkront.
+  // ETAPP 5B: fallback vid DB-fel = pipelineSnapshot (BudgetMemory, delat) ⊃ localStorage.
+  try{if(_bmCache[versionId]===undefined)await bmLoad(versionId);}catch(e){}
   let _ppSavedAll={};
   try{
     const r=await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`);
     if(r.ok){const arr=await r.json(); if(Array.isArray(arr)) _ppSavedAll=Object.fromEntries(arr.filter(x=>x.Source===(currentBudgetMode==='resultat'?'Pipeline (resultat)':'Pipeline (viktat)')).map(x=>[x.ItemKey,{amount:x.Amount,prob:x.Prob,date:x.AssumeDate?String(x.AssumeDate).substring(0,10):null,invoiceDate:x.RefDate?String(x.RefDate).substring(0,10):null,srcAmount:x.SrcAmount,srcProb:x.SrcProb,srcDate:x.SrcDate?String(x.SrcDate).substring(0,10):null,importedBy:x.ImportedBy||'',importedAt:x.ImportedAt?String(x.ImportedAt).substring(0,10):'',vatRate:x.VatRate}]));}
   }catch(e){
-    try{_ppSavedAll=JSON.parse(localStorage.getItem('pipelineImport_'+versionId)||'{}');}catch(e2){_ppSavedAll={};}
+    const _snap=bmGet(versionId,'pipelineSnapshot');
+    try{_ppSavedAll=_snap||JSON.parse(localStorage.getItem('pipelineImport_'+versionId)||'{}');}catch(e2){_ppSavedAll=_snap||{};}
   }
   window._ppEdits={};
   window._ppSummary=()=>{}; // sammanräkning sker i _ppRecalc
   const _ppParse=s=>Number(String(s).replace(/[^0-9.\-]/g,''))||0;
-  // Persist + live-omräkning: viktat + likviditetsmånad (faktura+30) + summa + knapp-state. Nyckel = prospectId_itemId.
+  const _ppR=x=>Math.round(_ppParse(x));
+  const _isResP=currentBudgetMode==='resultat';
+  // Viktade skivor (ingen grå — inget befintligt avtal). Resultat: periodiserat ex moms; likviditet: betalmånad (faktura+30) inkl moms.
+  const _ppSpread=(amount,prob,it,st)=>{let green=Array(12).fill(0),firstGreen=-1,yearW=0;if(_isResP){const from=(st.fromV||(it.DateFrom?String(it.DateFrom).substring(0,10):null))||null,to=(st.toV||(it.DateTo?String(it.DateTo).substring(0,10):null))||null;green=spreadPeriodAcrossMonths(Math.round(amount*prob/100),from,to,year);yearW=green.reduce((a,b)=>a+b,0);firstGreen=green.findIndex(v=>v>0);}else{const vat=(it.VatRate!=null?it.VatRate:25);const winc=Math.round(amount*prob/100*(1+vat/100));const d=new Date(st.dateV);if(!isNaN(d)){const ld=new Date(d);ld.setDate(ld.getDate()+30);if(ld.getFullYear()===year){green[ld.getMonth()]=winc;firstGreen=ld.getMonth();yearW=winc;}}}return{green,firstGreen,yearW};};
+  // Kandidater: alla prospekt-line-items (4 typer, belopp>0) med effektivt datum i året, ELLER sparad post. Nyckel = prospectId_itemId.
+  const _ppOrd={ARR:0,Fastpris:1,Utbildning:2,Consulting:3};
+  const _ppCands=()=>{const out=[];pipeProspects.forEach(p=>{(prospectRevCache[p.Id]||[]).forEach(it=>{if(!(it.Type in _ppOrd)||(it.Amount||0)<=0)return;const key=p.Id+'_'+it.Id;const e=window._ppEdits[key];const sv=_ppSavedAll[key];const effDate=(e&&e.date!=null)?e.date:(sv&&sv.date?sv.date:(it.InvoiceDate?String(it.InvoiceDate).substring(0,10):''));const d=new Date(effDate);if(!(!isNaN(d)&&d.getFullYear()===year)&&!sv)return;out.push({p,it,type:it.Type});});});out.sort((a,b)=>(_ppOrd[a.type]-_ppOrd[b.type])||String(a.p.Company||'').localeCompare(String(b.p.Company||''),'sv'));return out;};
+  const _ppStateOf=(p,it)=>{const key=p.Id+'_'+it.Id;const e=window._ppEdits[key]||{};const sv=_ppSavedAll[key];return{key,sv,dateV:e.date!=null?e.date:(sv&&sv.date?sv.date:(it.InvoiceDate?String(it.InvoiceDate).substring(0,10):'')),amtV:e.amount!=null?e.amount:(sv?String(sv.amount):String(it.Amount||0)),probV:e.prob!=null?e.prob:(sv?String(sv.prob):String(it.Probability||0)),fromV:e.dateFrom!=null?e.dateFrom:(it.DateFrom?String(it.DateFrom).substring(0,10):''),toV:e.dateTo!=null?e.dateTo:(it.DateTo?String(it.DateTo).substring(0,10):''),chk:e.checked!=null?e.checked:(sv?true:false)};};
+  // ETAPP 5 SPEGLING: delad kontroller (samma som förnyelsen). Källa = parade likviditetens pipelineurval (Source 'Pipeline (viktat)'); snapshot i pipelineSnapshot._mirror.
+  const _ppMir=await bmMakeMirror(ver,versionId,_isResP,'Pipeline (viktat)','pipelineSnapshot',{noun:'affärer',onMirror:'window._ppMirror()'});
+  const _ppMirrorOn=_ppMir.on,_ppMirrorSel=_ppMir.sel;
+  window._ppRenderBanner=()=>_ppMir.renderBanner('pp-banner');
+  window._ppMirror=()=>{_ppMir.applyMirror(window._ppEdits);window._ppRender();window._ppRenderBanner();};
+  window._ppToggleAll=(on)=>{document.querySelectorAll('#pp-body .pp-cb').forEach(cb=>cb.checked=on);window._ppRecalc();};
+  // Persist + live-omräkning: viktade skivor + summa + knapp-state (tabell). Nyckel = prospectId_itemId.
   window._ppRecalc=()=>{
-    let n=0,tot=0;
+    let n=0,tot=0,nm=0;
     document.querySelectorAll('#pp-body .pp-row').forEach(row=>{
       const cb=row.querySelector('.pp-cb');const key=cb.dataset.prospect+'_'+cb.dataset.item;
-      const dateV=row.querySelector('.pp-date').value,amtV=row.querySelector('.pp-amount').value,probV=row.querySelector('.pp-prob').value;
-      const _fromEl=row.querySelector('.pp-from'),_toEl=row.querySelector('.pp-to');
-      const _ed={date:dateV,amount:amtV,prob:probV,checked:cb.checked};if(_fromEl){_ed.dateFrom=_fromEl.value;_ed.dateTo=_toEl?_toEl.value:'';}
+      const st={dateV:row.querySelector('.pp-date')?.value||'',amtV:row.querySelector('.pp-amount')?.value||'',probV:row.querySelector('.pp-prob')?.value||'',fromV:row.querySelector('.pp-from')?.value||'',toV:row.querySelector('.pp-to')?.value||''};
+      const _ed={date:st.dateV,amount:st.amtV,prob:st.probV,checked:cb.checked};if(row.querySelector('.pp-from')){_ed.dateFrom=st.fromV;_ed.dateTo=st.toV;}
       window._ppEdits[key]=_ed;
-      const amount=_ppParse(amtV);const prob=Math.max(0,Math.min(100,_ppParse(probV)));
-      const weighted=Math.round(amount*prob/100);
-      row.querySelector('.pp-weighted').textContent=weighted.toLocaleString('sv-SE')+' kr';
-      if(currentBudgetMode==='resultat'){const fr=_fromEl?_fromEl.value:'',to=_toEl?_toEl.value:'';row.querySelector('.pp-liqmonth').textContent=(fr||to)?('Period: '+(fr||'?')+'–'+(to||'?')):'Period: –';}
-      else{const d=new Date(dateV);let liq='–';if(!isNaN(d)){const ld=new Date(d);ld.setDate(ld.getDate()+30);liq=MONTHS[ld.getMonth()];}row.querySelector('.pp-liqmonth').textContent='Likviditet: '+liq;}
-      if(cb.checked){n++;tot+=weighted;}
+      const cells=_ppSpread(_ppParse(st.amtV),Math.max(0,Math.min(100,_ppParse(st.probV))),row._ppItem,st);
+      const wEl=row.querySelector('.pp-weighted');if(wEl)wEl.textContent=Math.round(cells.yearW).toLocaleString('sv-SE')+' kr';
+      row.querySelectorAll('.pp-mcell').forEach((td,mi)=>{const gr=cells.green[mi];td.style.borderLeft=(mi===cells.firstGreen)?'2px solid #1a7a50':'';td.innerHTML=gr>0?`<div style="color:#1a7a50;font-weight:700;">${Math.round(gr).toLocaleString('sv-SE')}</div>`:'<span style="color:var(--text3);">–</span>';});
+      if(cb.checked){n++;tot+=cells.yearW;if(_ppMirrorOn&&_ppMirrorSel[key])nm++;}
     });
-    const e=document.getElementById('pp-summary');if(e)e.textContent=`${n} affärer · viktat ${Math.round(tot).toLocaleString('sv-SE')} kr`;
+    const e=document.getElementById('pp-summary');if(e)e.textContent=_ppMirrorOn?`${nm} speglade + ${n-nm} manuella · ${Math.round(tot).toLocaleString('sv-SE')} kr viktat ex moms ${year}`:`${n} affärer ikryssade · viktat ${Math.round(tot).toLocaleString('sv-SE')} kr ${_isResP?'ex moms':'inkl moms'} ${year}`;
     const btn=document.getElementById('pp-import-btn');if(btn)btn.disabled=n===0;
+    const all=document.getElementById('pp-all');if(all){const cbs=[...document.querySelectorAll('#pp-body .pp-cb')];all.checked=cbs.length>0&&cbs.every(c=>c.checked);}
   };
   window._ppRender=()=>{
-    const mi=Number(document.getElementById('pp-month').value);
-    document.getElementById('pp-month-lbl').textContent=MONTHS[mi];
-    document.getElementById('pp-import-btn').textContent='Importera till '+MONTHS[mi];
-    // Alla fyra kategorier (pipeline kan ha alla — till skillnad från förnyelser som bara har ARR/Fastpris).
-    const _tc={ARR:{bg:'#EAF3DE',color:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5'},Utbildning:{bg:'#FAEEDA',color:'#854F0B'},Consulting:{bg:'#EEEDFE',color:'#3C3489'}};
-    const _tl={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Utbildning:'Utbildning',Consulting:'Consulting'};
-    const fk=v=>Math.round(v).toLocaleString('sv-SE');
+    const cands=_ppCands();
+    const _tc={ARR:{bg:'#EAF3DE',color:'#3B6D11',lbl:'Licens (prenumeration)'},Fastpris:{bg:'#E6F1FB',color:'#185FA5',lbl:'Licens (fast pris)'},Utbildning:{bg:'#FAEEDA',color:'#854F0B',lbl:'Utbildning'},Consulting:{bg:'#EEEDFE',color:'#3C3489',lbl:'Consulting'}};
+    const fk=v=>v?Math.round(v).toLocaleString('sv-SE'):'–';
     const inp='padding:2px 5px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:var(--surface);';
-    // Sparade antaganden (variant A) → ändrings-markör per post. DB4: läses från förladdade _ppSavedAll (DB, fallback localStorage).
-    const _ppSaved=_ppSavedAll;
-    // Filter på EFFEKTIVT fakturadatum (ev. redigerat i _ppEdits) → datumändring flyttar posten mellan flikar.
-    const byType={ARR:[],Fastpris:[],Utbildning:[],Consulting:[]};
-    pipeProspects.forEach(p=>{(prospectRevCache[p.Id]||[]).forEach(it=>{
-      if(!byType[it.Type]||(it.Amount||0)<=0)return;
-      const e=window._ppEdits[p.Id+'_'+it.Id];const effDate=(e&&e.date!=null)?e.date:(it.InvoiceDate?String(it.InvoiceDate).substring(0,10):'');
-      const d=new Date(effDate);if(isNaN(d)||d.getFullYear()!==year||d.getMonth()!==mi)return;
-      byType[it.Type].push({p,it});
-    });});
-    let html='';
-    ['ARR','Fastpris','Utbildning','Consulting'].forEach(type=>{
-      const posts=byType[type];if(!posts.length)return;const tc=_tc[type];
-      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:${tc.color};background:${tc.bg};border-radius:6px;padding:4px 10px;margin-bottom:6px;display:inline-block;">${subLabel(_tl[type])}</div>`;
-      posts.forEach(({p,it})=>{const e=window._ppEdits[p.Id+'_'+it.Id]||{};
-        const sv=_ppSaved[p.Id+'_'+it.Id];
-        const dateV=e.date!=null?e.date:(sv?sv.date:(it.InvoiceDate?String(it.InvoiceDate).substring(0,10):''));
-        const amtV=e.amount!=null?e.amount:(sv?String(sv.amount):String(it.Amount||0));
-        const probV=e.prob!=null?e.prob:(sv?String(sv.prob):String(it.Probability||0));
-        const chk=e.checked!=null?e.checked:(sv?true:false);
-        const period=(it.DateFrom||it.DateTo)?`${it.DateFrom?it.DateFrom.substring(0,10):'?'} – ${it.DateTo?it.DateTo.substring(0,10):'?'}`:'';const desc=it.Description||'';
-        // C6: redigerbar avtalsperiod (styr periodiseringen) — ENDAST resultat-läge. Default = prospektets period.
-        const _ppDefFrom=it.DateFrom?String(it.DateFrom).substring(0,10):'';const _ppDefTo=it.DateTo?String(it.DateTo).substring(0,10):'';
-        const _ppFromV=e.dateFrom!=null?e.dateFrom:_ppDefFrom;const _ppToV=e.dateTo!=null?e.dateTo:_ppDefTo;
-        const _ppPeriodInputs=currentBudgetMode==='resultat'?`<div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Avtalsperiod:<input type="date" class="pp-from" value="${_ppFromV}" oninput="window._ppRecalc()" style="width:130px;${inp}"><span>–</span><input type="date" class="pp-to" value="${_ppToV}" oninput="window._ppRecalc()" style="width:130px;${inp}"></div>`:'';
-        // Ändrings-markör: ● Ny om aldrig importerad; ✎ Ändrad (klickbar → importerat vs nuvarande) om antaganden/InvoiceDate skiljer sig.
-        const curInv=it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null;
-        const curProb=it.Probability||0;const curAmount=it.Amount||0;
-        let marker='';
-        if(!sv){
-          marker=' <span style="color:#185FA5;font-size:10px;font-weight:600;">● Ny</span>';
-        } else {
-          const underlagDiff=sv.srcAmount!=null&&(Math.round(_ppParse(sv.amount))!==Math.round(_ppParse(sv.srcAmount))||Math.round(_ppParse(sv.prob))!==Math.round(_ppParse(sv.srcProb))||(sv.date||'')!==(sv.srcDate||''));
-          const kallaDiff=sv.srcAmount!=null&&(Math.round(_ppParse(sv.srcAmount))!==Math.round(curAmount)||Math.round(_ppParse(sv.srcProb))!==Math.round(curProb)||(sv.srcDate||'')!==(curInv||''));
-          let flags='';
-          if(underlagDiff)flags+=` <span onclick="window._ppShowDiff('${p.Id}_${it.Id}')" title="Budgeten avviker från källans värde vid import" style="cursor:pointer;color:#3C3489;background:#EEEDFE;border-radius:8px;padding:1px 7px;font-size:9px;font-weight:600;">⟷ Budget · underlag ändrat</span>`;
-          if(kallaDiff)flags+=` <span onclick="window._ppShowDiff('${p.Id}_${it.Id}')" title="Källan har ändrats sedan import" style="cursor:pointer;color:#854F0B;background:#FAEEDA;border-radius:8px;padding:1px 7px;font-size:9px;font-weight:600;">⚠ Källan uppdaterad</span>`;
-          marker=flags;
-        }
-        html+=`<div class="pp-row" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);${sv?'border-left:3px solid #1D9E75;':''}border-radius:8px;margin-bottom:6px;background:var(--surface);"><input type="checkbox" class="pp-cb" data-prospect="${p.Id}" data-item="${it.Id}" ${chk?'checked':''} onchange="window._ppRecalc()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.Company||('Prospekt '+p.Id)}${marker}<span style="display:inline-block;font-size:9px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--surface2);color:var(--text3);margin-left:5px;">${p.Stage}</span></div><div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc?desc+' · ':''}${period?period+' · ':''}</div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Faktura:<input type="text" class="pp-date" value="${dateV}" oninput="window._ppRecalc()" onchange="window._ppRender()" style="width:92px;${inp}">Belopp:<input type="text" class="pp-amount" value="${amtV}" oninput="window._ppRecalc()" style="width:84px;text-align:right;${inp}"></div><div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">Viktning:<input type="text" class="pp-prob" value="${probV}" oninput="window._ppRecalc()" style="width:40px;text-align:right;${inp}">%</div>${_ppPeriodInputs}${sv?`<div style="font-size:10px;color:#0F6E56;margin-top:6px;display:flex;align-items:center;gap:4px;"><span style="font-size:11px;">✓</span> Importerad av ${sv.importedBy||'okänd'}${sv.importedAt?' · '+sv.importedAt:''}</div>`:`<div style="font-size:10px;color:var(--text3);margin-top:6px;">Ej importerad · default-värden</div>`}</div><div style="text-align:right;flex:0 0 auto;"><div class="pp-weighted" style="font-size:13px;font-weight:600;">${fk(Math.round(_ppParse(amtV)*_ppParse(probV)/100))} kr</div><div class="pp-liqmonth" style="font-size:10px;color:var(--text3);">Likviditet: –</div>${sv?`<button onclick="window._ppDeletePost('${p.Id}_${it.Id}')" title="Radera importerad post" style="margin-top:5px;width:18px;height:18px;border:0.5px solid var(--border);border-radius:3px;background:none;cursor:pointer;color:var(--red);font-size:11px;line-height:1;padding:0;">×</button>`:''}</div></div>`;});
-      html+=`</div>`;});
-    document.getElementById('pp-body').innerHTML=html||`<div style="padding:30px;text-align:center;color:var(--text3);">Inga pipeline-poster i ${MONTHS[mi]}.</div>`;
+    const esc=s=>String(s||'').replace(/</g,'&lt;');
+    const thM=MONTHS.map(m=>`<th style="padding:5px 3px;font-size:9px;color:var(--text3);font-weight:600;text-align:right;">${m}</th>`).join('');
+    const _pmap={};
+    const body=cands.map(({p,it,type})=>{
+      const key=p.Id+'_'+it.Id;_pmap[key]=it;
+      const st=_ppStateOf(p,it);const cells=_ppSpread(_ppParse(st.amtV),Math.max(0,Math.min(100,_ppParse(st.probV))),it,st);const tc=_tc[type];const sv=st.sv;
+      // Ändrings-markör (samma mönster som förnyelsen): ● Ny / ⟷ underlag ändrat / ⚠ källan ändrad.
+      let marker='',_kallaAmber=false;
+      if(!sv){marker=' <span style="color:#185FA5;font-size:10px;font-weight:600;">● Ny</span>';}
+      else{const curInv=it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null;const curProb=it.Probability||0,curAmount=it.Amount||0;const underlagDiff=sv.srcAmount!=null&&(_ppR(sv.amount)!==_ppR(sv.srcAmount)||_ppR(sv.prob)!==_ppR(sv.srcProb)||(sv.date||'')!==(sv.srcDate||''));const kallaDiff=sv.srcAmount!=null&&(_ppR(sv.srcAmount)!==Math.round(curAmount)||_ppR(sv.srcProb)!==Math.round(curProb)||(sv.srcDate||'')!==(curInv||''));let flags='';if(underlagDiff)flags+=` <span onclick="event.stopPropagation();window._ppShowDiff('${key}')" title="Budgeten avviker från källans värde vid import" style="cursor:pointer;color:#3C3489;background:#EEEDFE;border-radius:8px;padding:1px 7px;font-size:9px;font-weight:600;">⟷ underlag ändrat</span>`;if(kallaDiff)flags+=` <span onclick="event.stopPropagation();window._ppShowDiff('${key}')" title="Källan har ändrats sedan import" style="cursor:pointer;color:#854F0B;background:#FAEEDA;border-radius:8px;padding:1px 7px;font-size:9px;font-weight:600;">⚠ källan ändrad</span>`;marker=flags||` <span style="color:#0F6E56;font-size:10px;">✓</span>`;_kallaAmber=kallaDiff;}
+      const _inLiq=_ppMirrorOn?!!_ppMirrorSel[key]:null;
+      const _mBadge=_ppMirrorOn?(_inLiq?` <span title="Ingår i likviditetens urval" style="color:#185FA5;background:#EAF2FB;border-radius:8px;padding:1px 7px;font-size:9px;font-weight:600;">Speglad</span>`:` <span title="Kandidat utanför likviditetens urval" style="color:#854F0B;background:#FAEEDA;border-radius:8px;padding:1px 7px;font-size:9px;font-weight:600;">Ej i likviditeten</span>`):'';
+      const _ro=_ppMirrorOn&&_inLiq;const _roAttr=_ro?' readonly title="Värden från parade likviditetsbudgeten — ändra där och spegla om"':'';const _inpRo=_ro?inp+'background:#f0f1f3;color:var(--text2);':inp;
+      const _amberRow=_kallaAmber||(_ppMirrorOn&&_inLiq===false);
+      const period=(it.DateFrom||it.DateTo)?`${it.DateFrom?String(it.DateFrom).substring(0,10):'?'} – ${it.DateTo?String(it.DateTo).substring(0,10):'?'}`:'';
+      const monthCells=MONTHS.map((m,mi)=>{const gr=cells.green[mi];return `<td class="pp-mcell" style="text-align:right;font-size:10px;padding:2px 3px;${mi===cells.firstGreen?'border-left:2px solid #1a7a50;':''}">${gr>0?`<div style="color:#1a7a50;font-weight:700;">${fk(gr)}</div>`:'<span style="color:var(--text3);">–</span>'}</td>`;}).join('');
+      const fields=`Faktura:<input type="text" class="pp-date" value="${st.dateV}" oninput="window._ppRecalc()" onchange="window._ppRender()" style="width:92px;${inp}">${_isResP?` Avtalsperiod:<input type="date" class="pp-from" value="${st.fromV}" oninput="window._ppRecalc()" style="width:124px;${inp}"><span>–</span><input type="date" class="pp-to" value="${st.toV}" oninput="window._ppRecalc()" style="width:124px;${inp}">`:''}`;
+      return `<tr class="pp-row" data-key="${key}" style="${_amberRow?'background:#fdf7ec;':''}"><td style="padding:6px 6px;text-align:center;vertical-align:top;"><input type="checkbox" class="pp-cb" data-prospect="${p.Id}" data-item="${it.Id}" ${st.chk?'checked':''} onchange="window._ppRecalc()" style="width:16px;height:16px;cursor:pointer;"></td><td style="padding:6px 8px;min-width:230px;vertical-align:top;"><div style="font-size:13px;font-weight:500;">${esc(p.Company||('Prospekt '+p.Id))}${marker}${_mBadge}<span style="display:inline-block;font-size:9px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--surface2);color:var(--text3);margin-left:5px;">${esc(p.Stage)}</span></div>${it.Description?`<div style="font-size:10px;color:var(--text3);">${esc(it.Description)}</div>`:''}<div style="margin-top:2px;"><span style="font-size:10px;font-weight:600;color:${tc.color};background:${tc.bg};border-radius:4px;padding:1px 6px;">${subLabel(tc.lbl)}</span></div>${period?`<div style="font-size:10px;color:var(--text3);margin-top:4px;">Period: ${period}</div>`:''}<div style="font-size:11px;color:var(--text3);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px;">${fields} Belopp:<input type="text" class="pp-amount" value="${st.amtV}"${_roAttr} oninput="window._ppRecalc()" style="width:82px;text-align:right;${_inpRo}"> Viktning:<input type="text" class="pp-prob" value="${st.probV}"${_roAttr} oninput="window._ppRecalc()" style="width:38px;text-align:right;${_inpRo}">%</div>${sv?`<div style="font-size:10px;color:#0F6E56;margin-top:4px;">✓ Importerad av ${esc(sv.importedBy||'okänd')}${sv.importedAt?' · '+sv.importedAt:''} <span onclick="window._ppDeletePost('${key}')" title="Radera importerad post" style="cursor:pointer;color:var(--red);margin-left:6px;">× ta bort</span></div>`:''}</td>${monthCells}<td class="pp-weighted" style="padding:6px 8px;text-align:right;font-weight:700;font-size:12px;vertical-align:top;">${fk(cells.yearW)} kr</td></tr>`;
+    }).join('');
+    const bodyEl=document.getElementById('pp-body');if(!bodyEl)return;
+    bodyEl.innerHTML=cands.length?`<table style="width:100%;border-collapse:collapse;"><thead style="position:sticky;top:0;background:var(--surface);box-shadow:0 1px 0 var(--border);z-index:1;"><tr><th style="padding:6px;text-align:center;"><input type="checkbox" id="pp-all" onchange="window._ppToggleAll(this.checked)" title="Markera alla" style="width:16px;height:16px;cursor:pointer;"></th><th style="padding:6px 8px;text-align:left;font-size:9px;color:var(--text3);font-weight:600;">Affär</th>${thM}<th style="padding:6px 8px;text-align:right;font-size:9px;color:var(--text3);font-weight:600;">Viktat</th></tr></thead><tbody>${body}</tbody></table>`:`<div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Inga pipeline-kandidater i ${year}.</div>`;
+    document.querySelectorAll('#pp-body .pp-row').forEach(row=>{row._ppItem=_pmap[row.dataset.key];});
     window._ppRecalc();
   };
   // Radera inskickad post direkt i modalen (#2/radering commit C): återanvänder deleteUnderlagPost + patchar closure + ritar om.
@@ -5743,6 +5729,7 @@ async function openImportPipelineModal(versionId,preMonth){
     if(currentBudgetMode==='resultat'){const entriesP=Object.entries(merged).map(([k,m])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));const ed=(window._ppEdits||{})[k]||{};const df=(ed.dateFrom!=null&&ed.dateFrom!=='')?ed.dateFrom:(it&&it.DateFrom?String(it.DateFrom).substring(0,10):null);const dt=(ed.dateTo!=null&&ed.dateTo!=='')?ed.dateTo:(it&&it.DateTo?String(it.DateTo).substring(0,10):null);return {amount:m.amount,prob:m.prob,dateFrom:df,dateTo:dt,type:m.type};});try{await rebuildSourceRowsPeriodized(versionId,'Pipeline (resultat)','Nyförsäljning',entriesP);}catch(e){alert('Kunde inte spara importen.');return;}}
     else try{await rebuildSourceRows(versionId,'Pipeline (viktat)',Object.values(merged));}catch(e){alert('Kunde inte spara importen.');return;}
     localStorage.setItem('pipelineImport_'+versionId,JSON.stringify(saved));
+    const _prevSnap=bmGet(versionId,'pipelineSnapshot');const _snapOut=Object.assign({},saved);if(_prevSnap&&_prevSnap._mirror)_snapOut._mirror=_prevSnap._mirror;bmSet(versionId,'pipelineSnapshot',_snapOut);   // ETAPP 5B: dubbelskriv urval till delat minne (behåll _mirror)
     // DB3: spara antagandena även i DB (delat mellan användare). Behåll localStorage tills DB5. Fel bryter ej importen.
     try{ await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:SRC,assumptions,remove:removals})}); }catch(e){ console.warn('Kunde ej spara antaganden till DB (localStorage finns kvar):',e); }
     if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
@@ -5750,9 +5737,9 @@ async function openImportPipelineModal(versionId,preMonth){
     document.getElementById('import-pipeline-overlay')?.remove();
     alert(imported+' pipeline-poster importerade.');
   };
-  // Markera vald månadsknapp (navy) + sätt dolt #pp-month + rendera.
-  window._ppPickMonth=(mi)=>{document.getElementById('pp-month').value=mi;document.querySelectorAll('#pp-month-btns button').forEach((b,j)=>{const on=j===mi;b.style.background=on?'#1E2340':'transparent';b.style.color=on?'#fff':'var(--text2)';b.style.borderColor=on?'#1E2340':'var(--border)';b.style.fontWeight=on?'600':'400';});window._ppRender();};
-  window._ppPickMonth(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
+  // ETAPP 5B: tabellmodal — ingen månadsflik. Rendera hela kandidatlistan + banner direkt.
+  window._ppRender();
+  if(window._ppRenderBanner)window._ppRenderBanner();
 }
 // ── STYRELSERAPPORT (Finansiell analys → kort "styrelse"). Allt ur likviditetsbudgeten: Budget=Primär, Utfall=Löpande. ──
 let styrelseX=null;
@@ -5982,6 +5969,29 @@ async function _bmMigrate(versionId){
   if(c.fornyelsePeriods===undefined){try{const fi=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'null');if(fi){const pm={};Object.entries(fi).forEach(([k,v])=>{if(v&&(v.dateFrom||v.dateTo))pm[k]={dateFrom:v.dateFrom||null,dateTo:v.dateTo||null};});if(Object.keys(pm).length)await bmSet(versionId,'fornyelsePeriods',pm);}}catch(e){}}
   // ETAPP 3C: årets lokala ingående saldo blir denna versions startvärde (engångs, per version).
   if(c.openingCash===undefined){try{const _v=(budgetVersions||[]).find(x=>String(x.Id)===String(versionId));const _y=_v&&_v.Year;const _ls=_y!=null?localStorage.getItem('openingCash_'+_y):null;if(_ls!=null&&_ls!=='')await bmSet(versionId,'openingCash',{value:Math.round(Number(_ls)||0)});}catch(e){}}
+  // ETAPP 5B: pipelineurval (samma mönster som avtalSnapshot) + actuals-id-set (månads-map).
+  if(c.pipelineSnapshot===undefined){try{const ls=JSON.parse(localStorage.getItem('pipelineImport_'+versionId)||'null');if(ls&&Object.keys(ls).length)await bmSet(versionId,'pipelineSnapshot',ls);}catch(e){}}
+  if(c.importedActuals===undefined){try{const m={};for(let mi=0;mi<12;mi++){const v=localStorage.getItem('importedAvtal_'+versionId+'_'+mi);if(v!=null)m[mi]=JSON.parse(v);}if(Object.keys(m).length)await bmSet(versionId,'importedActuals',m);}catch(e){}}
+}
+// ETAPP 5B: actuals-id-set per månad via BudgetMemory ('importedActuals' = {mi:[ids]}). Union-läs (DB vinner) + dubbelskriv localStorage.
+// null = aldrig importerad månad (→ förkryssa allt); [] = importerad, inget valt.
+function getImportedActualsSet(versionId,mi){const m=bmGet(versionId,'importedActuals');if(m&&m[mi]!==undefined)return Array.isArray(m[mi])?m[mi]:[];const ls=localStorage.getItem('importedAvtal_'+versionId+'_'+mi);return ls!=null?JSON.parse(ls):null;}
+function setImportedActualsMonth(versionId,mi,ids){localStorage.setItem('importedAvtal_'+versionId+'_'+mi,JSON.stringify(ids));const m=Object.assign({},bmGet(versionId,'importedActuals')||{});m[mi]=ids;bmSet(versionId,'importedActuals',m);}
+// ETAPP 4/5: delad spegling-kontroller. Läser parade budgetens urval för given Source; hanterar banner/spegla/drift.
+// memoryKey = där _mirror-snapshoten bor (fornyelsePeriods resp. pipelineSnapshot). opts:{noun,onMirror}.
+async function bmMakeMirror(ver,versionId,isRes,sourceLabel,memoryKey,opts){
+  const on=isRes&&ver&&ver.PairedVersionId!=null;
+  const ctl={on,sel:{},snap:null};
+  if(on){
+    try{if(_bmCache[ver.PairedVersionId]===undefined)await bmLoad(ver.PairedVersionId);}catch(e){}
+    try{const pr=await apiFetch(`${API}/budget-versions/${ver.PairedVersionId}/import-assumptions`);if(pr.ok){const parr=await pr.json();if(Array.isArray(parr))parr.filter(x=>x.Source===sourceLabel).forEach(x=>{ctl.sel[x.ItemKey]={amount:x.Amount,prob:x.Prob};});}}catch(e){}
+    const mem=bmGet(versionId,memoryKey);ctl.snap=(mem&&mem._mirror)?mem._mirror:null;
+  }
+  const R=x=>Math.round(Number(String(x).replace(/[^0-9.\-]/g,''))||0);
+  ctl.drift=()=>{if(!ctl.snap)return false;const cur=Object.keys(ctl.sel).sort();const snap=(ctl.snap.ids||[]).slice().sort();if(cur.length!==snap.length||cur.some((k,i)=>k!==snap[i]))return true;return cur.some(k=>{const s=(ctl.snap.vals||{})[k]||{};const c=ctl.sel[k];return R(c.amount)!==R(s.amount)||R(c.prob)!==R(s.prob);});};
+  ctl.renderBanner=(elId)=>{const be=document.getElementById(elId);if(!be)return;const n=ctl.on?Object.keys(ctl.sel).length:0;if(!ctl.on||!n){be.innerHTML='';return;}const drift=ctl.drift();be.innerHTML=`<div style="margin:12px 0 0;padding:10px 14px;background:#EAF2FB;border:1px solid #B9D4F0;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div style="font-size:12px;color:#185FA5;">Parad likviditetsbudget har <b>${n}</b> ${opts.noun} importerade.${drift?'<div style="color:#854F0B;font-size:11px;margin-top:3px;">⚠ Likviditetens urval har ändrats sedan speglingen</div>':''}</div><button onclick="${opts.onMirror}" style="padding:6px 14px;border:none;border-radius:8px;background:#2478CC;color:#fff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;">${drift?'Spegla om':'Spegla urvalet'}</button></div>`;};
+  ctl.applyMirror=(editsRef)=>{Object.entries(ctl.sel).forEach(([key,liq])=>{const prev=editsRef[key]||{};editsRef[key]=Object.assign({},prev,{checked:true,amount:String(liq.amount),prob:String(liq.prob)});});const mem=Object.assign({},bmGet(versionId,memoryKey)||{});mem._mirror={ids:Object.keys(ctl.sel),vals:Object.fromEntries(Object.entries(ctl.sel).map(([k,v])=>[k,{amount:R(v.amount),prob:R(v.prob)}])),at:new Date().toISOString().substring(0,10)};bmSet(versionId,memoryKey,mem);ctl.snap=mem._mirror;};
+  return ctl;
 }
 async function loadBudgetVersion(){
   const sel=document.getElementById('budget-version-select');
@@ -6341,7 +6351,7 @@ async function renderRevUnderlag(){
   const TL={ARR:'Licens (pren.)',Fastpris:'Licens (fast)',Utbildning:'Utbildning',Consulting:'Consulting'};
   // AVTAL — importerade custRevCache-poster (id i någon importedAvtal_<ver>_<mi>).
   const impIds=new Set();
-  for(let mi=0;mi<12;mi++){try{JSON.parse(localStorage.getItem('importedAvtal_'+currentBudgetVersionId+'_'+mi)||'[]').forEach(id=>impIds.add(String(id)));}catch(e){}}
+  for(let mi=0;mi<12;mi++){try{(getImportedActualsSet(currentBudgetVersionId,mi)||[]).forEach(id=>impIds.add(String(id)));}catch(e){}}
   const avtalPosts=[];
   Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!impIds.has(String(it.Id)))return;const cf=kaCashflowDate(it);avtalPosts.push({custId:cid,name:custName(cid),desc:it.Description||'',type:it.Type,faktura:it.InvoiceDate?String(it.InvoiceDate).substring(0,10):'–',liq:cf?cf.toISOString().substring(0,10):'–',amount:it.Amount||0,vat:(it.VatRate!=null?it.VatRate:25)});});});
   const avtalSum=avtalPosts.reduce((s,p)=>s+p.amount,0);
@@ -6560,7 +6570,7 @@ function renderBudgetTable(){
   // Avvikelseflagga: live NET30-avtal per typ/månad som EJ finns i importerade ID-set (localStorage). (a) nya avtal; (b) ändrat belopp kräver sparade belopp → senare.
   const SUB_TO_TYPE={'Licens (prenumeration)':'ARR','Licens (fast pris)':'Fastpris','Utbildning':'Utbildning','Consulting':'Consulting'};
   const _bvId=currentBudgetVersionId,_bvYr=Number((budgetVersions.find(v=>String(v.Id)===String(_bvId))||{}).Year)||new Date().getFullYear();
-  const _impSets={};for(let _mi=0;_mi<12;_mi++)_impSets[_mi]=new Set(JSON.parse(localStorage.getItem('importedAvtal_'+_bvId+'_'+_mi)||'[]').map(String));
+  const _impSets={};for(let _mi=0;_mi<12;_mi++)_impSets[_mi]=new Set((getImportedActualsSet(_bvId,_mi)||[]).map(String));
   const _devCount={ARR:Array(12).fill(0),Fastpris:Array(12).fill(0),Utbildning:Array(12).fill(0),Consulting:Array(12).fill(0)};
   // FIX D: _budgetRevPrefetchTried sätts OVILLKORLIGT före prefetch → max ett försök/page-session
   // oavsett utfall → ingen re-render-loop om allCustomers är tom/API failar. Re-render bara på .then.
