@@ -1015,9 +1015,9 @@
         <span style="font-size:11px;color:var(--text3);">Importera:</span>
         <button class="quick-btn" onclick="openImportActualsModal(currentBudgetVersionId)" id="btn-import-actuals" style="display:none;">⇪ Actuals/mån</button>
         <button class="quick-btn" onclick="openImportFornyelseModal(currentBudgetVersionId)" id="btn-import-fornyelse" style="display:none;">⟳ Förnyelser/mån</button>
-        <button class="quick-btn" onclick="openImportPipelineModal(currentBudgetVersionId)" id="btn-import-pipeline-mod" style="display:none;">⇆ Pipeline/mån</button>
-        <button class="quick-btn" onclick="openExcelImportModal()" id="btn-import-excel" title="Importera resultatbudget från ekonomens Excel-prognos">⊞ Excel import</button>
-        <button class="quick-btn" onclick="openExcelExportModal()" id="btn-export-excel" title="Exportera budgeten i ekonomens radstruktur (.xlsx)">⬇ Excel export</button>
+        <button class="quick-btn" onclick="openImportPipelineModal(currentBudgetVersionId)" id="btn-import-pipeline-mod" style="display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg> Pipeline/mån</button>
+        <button class="quick-btn" onclick="openExcelImportModal()" id="btn-import-excel" title="Importera resultatbudget från ekonomens Excel-prognos">⇩ Excel import</button>
+        <button class="quick-btn" onclick="openExcelExportModal()" id="btn-export-excel" title="Exportera budgeten i ekonomens radstruktur (.xlsx)">⇪ Excel export</button>
       </div>
       <span id="budget-autosave-hint" style="margin-left:auto;font-size:11px;color:var(--text3);">Autospar på</span>
     </div>
@@ -6514,7 +6514,7 @@ async function loadBudgetVersion(){
   // C4: visa de tre import-knapparna i BÅDA lägen. Avtals-knappen grenar — resultat=bulk periodiserad
   // (importAllAvtalResultat), likviditet=per-månads kassaflöde (openImportActualsModal). Förnyelse/Pipe
   // öppnar samma modaler i båda lägen (modalerna grenar internt via C3).
-  const iaBtn=document.getElementById('btn-import-actuals');if(iaBtn){iaBtn.style.display='flex';iaBtn.onclick=currentBudgetMode==='resultat'?()=>importAllAvtalResultat(currentBudgetVersionId):()=>openImportActualsModal(currentBudgetVersionId);iaBtn.textContent=currentBudgetMode==='resultat'?'⇪ Avtal (välj)':'⇪ Actuals/mån';}
+  const iaBtn=document.getElementById('btn-import-actuals');if(iaBtn){iaBtn.style.display='flex';iaBtn.onclick=currentBudgetMode==='resultat'?()=>importAllAvtalResultat(currentBudgetVersionId):()=>openImportActualsModal(currentBudgetVersionId);const _avtalSvg='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>';iaBtn.innerHTML=currentBudgetMode==='resultat'?_avtalSvg+' Avtal (välj)':'⇪ Actuals/mån';}
   const frBtn=document.getElementById('btn-import-fornyelse');if(frBtn)frBtn.style.display='flex';
   const ppBtn=document.getElementById('btn-import-pipeline-mod');if(ppBtn)ppBtn.style.display='flex';
   await loadBudgetLocks(currentBudgetVersionId);
@@ -7331,7 +7331,7 @@ async function openExcelExportModal(){
   const esc=s=>String(s||'').replace(/</g,'&lt;');
   const _info=(v,lbl)=>v?`${lbl}: <b>${esc(v.Name)}</b> (${v.Year}) · #${v.Id}`:`${lbl}: <span style="color:var(--text3);">saknas i paret</span>`;
   ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:470px;max-width:94vw;box-shadow:var(--shadow-md);padding:20px 22px;">
-    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">⬇ Excel export — Sune-format</h3>
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">⇪ Excel export — Sune-format</h3>
     <div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:12px;">${_info(pair.res,'Resultat')}<br>${_info(pair.lik,'Likviditet')}</div>
     <div id="excel-export-preview" style="font-size:12px;color:var(--text2);margin-bottom:16px;">${pair.res?'Förhandsberäknar…':'&nbsp;'}</div>
     <div style="display:flex;gap:8px;justify-content:flex-end;"><button onclick="document.getElementById('excel-export-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="excel-export-btn" class="btn-primary" onclick="runExcelExport()" style="padding:8px 16px;">Exportera</button></div>
