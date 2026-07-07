@@ -7329,8 +7329,20 @@ async function runExcelExport(){
     const fetchRows=async v=>{if(!v)return[];try{const r=await apiFetch(`${API}/budget-versions/${v.Id}/rows`);const a=await r.json();return Array.isArray(a)?a:[];}catch(e){return[];}};
     const wb=XLSX.utils.book_new();
     const _year=(pair.res&&pair.res.Year)||(pair.lik&&pair.lik.Year)||new Date().getFullYear();
-    if(pair.res){const rr=await fetchRows(pair.res);XLSX.utils.book_append_sheet(wb,_excelStyleSheet(_excelResultAoa(rr,pair.res),14),'Resultat');}
-    if(pair.lik&&typeof _excelLikAoa==='function'){try{if(_bmCache[pair.lik.Id]===undefined)await bmLoad(pair.lik.Id);}catch(e){}const lr=await fetchRows(pair.lik);XLSX.utils.book_append_sheet(wb,_excelStyleSheet(_excelLikAoa(lr,pair.lik),14),'Likviditet');}
+    if(pair.lik){try{if(_bmCache[pair.lik.Id]===undefined)await bmLoad(pair.lik.Id);}catch(e){}}
+    const rr=pair.res?await fetchRows(pair.res):[];
+    const lr=pair.lik?await fetchRows(pair.lik):[];
+    if(pair.res)XLSX.utils.book_append_sheet(wb,_excelStyleSheet(_excelResultAoa(rr,pair.res),14),'Resultat');
+    if(pair.lik&&typeof _excelLikAoa==='function')XLSX.utils.book_append_sheet(wb,_excelStyleSheet(_excelLikAoa(lr,pair.lik),14),'Likviditet');
+    // Underlag-flik: en rad per post + kontrollnotis mot flik 1/2. Behöver import-assumptions (resultatversionen) + custRevCache/prospectRevCache.
+    if(typeof _excelUnderlagAoa==='function'&&(pair.res||pair.lik)){
+      const uv=pair.res||pair.lik,uyear=Number(uv.Year)||new Date().getFullYear();
+      if(!Object.keys(custRevCache||{}).length){try{if(typeof prefetchAllCustomerRevenues==='function')await prefetchAllCustomerRevenues();}catch(e){}}
+      let assumps=[];const av=pair.res||pair.lik;try{const r=await apiFetch(`${API}/budget-versions/${av.Id}/import-assumptions`);const a=await r.json();if(Array.isArray(a))assumps=a;}catch(e){}
+      const pids=[...new Set(assumps.filter(a=>a.Source==='Pipeline (resultat)').map(a=>String(a.ItemKey||'').split('_')[0]))];
+      await Promise.all(pids.map(pid=>(prospectRevCache[pid]||typeof loadProspectRevenues!=='function')?Promise.resolve():loadProspectRevenues(pid).then(items=>{prospectRevCache[pid]=Array.isArray(items)?items:[];}).catch(()=>{prospectRevCache[pid]=[];})));
+      XLSX.utils.book_append_sheet(wb,_excelStyleSheet(_excelUnderlagAoa(assumps,rr,lr,uv,uyear),12),'Underlag');
+    }
     if(!wb.SheetNames.length){alert('Inget att exportera.');if(btn){btn.textContent='Exportera';btn.disabled=false;}return;}
     const today=new Date().toISOString().substring(0,10);
     const fname=`Sune_export_${_year}_${today}.xlsx`;
@@ -7355,7 +7367,7 @@ function _excelStyleSheet(built,ncols){
     for(let c=0;c<ncols;c++){
       const addr=XLSX.utils.encode_cell({r:r,c:c});
       let cell=ws[addr];
-      if(!cell){ if(role==='header'||role==='section'){cell=ws[addr]={t:'s',v:''};} else continue; }
+      if(!cell){ if(role==='header'||role==='section'||role==='note'){cell=ws[addr]={t:'s',v:''};} else continue; }
       const isNum=(c>=1&&typeof row[c]==='number');
       if(isNum&&role==='pct')cell.z='0.0%';
       else if(isNum)cell.z=NUMZ;
@@ -7366,9 +7378,10 @@ function _excelStyleSheet(built,ncols){
       else if(role==='sum')s={font:{bold:true},border:{top:{style:'thin',color:{rgb:'000000'}}}};
       else if(role==='sumStrong')s={font:{bold:true},border:{top:{style:'double',color:{rgb:'000000'}}}};
       else if(role==='pct')s={font:{bold:true}};
+      else if(role==='note')s={font:{italic:true,sz:10,color:{rgb:'854F0B'}}};
       if(s)cell.s=Object.assign({},cell.s,s);
     }
-    if(role==='title'||role==='section')merges.push({s:{r:r,c:0},e:{r:r,c:ncols-1}});
+    if(role==='title'||role==='section'||role==='note')merges.push({s:{r:r,c:0},e:{r:r,c:ncols-1}});
   }
   ws['!merges']=(ws['!merges']||[]).concat(merges);
   return ws;
@@ -7483,6 +7496,56 @@ function _excelLikAoa(rows,ver){
   P('sum',R('Månadens netto',cf.net));
   P('sum',R('Ingående saldo',cf.ingaende));
   P('sumStrong',R('Utgående saldo',cf.closing));
+  return {aoa,roles};
+}
+
+// Underlagsflik — en rad per post (Källa/Kund/Beskrivning/Typ/Avtalsperiod/Fakturadatum/Likviditetsdatum/Viktning/ex+inkl moms/Periodiserat i år/Cash in i år).
+// Samma beräkningsfunktioner som underlagspanelen (renderRevUnderlagResultat): overlaps, spreadPeriodAcrossMonths, frDeriv. Poster ur RESULTATversionens
+// import-assumptions (Förnyelse (resultat)/Pipeline (resultat)) + custRevCache (avtal). Kontrollnotis: Periodiserat vs flik 1, Cash in vs flik 2.
+function _excelUnderlagAoa(assumptions,resRows,likRows,ver,year){
+  const M=MONTHS;
+  const custName=cid=>{const c=(allCustomers||[]).find(x=>String(x.Id)===String(cid));return c?(c.Company||('Kund '+cid)):('Kund '+cid);};
+  const prospName=pid=>{const p=(allProspects||[]).find(x=>String(x.Id)===String(pid));return p?(p.Company||('Prospekt '+pid)):('Prospekt '+pid);};
+  const latestOfType=(cid,t)=>{const items=custRevCache[cid]||[];const r=items.filter(i=>i.Type===t&&i.DateTo);return r.length?r.reduce((a,b)=>new Date(b.DateTo)>new Date(a.DateTo)?b:a):null;};
+  const TL={ARR:'Licens (pren.)',Fastpris:'Licens (fast)',Utbildning:'Utbildning',Consulting:'Consulting'};
+  const yStart=new Date(year,0,1),yEnd=new Date(year,11,31);
+  const overlaps=(from,to)=>{const f=from?new Date(from):null,t=to?new Date(to):null;if(!f||!t)return false;return f<=yEnd&&t>=yStart;};
+  const yperiod=(w,from,to)=>spreadPeriodAcrossMonths(w,from,to,year).reduce((a,b)=>a+b,0);
+  const pStr=(from,to)=>(from||to)?`${from?String(from).substring(0,10):'?'} – ${to?String(to).substring(0,10):'?'}`:'–';
+  const frDeriv=(cid,type,ref)=>{let o=ref||null;if(!o){const lp=latestOfType(cid,type);o=lp&&lp.DateTo?String(lp.DateTo).substring(0,10):null;}if(!o)return{from:null,to:null};const s=new Date(o);s.setDate(s.getDate()+1);const from=s.toISOString().substring(0,10);const e2=new Date(s);e2.setFullYear(e2.getFullYear()+1);e2.setDate(e2.getDate()-1);return{from,to:e2.toISOString().substring(0,10)};};
+  const cash30=dstr=>{if(!dstr)return null;const d=new Date(dstr);if(isNaN(d))return null;const ld=new Date(d);ld.setDate(ld.getDate()+30);return ld.getFullYear()===year?ld:null;};
+  const vat=v=>v!=null?v:25;
+  const posts=[];
+  Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!REV_CAT_TO_SUB[it.Type]||!(it.Amount>0))return;const from=it.DateFrom?String(it.DateFrom).substring(0,10):null,to=it.DateTo?String(it.DateTo).substring(0,10):null;if(!overlaps(from,to))return;const vr=vat(it.VatRate);const cd=(typeof kaCashflowDate==='function')?kaCashflowDate(it):null;const inYr=cd&&cd.getFullYear()===year;posts.push({srcKey:'avtal',kalla:'Avtal',kund:custName(cid),desc:it.Description||'',typ:it.Type,period:pStr(from,to),faktura:it.InvoiceDate?String(it.InvoiceDate).substring(0,10):(to||'–'),likvid:cd?cd.toISOString().substring(0,10):'–',prob:100,exm:Math.round(it.Amount||0),inkm:Math.round((it.Amount||0)*(1+vr/100)),periodiserat:Math.round(yperiod(Math.round(it.Amount||0),from,to)),cashin:inYr?Math.round((it.Amount||0)*(1+vr/100)):0});});});
+  assumptions.filter(a=>a.Source==='Förnyelse (resultat)').forEach(a=>{const cid=String(a.ItemKey||'').split('_')[0];const amt=a.Amount||0,prob=a.Prob||0,vr=vat(a.VatRate);const ed=(window._frEdits||{})[a.ItemKey]||{};let from=ed.dateFrom||null,to=ed.dateTo||null;if(!from||!to){const d=frDeriv(cid,a.Type,a.RefDate?String(a.RefDate).substring(0,10):null);from=from||d.from;to=to||d.to;}const lp=latestOfType(cid,a.Type);const fak=a.AssumeDate?String(a.AssumeDate).substring(0,10):'';const cm=cash30(fak),w=Math.round(amt*prob/100);posts.push({srcKey:'forn',kalla:'Förnyelse',kund:custName(cid),desc:(lp&&lp.Description)||'',typ:a.Type||'',period:pStr(from,to),faktura:fak||'–',likvid:cm?cm.toISOString().substring(0,10):'–',prob:Math.round(prob),exm:Math.round(amt),inkm:Math.round(amt*(1+vr/100)),periodiserat:Math.round(yperiod(w,from,to)),cashin:cm?Math.round(w*(1+vr/100)):0});});
+  assumptions.filter(a=>a.Source==='Pipeline (resultat)').forEach(a=>{const us=String(a.ItemKey||'').split('_');const pid=us[0],itemId=us[1];const amt=a.Amount||0,prob=a.Prob||0,vr=vat(a.VatRate);const pit=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));const ed=(window._ppEdits||{})[a.ItemKey]||{};const from=ed.dateFrom||(pit&&pit.DateFrom?String(pit.DateFrom).substring(0,10):null),to=ed.dateTo||(pit&&pit.DateTo?String(pit.DateTo).substring(0,10):null);const fak=a.AssumeDate?String(a.AssumeDate).substring(0,10):'';const cm=cash30(fak),w=Math.round(amt*prob/100);posts.push({srcKey:'pipe',kalla:'Pipeline',kund:prospName(pid),desc:(pit&&pit.Description)||'',typ:a.Type||'',period:pStr(from,to),faktura:fak||'–',likvid:cm?cm.toISOString().substring(0,10):'–',prob:Math.round(prob),exm:Math.round(amt),inkm:Math.round(amt*(1+vr/100)),periodiserat:Math.round(yperiod(w,from,to)),cashin:cm?Math.round(w*(1+vr/100)):0});});
+  const rowSum=(rows,srcTag,cats)=>(rows||[]).filter(r=>(r.Source||'')===srcTag&&cats.includes(r.Category)).reduce((s,r)=>s+M.reduce((a,m)=>a+(Number(r[m])||0),0),0);
+  const f1={avtal:Math.round(rowSum(resRows,'Avtal (resultat)',['Periodiserade intäkter'])),forn:Math.round(rowSum(resRows,'Förnyelse (resultat)',['Nyförsäljning'])),pipe:Math.round(rowSum(resRows,'Pipeline (resultat)',['Nyförsäljning']))};
+  const likCash=pred=>M.reduce((a,mn)=>a+(likRows||[]).filter(r=>r.Category==='Revenue'&&pred(r)).reduce((s,r)=>s+(Number(r[mn])||0),0),0);
+  const f2={avtal:Math.round(likCash(r=>String(r.Source||'').startsWith('Avtal ('))),forn:Math.round(likCash(r=>String(r.Source||'')==='Förnyelse')),pipe:Math.round(likCash(r=>String(r.Source||'')==='Pipeline (viktat)'))};
+  const HDR=['Källa','Kund','Beskrivning','Typ','Avtalsperiod','Fakturadatum','Likviditetsdatum','Viktning','Värde ex moms','Värde inkl moms','Periodiserat i år','Cash in i år'];
+  const NC=HDR.length;
+  const aoa=[],roles=[];
+  const P=(role,arr)=>{aoa.push(arr);roles.push(role);};
+  const BLANK=Array(NC).fill('');
+  const SEC=lbl=>[lbl,...Array(NC-1).fill('')];
+  const prow=p=>[p.kalla,p.kund,p.desc,TL[p.typ]||p.typ,p.period,p.faktura,p.likvid,p.prob+' %',p.exm,p.inkm,p.periodiserat,p.cashin];
+  const nk=v=>Math.round(v||0).toLocaleString('sv-SE');
+  P('title',[`Sune export — Underlag: ${ver.Name} (${ver.Year}) · ${new Date().toISOString().substring(0,10)}`]);
+  P('blank',BLANK);
+  P('header',HDR);
+  [['avtal','AVTAL (befintliga kunder · periodiserat)'],['forn','FÖRNYELSE'],['pipe','PIPELINE']].forEach(g=>{
+    const key=g[0],label=g[1];const gp=posts.filter(p=>p.srcKey===key);
+    P('section',SEC(label));
+    if(gp.length)gp.forEach(p=>P('data',prow(p)));else P('data',['','(inga poster)','','','','','','','','','','']);
+    const sEx=gp.reduce((a,p)=>a+p.exm,0),sInk=gp.reduce((a,p)=>a+p.inkm,0),sPer=gp.reduce((a,p)=>a+p.periodiserat,0),sCash=gp.reduce((a,p)=>a+p.cashin,0);
+    P('sum',['Delsumma ('+gp.length+' poster)','','','','','','','',sEx,sInk,sPer,sCash]);
+    const dPer=sPer-f1[key],dCash=sCash-f2[key];
+    P('note',['Kontroll · Periodiserat vs flik 1: '+nk(f1[key])+(dPer===0?' ✓':' ⚠ Δ '+nk(dPer))+'   |   Cash in vs flik 2: '+nk(f2[key])+(dCash===0?' ✓':' ⚠ Δ '+nk(dCash)),'','','','','','','','','','','']);
+    P('blank',BLANK);
+  });
+  const tEx=posts.reduce((a,p)=>a+p.exm,0),tInk=posts.reduce((a,p)=>a+p.inkm,0),tPer=posts.reduce((a,p)=>a+p.periodiserat,0),tCash=posts.reduce((a,p)=>a+p.cashin,0);
+  P('sumStrong',['TOTALT ('+posts.length+' poster)','','','','','','','',tEx,tInk,tPer,tCash]);
   return {aoa,roles};
 }
 
