@@ -1479,6 +1479,13 @@ let editingDormantId=null;
 function daysLeft(d){if(!d)return null;return Math.round((new Date(d)-new Date())/86400000);}
 function formatDate(d){return d?new Date(d).toLocaleDateString('sv-SE'):'-';}
 function fmtKr(v){if(!v&&v!==0)return'-';return Math.round(v).toLocaleString('sv-SE')+' kr';}
+// Budget-inputs: tusentalsavstånd i vila (ASCII-space, matchar intäktssidans fmtK-visning), rått vid fokus.
+// budgetFmt/budgetParse är varandras invers (ASCII-space + ASCII-minus) → säker round-trip i saveBudget.
+function budgetFmt(v){v=Math.round(Number(v)||0);const neg=v<0;const s=String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');return (neg?'-':'')+s;}
+function budgetParse(s){return parseInt(String(s).replace(/[^\d-]/g,''),10)||0;}
+// Delegerade fokus/blur-hanterare (kopplas en gång på #budget-content): rå siffra vid fokus, formaterad vid blur.
+function budgetFocusHandler(e){const t=e.target;if(!t||!t.classList||!t.classList.contains('budget-input'))return;const raw=budgetParse(t.value);t.value=raw?String(raw):'';}
+function budgetBlurHandler(e){const t=e.target;if(!t||!t.classList||!t.classList.contains('budget-input'))return;const raw=budgetParse(t.value);t.value=raw?budgetFmt(raw):'';}
 // ─── KPI-FÖRKLARINGAR ────────────────────────────────────
 // Info-ikon (i) på alla KPI-kort; klick visar hur värdet beräknas.
 const KPI_INFO={
@@ -6347,7 +6354,7 @@ async function renderStyrelse(){
 async function loadBudgetVersions(){
   // Attach the delegated budget-row autosave once (the #budget-content element
   // persists across renders, so a single delegated listener survives).
-  if(!window._budgetAutoSaveAttached){const bc=document.getElementById('budget-content');if(bc){bc.addEventListener('input',budgetAutoSaveHandler);window._budgetAutoSaveAttached=true;}}
+  if(!window._budgetAutoSaveAttached){const bc=document.getElementById('budget-content');if(bc){bc.addEventListener('input',budgetAutoSaveHandler);bc.addEventListener('focusin',budgetFocusHandler);bc.addEventListener('focusout',budgetBlurHandler);window._budgetAutoSaveAttached=true;}}
   try{
     const r=await apiFetch(`${API}/budget-versions`);
     budgetVersions=await r.json();
@@ -6539,7 +6546,7 @@ function renderResultatBudgetTable(){
   const rowMonthly=(cat,sub)=>MONTHS.map((_,mi)=>getVal(cat,sub,mi)); // manual only (row's egen total)
   const sumRowsMonthly=(rows)=>MONTHS.map((_,mi)=>rows.reduce((s,r)=>s+leafVal(r.cat,r.sub,mi),0)); // manual + importerat
   const dotHtml=(sub,mi)=>{sub=sub||'';const key=`${sub}__${MONTHS[mi]}`;const has=!!budgetNotes[key];const t=has?budgetNotes[key].replace(/"/g,'&quot;').replace(/'/g,'&#39;'):'';return `<span class="ndot ${has?'nfilled':'nempty'}" data-key="${key}" data-sub="${sub.replace(/"/g,'&quot;')}" data-mi="${mi}" onclick="openNotePopup(this)" title="${t}"></span>`;};
-  const inputCell=(cat,sub,mi)=>{const val=getVal(cat,sub,mi);return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;position:relative;"><input class="budget-input" type="number" data-cat="${cat}" data-sub="${sub}" data-month="${MONTHS[mi]}" value="${val||''}" placeholder="0" oninput="updateBudgetTotals()">${dotHtml(sub,mi)}</div></td>`;};
+  const inputCell=(cat,sub,mi)=>{const val=getVal(cat,sub,mi);return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;position:relative;"><input class="budget-input" type="text" inputmode="numeric" data-cat="${cat}" data-sub="${sub}" data-month="${MONTHS[mi]}" value="${val?budgetFmt(val):''}" placeholder="0" oninput="updateBudgetTotals()">${dotHtml(sub,mi)}</div></td>`;};
   const headerRow=(label,bg,color)=>`<tr><td colspan="${MONTHS.length+2}" style="background:${bg};color:${color||'white'};font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">${label}</td></tr>`;
   const inputRow=(cat,sub,pad,bg,bsec,bgrp)=>`<tr${bsec?` data-bsec="${bsec}" data-bgrp="${(bgrp||'').replace(/"/g,'&quot;')}"`:''} style="background:${bg||'transparent'};"><td style="padding-left:${pad||24}px;font-size:12px;">${sub}</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(cat,sub)))}</td></tr>`;
   const calcRow=(label,monthly,total,bg,strong)=>`<tr style="background:${bg||'var(--surface2)'};"><td style="font-weight:${strong?700:600};padding-left:10px;${strong?'color:white;':''}">${label}</td>${monthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:${strong?700:600};${strong?(v>=0?'color:#6fcf97;':'color:#ff9b9b;'):''}">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;border-left:1px solid var(--border);${strong?(total>=0?'color:#6fcf97;':'color:#ff9b9b;'):''}">${fmtK(total)}</td></tr>`;
@@ -6551,7 +6558,7 @@ function renderResultatBudgetTable(){
     const imp=ir.ImportedAt?String(ir.ImportedAt).substring(0,10):'';
     const srcEsc=String(ir.Source||'').replace(/"/g,'&quot;');
     const srcLabel=ir.Source&&ir.Source.startsWith('Avtal (')?'Avtal':ir.Source;
-    const cells=MONTHS.map(m=>`<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;"><input class="budget-input" type="number" data-cat="${cat}" data-sub="${sub}" data-source="${srcEsc}" data-month="${m}" value="${(ir[m]||0)||''}" placeholder="0" oninput="updateBudgetTotals()"></div></td>`).join('');
+    const cells=MONTHS.map(m=>`<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;"><input class="budget-input" type="text" inputmode="numeric" data-cat="${cat}" data-sub="${sub}" data-source="${srcEsc}" data-month="${m}" value="${ir[m]?budgetFmt(ir[m]):''}" placeholder="0" oninput="updateBudgetTotals()"></div></td>`).join('');
     return `<tr style="background:#fef7f1;"><td style="padding-left:40px;font-size:11px;"><div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;"><div style="color:var(--text2);">${sub}</div><div style="font-size:9px;color:var(--text3);font-style:italic;">${srcLabel}${imp?` · ${imp}`:''}</div></div><button onclick="deleteImportedBudgetRow('${cat.replace(/'/g,"\\'")}','${sub.replace(/'/g,"\\'")}','${srcEsc.replace(/'/g,"\\'")}')" title="Ta bort importerad rad" style="width:18px;height:18px;border:0.5px solid var(--border);border-radius:3px;background:none;cursor:pointer;color:var(--red);font-size:11px;line-height:1;padding:0;">×</button></div></td>${cells}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);font-size:11px;color:var(--text2);">${total?Math.round(total/1000)+'k':'-'}</td></tr>`;
   }).join('');
 
@@ -6938,7 +6945,7 @@ function renderBudgetTable(){
   const inputCell=(category,sub,mi)=>{
     const val=getVal(category,sub,mi);
     return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;position:relative;">
-      <input class="budget-input" type="number" data-cat="${category}" data-sub="${sub}" data-month="${MONTHS[mi]}" value="${val||''}" placeholder="0" title="Ange belopp inkl moms" oninput="updateBudgetTotals()">
+      <input class="budget-input" type="text" inputmode="numeric" data-cat="${category}" data-sub="${sub}" data-month="${MONTHS[mi]}" value="${val?budgetFmt(val):''}" placeholder="0" title="Ange belopp inkl moms" oninput="updateBudgetTotals()">
       ${dotHtml(category,sub,mi)}
     </div></td>`;
   };
@@ -6957,7 +6964,7 @@ function renderBudgetTable(){
     const val=getImportedVal(ir,mi);
     const srcEsc=String(ir.Source||'').replace(/"/g,'&quot;');
     return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;">
-      <input class="budget-input" type="number" data-cat="${ir.Category}" data-sub="${ir.SubCategory}" data-source="${srcEsc}" data-month="${MONTHS[mi]}" value="${val||''}" placeholder="0" oninput="updateBudgetTotals()">
+      <input class="budget-input" type="text" inputmode="numeric" data-cat="${ir.Category}" data-sub="${ir.SubCategory}" data-source="${srcEsc}" data-month="${MONTHS[mi]}" value="${val?budgetFmt(val):''}" placeholder="0" oninput="updateBudgetTotals()">
     </div></td>`;
   };
   const importedRowHtml=(ir,bg,totalBg)=>{
@@ -7053,7 +7060,7 @@ function renderBudgetTable(){
   const levMap={};
   (budgetRows||[]).filter(r=>(r.Source||'')==='Leverantör'&&r.Category==='Leverantör').forEach(r=>{levMap[r.SubCategory]=r;});
   const levGetVal=(sub,mi)=>{const s=levMap[sub]||{};return Number(s[MONTHS[mi]])||0;};
-  const levInputCell=(sub,mi)=>{const val=levGetVal(sub,mi);return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;"><input class="budget-input" type="number" data-cat="Leverantör" data-sub="${String(sub).replace(/"/g,'&quot;')}" data-month="${MONTHS[mi]}" data-source="Leverantör" value="${val||''}" placeholder="0" oninput="updateBudgetTotals()"></div></td>`;};
+  const levInputCell=(sub,mi)=>{const val=levGetVal(sub,mi);return `<td style="padding:2px 3px;"><div style="display:flex;align-items:center;justify-content:flex-end;gap:2px;"><input class="budget-input" type="text" inputmode="numeric" data-cat="Leverantör" data-sub="${String(sub).replace(/"/g,'&quot;')}" data-month="${MONTHS[mi]}" data-source="Leverantör" value="${val?budgetFmt(val):''}" placeholder="0" oninput="updateBudgetTotals()"></div></td>`;};
   const levRowMonthly=sub=>MONTHS.map((_,mi)=>levGetVal(sub,mi));
   html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('lev_fast')" style="background:var(--surface2);font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer;"><span class="bchev" data-bsec-toggle="lev_fast">▾</span> Leverantörer (fast lista)</td></tr>`;
   // STEG 3: gruppvis rendering (Excel-ordning) med delsumma per grupp, sedan Summa ut / Månadens netto / saldokedja.
@@ -8186,7 +8193,7 @@ async function saveBudget(silent){
     const key=`${cat}__${sub}__${source}`;
     if(!rowData[key]){rowData[key]={category:cat,subCategory:sub};if(source)rowData[key].source=source;}
     if(!seenDom.has(key)){MONTHS.forEach(m=>{rowData[key][m]=0;});seenDom.add(key);}
-    rowData[key][month]=parseInt(inp.value)||0;
+    rowData[key][month]=budgetParse(inp.value);   // strippar tusentalsavstånd (format-vid-vila) → rått heltal
   });
   const rows=Object.values(rowData);
   // K-COST: berika kostnadsrader med kontonr ur def:en (→ AccountNo-kolumnen). Intäktsrader saknar konto → null.
