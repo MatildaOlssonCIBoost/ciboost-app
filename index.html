@@ -7153,6 +7153,7 @@ function parseExcelResult(wb){
   const range=XLSX.utils.decode_range(ws['!ref']);
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};   // .v = beräknat värde (ej formel .f)
   const out=[];const unmatched=[];
+  window._excelAktiveratWrote=false;   // RES-AKT: sätts när ekonomens klumprad "Aktiverat arbete för egen räkning" fångas (→ 3850)
   // RES-1: section-taggad routing — läs ALLA numeriska konton i hela arket → findResultDef → behåll bara träffar (cost/aktiverat).
   // Konton UTAN def-träff (3000-serien intäkter = appens slots; 8xxx finansiella tills RES-2) HOPPAS. Ingen cost-section-gate längre.
   // Rubriker/summor/nyckeltal har TEXT i kol A → matchar ej /^[0-9]{3,4}$/ → hoppas.
@@ -7160,6 +7161,14 @@ function parseExcelResult(wb){
     const acct=cv(r,0),name=cv(r,1);
     const acctStr=acct!=null?String(acct).trim():'';
     const nmeStr=String(name||'').trim();
+    // RES-AKT: ekonomens EXAKTA klumprad (trim, case-ins.) → Aktiverat arbete. Excel har EN rad; Sunes modell TVÅ (3850/3870).
+    // Minst invasiva vägen: skriv klumpen till 3850 (Category='Aktiverat arbete', SubCategory='Aktiverat arbete (omkostnader)'), lämna 3870.
+    // Godkänt undantag från intäktsgränsen (aktiverat arbete = hennes bokföring). Positiva månadsvärden D-O, rått tecken.
+    if(/^aktiverat arbete för egen räkning$/i.test(nmeStr)){
+      const arow={accountNo:'3850',name:nmeStr,colCWord:'',section:'aktiverat',defGroup:'Aktiverat arbete',defName:'Aktiverat arbete (omkostnader)'};
+      MONTHS.forEach((m,i)=>{const v=cv(r,3+i);arow[m]=(typeof v==='number')?v:(parseFloat(v)||0);});
+      out.push(arow);window._excelAktiveratWrote=true;continue;
+    }
     // Konto-lös namn-fallback: släpp igenom rader med TOM kol A vars namn börjar med "övrig k" (Övrig kst, moms). Övriga konto-lösa (rubriker/Summa) hoppas.
     if(!/^[0-9]{1,4}(xx|xxx)?$/i.test(acctStr)&&!(!acctStr&&/^övrig k/i.test(nmeStr)))continue;   // numeriska konton + aggregat-strängar (58xx, 8xxx) + Övrig k-fallback
     const colC=cv(r,2);const colCWord=colC!=null?String(colC).trim().split(/\s+/)[0]:'';   // kol C första ord → dubblett-disambiguering (5990/6540)
@@ -7287,8 +7296,10 @@ async function runExcelImport(){
     const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
     const _um=window._excelResultUnmatched||[];   // D: äkta bortfall (numeriskt kostnadskonto utan def-träff)
     const _oiWrote=window._excelLiquidityTargetId!=null&&window._excelOtherIncome&&window._excelOtherIncome.some(v=>Math.round(Number(v)||0)!==0);
+    const _aktWrote=!!window._excelAktiveratWrote;   // RES-AKT: klumpraden skrevs till 3850
     const _parts=[];
-    if(rCount)_parts.push(`${rCount} kostnadsrader till resultat`);
+    if(rCount)_parts.push(`${rCount} rader till resultat${_aktWrote?' (inkl. aktiverat arbete för egen räkning)':''}`);
+    else if(_aktWrote)_parts.push(`aktiverat arbete för egen räkning till resultat`);
     if(lCount)_parts.push(`${lCount} cash out-rader${_oiWrote?' + Övriga inbetalningar':''} till likviditet`);
     else if(_oiWrote)_parts.push(`Övriga inbetalningar till likviditet`);
     let _msg=_parts.length?`✓ Importerat ${_parts.join(' och ')}`:'✓ Inget importerades';
