@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CIBoost</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<!-- IMP-1: SheetJS för Excel-import (ekonomens prognosfil). Första externa script-beroendet. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- IMP-1: SheetJS (xlsx-js-style) för Excel-import OCH stylad export. Drop-in-fork av 0.18.5 med cellstil-skrivning (fill/font/border); global XLSX, identiskt läs-API. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -7319,7 +7319,7 @@ async function openExcelExportModal(){
     <div style="display:flex;gap:8px;justify-content:flex-end;"><button onclick="document.getElementById('excel-export-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="excel-export-btn" class="btn-primary" onclick="runExcelExport()" style="padding:8px 16px;">Exportera</button></div>
   </div>`;
   document.body.appendChild(ov);
-  if(pair.res){try{const r=await apiFetch(`${API}/budget-versions/${pair.res.Id}/rows`);const rr=await r.json();const aoa=_excelResultAoa(Array.isArray(rr)?rr:[],pair.res);const n=aoa.find(x=>x[0]==='Summa nettoomsättning');const pv=document.getElementById('excel-export-preview');if(pv)pv.innerHTML=n?`I år: <b>${Number(n[13]||0).toLocaleString('sv-SE')} kr</b> nettoomsättning (${esc(pair.res.Name)}, ex moms)`:'&nbsp;';}catch(e){const pv=document.getElementById('excel-export-preview');if(pv)pv.innerHTML='&nbsp;';}}
+  if(pair.res){try{const r=await apiFetch(`${API}/budget-versions/${pair.res.Id}/rows`);const rr=await r.json();const built=_excelResultAoa(Array.isArray(rr)?rr:[],pair.res);const n=(built.aoa||[]).find(x=>x[0]==='Summa nettoomsättning');const pv=document.getElementById('excel-export-preview');if(pv)pv.innerHTML=n?`I år: <b>${Number(n[13]||0).toLocaleString('sv-SE')} kr</b> nettoomsättning (${esc(pair.res.Name)}, ex moms)`:'&nbsp;';}catch(e){const pv=document.getElementById('excel-export-preview');if(pv)pv.innerHTML='&nbsp;';}}
 }
 async function runExcelExport(){
   try{
@@ -7329,8 +7329,8 @@ async function runExcelExport(){
     const fetchRows=async v=>{if(!v)return[];try{const r=await apiFetch(`${API}/budget-versions/${v.Id}/rows`);const a=await r.json();return Array.isArray(a)?a:[];}catch(e){return[];}};
     const wb=XLSX.utils.book_new();
     const _year=(pair.res&&pair.res.Year)||(pair.lik&&pair.lik.Year)||new Date().getFullYear();
-    if(pair.res){const rr=await fetchRows(pair.res);XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(_excelResultAoa(rr,pair.res)),'Resultat');}
-    if(pair.lik&&typeof _excelLikAoa==='function'){try{if(_bmCache[pair.lik.Id]===undefined)await bmLoad(pair.lik.Id);}catch(e){}const lr=await fetchRows(pair.lik);XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(_excelLikAoa(lr,pair.lik)),'Likviditet');}   // ETAPP 2
+    if(pair.res){const rr=await fetchRows(pair.res);XLSX.utils.book_append_sheet(wb,_excelStyleSheet(_excelResultAoa(rr,pair.res),14),'Resultat');}
+    if(pair.lik&&typeof _excelLikAoa==='function'){try{if(_bmCache[pair.lik.Id]===undefined)await bmLoad(pair.lik.Id);}catch(e){}const lr=await fetchRows(pair.lik);XLSX.utils.book_append_sheet(wb,_excelStyleSheet(_excelLikAoa(lr,pair.lik),14),'Likviditet');}
     if(!wb.SheetNames.length){alert('Inget att exportera.');if(btn){btn.textContent='Exportera';btn.disabled=false;}return;}
     const today=new Date().toISOString().substring(0,10);
     const fname=`Sune_export_${_year}_${today}.xlsx`;
@@ -7341,7 +7341,39 @@ async function runExcelExport(){
     if(typeof showSaveIndicator==='function')showSaveIndicator('✓ Exporterade '+fname,'#1a7a50');
   }catch(e){console.error('[runExcelExport]',e);alert('Kunde inte skapa exporten.');const btn=document.getElementById('excel-export-btn');if(btn){btn.textContent='Exportera';btn.disabled=false;}}
 }
-// Resultatflik (ex moms, Sunes tecken: kostnader negativa). Aggregering identisk med renderResultatBudgetTable (leafVal = manuell + Source-rader).
+// Delad stil-funktion: aoa + roll-array → stylad worksheet (xlsx-js-style). Roller: title/header/section/data/sum/sumStrong/pct/blank.
+// Talformat '# ##0;[Red]-# ##0' (röda negativa), '%'-rad 0.0%, kolumnbredder, merge på titel/sektion. FRYSNING stöds ej av 0.18.5-basen → utelämnas.
+function _excelStyleSheet(built,ncols){
+  const aoa=built.aoa,roles=built.roles;
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const cols=[{wch:34}];for(let c=1;c<ncols-1;c++)cols.push({wch:11});cols.push({wch:13});ws['!cols']=cols;
+  const NUMZ='#,##0;[Red]-#,##0';
+  const GREY='F2F2F2',DARK='1A1A2E';
+  const merges=[];
+  for(let r=0;r<aoa.length;r++){
+    const role=roles[r],row=aoa[r]||[];
+    for(let c=0;c<ncols;c++){
+      const addr=XLSX.utils.encode_cell({r:r,c:c});
+      let cell=ws[addr];
+      if(!cell){ if(role==='header'||role==='section'){cell=ws[addr]={t:'s',v:''};} else continue; }
+      const isNum=(c>=1&&typeof row[c]==='number');
+      if(isNum&&role==='pct')cell.z='0.0%';
+      else if(isNum)cell.z=NUMZ;
+      let s=null;
+      if(role==='title')s={font:{bold:true,sz:13}};
+      else if(role==='header')s={font:{bold:true},fill:{fgColor:{rgb:GREY}},border:{bottom:{style:'thin',color:{rgb:'BBBBBB'}}}};
+      else if(role==='section')s={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:DARK}}};
+      else if(role==='sum')s={font:{bold:true},border:{top:{style:'thin',color:{rgb:'000000'}}}};
+      else if(role==='sumStrong')s={font:{bold:true},border:{top:{style:'double',color:{rgb:'000000'}}}};
+      else if(role==='pct')s={font:{bold:true}};
+      if(s)cell.s=Object.assign({},cell.s,s);
+    }
+    if(role==='title'||role==='section')merges.push({s:{r:r,c:0},e:{r:r,c:ncols-1}});
+  }
+  ws['!merges']=(ws['!merges']||[]).concat(merges);
+  return ws;
+}
+// Resultatflik (ex moms, Sunes tecken). Aggregering identisk med renderResultatBudgetTable (leafVal = manuell + Source-rader). Returnerar {aoa,roles}.
 function _excelResultAoa(rows,ver){
   const edit={};(rows||[]).filter(r=>!r.Source).forEach(r=>{edit[r.Category+'__'+r.SubCategory]=r;});
   const imp=(rows||[]).filter(r=>r.Source);
@@ -7375,44 +7407,49 @@ function _excelResultAoa(rows,ver){
   const driftMonthly=sumP(driftOrder);
   const persDefs=COST_ROWS_DEF.filter(c=>c.group==='Personalkostnader');
   const persMonthly=sumP(persDefs.map(c=>({cat:'Personalkostnader',sub:c.name})));
-  const resultatMonthly=add(rorIntakt,add(driftMonthly,persMonthly));   // kostnader negativa (Excel-tecken)
+  const resultatMonthly=add(rorIntakt,add(driftMonthly,persMonthly));
   const avskDefs=COST_ROWS_DEF.filter(c=>c.group==='Avskrivningar');
   const avskMonthly=sumP(avskDefs.map(c=>({cat:'Avskrivningar',sub:c.name})));
   const beraknat=add(resultatMonthly,avskMonthly);
-  const R=(label,arr)=>[label,...arr,tot(arr)];
-  const BLANK=['',...MONTHS.map(()=>''),''];
   const acct=(grp,name)=>{const d=COST_ROWS_DEF.find(c=>c.group===grp&&c.name===name);return d&&d.account?d.account+' ':'';};
-  const aoa=[];
-  aoa.push([`Sune export — Resultat: ${ver.Name} (${ver.Year}) · ${new Date().toISOString().substring(0,10)}`]);
-  aoa.push(['',...MONTHS,'Helår']);
-  aoa.push(R('Periodiserade intäkter',periodMonthly));
-  aoa.push(R('Nyförsäljning (prognos)',nyExOkv));
-  aoa.push(R('Okvalificerat/okänt',okvMonthly));
-  aoa.push(R('Summa nettoomsättning',nettoMonthly));
-  AKTIVERAT_ROWS_DEF.forEach(c=>aoa.push(R(c.account+' '+c.name,sumP([{cat:c.group,sub:c.name}]))));
-  aoa.push(R('Summa aktiverat arbete för egen räkning',aktMonthly));
-  aoa.push(R('Summa rörelsens intäkter',rorIntakt));
-  aoa.push(BLANK);
-  driftOrder.forEach(d=>aoa.push(R(acct(d.cat,d.sub)+d.sub,sumP([d]))));
-  aoa.push(R('Summa rörelsens kostnader, inkl Service fee',driftMonthly));
-  aoa.push(BLANK);
-  persDefs.forEach(c=>aoa.push(R((c.account?c.account+' ':'')+c.name,sumP([{cat:'Personalkostnader',sub:c.name}]))));
-  aoa.push(R('Summa personalkostnader',persMonthly));
-  aoa.push(R('Resultat före avskrivningar',resultatMonthly));
-  aoa.push(BLANK);
-  avskDefs.forEach(c=>aoa.push(R((c.account?c.account+' ':'')+c.name,sumP([{cat:'Avskrivningar',sub:c.name}]))));
-  aoa.push(R('Summa avskrivningar och finansiella poster',avskMonthly));
-  aoa.push(R('Beräknat resultat',beraknat));
-  const pctv=(n,d)=>d!==0?Math.round(n/d*1000)/10:'';
-  aoa.push(['%',...MONTHS.map((_,i)=>pctv(beraknat[i],rorIntakt[i])),pctv(tot(beraknat),tot(rorIntakt))]);
-  return aoa;
+  const R=(label,arr)=>[label,...arr,tot(arr)];
+  const SEC=lbl=>[lbl,...MONTHS.map(()=>''),''];
+  const BLANK=['',...MONTHS.map(()=>''),''];
+  const aoa=[],roles=[];
+  const P=(role,arr)=>{aoa.push(arr);roles.push(role);};
+  P('title',[`Sune export — Resultat: ${ver.Name} (${ver.Year}) · ${new Date().toISOString().substring(0,10)}`]);
+  P('blank',BLANK);
+  P('header',['',...MONTHS,'Helår']);
+  P('section',SEC('RÖRELSENS INTÄKTER'));
+  P('data',R('Periodiserade intäkter',periodMonthly));
+  P('data',R('Nyförsäljning (prognos)',nyExOkv));
+  P('data',R('Okvalificerat/okänt',okvMonthly));
+  P('sum',R('Summa nettoomsättning',nettoMonthly));
+  AKTIVERAT_ROWS_DEF.forEach(c=>P('data',R(c.account+' '+c.name,sumP([{cat:c.group,sub:c.name}]))));
+  P('sum',R('Summa aktiverat arbete för egen räkning',aktMonthly));
+  P('sum',R('Summa rörelsens intäkter',rorIntakt));
+  P('blank',BLANK);
+  P('section',SEC('RÖRELSENS KOSTNADER'));
+  driftOrder.forEach(d=>P('data',R(acct(d.cat,d.sub)+d.sub,sumP([d]))));
+  P('sum',R('Summa rörelsens kostnader, inkl Service fee',driftMonthly));
+  P('blank',BLANK);
+  P('section',SEC('PERSONALKOSTNADER'));
+  persDefs.forEach(c=>P('data',R((c.account?c.account+' ':'')+c.name,sumP([{cat:'Personalkostnader',sub:c.name}]))));
+  P('sum',R('Summa personalkostnader',persMonthly));
+  P('sum',R('Resultat före avskrivningar',resultatMonthly));
+  P('blank',BLANK);
+  P('section',SEC('AVSKRIVNINGAR OCH FINANSIELLA POSTER'));
+  avskDefs.forEach(c=>P('data',R((c.account?c.account+' ':'')+c.name,sumP([{cat:'Avskrivningar',sub:c.name}]))));
+  P('sum',R('Summa avskrivningar och finansiella poster',avskMonthly));
+  P('sumStrong',R('Beräknat resultat',beraknat));
+  P('pct',['%',...MONTHS.map((_,i)=>rorIntakt[i]!==0?beraknat[i]/rorIntakt[i]:''),tot(rorIntakt)!==0?tot(beraknat)/tot(rorIntakt):'']);
+  return {aoa,roles};
 }
-
-// ETAPP 2 — Likviditetsflik (inkl moms, negativa utbetalningar). Cash in Source-aggregerat + Övriga inbetalningar → Summa in;
-// utbetalningsgrupperna med de fyra delsummorna (LEVERANTOR_ROWS_DEF-gruppering som vyn); Summa ut/Månadens netto/saldon via SAMMA computeCashflow + openingCash som likviditetstabellen. Brytmånaden påverkar ej denna flik.
+// Likviditetsflik (inkl moms, negativa utbetalningar). Cash in Source-aggregerat + Övriga; utbetalningsgrupper med delsummor; saldon via computeCashflow. {aoa,roles}.
 function _excelLikAoa(rows,ver){
   const M=MONTHS;
   const R=(label,arr)=>[label,...arr.map(v=>Math.round(v||0)),Math.round(arr.reduce((a,b)=>a+(b||0),0))];
+  const SEC=lbl=>[lbl,...M.map(()=>''),''];
   const BLANK=['',...M.map(()=>''),''];
   const revBy=pred=>M.map((_,mi)=>(rows||[]).filter(r=>r.Category==='Revenue'&&pred(r)).reduce((a,r)=>a+(Number(r[M[mi]])||0),0));
   const avtalat=revBy(r=>String(r.Source||'').startsWith('Avtal ('));
@@ -7423,26 +7460,30 @@ function _excelLikAoa(rows,ver){
   const financing=(typeof getFinancing==='function')?getFinancing(ver.Id,ver.Year):null;
   const cf=computeCashflow(rows||[],opening,financing);
   const levOf=(name,mi)=>(rows||[]).filter(r=>String(r.Source||'')==='Leverantör'&&r.Category==='Leverantör'&&String(r.SubCategory||'')===name).reduce((a,r)=>a+(Number(r[M[mi]])||0),0);
-  const aoa=[];
-  aoa.push([`Sune export — Likviditet: ${ver.Name} (${ver.Year})`]);
-  aoa.push(['',...M,'Helår']);
-  aoa.push(R('Cash in - Avtalat',avtalat));
-  aoa.push(R('Cash in - Förnyelse + Pipe',fornPipe));
-  aoa.push(R('Cash in - Okvalificerat/okänt',okv));
-  aoa.push(R('Övriga inbetalningar',ovriga));
-  aoa.push(R('Summa in',cf.cashIn));
-  aoa.push(BLANK);
+  const aoa=[],roles=[];
+  const P=(role,arr)=>{aoa.push(arr);roles.push(role);};
+  P('title',[`Sune export — Likviditet: ${ver.Name} (${ver.Year}) · ${new Date().toISOString().substring(0,10)}`]);
+  P('blank',BLANK);
+  P('header',['',...M,'Helår']);
+  P('section',SEC('CASH IN'));
+  P('data',R('Cash in - Avtalat',avtalat));
+  P('data',R('Cash in - Förnyelse + Pipe',fornPipe));
+  P('data',R('Cash in - Okvalificerat/okänt',okv));
+  P('data',R('Övriga inbetalningar',ovriga));
+  P('sum',R('Summa in',cf.cashIn));
+  P('blank',BLANK);
+  P('section',SEC('CASH OUT'));
   LEV_GROUPS.forEach(g=>{
     const gr=LEVERANTOR_ROWS_DEF.filter(r=>r.grupp===g.key);
-    gr.forEach(r=>aoa.push(R(r.name,M.map((_,mi)=>levOf(r.name,mi)))));
-    aoa.push(R(g.label,M.map((_,mi)=>gr.reduce((s,r)=>s+levOf(r.name,mi),0))));
+    gr.forEach(r=>P('data',R(r.name,M.map((_,mi)=>levOf(r.name,mi)))));
+    P('sum',R(g.label,M.map((_,mi)=>gr.reduce((s,r)=>s+levOf(r.name,mi),0))));
   });
-  aoa.push(R('Summa ut',cf.cashOut));
-  aoa.push(BLANK);
-  aoa.push(R('Månadens netto',cf.net));
-  aoa.push(R('Ingående saldo',cf.ingaende));
-  aoa.push(R('Utgående saldo',cf.closing));
-  return aoa;
+  P('sum',R('Summa ut',cf.cashOut));
+  P('blank',BLANK);
+  P('sum',R('Månadens netto',cf.net));
+  P('sum',R('Ingående saldo',cf.ingaende));
+  P('sumStrong',R('Utgående saldo',cf.closing));
+  return {aoa,roles};
 }
 
 // M1: Åtgärder-dropdown. Samma mönster som toggleRevDD (stäng andra paneler, stoppa propagation så
