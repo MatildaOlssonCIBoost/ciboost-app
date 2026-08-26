@@ -6184,6 +6184,11 @@ function setStyrelseX(v){styrelseX=Number(v);const _s=document.querySelector('.s
 // getCashflowSplit-mönstret men EGEN nyckel — ingen koppling till kassaflödet.
 function getStyrelseResultSplit(year){return localStorage.getItem('styrelseResultSplit_'+year)!=='0';}
 function setStyrelseResultSplit(year,on){localStorage.setItem('styrelseResultSplit_'+year,on?'1':'0');renderStyrelse();}
+// Försäljning-kortets läge (Actuals/Prognos) + moms-toggel (ex default), per år.
+function getStyrForsMode(year){return localStorage.getItem('styrForsMode_'+year)==='prognos'?'prognos':'actuals';}
+function setStyrForsMode(year,m){localStorage.setItem('styrForsMode_'+year,m==='prognos'?'prognos':'actuals');renderStyrelse();}
+function getStyrForsMoms(year){return localStorage.getItem('styrForsMoms_'+year)==='1';}   // default false = ex moms
+function setStyrForsMoms(year,on){localStorage.setItem('styrForsMoms_'+year,on?'1':'0');renderStyrelse();}
 // Bild 3:s egen versions-preferens (per år), oberoende av kassaflöde-fliken. Saknad nyckel → null → default Primär.
 function getStyrelseVersionId(year){return localStorage.getItem('styrelseVersionId_'+year)||null;}
 function setStyrelseVersion(year,id){if(id)localStorage.setItem('styrelseVersionId_'+year,id);else localStorage.removeItem('styrelseVersionId_'+year);renderStyrelse();}
@@ -6293,14 +6298,34 @@ async function renderStyrelse(){
   const periodSlider=`<div style="padding:10px 4px 18px;"><input type="range" min="0" max="11" step="1" value="${X}" oninput="setStyrelseX(this.value)" class="styr-slider" style="width:100%;background:linear-gradient(to right,#B4B2A9 0%,#B4B2A9 ${_slPct}%,#ECEAE3 ${_slPct}%,#ECEAE3 100%);"><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px;">${MONTHS.map(m=>`<span>${m}</span>`).join('')}</div><div style="text-align:center;font-size:10px;color:var(--text3);margin-top:4px;">◀ utfall t.o.m. ${MONTHS[_grans]} · prognos därefter ▶</div></div>`;
   // FÖRDELNINGSRAD (#2e) högst upp: Försäljning per kategori ur LÖPANDE likviditetsbudget (rollRows).
   // Utfall = Source 'Avtal (likviditet)' (kontrakt); estimerat helår = ALLA REVENUE-källor; helår 0..11.
-  const _fordCats=[{sub:'Licens (prenumeration)',bar:'#639922'},{sub:'Licens (fast pris)',bar:'#378ADD'},{sub:'Utbildning',bar:'#EF9F27'},{sub:'Consulting',bar:'#7F77DD'}];
-  const _fordSumYear=pred=>{let t=0;for(let mi=0;mi<12;mi++)rollRows.filter(pred).forEach(r=>t+=Number(r[MONTHS[mi]])||0);return t;};
-  const _fordRows=_fordCats.map(c=>({sub:c.sub,bar:c.bar,utfall:_fordSumYear(r=>r.Category==='Revenue'&&r.SubCategory===c.sub&&r.Source==='Avtal (likviditet)'),helar:_fordSumYear(r=>r.Category==='Revenue'&&r.SubCategory===c.sub)}));
-  const _fordUtfallTotal=_fordRows.reduce((s,r)=>s+r.utfall,0),_fordHelarTotal=_fordRows.reduce((s,r)=>s+r.helar,0);
-  const _fordPct=v=>_fordHelarTotal>0?Math.round(v/_fordHelarTotal*100):0;
-  const _fordBar=_fordRows.map(r=>_fordPct(r.helar)>0?`<div style="width:${_fordPct(r.helar)}%;background:${r.bar};"></div>`:'').join('');
-  const _fordCards=_fordRows.map(r=>`<div style="padding:6px 8px;border-top:2px solid ${r.bar};background:var(--surface2);border-radius:0 0 6px 6px;"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);"><span style="width:8px;height:8px;border-radius:50%;background:${r.bar};flex:0 0 auto;"></span>${subLabel(r.sub)}</div><div style="font-size:13px;font-weight:600;color:var(--text);margin-top:2px;">${fmtSv(r.helar)} · ${_fordPct(r.helar)}%</div><div style="font-size:10px;color:var(--text3);">utfall ${fmtSv(r.utfall)}</div></div>`).join('');
-  const fordelningHtml=`<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;"><div style="font-size:16px;font-weight:600;color:#1E2340;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);">Försäljning per kategori</div><div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px;"><div style="font-size:18px;font-weight:700;color:#D85A30;">${fmtSv(_fordUtfallTotal)}</div><div style="font-size:12px;color:var(--text2);">total försäljning (kontrakt) · estimerat helår ${fmtSv(_fordHelarTotal)}</div></div><div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--surface2);margin-bottom:10px;">${_fordBar}</div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">${_fordCards}</div></div>`;
+  // FÖRSÄLJNING-KORT (#2e, ombyggt) — materialiserad partition (revMaterializedBoxes, samma som underlagspanelen/KPI:t).
+  // Actuals = avtal-boxen; Prognos = avtal+förn+pipe+man. Moms: ex default (÷1,25), inkl = rått. Ingående budget = Primär likviditet (#13), samma omfång.
+  const _fMode=getStyrForsMode(year),_fInkl=getStyrForsMoms(year);
+  const _fMomsV=v=>_fInkl?Math.round(v):Math.round(v/1.25);   // lagrat inkl moms → ex default (standard 25%)
+  const _rollBox=revMaterializedBoxes(rollRows,'likviditet'),_primBox=revMaterializedBoxes(primRows,'likviditet');
+  const _fPart=b=>_fMode==='prognos'?(b.avtal+b.forn+b.pipe+b.man+b.other):b.avtal;   // samma fyra byggstenar som srcViktatIncl
+  const _fCatVal=(mb,sub)=>{const b=mb.bySub[sub]||{avtal:0,forn:0,pipe:0,man:0,other:0};return _fPart(b);};
+  const _fCats=[{sub:'Licens (prenumeration)',bar:'#639922'},{sub:'Licens (fast pris)',bar:'#378ADD'},{sub:'Utbildning',bar:'#EF9F27'},{sub:'Consulting',bar:'#7F77DD'}];
+  const _fRows=_fCats.map(c=>({sub:c.sub,bar:c.bar,val:_fMomsV(_fCatVal(_rollBox,c.sub))}));
+  const _fTotal=_fMomsV(_fPart(_rollBox.box));
+  const _fCatSum=_fRows.reduce((s,r)=>s+r.val,0),_fResid=Math.max(0,_fTotal-_fCatSum);
+  const _fPct=v=>_fTotal>0?Math.round(v/_fTotal*100):0;
+  const _fIng=_fMomsV(_fPart(_primBox.box)),_fDiff=_fIng>0?Math.round((_fTotal-_fIng)/_fIng*100):null;
+  const _fTitle=_fMode==='prognos'?`Försäljning och prognos ${year}`:`Försäljning ${year}`;
+  const _fModeLbl=_fMode==='prognos'?'Prognos':'Actuals',_fMomsLbl=_fInkl?'inkl moms':'ex moms';
+  const _fToggle=`<div class="result-toggle"><button class="result-btn ${_fMode==='actuals'?'active':''}" onclick="setStyrForsMode(${year},'actuals')">Actuals</button><button class="result-btn ${_fMode==='prognos'?'active':''}" onclick="setStyrForsMode(${year},'prognos')">Prognos</button></div>`;
+  const _fMomsChk=`<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap;"><input type="checkbox" ${_fInkl?'checked':''} onchange="setStyrForsMoms(${year},this.checked)" style="cursor:pointer;margin:0;">Visa inkl moms</label>`;
+  const _fBar=_fRows.map(r=>{const p=_fPct(r.val);return p>0?`<div style="width:${p}%;background:${r.bar};"></div>`:'';}).join('')+(_fResid>0?`<div style="width:${_fPct(_fResid)}%;background:var(--border);"></div>`:'');
+  const _fCards=_fRows.map(r=>`<div style="padding:6px 8px;border-top:2px solid ${r.bar};background:var(--surface2);border-radius:0 0 6px 6px;"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);"><span style="width:8px;height:8px;border-radius:50%;background:${r.bar};flex:0 0 auto;"></span>${subLabel(r.sub)}</div><div style="font-size:13px;font-weight:600;color:var(--text);margin-top:2px;">${fmtSv(r.val)}</div><div style="font-size:10px;color:var(--text3);">${_fPct(r.val)}% av total</div></div>`).join('');
+  const _fDiffTxt=_fDiff===null?'':` · <span style="color:${_fDiff>=0?'var(--green)':'var(--red)'};">${_fDiff>=0?'+':''}${_fDiff}%</span>`;
+  const fordelningHtml=`<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);"><div style="font-size:16px;font-weight:600;color:#1E2340;">${_fTitle}</div><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">${_fMomsChk}${_fToggle}</div></div>
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px;"><div style="font-size:22px;font-weight:700;color:#D85A30;">${fmtSv(_fTotal)}</div><div style="font-size:12px;color:var(--text2);">${_fModeLbl} · ${_fMomsLbl}</div></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Ingående budget: ${fmtSv(_fIng)}${_fDiffTxt}</div>
+    <div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--surface2);margin-bottom:10px;">${_fBar}</div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">${_fCards}</div>
+    ${_fResid>0?`<div style="font-size:10px;color:var(--text3);margin-top:6px;">+ övrigt (okval./övriga inbetalningar): ${fmtSv(_fResid)}</div>`:''}
+  </div>`;
   // TOPP 5 KUNDER (#2i): fakturerat i år (likviditet, kaCashflowDate-år) per koncern, segmenterat per Type. Koncern-dedup.
   const _tcol={ARR:'#639922',Fastpris:'#378ADD',Utbildning:'#EF9F27',Consulting:'#7F77DD'};   // #2e-palett
   const _tord=['ARR','Fastpris','Utbildning','Consulting'];
@@ -6779,6 +6804,19 @@ async function renderRevUnderlagResultat(){
     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px;">${srcBox('Avtal',avtalSum,pctOf(avtalSum),'#EAF3DE','#27500A',false)}${srcBox('Förnyelse',fornSum,pctOf(fornSum),'#FAEEDA','#633806',false)}${srcBox('Pipeline',pipeSum,pctOf(pipeSum),'#E6F1FB','#042C53',false)}${srcBox('Manuell',manSum,pctOf(manSum),'var(--surface)','var(--text2)',true)}</div>`;
   el.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:780px;max-width:94vw;max-height:88vh;overflow:auto;box-shadow:var(--shadow-md);padding:18px 22px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><div style="font-size:15px;font-weight:600;">Underlag · Nettoomsättning ${year} (periodiserat)</div><button onclick="window.closeRevUnderlag()" style="width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;color:var(--text2);font-size:16px;line-height:1;">×</button></div>${topHtml}${avtalHtml}${fornHtml}${pipeHtml}${manHtml}</div>`;
 }
+// RES-DRIFT/STYR: DELAD materialiserad REVENUE-partition — EXAKT samma rader som sumSection('REVENUE')/revTotal (KPI:t).
+// Återanvänds av underlagspanelen OCH styrelsens Försäljning-kort så summorna aldrig kan glida isär. mode='likviditet'|'resultat'.
+// Returnerar box {avtal,forn,pipe,man,other,total} (allt INKL moms som lagrat) + bySub {sub:{...}} för kategoriuppdelning.
+function revMaterializedBoxes(rows,mode){
+  const revSubs=new Set(BUDGET_ROWS_DEF.filter(d=>d.section==='REVENUE').map(d=>d.subCategory));
+  const visRev=r=>r.Category==='Revenue'&&revSubs.has(r.SubCategory)&&(!r.Source||(String(r.Source).startsWith('Avtal (')?r.Source==='Avtal ('+mode+')':true));
+  const yr=r=>MONTHS.reduce((s,m)=>s+(Number(r[m])||0),0);
+  const cls=r=>{if(!r.Source)return 'man';const s=String(r.Source);if(s.startsWith('Avtal ('))return 'avtal';if(s==='Förnyelse')return 'forn';if(s==='Pipeline (viktat)')return 'pipe';return 'other';};
+  const box={avtal:0,forn:0,pipe:0,man:0,other:0};const bySub={};
+  (rows||[]).filter(visRev).forEach(r=>{const k=cls(r),v=yr(r);box[k]+=v;const b=bySub[r.SubCategory]||(bySub[r.SubCategory]={avtal:0,forn:0,pipe:0,man:0,other:0});b[k]+=v;});
+  box.total=box.avtal+box.forn+box.pipe+box.man+box.other;
+  return {box,bySub};
+}
 async function renderRevUnderlag(){
   const el=document.getElementById('budget-rev-detail');if(!el)return;
   if(currentBudgetMode==='resultat')return renderRevUnderlagResultat();
@@ -6835,18 +6873,11 @@ async function renderRevUnderlag(){
   // MANUELL — editable Revenue-rader (utan Source), årssumma per SubCategory.
   const manRows=(budgetRows||[]).filter(r=>!r.Source&&r.Category==='Revenue').map(r=>({sub:r.SubCategory,total:MONTHS.reduce((s,m)=>s+(r[m]||0),0)})).filter(r=>r.total>0);
   const manSum=manRows.reduce((s,r)=>s+r.total,0);
-  // RES-DRIFT: MATERIALISERADE summor — partition av EXAKT samma rader som sumSection('REVENUE')/revTotal (KPI:t),
-  // så srcViktatIncl === revTotal (KPI:t) per konstruktion. Ingen live-omräkning mot kundregistret → ingen glidning möjlig.
-  const _revSubs=new Set(BUDGET_ROWS_DEF.filter(d=>d.section==='REVENUE').map(d=>d.subCategory));
-  const _visRev=r=>r.Category==='Revenue'&&_revSubs.has(r.SubCategory)&&(!r.Source||(String(r.Source).startsWith('Avtal (')?r.Source==='Avtal ('+currentBudgetMode+')':true));
-  const _yrSum=r=>MONTHS.reduce((s,m)=>s+(Number(r[m])||0),0);
-  const _boxOf=pred=>(budgetRows||[]).filter(r=>_visRev(r)&&pred(r)).reduce((s,r)=>s+_yrSum(r),0);
-  const avtalSumIncl=_boxOf(r=>r.Source==='Avtal ('+currentBudgetMode+')');
-  const fornViktatIncl=_boxOf(r=>r.Source==='Förnyelse');
-  const pipeViktatIncl=_boxOf(r=>r.Source==='Pipeline (viktat)');
-  const manBox=_boxOf(r=>!r.Source);
-  const otherBox=_boxOf(r=>r.Source&&!String(r.Source).startsWith('Avtal (')&&r.Source!=='Förnyelse'&&r.Source!=='Pipeline (viktat)');
-  const srcViktatIncl=avtalSumIncl+fornViktatIncl+pipeViktatIncl+manBox+otherBox;   // === revTotal (KPI:t)
+  // RES-DRIFT: MATERIALISERADE summor via delad partition (revMaterializedBoxes) — EXAKT samma rader som sumSection('REVENUE')/revTotal (KPI:t).
+  // srcViktatIncl === revTotal per konstruktion; ingen live-omräkning mot kundregistret. Samma funktion driver styrelsens Försäljning-kort.
+  const _mb=revMaterializedBoxes(budgetRows,currentBudgetMode).box;
+  const avtalSumIncl=_mb.avtal,fornViktatIncl=_mb.forn,pipeViktatIncl=_mb.pipe,manBox=_mb.man,otherBox=_mb.other;
+  const srcViktatIncl=_mb.total;   // === revTotal (KPI:t)
   // Källdrift: avtalsposter vars kundregister-värde avviker från importerat, eller som tagits bort ur kundregistret.
   const driftPosts=avtalPosts.filter(p=>p.removed||p.changed);
   const stat=(lbl,val,col,sub)=>`<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px;">${lbl}</div><div style="font-size:16px;font-weight:600;color:${col||'var(--text)'};">${val}</div>${sub?`<div style="font-size:10px;color:var(--text3);margin-top:1px;">${sub}</div>`:''}</div>`;
