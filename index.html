@@ -5341,7 +5341,7 @@ async function importMonthActuals(versionId,monthIndex,includedAvtalIds=null){
     const d=kaCashflowDate(it);
     if(!d||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
     const _incl=(it.Amount||0)*(1+(it.VatRate!=null?it.VatRate:25)/100);   // K3: inkl moms (likviditet, avtal — cachad VatRate)
-    perType[it.Type]+=_incl;importedIds.push(it.Id);importedDetail.push({id:it.Id,cid:Number(cid),sub:REV_CAT_TO_SUB[it.Type],incl:Math.round(_incl)});
+    perType[it.Type]+=_incl;importedIds.push(it.Id);importedDetail.push({id:it.Id,cid:Number(cid),sub:REV_CAT_TO_SUB[it.Type],incl:Math.round(_incl),exAmount:Math.round(it.Amount||0)});   // exAmount = ex moms VID IMPORT (fryst baslinje för materialiserad ex-moms-summering)
   });});
   const Mkey=MONTHS[monthIndex];const today=new Date().toISOString().substring(0,10);const SRC='Avtal (likviditet)';
   Object.keys(perType).forEach(type=>{
@@ -6217,6 +6217,9 @@ async function renderStyrelse(){
   let primRows=[],rollRows=[];
   try{primRows=await (await apiFetch(`${API}/budget-versions/${primId}/rows`)).json();}catch(e){}
   try{rollRows=await (await apiFetch(`${API}/budget-versions/${rollId}/rows`)).json();}catch(e){}
+  // MOMS-FIX: ladda importsnapshotet (delat minne) för båda versionerna → avtalExBySub kan läsa samma id-set som underlaget.
+  try{if(_bmCache[primId]===undefined)await bmLoad(primId);}catch(e){}
+  try{if(_bmCache[rollId]===undefined)await bmLoad(rollId);}catch(e){}
   const _nowM=new Date().getMonth();
   // Lås för rollId; fånga _grans LOKALT innan #2h:s loadBudgetLocks(b3id) skriver över global budgetLocks.
   await loadBudgetLocks(rollId);
@@ -6227,16 +6230,19 @@ async function renderStyrelse(){
   // BILD 2 (#2f, ombyggd) — RESULTATSTAPEL kumulativ jan→X. Solid=jan→_grans (utfall t.o.m. sista låsta månad i
   // LÖPANDE budgeten, rollId), transparent=_grans+1→X (prognos). Budget=primär kumulativt jan→X (röd linje). Tidsbaserad split.
   const _sM=(rows,pred,a,b)=>{let t=0;for(let mi=a;mi<=b&&mi<12;mi++)rows.filter(pred).forEach(r=>t+=Number(r[MONTHS[mi]])||0);return t;};
+  // KOSTNADSFILTER (#13-legacy-exkludering): styrelsens kostnader = ENBART materialiserade leverantörsrader (Source='Leverantör'||'Moms'), som kostnadskortet [7016].
+  // Category!=='Revenue' skulle dra in de 13 ostädade legacy-raderna (Source='(tom)', engelska kategorier) → exkluderas ur ALLA styrelse-beräkningar här.
+  const _costPred=r=>r.Source==='Leverantör'||r.Source==='Moms';
   const _utfallGrans=Math.min(_grans,X);
   const incSolid=_sM(rollRows,r=>r.Category==='Revenue',0,_utfallGrans);
   const incTrans=_sM(rollRows,r=>r.Category==='Revenue',_utfallGrans+1,X);
-  const costSolid=Math.abs(_sM(rollRows,r=>r.Category!=='Revenue',0,_utfallGrans));   // SIGN: kostnad negativ i lagring → stapel på magnitud
-  const costTrans=Math.abs(_sM(rollRows,r=>r.Category!=='Revenue',_utfallGrans+1,X));
+  const costSolid=Math.abs(_sM(rollRows,_costPred,0,_utfallGrans));   // SIGN: kostnad negativ i lagring → stapel på magnitud
+  const costTrans=Math.abs(_sM(rollRows,_costPred,_utfallGrans+1,X));
   const incBudget=_sM(primRows,r=>r.Category==='Revenue',0,X);
-  const costBudget=Math.abs(_sM(primRows,r=>r.Category!=='Revenue',0,X));
+  const costBudget=Math.abs(_sM(primRows,_costPred,0,X));
   const _money=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
   const cW=460,cH=200,zero=100,maxBar=76,axL=52;
-  const maxV=Math.max(_sM(primRows,r=>r.Category==='Revenue',0,11),_sM(rollRows,r=>r.Category==='Revenue',0,11),Math.abs(_sM(primRows,r=>r.Category!=='Revenue',0,11)),Math.abs(_sM(rollRows,r=>r.Category!=='Revenue',0,11)),1);
+  const maxV=Math.max(_sM(primRows,r=>r.Category==='Revenue',0,11),_sM(rollRows,r=>r.Category==='Revenue',0,11),Math.abs(_sM(primRows,_costPred,0,11)),Math.abs(_sM(rollRows,_costPred,0,11)),1);
   const bh=v=>Math.round(Math.max(0,v)/maxV*maxBar);
   const grid=[1,0.5].flatMap(f=>[{y:zero-Math.round(maxBar*f),v:maxV*f},{y:zero+Math.round(maxBar*f),v:-maxV*f}]).map(g=>`<line x1="${axL}" y1="${g.y}" x2="${cW-12}" y2="${g.y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 2"/><text x="${axL-4}" y="${g.y+3}" font-size="8" fill="var(--text3)" text-anchor="end">${(g.v/1000000).toFixed(1)} Mkr</text>`).join('');
   const BW=36;
@@ -6265,13 +6271,15 @@ async function renderStyrelse(){
   // Utfall = hårt (Avtal för intäkt, 0..utfallGräns för utgift) — prognos-checkboxen påverkar INTE tabellen.
   // Inkomst under budget = röd (sämre); utgift under budget = grön (mindre kostnad).
   // Utgifter OFÖRÄNDRAD: 0..X, abs, rått (incl moms) — momsas EJ (utgifter har blandad/0% moms), ingen Varav, ingen gate (grönt +62% ska synas).
-  const costVal=Math.abs(_sM(rollRows,r=>r.Category!=='Revenue',0,X));
+  // #13-fix: Resultat-tabellens Utgifter = Source-filter + HELÅR (konsekvent med kostnadskortet [7016] och facit −3 976 085), ej Category!=='Revenue'/0..X.
+  const costVal=Math.abs(_sM(rollRows,_costPred,0,11));   // Utfall #37, helår
+  const _utgBud=Math.abs(_sM(primRows,_costPred,0,11));   // Ingående budget #13, helår → matchar facit
   const _col2=X<=_grans?'Utfall':'Prognos';
   const _tsek=v=>Math.round(v/1000).toLocaleString('sv-SE');   // TSEK
   // Differens: inkomst=val−budget, utgift=budget−val (besparing) → positivt=grön=bra. %=differens/budget.
   const dRow=(label,budget,val,incomeLike,sub)=>{const diff=incomeLike?(val-budget):(budget-val);const pct=budget!==0?Math.round(diff/budget*100):0;const col=diff>=0?'var(--green)':'var(--red)';const lblPad=sub?'padding:3px 6px 3px 18px;color:var(--text3);':'padding:3px 6px;font-weight:500;';const cellPad=sub?'padding:3px 6px;color:var(--text3);':'padding:3px 6px;';const dPad=`padding:3px 6px;text-align:right;font-weight:600;color:${col};`;return `<tr><td style="${lblPad}">${label}</td><td style="${cellPad}text-align:right;">${_tsek(budget)}</td><td style="${cellPad}text-align:right;">${_tsek(val)}</td><td style="${dPad}">${diff>=0?'+':''}${_tsek(diff)}</td><td style="${dPad}">${diff>=0?'+':''}${pct}%</td></tr>`;};
   const _th=t=>`<th style="text-align:${t?'right':'left'};padding:5px 6px;font-size:10px;color:#7a5a2a;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;background:#FBEEDF;border-bottom:1px solid var(--border);">${t}</th>`;
-  // bild2tbl (Resultat-tabellen) byggs LÄNGRE NER — behöver den delade box-beräkningen (year/_rollBox/_primBox/_fMomsV/_fPart/_fCatVal).
+  // bild2tbl (Resultat-tabellen) byggs LÄNGRE NER — behöver den delade box-beräkningen (year/_rollBox/_primBox/_fVal/_fCat).
   // BILD 3 — Likviditetsprognos (Primär, plan, helår): computeCashflow inkl. finansiering → delad likviditetsgraf (cashflowChartSvg).
   const primVer=budgetVersions.find(v=>String(v.Id)===String(primId)),year=Number(primVer&&primVer.Year)||new Date().getFullYear();
   // Bild 3 egen versionsväljare (oberoende av kassaflöde-fliken). Default = Primär. Påverkar ENDAST bild 3 (ej bild 2/fördelning).
@@ -6298,32 +6306,37 @@ async function renderStyrelse(){
   // FÖRSÄLJNING-KORT (#2e, ombyggt) — materialiserad partition (revMaterializedBoxes, samma som underlagspanelen/KPI:t).
   // Actuals = avtal-boxen; Prognos = avtal+förn+pipe+man. Moms: ex default (÷1,25), inkl = rått. Ingående budget = Primär likviditet (#13), samma omfång.
   const _fMode=getStyrForsMode(year),_fInkl=getStyrForsMoms(year);
-  const _fMomsV=v=>_fInkl?Math.round(v):Math.round(v/1.25);   // lagrat inkl moms → ex default (standard 25%)
   const _rollBox=revMaterializedBoxes(rollRows,'likviditet'),_primBox=revMaterializedBoxes(primRows,'likviditet');
-  const _fPart=b=>_fMode==='prognos'?(b.avtal+b.forn+b.pipe+b.man+b.other):b.avtal;   // samma fyra byggstenar som srcViktatIncl
+  const _fPart=b=>_fMode==='prognos'?(b.avtal+b.forn+b.pipe+b.man+b.other):b.avtal;   // INKL (materialiserad sanning) — avstämningen körs på denna
   const _fCatVal=(mb,sub)=>{const b=mb.bySub[sub]||{avtal:0,forn:0,pipe:0,man:0,other:0};return _fPart(b);};
+  // MOMS: ex moms för Avtal ur importSNAPSHOTET (materialiserat, importerat värde — INTE custRevCache live); förn/pipe/man ex via schablon ÷1,25; inkl = materialiserad box.
+  const _rollEx=avtalExBySub(rollId,_rollBox),_primEx=avtalExBySub(primId,_primBox);
+  // _fVal/_fCat: moms- OCH versionsmedvetet värde. Standard-version: inkl = materialiserad box; ex = avtal radvis (snapshot) + förn/pipe/man ÷1,25.
+  // Ex-moms-version (#13): Revenue lagrat EX → ex = rådata (box.total = ALLA källor, oavsett Actuals/Prognos), inkl = ×1,25 (gross-up).
+  const _fVal=(mb,ex,vid)=>{if(versionStoresExMoms(vid)){const raw=mb.box.total;return Math.round(_fInkl?raw*1.25:raw);}if(_fInkl)return Math.round(_fPart(mb.box));const exAvtal=Object.keys(ex).reduce((s,k)=>s+ex[k],0);if(_fMode!=='prognos')return Math.round(exAvtal);return Math.round(exAvtal+(mb.box.forn+mb.box.pipe+mb.box.man+mb.box.other)/1.25);};
+  const _fCat=(mb,ex,sub,vid)=>{const b=mb.bySub[sub]||{avtal:0,forn:0,pipe:0,man:0,other:0};if(versionStoresExMoms(vid)){const raw=b.avtal+b.forn+b.pipe+b.man+b.other;return Math.round(_fInkl?raw*1.25:raw);}if(_fInkl)return Math.round(_fPart(b));const exA=ex[sub]||0;if(_fMode!=='prognos')return Math.round(exA);return Math.round(exA+(b.forn+b.pipe+b.man+b.other)/1.25);};
   // RES-TABELL (#2g, ombyggd) — DELAD state med Försäljning-kortet (getStyrForsMode/Moms): Actuals/Prognos + ex/inkl moms.
-  // Försäljningsraden = materialiserad partition (helår) för #13 (Ingående budget) resp #37 (Utfall). Utgifter oförändrad (0..X). Varav 4 typer + okänt + avstämning.
+  // Försäljningsraden = materialiserad partition (helår) för #13 (Ingående budget) resp #37 (Utfall). Utgifter = Source-filter HELÅR (#13-facit). Varav 4 typer + okänt + avstämning.
   const _resToggle=`<div class="result-toggle"><button class="result-btn ${_fMode==='actuals'?'active':''}" onclick="setStyrForsMode(${year},'actuals')">Actuals</button><button class="result-btn ${_fMode==='prognos'?'active':''}" onclick="setStyrForsMode(${year},'prognos')">Prognos</button></div>`;
   const _resMomsChk=`<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap;"><input type="checkbox" ${_fInkl?'checked':''} onchange="setStyrForsMoms(${year},this.checked)" style="cursor:pointer;margin:0;">Visa inkl moms</label>`;
   const _resSalesLbl=_fMode==='prognos'?'Försäljning + prognos':'Försäljning';
-  const _salesBud=_fMomsV(_fPart(_primBox.box)),_salesVal=_fMomsV(_fPart(_rollBox.box));
-  const _resVarav=[{sub:'Licens (prenumeration)'},{sub:'Licens (fast pris)'},{sub:'Utbildning'},{sub:'Consulting'}].map(c=>({lbl:'Varav '+subLabel(c.sub),bud:_fMomsV(_fCatVal(_primBox,c.sub)),val:_fMomsV(_fCatVal(_rollBox,c.sub))}));
+  const _salesBud=_fVal(_primBox,_primEx,primId),_salesVal=_fVal(_rollBox,_rollEx,rollId);
+  const _resVarav=[{sub:'Licens (prenumeration)'},{sub:'Licens (fast pris)'},{sub:'Utbildning'},{sub:'Consulting'}].map(c=>({lbl:'Varav '+subLabel(c.sub),bud:_fCat(_primBox,_primEx,c.sub,primId),val:_fCat(_rollBox,_rollEx,c.sub,rollId)}));
   const _resOkSubs=['Okvalificerat/okänt','Övriga inbetalningar'];
-  const _okBud=_fMomsV(_resOkSubs.reduce((s,x)=>s+_fCatVal(_primBox,x),0)),_okVal=_fMomsV(_resOkSubs.reduce((s,x)=>s+_fCatVal(_rollBox,x),0));
-  // Avstämning på INKL (exakt, momsrundnings-fritt): Σ(alla 6 Varav-subs) === Försäljningsraden, för både Ingående budget- och Utfall-kolumnen.
-  const _allSubs=['Licens (prenumeration)','Licens (fast pris)','Utbildning','Consulting','Okvalificerat/okänt','Övriga inbetalningar'];
-  const _reconDiffB=Math.round(_fPart(_primBox.box)-_allSubs.reduce((s,x)=>s+_fCatVal(_primBox,x),0)),_reconDiffV=Math.round(_fPart(_rollBox.box)-_allSubs.reduce((s,x)=>s+_fCatVal(_rollBox,x),0));
-  const _reconOK=_reconDiffB===0&&_reconDiffV===0;
+  const _okBud=_resOkSubs.reduce((s,x)=>s+_fCat(_primBox,_primEx,x,primId),0),_okVal=_resOkSubs.reduce((s,x)=>s+_fCat(_rollBox,_rollEx,x,rollId),0);
+  // Avstämning på DISPLAYADE värden (versions-/läges-/momsmedvetna) i tsek-granularitet så momsrundning ej ger falsklarm — Σ(4 Varav + okänt) === Försäljningsraden.
+  const _sumVarB=_resVarav.reduce((s,r)=>s+r.bud,0)+_okBud,_sumVarV=_resVarav.reduce((s,r)=>s+r.val,0)+_okVal;
+  const _reconDiffB=_salesBud-_sumVarB,_reconDiffV=_salesVal-_sumVarV;
+  const _reconOK=Math.round(_reconDiffB/1000)===0&&Math.round(_reconDiffV/1000)===0;
   const _reconRow=`<tr><td colspan="5" style="padding:6px 6px 2px;font-size:10px;color:${_reconOK?'var(--green)':'var(--red)'};">${_reconOK?'✓ Varav-raderna summerar till Försäljning':('⚠ Varav-raderna summerar INTE till Försäljning · diff Ingående budget '+_tsek(_reconDiffB)+' / Utfall '+_tsek(_reconDiffV)+' tkr')}</td></tr>`;
   const _varavHtml=_resVarav.map(r=>dRow(r.lbl,r.bud,r.val,true,true)).join('')+dRow('Varav okänt',_okBud,_okVal,true,true);
-  const bild2tbl=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:2px;"><div style="font-size:12px;font-weight:600;color:var(--text2);">Resultat mot ingående budget</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">${_resMomsChk}${_resToggle}</div></div><div style="font-size:10px;color:var(--text3);margin-bottom:6px;">Visar t.o.m. ${MONTHS[_grans]} (utfall) · ${_fInkl?'inkl':'ex'} moms</div><table style="width:100%;max-width:860px;border-collapse:collapse;font-size:11px;"><thead><tr>${_th('')}${_th('Ingående budget')}${_th(_col2)}${_th('Differens')}${_th('%')}</tr></thead><tbody>${dRow(_resSalesLbl,_salesBud,_salesVal,true)}${_varavHtml}${dRow('Utgifter',costBudget,costVal,false)}${_reconRow}</tbody></table>`;
+  const bild2tbl=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:2px;"><div style="font-size:12px;font-weight:600;color:var(--text2);">Resultat mot ingående budget</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">${_resMomsChk}${_resToggle}</div></div><div style="font-size:10px;color:var(--text3);margin-bottom:6px;">Visar t.o.m. ${MONTHS[_grans]} (utfall) · ${_fInkl?'inkl':'ex'} moms</div><table style="width:100%;max-width:860px;border-collapse:collapse;font-size:11px;"><thead><tr>${_th('')}${_th('Ingående budget')}${_th(_col2)}${_th('Differens')}${_th('%')}</tr></thead><tbody>${dRow(_resSalesLbl,_salesBud,_salesVal,true)}${_varavHtml}${dRow('Utgifter',_utgBud,costVal,false)}${_reconRow}</tbody></table>`;
   const _fCats=[{sub:'Licens (prenumeration)',bar:'#639922'},{sub:'Licens (fast pris)',bar:'#378ADD'},{sub:'Utbildning',bar:'#EF9F27'},{sub:'Consulting',bar:'#7F77DD'}];
-  const _fRows=_fCats.map(c=>({sub:c.sub,bar:c.bar,val:_fMomsV(_fCatVal(_rollBox,c.sub))}));
-  const _fTotal=_fMomsV(_fPart(_rollBox.box));
+  const _fRows=_fCats.map(c=>({sub:c.sub,bar:c.bar,val:_fCat(_rollBox,_rollEx,c.sub,rollId)}));
+  const _fTotal=_fVal(_rollBox,_rollEx,rollId);
   const _fCatSum=_fRows.reduce((s,r)=>s+r.val,0),_fResid=Math.max(0,_fTotal-_fCatSum);
   const _fPct=v=>_fTotal>0?Math.round(v/_fTotal*100):0;
-  const _fIng=_fMomsV(_fPart(_primBox.box)),_fDiff=_fIng>0?Math.round((_fTotal-_fIng)/_fIng*100):null;
+  const _fIng=_fVal(_primBox,_primEx,primId),_fDiff=_fIng>0?Math.round((_fTotal-_fIng)/_fIng*100):null;
   const _fTitle=_fMode==='prognos'?`Försäljning och prognos ${year}`:`Försäljning ${year}`;
   const _fModeLbl=_fMode==='prognos'?'Prognos':'Actuals',_fMomsLbl=_fInkl?'inkl moms':'ex moms';
   const _fToggle=`<div class="result-toggle"><button class="result-btn ${_fMode==='actuals'?'active':''}" onclick="setStyrForsMode(${year},'actuals')">Actuals</button><button class="result-btn ${_fMode==='prognos'?'active':''}" onclick="setStyrForsMode(${year},'prognos')">Prognos</button></div>`;
@@ -6817,6 +6830,10 @@ async function renderRevUnderlagResultat(){
     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px;">${srcBox('Avtal',avtalSum,pctOf(avtalSum),'#EAF3DE','#27500A',false)}${srcBox('Förnyelse',fornSum,pctOf(fornSum),'#FAEEDA','#633806',false)}${srcBox('Pipeline',pipeSum,pctOf(pipeSum),'#E6F1FB','#042C53',false)}${srcBox('Manuell',manSum,pctOf(manSum),'var(--surface)','var(--text2)',true)}</div>`;
   el.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:780px;max-width:94vw;max-height:88vh;overflow:auto;box-shadow:var(--shadow-md);padding:18px 22px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><div style="font-size:15px;font-weight:600;">Underlag · Nettoomsättning ${year} (periodiserat)</div><button onclick="window.closeRevUnderlag()" style="width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;color:var(--text2);font-size:16px;line-height:1;">×</button></div>${topHtml}${avtalHtml}${fornHtml}${pipeHtml}${manHtml}</div>`;
 }
+// VERSIONS-MOMS: versioner där Revenue lagrats EX moms (omvänd konvention) → ex = rådata, inkl = ×1,25 (gross-up). Standard: lagrat inkl → ex = ÷1,25.
+// Flagg-mekanism (Set) för framtidssäkerhet; #13 = ostädad Ingående budget med manuell ex-moms-inmatning. Lägg till fler versionId vid behov.
+const _EX_MOMS_VERSIONS=new Set([13]);
+function versionStoresExMoms(versionId){return _EX_MOMS_VERSIONS.has(Number(versionId));}
 // RES-DRIFT/STYR: DELAD materialiserad REVENUE-partition — EXAKT samma rader som sumSection('REVENUE')/revTotal (KPI:t).
 // Återanvänds av underlagspanelen OCH styrelsens Försäljning-kort så summorna aldrig kan glida isär. mode='likviditet'|'resultat'.
 // Returnerar box {avtal,forn,pipe,man,other,total} (allt INKL moms som lagrat) + bySub {sub:{...}} för kategoriuppdelning.
@@ -6829,6 +6846,24 @@ function revMaterializedBoxes(rows,mode){
   (rows||[]).filter(visRev).forEach(r=>{const k=cls(r),v=yr(r);box[k]+=v;const b=bySub[r.SubCategory]||(bySub[r.SubCategory]={avtal:0,forn:0,pipe:0,man:0,other:0});b[k]+=v;});
   box.total=box.avtal+box.forn+box.pipe+box.man+box.other;
   return {box,bySub};
+}
+// MOMS: ex moms för Avtal-källan ur det MATERIALISERADE importsnapshotet (importedActualsDetail.exAmount = ex-belopp VID IMPORT),
+// INTE ur custRevCache (nutid). Så inkl (box) och ex (snapshot) speglar båda senaste import — bara momsberäkningen skiljer.
+// Kantfall: poster importerade före exAmount-fältet → fallback ÷1,25 av sparat incl. Versioner helt utan detalj → ÷1,25 av materialiserad box. Returnerar {sub: Σ ex}.
+function avtalExBySub(versionId,box){
+  const detail=getImportedActualsDetail(versionId)||{};
+  const out={};const seen=new Set();let anyDetail=false,usedFallback=false;
+  for(let mi=0;mi<12;mi++){
+    const arr=detail[mi];if(!Array.isArray(arr))continue;
+    arr.forEach(d=>{const idS=String(d.id);if(seen.has(idS))return;seen.add(idS);anyDetail=true;
+      const sub=d.sub;if(!sub)return;
+      let ex;if(d.exAmount!=null)ex=d.exAmount;else{ex=Math.round((d.incl||0)/1.25);usedFallback=true;}   // äldre post utan exAmount → schablon
+      out[sub]=(out[sub]||0)+ex;
+    });
+  }
+  if(!anyDetail&&box&&box.bySub){Object.keys(box.bySub).forEach(sub=>{const a=box.bySub[sub].avtal||0;if(a){out[sub]=Math.round(a/1.25);usedFallback=true;}});}   // ingen detalj alls → schablon på box
+  if(usedFallback&&typeof window!=='undefined'){if(!window._exFallbackLogged)window._exFallbackLogged=new Set();if(!window._exFallbackLogged.has(String(versionId))){window._exFallbackLogged.add(String(versionId));console.warn('[avtalExBySub] version '+versionId+': saknar sparat exAmount för minst en importerad avtalspost → ÷1,25-schablon används. Importera om för exakt ex moms.');}}
+  return out;
 }
 async function renderRevUnderlag(){
   const el=document.getElementById('budget-rev-detail');if(!el)return;
