@@ -6227,6 +6227,11 @@ async function renderStyrelse(){
   const _grans=lastLocked>=0?lastLocked:_nowM;   // mjuk fallback till nowM om inga lås
   const X=(styrelseX!=null?Math.min(styrelseX,11):_grans);   // reglagets default = sista låsta månaden (styr GRAFEN/tidslinjen)
   const _Xnow=new Date().getMonth();   // RES-TABELLENS fasta jämförelsefönster = jan..innevarande kalendermånad (OBEROENDE av reglaget)
+  // MOMS-TOGGEL (delad med Resultat-tabellen, _fInkl). GRAFERNAS moms är version-medveten, samma konvention som _fVal/versionStoresExMoms:
+  //   #13 (ex-lagrad): ex = rådata, inkl = ×1,25 (gross-up).  #37 (inkl-lagrad): ex = ÷1,25, inkl = rådata.  (Kostnader momsas EJ — blandad/0% moms.)
+  const year=Number((budgetVersions.find(v=>String(v.Id)===String(primId))||{}).Year)||new Date().getFullYear();
+  const _fMode=getStyrForsMode(year),_fInkl=getStyrForsMoms(year);
+  const _gMoms=(v,vid)=>versionStoresExMoms(vid)?(_fInkl?Math.round(v*1.25):Math.round(v)):(_fInkl?Math.round(v):Math.round(v/1.25));
   const fmtSv=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
   // BILD 2 (#2f, ombyggd) — RESULTATSTAPEL kumulativ jan→X. Solid=jan→_grans (utfall t.o.m. sista låsta månad i
   // LÖPANDE budgeten, rollId), transparent=_grans+1→X (prognos). Budget=primär kumulativt jan→X (röd linje). Tidsbaserad split.
@@ -6235,15 +6240,15 @@ async function renderStyrelse(){
   // Category!=='Revenue' skulle dra in de 13 ostädade legacy-raderna (Source='(tom)', engelska kategorier) → exkluderas ur ALLA styrelse-beräkningar här.
   const _costPred=r=>r.Source==='Leverantör'||r.Source==='Moms';
   const _utfallGrans=Math.min(_grans,X);
-  const incSolid=_sM(rollRows,r=>r.Category==='Revenue',0,_utfallGrans);
-  const incTrans=_sM(rollRows,r=>r.Category==='Revenue',_utfallGrans+1,X);
-  const costSolid=Math.abs(_sM(rollRows,_costPred,0,_utfallGrans));   // SIGN: kostnad negativ i lagring → stapel på magnitud
+  const incSolid=_gMoms(_sM(rollRows,r=>r.Category==='Revenue',0,_utfallGrans),rollId);
+  const incTrans=_gMoms(_sM(rollRows,r=>r.Category==='Revenue',_utfallGrans+1,X),rollId);
+  const costSolid=Math.abs(_sM(rollRows,_costPred,0,_utfallGrans));   // SIGN: kostnad negativ i lagring → stapel på magnitud. Kostnader momsas EJ.
   const costTrans=Math.abs(_sM(rollRows,_costPred,_utfallGrans+1,X));
-  const incBudget=_sM(primRows,r=>r.Category==='Revenue',0,X);
+  const incBudget=_gMoms(_sM(primRows,r=>r.Category==='Revenue',0,X),primId);
   const costBudget=Math.abs(_sM(primRows,_costPred,0,X));
   const _money=v=>Math.round(v).toLocaleString('sv-SE')+' kr';
   const cW=460,cH=200,zero=100,maxBar=76,axL=52;
-  const maxV=Math.max(_sM(primRows,r=>r.Category==='Revenue',0,11),_sM(rollRows,r=>r.Category==='Revenue',0,11),Math.abs(_sM(primRows,_costPred,0,11)),Math.abs(_sM(rollRows,_costPred,0,11)),1);
+  const maxV=Math.max(_gMoms(_sM(primRows,r=>r.Category==='Revenue',0,11),primId),_gMoms(_sM(rollRows,r=>r.Category==='Revenue',0,11),rollId),Math.abs(_sM(primRows,_costPred,0,11)),Math.abs(_sM(rollRows,_costPred,0,11)),1);
   const bh=v=>Math.round(Math.max(0,v)/maxV*maxBar);
   const grid=[1,0.5].flatMap(f=>[{y:zero-Math.round(maxBar*f),v:maxV*f},{y:zero+Math.round(maxBar*f),v:-maxV*f}]).map(g=>`<line x1="${axL}" y1="${g.y}" x2="${cW-12}" y2="${g.y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 2"/><text x="${axL-4}" y="${g.y+3}" font-size="8" fill="var(--text3)" text-anchor="end">${(g.v/1000000).toFixed(1)} Mkr</text>`).join('');
   const BW=36;
@@ -6282,7 +6287,7 @@ async function renderStyrelse(){
   const _th=t=>`<th style="text-align:${t?'right':'left'};padding:5px 6px;font-size:10px;color:#7a5a2a;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;background:#FBEEDF;border-bottom:1px solid var(--border);">${t}</th>`;
   // bild2tbl (Resultat-tabellen) byggs LÄNGRE NER — behöver den delade box-beräkningen (year/_rollBox/_primBox/_fVal/_fCat).
   // BILD 3 — Likviditetsprognos (Primär, plan, helår): computeCashflow inkl. finansiering → delad likviditetsgraf (cashflowChartSvg).
-  const primVer=budgetVersions.find(v=>String(v.Id)===String(primId)),year=Number(primVer&&primVer.Year)||new Date().getFullYear();
+  const primVer=budgetVersions.find(v=>String(v.Id)===String(primId));   // year definieras tidigare (behövs av graf-momsen)
   // Bild 3 egen versionsväljare (oberoende av kassaflöde-fliken). Default = Primär. Påverkar ENDAST bild 3 (ej bild 2/fördelning).
   const b3liq=(budgetVersions||[]).filter(v=>v.BudgetType==='Likviditetsbudget');
   const b3sel=getStyrelseVersionId(year);
@@ -6306,7 +6311,7 @@ async function renderStyrelse(){
   // Utfall = Source 'Avtal (likviditet)' (kontrakt); estimerat helår = ALLA REVENUE-källor; helår 0..11.
   // FÖRSÄLJNING-KORT (#2e, ombyggt) — materialiserad partition (revMaterializedBoxes, samma som underlagspanelen/KPI:t).
   // Actuals = avtal-boxen; Prognos = avtal+förn+pipe+man. Moms: ex default (÷1,25), inkl = rått. Ingående budget = Primär likviditet (#13), samma omfång.
-  const _fMode=getStyrForsMode(year),_fInkl=getStyrForsMoms(year);
+  // _fMode/_fInkl definieras tidigare (delas med graf-momsen).
   const _rollBox=revMaterializedBoxes(rollRows,'likviditet'),_primBox=revMaterializedBoxes(primRows,'likviditet');
   const _fPart=b=>_fMode==='prognos'?(b.avtal+b.forn+b.pipe+b.man+b.other):b.avtal;   // INKL (materialiserad sanning) — avstämningen körs på denna
   const _fCatVal=(mb,sub)=>{const b=mb.bySub[sub]||{avtal:0,forn:0,pipe:0,man:0,other:0};return _fPart(b);};
@@ -6377,8 +6382,8 @@ async function renderStyrelse(){
   // Delar _grans/X med stapeln. Fast y-skala (maxCurve helår). Endast intäkt, inga utgifter.
   const _tlMRev=(rows,pred)=>MONTHS.map(m=>rows.filter(pred).reduce((s,r)=>s+(Number(r[m])||0),0));
   const _cum=a=>{let x=0;return a.map(v=>x+=v);};
-  const primCurve=_cum(_tlMRev(primRows,r=>r.Category==='Revenue'));   // ingående budget
-  const rollCurve=_cum(_tlMRev(rollRows,r=>r.Category==='Revenue'));   // utfall+prognos
+  const primCurve=_cum(_tlMRev(primRows,r=>r.Category==='Revenue')).map(v=>_gMoms(v,primId));   // ingående budget (#13, momsmedveten)
+  const rollCurve=_cum(_tlMRev(rollRows,r=>r.Category==='Revenue')).map(v=>_gMoms(v,rollId));   // utfall+prognos (#37, momsmedveten)
   const maxCurve=Math.max(primCurve[11],rollCurve[11],1);              // fast y-skala (X-oberoende)
   const tlW=460,tlH=200,tlPadL=52,tlPadR=12,tlTop=24,tlPadB=24;
   const tlcx=i=>tlPadL+i*((tlW-tlPadL-tlPadR)/11),tlcy=v=>tlTop+(1-v/maxCurve)*(tlH-tlTop-tlPadB);
