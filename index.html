@@ -6340,12 +6340,12 @@ async function renderStyrelse(){
   const _varavHtml=_resVarav.map(r=>dRow(r.lbl,r.bud,r.val,true,true)).join('')+dRow('Varav okänt',_okBud,_okVal,true,true);
   const bild2tbl=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:2px;"><div style="font-size:12px;font-weight:600;color:var(--text2);">Resultat mot ingående budget</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">${_resMomsChk}${_resToggle}</div></div><div style="font-size:10px;color:var(--text3);margin-bottom:6px;">Jämförelse t.o.m. ${MONTHS[X]} · ${_fInkl?'inkl':'ex'} moms</div><table style="width:100%;max-width:860px;border-collapse:collapse;font-size:11px;"><thead><tr>${_th('')}${_th('Ingående budget')}${_th(_col2)}${_th('Differens')}${_th('%')}</tr></thead><tbody>${dRow(_resSalesLbl,_salesBud,_salesVal,true)}${_varavHtml}${dRow('Utgifter',_utgBud,costVal,false)}${_reconRow}</tbody></table>`;
   const _fCats=[{sub:'Licens (prenumeration)',bar:'#639922'},{sub:'Licens (fast pris)',bar:'#378ADD'},{sub:'Utbildning',bar:'#EF9F27'},{sub:'Consulting',bar:'#7F77DD'}];
-  const _fRows=_fCats.map(c=>({sub:c.sub,bar:c.bar,val:_fCat(_rollBox,_rollEx,c.sub,rollId)}));
-  const _fTotal=_fVal(_rollBox,_rollEx,rollId);
+  const _fRows=_fCats.map(c=>({sub:c.sub,bar:c.bar,val:_fCat(_rollBoxC,_rollExC,c.sub,rollId)}));   // kategorikort klippta till reglaget (X), speglar huvudsumman
+  const _fTotal=_fVal(_rollBoxC,_rollExC,rollId);   // huvudsumma klippt till reglaget (X) — kortet är nu YTD, samma fönster som Ingående budget → diff matchar tabellen exakt
   const _fCatSum=_fRows.reduce((s,r)=>s+r.val,0),_fResid=Math.max(0,_fTotal-_fCatSum);
   const _fPct=v=>_fTotal>0?Math.round(v/_fTotal*100):0;
-  const _fIng=_fVal(_primBox,_primEx,primId),_fDiff=_fIng>0?Math.round((_fTotal-_fIng)/_fIng*100):null;
-  const _fTitle=_fMode==='prognos'?`Försäljning och prognos ${year}`:`Försäljning ${year}`;
+  const _fIng=_fVal(_primBoxC,_primExC,primId),_fDiff=_fIng>0?Math.round((_fTotal-_fIng)/_fIng*100):null;   // Ingående budget klippt till reglaget (X), som tabellen/grafen — huvudsumman _fTotal förblir oförändrad
+  const _fTitle=_fMode==='prognos'?`Försäljning och prognos t.o.m. ${MONTHS[X]} ${year}`:`Försäljning t.o.m. ${MONTHS[X]} ${year}`;
   const _fModeLbl=_fMode==='prognos'?'Prognos':'Actuals',_fMomsLbl=_fInkl?'inkl moms':'ex moms';
   const _fToggle=`<div class="result-toggle"><button class="result-btn ${_fMode==='actuals'?'active':''}" onclick="setStyrForsMode(${year},'actuals')">Actuals</button><button class="result-btn ${_fMode==='prognos'?'active':''}" onclick="setStyrForsMode(${year},'prognos')">Prognos</button></div>`;
   const _fMomsChk=`<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap;"><input type="checkbox" ${_fInkl?'checked':''} onchange="setStyrForsMoms(${year},this.checked)" style="cursor:pointer;margin:0;">Visa inkl moms</label>`;
@@ -6355,7 +6355,7 @@ async function renderStyrelse(){
   const fordelningHtml=`<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px;">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-bottom:8px;margin-bottom:12px;border-bottom:1px solid var(--border);"><div style="font-size:16px;font-weight:600;color:#1E2340;">${_fTitle}</div><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">${_fMomsChk}${_fToggle}</div></div>
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px;"><div style="font-size:22px;font-weight:700;color:#D85A30;">${fmtSv(_fTotal)}</div><div style="font-size:12px;color:var(--text2);">${_fModeLbl} · ${_fMomsLbl}</div></div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Ingående budget: ${fmtSv(_fIng)}${_fDiffTxt}</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Ingående budget t.o.m. ${MONTHS[X]}: ${fmtSv(_fIng)}${_fDiffTxt}</div>
     <div style="display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--surface2);margin-bottom:10px;">${_fBar}</div>
     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">${_fCards}</div>
     ${_fResid>0?`<div style="font-size:10px;color:var(--text3);margin-top:6px;">+ övrigt (okval./övriga inbetalningar): ${fmtSv(_fResid)}</div>`:''}
