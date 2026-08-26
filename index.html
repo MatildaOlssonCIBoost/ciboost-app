@@ -5334,13 +5334,14 @@ async function importMonthActuals(versionId,monthIndex,includedAvtalIds=null){
   const year=Number(ver.Year)||new Date().getFullYear();
   let rows=[];try{rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();}catch(e){return null;}
   const incl=includedAvtalIds?new Set(includedAvtalIds.map(String)):null;
-  const perType={ARR:0,Fastpris:0,Utbildning:0,Consulting:0};const importedIds=[];
-  Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{
+  const perType={ARR:0,Fastpris:0,Utbildning:0,Consulting:0};const importedIds=[];const importedDetail=[];   // RES-DRIFT: per-post baslinje (id,cid,sub,incl) för källdrift-varning i underlaget
+  Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{
     if(!(it.Type in perType))return;
     if(incl&&!incl.has(String(it.Id)))return;
     const d=kaCashflowDate(it);
     if(!d||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
-    perType[it.Type]+=(it.Amount||0)*(1+(it.VatRate!=null?it.VatRate:25)/100);importedIds.push(it.Id);   // K3: inkl moms (likviditet, avtal — cachad VatRate)
+    const _incl=(it.Amount||0)*(1+(it.VatRate!=null?it.VatRate:25)/100);   // K3: inkl moms (likviditet, avtal — cachad VatRate)
+    perType[it.Type]+=_incl;importedIds.push(it.Id);importedDetail.push({id:it.Id,cid:Number(cid),sub:REV_CAT_TO_SUB[it.Type],incl:Math.round(_incl)});
   });});
   const Mkey=MONTHS[monthIndex];const today=new Date().toISOString().substring(0,10);const SRC='Avtal (likviditet)';
   Object.keys(perType).forEach(type=>{
@@ -5352,6 +5353,7 @@ async function importMonthActuals(versionId,monthIndex,includedAvtalIds=null){
   const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
   await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   setImportedActualsMonth(versionId,monthIndex,importedIds);   // ETAPP 5B: dubbelskriv localStorage + BudgetMemory ('importedActuals')
+  setImportedActualsDetail(versionId,monthIndex,importedDetail);   // RES-DRIFT: spara per-post-baslinjen för denna månad (källdrift-jämförelse i underlaget)
   if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
   const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
   return perType;
@@ -6411,6 +6413,10 @@ async function _bmMigrate(versionId){
 // null = aldrig importerad månad (→ förkryssa allt); [] = importerad, inget valt.
 function getImportedActualsSet(versionId,mi){const m=bmGet(versionId,'importedActuals');if(m&&m[mi]!==undefined)return Array.isArray(m[mi])?m[mi]:[];const ls=localStorage.getItem('importedAvtal_'+versionId+'_'+mi);return ls!=null?JSON.parse(ls):null;}
 function setImportedActualsMonth(versionId,mi,ids){localStorage.setItem('importedAvtal_'+versionId+'_'+mi,JSON.stringify(ids));const m=Object.assign({},bmGet(versionId,'importedActuals')||{});m[mi]=ids;bmSet(versionId,'importedActuals',m);}
+// RES-DRIFT: per-post importbaslinje {mi:[{id,cid,sub,incl}]} — additiv BM-nyckel (rör ej id-setet ovan). Underlaget jämför denna mot kundregistrets nuvarande värde för källdrift-varning.
+// Dubbelskriv localStorage (som id-setet) → robust även om bmLoad (fire-and-forget) ännu ej klar när panelen öppnas.
+function getImportedActualsDetail(versionId){const m=Object.assign({},bmGet(versionId,'importedActualsDetail')||{});for(let mi=0;mi<12;mi++){if(m[mi]===undefined){const ls=localStorage.getItem('importedAvtalDetail_'+versionId+'_'+mi);if(ls!=null){try{m[mi]=JSON.parse(ls);}catch(e){}}}}return m;}
+function setImportedActualsDetail(versionId,mi,arr){localStorage.setItem('importedAvtalDetail_'+versionId+'_'+mi,JSON.stringify(arr));const m=Object.assign({},bmGet(versionId,'importedActualsDetail')||{});m[mi]=arr;bmSet(versionId,'importedActualsDetail',m);}
 // ETAPP 4/5: delad spegling-kontroller. Läser parade budgetens urval för given Source; hanterar banner/spegla/drift.
 // memoryKey = där _mirror-snapshoten bor (fornyelsePeriods resp. pipelineSnapshot). opts:{noun,onMirror}.
 async function bmMakeMirror(ver,versionId,isRes,sourceLabel,memoryKey,opts){
@@ -6793,12 +6799,26 @@ async function renderRevUnderlag(){
   // underliggande licenspost (senaste ARR/Fastpris av typen i custRevCache).
   const latestOfType=(cid,t)=>{const items=custRevCache[cid]||[];const r=items.filter(i=>i.Type===t&&i.DateTo);return r.length?r.reduce((a,b)=>new Date(b.DateTo)>new Date(a.DateTo)?b:a):null;};
   const TL={ARR:'Licens (pren.)',Fastpris:'Licens (fast)',Utbildning:'Utbildning',Consulting:'Consulting'};
-  // AVTAL — importerade custRevCache-poster (id i någon importedAvtal_<ver>_<mi>).
-  const impIds=new Set();
-  for(let mi=0;mi<12;mi++){try{(getImportedActualsSet(currentBudgetVersionId,mi)||[]).forEach(id=>impIds.add(String(id)));}catch(e){}}
-  const avtalPosts=[];
-  Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!impIds.has(String(it.Id)))return;const cf=kaCashflowDate(it);avtalPosts.push({custId:cid,name:custName(cid),desc:it.Description||'',type:it.Type,faktura:it.InvoiceDate?String(it.InvoiceDate).substring(0,10):'–',liq:cf?cf.toISOString().substring(0,10):'–',amount:it.Amount||0,vat:(it.VatRate!=null?it.VatRate:25)});});});
-  const avtalSum=avtalPosts.reduce((s,p)=>s+p.amount,0);
+  // AVTAL — RES-DRIFT: bygg per-post-listan ur IMPORTSNAPSHOTET (id-set + per-post-baslinje), INTE live ur custRevCache.
+  // Summan visas materialiserad (avtalSumIncl nedan = BudgetRows). Per post jämförs importerat baslinjebelopp mot kundregistrets NUVARANDE värde → källdrift-flagga.
+  const _mi=(amt,vat)=>amt*(1+(vat!=null?vat:25)/100);
+  const _detailMap=getImportedActualsDetail(currentBudgetVersionId)||{};
+  const _custItemById=id=>{const idS=String(id);const ents=Object.entries(custRevCache||{});for(let k=0;k<ents.length;k++){const items=ents[k][1];if(Array.isArray(items)){const it=items.find(x=>String(x.Id)===idS);if(it)return{it,cid:ents[k][0]};}}return null;};
+  const avtalPosts=[];const _seenAv=new Set();
+  for(let mi=0;mi<12;mi++){
+    const ids=getImportedActualsSet(currentBudgetVersionId,mi)||[];
+    const dmap={};(Array.isArray(_detailMap[mi])?_detailMap[mi]:[]).forEach(d=>{dmap[String(d.id)]=d;});
+    ids.forEach(id=>{const idS=String(id);if(_seenAv.has(idS))return;_seenAv.add(idS);
+      const found=_custItemById(id);const d=dmap[idS];
+      const importedIncl=d?Math.round(d.incl):null;   // baslinje (null = import gjord före drift-spårningen → visa nuvärde, ingen belopps-drift)
+      if(found){const it=found.it;const cf=kaCashflowDate(it);const curIncl=Math.round(_mi(it.Amount||0,it.VatRate));
+        avtalPosts.push({custId:found.cid,name:custName(found.cid),desc:it.Description||'',type:it.Type,faktura:it.InvoiceDate?String(it.InvoiceDate).substring(0,10):'–',liq:cf?cf.toISOString().substring(0,10):'–',amount:it.Amount||0,vat:(it.VatRate!=null?it.VatRate:25),importedIncl,curIncl,removed:false,changed:(importedIncl!=null&&importedIncl!==curIncl)});
+      }else{
+        avtalPosts.push({custId:d&&d.cid!=null?d.cid:null,name:d&&d.cid!=null?custName(d.cid):('Avtal #'+idS),desc:'',type:d?({['Licens (prenumeration)']:'ARR',['Licens (fast pris)']:'Fastpris'}[d.sub]||d.sub):null,faktura:'–',liq:'–',amount:null,vat:null,importedIncl,curIncl:0,removed:true,changed:false});
+      }
+    });
+  }
+  const avtalSum=avtalPosts.reduce((s,p)=>s+(p.amount||0),0);   // ex moms, live (endast informationskolumn)
   // FÖRNYELSE / PIPELINE — import-assumptions (DB).
   const fornRows=assumptions.filter(a=>a.Source==='Förnyelse').map(a=>{const cid=String(a.ItemKey||'').split('_')[0];const amt=a.Amount||0,prob=a.Prob||0;const fakt=a.AssumeDate?String(a.AssumeDate).substring(0,10):'–';const lp=latestOfType(cid,a.Type);const ly=liqYearOf(fakt);return{cid,itemKey:a.ItemKey,source:a.Source,name:custName(cid),desc:(lp&&lp.Description)||'',type:a.Type||'',faktura:fakt,liq:liq30(fakt),liqYear:ly,outOfYear:ly!=null&&ly!==year,amount:amt,prob,viktat:Math.round(amt*prob/100),vat:(a.VatRate!=null?a.VatRate:25)};});
   // U-3 D: pipeline-Description ligger på prospectRevCache-posten → förladda berörda prospekt.
@@ -6815,26 +6835,28 @@ async function renderRevUnderlag(){
   // MANUELL — editable Revenue-rader (utan Source), årssumma per SubCategory.
   const manRows=(budgetRows||[]).filter(r=>!r.Source&&r.Category==='Revenue').map(r=>({sub:r.SubCategory,total:MONTHS.reduce((s,m)=>s+(r[m]||0),0)})).filter(r=>r.total>0);
   const manSum=manRows.reduce((s,r)=>s+r.total,0);
-  // Topp-summering EX moms: avtal ovikt + förn/pipe viktat + manuell.
-  const srcViktat=avtalSum+fornViktat+pipeViktat+manSum;
-  const ovikt=avtalSum+fornAmt+pipeAmt+manSum;
-  const prognos=fornViktat+pipeViktat;
-  // MOMS: likviditeten visas INKL moms (= vad som landar på kontot; samma per-post-formel som importMonthActuals [5328] / rebuildSourceRows [6912]). srcViktatIncl = KPI:ns revTotal.
-  const _mi=(amt,vat)=>amt*(1+(vat!=null?vat:25)/100);
-  const avtalSumIncl=avtalPosts.reduce((s,p)=>s+_mi(p.amount,p.vat),0);
-  const fornViktatIncl=fornIn.reduce((s,r)=>s+Math.round(r.amount*r.prob/100*(1+(r.vat!=null?r.vat:25)/100)),0);
-  const pipeViktatIncl=pipeIn.reduce((s,r)=>s+Math.round(r.amount*r.prob/100*(1+(r.vat!=null?r.vat:25)/100)),0);
-  const fornAmtIncl=fornIn.reduce((s,r)=>s+_mi(r.amount,r.vat),0);
-  const pipeAmtIncl=pipeIn.reduce((s,r)=>s+_mi(r.amount,r.vat),0);
-  const srcViktatIncl=avtalSumIncl+fornViktatIncl+pipeViktatIncl+manSum;
-  const oviktIncl=avtalSumIncl+fornAmtIncl+pipeAmtIncl+manSum;
-  const pctAvtal=srcViktat>0?Math.round(avtalSum/srcViktat*100):0;
-  const pctPrognos=srcViktat>0?Math.round(prognos/srcViktat*100):0;
+  // RES-DRIFT: MATERIALISERADE summor — partition av EXAKT samma rader som sumSection('REVENUE')/revTotal (KPI:t),
+  // så srcViktatIncl === revTotal (KPI:t) per konstruktion. Ingen live-omräkning mot kundregistret → ingen glidning möjlig.
+  const _revSubs=new Set(BUDGET_ROWS_DEF.filter(d=>d.section==='REVENUE').map(d=>d.subCategory));
+  const _visRev=r=>r.Category==='Revenue'&&_revSubs.has(r.SubCategory)&&(!r.Source||(String(r.Source).startsWith('Avtal (')?r.Source==='Avtal ('+currentBudgetMode+')':true));
+  const _yrSum=r=>MONTHS.reduce((s,m)=>s+(Number(r[m])||0),0);
+  const _boxOf=pred=>(budgetRows||[]).filter(r=>_visRev(r)&&pred(r)).reduce((s,r)=>s+_yrSum(r),0);
+  const avtalSumIncl=_boxOf(r=>r.Source==='Avtal ('+currentBudgetMode+')');
+  const fornViktatIncl=_boxOf(r=>r.Source==='Förnyelse');
+  const pipeViktatIncl=_boxOf(r=>r.Source==='Pipeline (viktat)');
+  const manBox=_boxOf(r=>!r.Source);
+  const otherBox=_boxOf(r=>r.Source&&!String(r.Source).startsWith('Avtal (')&&r.Source!=='Förnyelse'&&r.Source!=='Pipeline (viktat)');
+  const srcViktatIncl=avtalSumIncl+fornViktatIncl+pipeViktatIncl+manBox+otherBox;   // === revTotal (KPI:t)
+  // Källdrift: avtalsposter vars kundregister-värde avviker från importerat, eller som tagits bort ur kundregistret.
+  const driftPosts=avtalPosts.filter(p=>p.removed||p.changed);
   const stat=(lbl,val,col,sub)=>`<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px;">${lbl}</div><div style="font-size:16px;font-weight:600;color:${col||'var(--text)'};">${val}</div>${sub?`<div style="font-size:10px;color:var(--text3);margin-top:1px;">${sub}</div>`:''}</div>`;
   const th=t=>`<th style="text-align:${t==='Belopp'||t==='Viktat'||t==='Viktning'||t==='Årssumma'||t==='Ex moms'||t==='Inkl moms'?'right':'left'};font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;padding:5px 8px;border-bottom:1px solid var(--border);">${t}</th>`;
   const datedTable=(rows,cols,sumCells,bg)=>`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;"><thead><tr>${cols.map(th).join('')}</tr></thead><tbody><tr style="background:${bg};font-weight:600;">${sumCells}</tr>${rows}</tbody></table>`;
   // AVTAL-sektion (grön summa).
-  const avtalBody=avtalPosts.length?avtalPosts.map(p=>`<tr style="cursor:pointer;" onclick="window.openCustValue('${p.custId}')" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);max-width:230px;"><div style="display:flex;align-items:baseline;gap:6px;min-width:0;"><span style="white-space:nowrap;">${p.name}</span>${p.desc?`<span style="color:var(--text3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">· ${esc(p.desc)}</span>`:''}</div></td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${TL[p.type]||p.type}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${p.faktura}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${p.liq}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;color:var(--text3);">${fk(p.amount)}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-weight:700;">${fk(_mi(p.amount,p.vat))}</td></tr>`).join(''):'<tr><td colspan="6" style="padding:8px;color:var(--text3);">Inga importerade avtal.</td></tr>';
+  // RES-DRIFT: ⚠ per post om kundregistret ändrats sedan importen. Länk → kundkortets Värde-flik (befintlig openCustValue) för ev. omimport via Avtal (välj)-modalen.
+  const _warnTip=p=>p.removed?'Borttaget i kundregistret — importerad post finns kvar i budgeten. Öppna Avtal (välj) för att importera om.':(p.changed?('Källan har ändrats: importerat '+fk(p.importedIncl)+' → nu '+fk(p.curIncl)+'. Budgeten är oförändrad tills du importerar om.'):'');
+  const _driftNote=p=>{const t=_warnTip(p);return t?`<div style="font-size:9px;color:#a5761b;font-style:italic;">⚠ ${p.removed?'Borttaget i kundregistret':('importerat '+fk(p.importedIncl)+' → nu '+fk(p.curIncl))}</div>`:'';};
+  const avtalBody=avtalPosts.length?avtalPosts.map(p=>`<tr ${p.custId!=null?`onclick="window.openCustValue('${p.custId}')" style="cursor:pointer;"`:'style="cursor:default;"'} onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);max-width:230px;"><div style="display:flex;align-items:baseline;gap:6px;min-width:0;"><span style="white-space:nowrap;${p.removed?'text-decoration:line-through;color:var(--text3);':''}">${p.name}</span>${p.desc?`<span style="color:var(--text3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">· ${esc(p.desc)}</span>`:''}</div>${_driftNote(p)}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${p.type?(TL[p.type]||p.type):'–'}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${p.faktura}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${p.liq}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;color:var(--text3);">${p.amount!=null?fk(p.amount):'–'}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-weight:700;">${(p.removed||p.changed)?`<span title="${_warnTip(p).replace(/"/g,'&quot;')}" style="color:#b8860b;cursor:help;margin-right:3px;">⚠</span>`:''}${p.importedIncl!=null?fk(p.importedIncl):fk(p.curIncl)}</td></tr>`).join(''):'<tr><td colspan="6" style="padding:8px;color:var(--text3);">Inga importerade avtal.</td></tr>';
   const avtalHtml=`<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:#1a7a50;margin-bottom:2px;">Avtal (befintliga kunder)</div>${datedTable(avtalBody,['Kund','Typ','Faktura','Likviditet','Ex moms','Inkl moms'],`<td colspan="4" style="padding:5px 8px;color:#1a7a50;">Summa avtal · ${avtalPosts.length} poster</td><td style="padding:5px 8px;text-align:right;color:#1a7a50;">${fk(avtalSum)}</td><td style="padding:5px 8px;text-align:right;color:#1a7a50;font-weight:700;">${fk(avtalSumIncl)}</td>`,'#e8f5ee')}</div>`;
   // FÖRNYELSE-sektion (amber summa).
   const wRow=(rows,bg,emptyTxt,clk)=>rows.length?rows.map(r=>`<tr style="cursor:pointer;${r.outOfYear?'opacity:0.45;':''}" onclick="${clk(r)}" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''"><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);max-width:230px;"><div style="display:flex;align-items:baseline;gap:6px;min-width:0;"><span style="white-space:nowrap;">${r.name}</span>${r.desc?`<span style="color:var(--text3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">· ${esc(r.desc)}</span>`:''}</div></td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${TL[r.type]||r.type}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${r.faktura}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);color:var(--text3);">${r.liq}${r.outOfYear?`<div style="font-size:9px;color:var(--text3);">utanför budgetåret ${r.liqYear} – ej i matrisen</div>`:''}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;">${fk(r.amount)}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;">${r.prob}%</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-weight:500;">${fk(r.viktat)}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:center;"><button onclick="event.stopPropagation();deleteUnderlagPost('${r.source}','${r.itemKey}')" title="Radera post" style="width:16px;height:16px;border:0.5px solid var(--border);border-radius:3px;background:none;cursor:pointer;color:var(--red);font-size:11px;line-height:1;padding:0;">×</button></td></tr>`).join(''):`<tr><td colspan="8" style="padding:8px;color:var(--text3);">${emptyTxt}</td></tr>`;
@@ -6851,13 +6873,14 @@ async function renderRevUnderlag(){
     <div style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">Budgeterad försäljning · inkl moms</div>
       <div style="font-size:26px;font-weight:700;color:#D85A30;line-height:1.1;margin-top:3px;">${fk(srcViktatIncl)}</div>
-      <div style="font-size:11px;color:var(--text3);margin-top:2px;">oviktad: ${fk(oviktIncl)} · varav ex moms: ${fk(srcViktat)}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px;">= budgetens materialiserade försäljning (KPI)${otherBox>0?` · varav övrig källa ${fk(otherBox)}`:''}</div>
+      ${driftPosts.length?`<div style="font-size:11px;color:#a5761b;margin-top:6px;display:flex;align-items:center;gap:5px;"><span>⚠</span><span>${driftPosts.length} ${driftPosts.length===1?'post har':'poster har'} ändrats i källan sedan senaste import — se ⚠ i avtalslistan</span></div>`:''}
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:16px;">
       ${srcBox('Avtal',avtalSumIncl,pctOf(avtalSumIncl),'#EAF3DE','#27500A',false)}
       ${srcBox('Förnyelse',fornViktatIncl,pctOf(fornViktatIncl),'#FAEEDA','#633806',false)}
       ${srcBox('Pipeline',pipeViktatIncl,pctOf(pipeViktatIncl),'#E6F1FB','#042C53',false)}
-      ${srcBox('Manuell',manSum,pctOf(manSum),'var(--surface)','var(--text2)',true)}
+      ${srcBox('Manuell',manBox,pctOf(manBox),'var(--surface)','var(--text2)',true)}
     </div>`;
   // BLOCK A: centrerad modal-box i overlayn (header + stäng-X).
   el.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:780px;max-width:94vw;max-height:88vh;overflow:auto;box-shadow:var(--shadow-md);padding:18px 22px;">
