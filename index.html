@@ -6264,17 +6264,14 @@ async function renderStyrelse(){
   // BILD 2 (#2g) — RESULTATTABELL (Budget/Utfall/Differens). Matchar grafens modell (#2f), kapat vid X.
   // Utfall = hårt (Avtal för intäkt, 0..utfallGräns för utgift) — prognos-checkboxen påverkar INTE tabellen.
   // Inkomst under budget = röd (sämre); utgift under budget = grön (mindre kostnad).
-  const prenBudget=_sM(primRows,r=>r.Category==='Revenue'&&r.SubCategory==='Licens (prenumeration)',0,X);
-  // Värde = summa 0..X (hela vald period). Rubrik Utfall/Prognos = ETIKETT styrd av X vs _grans (ej olika summa).
-  const incVal=_sM(rollRows,r=>r.Category==='Revenue',0,X);
+  // Utgifter OFÖRÄNDRAD: 0..X, abs, rått (incl moms) — momsas EJ (utgifter har blandad/0% moms), ingen Varav, ingen gate (grönt +62% ska synas).
   const costVal=Math.abs(_sM(rollRows,r=>r.Category!=='Revenue',0,X));
-  const prenVal=_sM(rollRows,r=>r.Category==='Revenue'&&r.SubCategory==='Licens (prenumeration)',0,X);
   const _col2=X<=_grans?'Utfall':'Prognos';
   const _tsek=v=>Math.round(v/1000).toLocaleString('sv-SE');   // TSEK
   // Differens: inkomst=val−budget, utgift=budget−val (besparing) → positivt=grön=bra. %=differens/budget.
   const dRow=(label,budget,val,incomeLike,sub)=>{const diff=incomeLike?(val-budget):(budget-val);const pct=budget!==0?Math.round(diff/budget*100):0;const col=diff>=0?'var(--green)':'var(--red)';const lblPad=sub?'padding:3px 6px 3px 18px;color:var(--text3);':'padding:3px 6px;font-weight:500;';const cellPad=sub?'padding:3px 6px;color:var(--text3);':'padding:3px 6px;';const dPad=`padding:3px 6px;text-align:right;font-weight:600;color:${col};`;return `<tr><td style="${lblPad}">${label}</td><td style="${cellPad}text-align:right;">${_tsek(budget)}</td><td style="${cellPad}text-align:right;">${_tsek(val)}</td><td style="${dPad}">${diff>=0?'+':''}${_tsek(diff)}</td><td style="${dPad}">${diff>=0?'+':''}${pct}%</td></tr>`;};
   const _th=t=>`<th style="text-align:${t?'right':'left'};padding:5px 6px;font-size:10px;color:#7a5a2a;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;background:#FBEEDF;border-bottom:1px solid var(--border);">${t}</th>`;
-  const bild2tbl=`<table style="width:100%;max-width:860px;border-collapse:collapse;font-size:11px;margin-top:10px;"><thead><tr>${_th('')}${_th('Ingående budget')}${_th(_col2)}${_th('Differens')}${_th('%')}</tr></thead><tbody>${dRow('Försäljning',incBudget,incVal,true)}${dRow('Varav '+subLabel('Licens (prenumeration)'),prenBudget,prenVal,true,true)}${dRow('Utgifter',costBudget,costVal,false)}</tbody></table>`;
+  // bild2tbl (Resultat-tabellen) byggs LÄNGRE NER — behöver den delade box-beräkningen (year/_rollBox/_primBox/_fMomsV/_fPart/_fCatVal).
   // BILD 3 — Likviditetsprognos (Primär, plan, helår): computeCashflow inkl. finansiering → delad likviditetsgraf (cashflowChartSvg).
   const primVer=budgetVersions.find(v=>String(v.Id)===String(primId)),year=Number(primVer&&primVer.Year)||new Date().getFullYear();
   // Bild 3 egen versionsväljare (oberoende av kassaflöde-fliken). Default = Primär. Påverkar ENDAST bild 3 (ej bild 2/fördelning).
@@ -6305,6 +6302,22 @@ async function renderStyrelse(){
   const _rollBox=revMaterializedBoxes(rollRows,'likviditet'),_primBox=revMaterializedBoxes(primRows,'likviditet');
   const _fPart=b=>_fMode==='prognos'?(b.avtal+b.forn+b.pipe+b.man+b.other):b.avtal;   // samma fyra byggstenar som srcViktatIncl
   const _fCatVal=(mb,sub)=>{const b=mb.bySub[sub]||{avtal:0,forn:0,pipe:0,man:0,other:0};return _fPart(b);};
+  // RES-TABELL (#2g, ombyggd) — DELAD state med Försäljning-kortet (getStyrForsMode/Moms): Actuals/Prognos + ex/inkl moms.
+  // Försäljningsraden = materialiserad partition (helår) för #13 (Ingående budget) resp #37 (Utfall). Utgifter oförändrad (0..X). Varav 4 typer + okänt + avstämning.
+  const _resToggle=`<div class="result-toggle"><button class="result-btn ${_fMode==='actuals'?'active':''}" onclick="setStyrForsMode(${year},'actuals')">Actuals</button><button class="result-btn ${_fMode==='prognos'?'active':''}" onclick="setStyrForsMode(${year},'prognos')">Prognos</button></div>`;
+  const _resMomsChk=`<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;white-space:nowrap;"><input type="checkbox" ${_fInkl?'checked':''} onchange="setStyrForsMoms(${year},this.checked)" style="cursor:pointer;margin:0;">Visa inkl moms</label>`;
+  const _resSalesLbl=_fMode==='prognos'?'Försäljning + prognos':'Försäljning';
+  const _salesBud=_fMomsV(_fPart(_primBox.box)),_salesVal=_fMomsV(_fPart(_rollBox.box));
+  const _resVarav=[{sub:'Licens (prenumeration)'},{sub:'Licens (fast pris)'},{sub:'Utbildning'},{sub:'Consulting'}].map(c=>({lbl:'Varav '+subLabel(c.sub),bud:_fMomsV(_fCatVal(_primBox,c.sub)),val:_fMomsV(_fCatVal(_rollBox,c.sub))}));
+  const _resOkSubs=['Okvalificerat/okänt','Övriga inbetalningar'];
+  const _okBud=_fMomsV(_resOkSubs.reduce((s,x)=>s+_fCatVal(_primBox,x),0)),_okVal=_fMomsV(_resOkSubs.reduce((s,x)=>s+_fCatVal(_rollBox,x),0));
+  // Avstämning på INKL (exakt, momsrundnings-fritt): Σ(alla 6 Varav-subs) === Försäljningsraden, för både Ingående budget- och Utfall-kolumnen.
+  const _allSubs=['Licens (prenumeration)','Licens (fast pris)','Utbildning','Consulting','Okvalificerat/okänt','Övriga inbetalningar'];
+  const _reconDiffB=Math.round(_fPart(_primBox.box)-_allSubs.reduce((s,x)=>s+_fCatVal(_primBox,x),0)),_reconDiffV=Math.round(_fPart(_rollBox.box)-_allSubs.reduce((s,x)=>s+_fCatVal(_rollBox,x),0));
+  const _reconOK=_reconDiffB===0&&_reconDiffV===0;
+  const _reconRow=`<tr><td colspan="5" style="padding:6px 6px 2px;font-size:10px;color:${_reconOK?'var(--green)':'var(--red)'};">${_reconOK?'✓ Varav-raderna summerar till Försäljning':('⚠ Varav-raderna summerar INTE till Försäljning · diff Ingående budget '+_tsek(_reconDiffB)+' / Utfall '+_tsek(_reconDiffV)+' tkr')}</td></tr>`;
+  const _varavHtml=_resVarav.map(r=>dRow(r.lbl,r.bud,r.val,true,true)).join('')+dRow('Varav okänt',_okBud,_okVal,true,true);
+  const bild2tbl=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:2px;"><div style="font-size:12px;font-weight:600;color:var(--text2);">Resultat mot ingående budget</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">${_resMomsChk}${_resToggle}</div></div><div style="font-size:10px;color:var(--text3);margin-bottom:6px;">Visar t.o.m. ${MONTHS[_grans]} (utfall) · ${_fInkl?'inkl':'ex'} moms</div><table style="width:100%;max-width:860px;border-collapse:collapse;font-size:11px;"><thead><tr>${_th('')}${_th('Ingående budget')}${_th(_col2)}${_th('Differens')}${_th('%')}</tr></thead><tbody>${dRow(_resSalesLbl,_salesBud,_salesVal,true)}${_varavHtml}${dRow('Utgifter',costBudget,costVal,false)}${_reconRow}</tbody></table>`;
   const _fCats=[{sub:'Licens (prenumeration)',bar:'#639922'},{sub:'Licens (fast pris)',bar:'#378ADD'},{sub:'Utbildning',bar:'#EF9F27'},{sub:'Consulting',bar:'#7F77DD'}];
   const _fRows=_fCats.map(c=>({sub:c.sub,bar:c.bar,val:_fMomsV(_fCatVal(_rollBox,c.sub))}));
   const _fTotal=_fMomsV(_fPart(_rollBox.box));
