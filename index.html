@@ -1431,6 +1431,9 @@ function isRollingBudgetVersion(v){return !!v&&!!localStorage.getItem(rollingBud
 // 'Periodiserade intäkter' + 'Nyförsäljning'. Only one type's rows are present.
 function budgetRevenueRows(rows){return (rows||[]).filter(r=>r.Category==='Revenue'||r.Category==='Periodiserade intäkter'||r.Category==='Nyförsäljning');}
 let currentBudgetMode='likviditet';
+// DEL 1 — Cash in-vy: false=typvy (default, per typ/SubCategory), true=källvy (fyra aggregat per Source). Ren client-side.
+let cashInSourceView=false;
+function setCashInView(m){cashInSourceView=(m==='kalla');renderBudgetTable();}
 let customBudgetRows=JSON.parse(localStorage.getItem('budgetCustomRows')||'[]');
 const allBudgetRows=()=>[...BUDGET_ROWS_DEF,...customBudgetRows];
 let primaryBudgetRows=[];
@@ -7195,7 +7198,8 @@ function renderBudgetTable(){
     </tr></thead><tbody>`;
 
   // REVENUE — orange intäktsrubrik med vit text; datarader vita.
-  html+=`<tr><td colspan="${MONTHS.length+2}" onclick="toggleBudgetSection('rev')" style="background:#E8823A;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;cursor:pointer;"><span class="bchev" data-bsec-toggle="rev">▾</span> Cash in</td></tr>`;
+  const _ciBtn=(m,lbl)=>{const a=(cashInSourceView?'kalla':'typ')===m;return `<button type="button" onclick="event.stopPropagation();setCashInView('${m}')" style="padding:2px 8px;border:0.5px solid ${a?'#fff':'rgba(255,255,255,0.55)'};border-radius:5px;background:${a?'#fff':'transparent'};color:${a?'#E8823A':'#fff'};font-family:inherit;font-size:10px;font-weight:600;cursor:pointer;">${lbl}</button>`;};
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#E8823A;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span onclick="toggleBudgetSection('rev')" style="cursor:pointer;flex:1;"><span class="bchev" data-bsec-toggle="rev">▾</span> Cash in</span><span style="display:inline-flex;gap:4px;flex:0 0 auto;">${_ciBtn('typ','Typ')}${_ciBtn('kalla','Källa')}</span></div></td></tr>`;
   const _revTC={'Licens (prenumeration)':{bg:'#EAF3DE',color:'#3B6D11'},'Licens (fast pris)':{bg:'#E6F1FB',color:'#185FA5'},'Utbildning':{bg:'#FAEEDA',color:'#854F0B'},'Consulting':{bg:'#EEEDFE',color:'#3C3489'}};
   // Avvikelseflagga: live NET30-avtal per typ/månad som EJ finns i importerade ID-set (localStorage). (a) nya avtal; (b) ändrat belopp kräver sparade belopp → senare.
   const SUB_TO_TYPE={'Licens (prenumeration)':'ARR','Licens (fast pris)':'Fastpris','Utbildning':'Utbildning','Consulting':'Consulting'};
@@ -7206,6 +7210,7 @@ function renderBudgetTable(){
   // oavsett utfall → ingen re-render-loop om allCustomers är tom/API failar. Re-render bara på .then.
   if(!Object.keys(custRevCache||{}).length&&!window._budgetRevPrefetchTried){window._budgetRevPrefetchTried=true;prefetchAllCustomerRevenues().then(()=>{if(currentBudgetMode==='likviditet')renderBudgetTable();}).catch(()=>{});}
   Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!_devCount[it.Type])return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==_bvYr)return;const _mi=d.getMonth();if(!_impSets[_mi].has(String(it.Id)))_devCount[it.Type][_mi]++;});});
+  if(!cashInSourceView){
   allBudgetRows().filter(r=>r.section==='REVENUE').forEach(rd=>{
     const cat=rd.category,sub=rd.subCategory,_type=SUB_TO_TYPE[sub];
     if(sub==='Övriga inbetalningar'||sub==='Vidarefakturering')return;   // fristående rader — renderas separat nedan, ej som typ-sektioner
@@ -7243,6 +7248,23 @@ function renderBudgetTable(){
   // Övriga inbetalningar — fristående Cash in-rad (lån/konvertibler m.m.). Category='Revenue', Source=NULL → med i Summa in (sumSection) + computeCashflow (netto/saldo). Manuellt redigerbar + Excel-importerad (samma rad).
   const _oiSub='Övriga inbetalningar';const _oiVals=MONTHS.map((_,mi)=>getVal('Revenue',_oiSub,mi));
   html+=`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${_oiSub}</td>${MONTHS.map((_,mi)=>inputCell('Revenue',_oiSub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(_oiVals))}</td></tr>`;
+  } else {
+    // DEL 1 — Källvy: fyra aggregatrader. Klassificerar EXAKT samma termer som sumSection('REVENUE')
+    // summerar (manuella no-Source-defs + importerade Source-rader som matchar en REVENUE-def), var och en
+    // i precis EN grupp → grupperna summerar alltid till revMonthly. Summa in räknas EJ om här (samma rad
+    // nedan i båda vyer). Ren läsvy: ingen ↳-klick, inga import-genvägar, ingen ⚠ — typvyn är enda import-/redigeringsvägen.
+    const _revDefs=allBudgetRows().filter(r=>r.section==='REVENUE');
+    const _g={avtalat:Array(12).fill(0),fornPipe:Array(12).fill(0),okant:Array(12).fill(0),ovriga:Array(12).fill(0)};
+    MONTHS.forEach((_,mi)=>{
+      _revDefs.forEach(d=>{const v=getVal(d.category,d.subCategory,mi);if(!v)return;(d.subCategory==='Övriga inbetalningar'||d.subCategory==='Vidarefakturering'?_g.ovriga:_g.okant)[mi]+=v;});
+      visibleImportedRows.forEach(ir=>{if(!_revDefs.find(d=>d.category===ir.Category&&d.subCategory===ir.SubCategory))return;const v=getImportedVal(ir,mi);if(!v)return;const src=ir.Source||'';(src==='Avtal (likviditet)'?_g.avtalat:(src==='Förnyelse'||src==='Pipeline (viktat)')?_g.fornPipe:src==='Vidarefakturering'?_g.ovriga:_g.okant)[mi]+=v;});
+    });
+    const _srcRow=(lbl,vals)=>`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${lbl}</td>${MONTHS.map((_,mi)=>`<td style="text-align:right;font-size:11px;color:var(--text2);padding:2px 3px;">${vals[mi]?fmtK(vals[mi]):'–'}</td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;border-left:1px solid var(--border);">${fmtK(sum(vals))}</td></tr>`;
+    html+=_srcRow('Avtalat',_g.avtalat);
+    html+=_srcRow('Förnyelse + Pipe',_g.fornPipe);
+    html+=_srcRow('Okänt',_g.okant);
+    html+=_srcRow('Övriga inbetalningar',_g.ovriga);
+  }
   html+=sumRow('Summa in',revMonthly,revTotal,'#fde7d6');
 
   html+=`<tr><td colspan="${MONTHS.length+2}" style="background:#1a1a2e;color:white;font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;">Cash out</td></tr>`;
