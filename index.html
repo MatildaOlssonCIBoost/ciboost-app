@@ -3995,9 +3995,117 @@ function togglePerDD(e){e.stopPropagation();const p=document.getElementById('per
 function togglePerSource(s){perSources[s]=!perSources[s];document.getElementById(`pcb-${s}`).classList.toggle('on',perSources[s]);}
 
 // ─── LICENSTIDSLINJE ────────────────────────────────────
-// STEG 1 — Betalningar-fliken: skelett (tom stub). Tvärgående betalningstabell + ExpectedPaymentDate-
-// redigering + Betald-knapp byggs i STEG 2. Platshållartext ligger statiskt i #betalningar-content.
-function renderBetalningar(){ /* no-op tills STEG 2 */ }
+// STEG 2 — Betalningar-fliken: tvärgående tabell över ALLA kunders CustomerRevenues (Avtal +
+// Vidarefakturering; Förnyelse/Pipe saknar fakturarad → ej redigerbara här). Källa: custRevCache.
+let betSource='avtal', betStatus='alla', betSort='forfaller', betSearch='';
+let _betSaveTimer=null;
+const BET_AVTAL_TYPES=['ARR','Fastpris','Consulting','Utbildning'];
+function _betYmd(d){if(!d)return '';const p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
+// Förfallodatum-precedens: Betald→PaymentDate (faktiskt); annars ExpectedPaymentDate; annars InvoiceDate+30 (NET30); annars null (saknar fakturadatum).
+function _betDue(it){
+  if(it.Paid&&it.PaymentDate){const d=new Date(it.PaymentDate);return isNaN(d)?null:d;}
+  if(it.ExpectedPaymentDate){const d=new Date(it.ExpectedPaymentDate);return isNaN(d)?null:d;}
+  if(it.InvoiceDate){const d=new Date(it.InvoiceDate);d.setDate(d.getDate()+30);return isNaN(d)?null:d;}
+  return null;
+}
+// Initialt värde i det redigerbara datumfältet: ExpectedPaymentDate om satt, annars NET30-fallback (InvoiceDate+30).
+function _betInputVal(it){
+  if(it.ExpectedPaymentDate)return String(it.ExpectedPaymentDate).substring(0,10);
+  if(it.InvoiceDate){const d=new Date(it.InvoiceDate);d.setDate(d.getDate()+30);return _betYmd(d);}
+  return '';
+}
+function betSetSource(s){betSource=s;renderBetalningar();}
+function betSetStatus(v){betStatus=v;renderBetalningar();}
+function betSetSort(v){betSort=v;renderBetalningar();}
+function betOnSearch(v){betSearch=v;renderBetalningar();}
+function betOnDateChange(custId,itemId,val){clearTimeout(_betSaveTimer);_betSaveTimer=setTimeout(()=>betSaveExpected(custId,itemId,val),500);}
+// Spara ENBART betalningsprognosen. OBS: backendens huvud-UPDATE är OVILLKORAD → en bar
+// {expectedPaymentDate}-PUT skulle nolla Type/Amount/datum/Paid. Därför ekas hela kärnkroppen
+// (samma mönster som setRevenuePaid) + expectedPaymentDate; den villkorade UPDATE:en sätter fältet.
+async function betSaveExpected(custId,itemId,val){
+  const items=custRevCache[custId];const it=Array.isArray(items)?items.find(x=>x.Id===itemId):null;if(!it)return;
+  try{
+    await apiFetch(`${API}/customers/${custId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      type:it.Type,amount:it.Amount,
+      dateFrom:it.DateFrom?String(it.DateFrom).substring(0,10):null,
+      dateTo:it.DateTo?String(it.DateTo).substring(0,10):null,
+      description:it.Description||null,
+      invoiceDate:it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null,
+      paid:it.Paid?1:0,
+      paymentDate:it.PaymentDate?String(it.PaymentDate).substring(0,10):null,
+      vatRate:it.VatRate!=null?it.VatRate:null,
+      expectedPaymentDate:val||null
+    })});
+    it.ExpectedPaymentDate=val||null;   // cache-in-place → nästa render speglar värdet, ingen re-render behövs
+    const sv=document.getElementById('bet-saved-'+itemId);if(sv){sv.style.opacity='1';setTimeout(()=>{sv.style.opacity='0';},1500);}
+  }catch(e){}
+}
+async function betMarkPaid(custId,itemId){
+  await setRevenuePaid(custId,itemId,true);
+  try{const r=await apiFetch(`${API}/customers/${custId}/revenues`);custRevCache[custId]=await r.json();}catch(e){}
+  renderBetalningar();
+}
+async function renderBetalningar(){
+  const el=document.getElementById('betalningar-content');if(!el)return;
+  if(!Object.keys(custRevCache||{}).length){el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">Laddar betalningsdata…</div>';try{await prefetchAllCustomerRevenues();}catch(e){}}
+  const esc=s=>String(s||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const custById={};(allCustomers||[]).forEach(c=>custById[c.Id]=c);
+  const typeSet = betSource==='vidarefakturering' ? new Set(['Vidarefakturering'])
+                : betSource==='avtal' ? new Set(BET_AVTAL_TYPES)
+                : new Set([...BET_AVTAL_TYPES,'Vidarefakturering']);
+  let rows=[];
+  Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{
+    if(!typeSet.has(it.Type))return;
+    const c=custById[Number(cid)];const due=_betDue(it);const paid=!!it.Paid;
+    let status;if(paid)status='betald';else if(!due)status='saknar';else{const dl=daysLeft(due);status=dl<0?'forsenad':(dl<=7?'snart':'kommande');}
+    rows.push({custId:Number(cid),id:it.Id,company:c?(c.Company||('Kund '+cid)):('Kund '+cid),amount:it.Amount||0,invoiceDate:it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null,invoiceNumber:it.InvoiceNumber||'',due,paid,status,it});
+  });});
+  const q=betSearch.trim().toLowerCase();
+  if(q)rows=rows.filter(r=>r.company.toLowerCase().includes(q)||(r.invoiceNumber||'').toLowerCase().includes(q));
+  if(betStatus==='forsenade')rows=rows.filter(r=>r.status==='forsenad');
+  else if(betStatus==='snart')rows=rows.filter(r=>r.status==='snart');
+  else if(betStatus==='betalda')rows=rows.filter(r=>r.paid);
+  if(betSort==='belopp')rows.sort((a,b)=>b.amount-a.amount);
+  else rows.sort((a,b)=>{if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return -1;return a.due-b.due;});   // Förfaller; saknar-datum sist
+  const nForsenade=rows.filter(r=>r.status==='forsenad').length;
+  const nSnart=rows.filter(r=>r.status==='snart').length;
+  const nKommande=rows.filter(r=>r.status==='kommande').length;
+  const vantatBelopp=rows.filter(r=>!r.paid).reduce((s,r)=>s+r.amount,0);
+  const card=(lbl,val,color,tint)=>`<div style="background:${tint};border:0.5px solid var(--border);border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--text3);margin-bottom:2px;">${lbl}</div><div style="font-size:20px;font-weight:600;color:${color};">${val}</div></div>`;
+  const cards=`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;">${card('Försenade',nForsenade,'#A32D2D','rgba(163,45,45,0.06)')}${card('Förfaller inom 7 dagar',nSnart,'#8A6D1B','#FCEFC7')}${card('Kommande',nKommande,'var(--text2)','var(--surface2)')}${card('Väntat belopp',fmtKr(vantatBelopp),'#D85A30','var(--surface2)')}</div>`;
+  const srcBtn=(k,lbl,dis,tip)=>{const a=betSource===k;return `<button type="button" ${dis?`disabled title="${tip}"`:`onclick="betSetSource('${k}')"`} style="padding:4px 10px;border:0.5px solid ${a?'#1e2140':'var(--border)'};border-radius:6px;background:${a?'#1e2140':'none'};color:${dis?'var(--text3)':(a?'white':'var(--text2)')};font-family:inherit;font-size:11px;font-weight:500;cursor:${dis?'not-allowed':'pointer'};opacity:${dis?'0.55':'1'};">${lbl}</button>`;};
+  const filterRow=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">${srcBtn('avtal','Avtal')}${srcBtn('vidarefakturering','Vidarefakturering')}${srcBtn('forn','Förnyelse',true,'Förnyelser är budgetprognoser utan fakturarad — visas inte här ännu')}${srcBtn('pipe','Pipe',true,'Pipeline är budgetprognoser utan fakturarad — visas inte här ännu')}${srcBtn('alla','Alla')}</div>`;
+  const _selOpt=(v,cur,lbl)=>`<option value="${v}" ${v===cur?'selected':''}>${lbl}</option>`;
+  const controls=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">
+    <input id="bet-search" type="text" value="${esc(betSearch)}" oninput="betOnSearch(this.value)" placeholder="Sök organisation eller fakturanr" style="flex:1;min-width:180px;padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;">
+    <select onchange="betSetStatus(this.value)" style="padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;">${_selOpt('alla',betStatus,'Alla statusar')}${_selOpt('forsenade',betStatus,'Försenade')}${_selOpt('snart',betStatus,'Förfaller snart')}${_selOpt('betalda',betStatus,'Betalda')}</select>
+    <select onchange="betSetSort(this.value)" style="padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;">${_selOpt('forfaller',betSort,'Sortera: Förfaller')}${_selOpt('belopp',betSort,'Sortera: Belopp')}</select>
+  </div>`;
+  const badge=r=>{
+    if(r.paid)return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#E1F5EE;color:#0F6E56;font-size:11px;font-weight:500;">Betald${r.it.PaymentDate?' '+formatDate(r.it.PaymentDate):''}</span>`;
+    if(r.status==='saknar')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:var(--surface2);color:var(--text3);font-size:11px;">Saknar fakturadatum</span>`;
+    const dl=daysLeft(r.due);
+    if(r.status==='forsenad')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(163,45,45,0.12);color:#A32D2D;font-size:11px;font-weight:600;">${-dl} dagar sen</span>`;
+    if(r.status==='snart')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#FCEFC7;color:#8A6D1B;font-size:11px;font-weight:500;">om ${dl} dagar</span>`;
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:var(--surface2);color:var(--text2);font-size:11px;">om ${dl} dagar</span>`;
+  };
+  const rowBg=r=>r.paid?'':(r.status==='forsenad'?'background:rgba(163,45,45,0.05);':(r.status==='snart'?'background:rgba(252,239,199,0.5);':''));
+  const th=(t,align)=>`<th style="text-align:${align||'left'};font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap;">${t}</th>`;
+  const body=rows.length?rows.map(r=>`<tr style="${rowBg(r)}">
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);"><div style="font-size:13px;">${esc(r.company)}</div>${r.invoiceNumber?`<div style="font-size:10px;color:var(--text3);">${esc(r.invoiceNumber)}</div>`:''}</td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:13px;white-space:nowrap;">${fmtKr(r.amount)}</td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text2);white-space:nowrap;">${r.invoiceDate?formatDate(r.invoiceDate):'<span style="color:var(--text3);">–</span>'}</td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;"><input type="date" value="${_betInputVal(r.it)}" onchange="betOnDateChange(${r.custId},${r.id},this.value)" style="padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;"> <span id="bet-saved-${r.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓ Sparat</span></td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;">${badge(r)}</td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;text-align:right;">${r.paid?'':`<button onclick="betMarkPaid(${r.custId},${r.id})" style="padding:3px 10px;border:0.5px solid #5DCAA5;border-radius:6px;background:none;color:#0F6E56;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;">Betald</button>`}</td>
+  </tr>`).join(''):`<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--text3);font-size:13px;">Inga betalningar matchar.</td></tr>`;
+  const table=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">
+    <thead><tr>${th('Kund')}${th('Belopp','right')}${th('Fakturadatum')}${th('Förväntat betaldatum')}${th('Status')}${th('')}</tr></thead>
+    <tbody>${body}</tbody></table></div>`;
+  const note=`<div style="font-size:10px;color:var(--text3);margin-top:10px;">Förväntat betaldatum är en fritt redigerbar prognos (sparas direkt) — den rör aldrig fakturadatumet. Belopp visas ex moms. Förnyelse/Pipe är budgetprognoser utan fakturarad och visas inte här.</div>`;
+  el.innerHTML=`<div style="padding:16px 20px;">${cards}${filterRow}${controls}${table}${note}</div>`;
+  if(betSearch){const si=document.getElementById('bet-search');if(si){si.focus();try{si.setSelectionRange(si.value.length,si.value.length);}catch(e){}}}
+}
 function renderLicenstidslinje(){const now=new Date();
   // Urgency baseras STRIKT på licensens slutdatum (Licens slutar, dvs licensrader
   // ARR/Fastpris) — consulting/utbildning påverkar aldrig urgency.
