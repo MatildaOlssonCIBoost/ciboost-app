@@ -3998,7 +3998,7 @@ function togglePerSource(s){perSources[s]=!perSources[s];document.getElementById
 // STEG 2 — Betalningar-fliken: tvärgående tabell över ALLA kunders CustomerRevenues (Avtal +
 // Vidarefakturering; Förnyelse/Pipe saknar fakturarad → ej redigerbara här). Källa: custRevCache.
 let betSource='avtal', betStatus='alla', betSort='forfaller', betSearch='';
-let _betSaveTimer=null;
+let _betSaveTimers={};   // P2.4: per-rad debounce (keyed på itemId) — snabb redigering av två rader kastar inte den förstas sparning
 const BET_AVTAL_TYPES=['ARR','Fastpris','Consulting','Utbildning'];
 function _betYmd(d){if(!d)return '';const p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
 // Förfallodatum-precedens: Betald→PaymentDate (faktiskt); annars ExpectedPaymentDate; annars InvoiceDate+30 (NET30); annars null (saknar fakturadatum).
@@ -4018,7 +4018,58 @@ function betSetSource(s){betSource=s;renderBetalningar();}
 function betSetStatus(v){betStatus=v;renderBetalningar();}
 function betSetSort(v){betSort=v;renderBetalningar();}
 function betOnSearch(v){betSearch=v;renderBetalningar();}
-function betOnDateChange(custId,itemId,val){clearTimeout(_betSaveTimer);_betSaveTimer=setTimeout(()=>betSaveExpected(custId,itemId,val),500);}
+function betOnDateChange(custId,itemId,val){clearTimeout(_betSaveTimers[itemId]);_betSaveTimers[itemId]=setTimeout(()=>betSaveExpected(custId,itemId,val),500);}
+// P2 — statusordning (gruppering): Försenad→Snart→Kommande→Saknar→Betald. Betalda alltid sist.
+const BET_STATUS_RANK={forsenad:0,snart:1,kommande:2,saknar:3,betald:4};
+// Beräknar filtrerad + sorterad radlista ur custRevCache (delas av renderBetalningar och betRefreshAfterSave).
+function _betComputeRows(){
+  const custById={};(allCustomers||[]).forEach(c=>custById[c.Id]=c);
+  const typeSet = betSource==='vidarefakturering' ? new Set(['Vidarefakturering'])
+                : betSource==='avtal' ? new Set(BET_AVTAL_TYPES)
+                : new Set([...BET_AVTAL_TYPES,'Vidarefakturering']);
+  let rows=[];
+  Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{
+    if(!typeSet.has(it.Type))return;
+    const c=custById[Number(cid)];const due=_betDue(it);const paid=!!it.Paid;
+    let status;if(paid)status='betald';else if(!due)status='saknar';else{const dl=daysLeft(due);status=dl<0?'forsenad':(dl<=7?'snart':'kommande');}
+    rows.push({custId:Number(cid),id:it.Id,company:c?(c.Company||('Kund '+cid)):('Kund '+cid),amount:it.Amount||0,invoiceDate:it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null,invoiceNumber:it.InvoiceNumber||'',due,paid,status,it});
+  });});
+  const q=betSearch.trim().toLowerCase();
+  if(q)rows=rows.filter(r=>r.company.toLowerCase().includes(q)||(r.invoiceNumber||'').toLowerCase().includes(q));
+  if(betStatus==='forsenade')rows=rows.filter(r=>r.status==='forsenad');
+  else if(betStatus==='snart')rows=rows.filter(r=>r.status==='snart');
+  else if(betStatus==='betalda')rows=rows.filter(r=>r.paid);
+  if(betSort==='belopp')rows.sort((a,b)=>b.amount-a.amount);   // rent belopp desc
+  else rows.sort((a,b)=>{   // Förfaller: gruppera på status, förfallodatum inom grupp; betalda/saknar sist
+    const ra=BET_STATUS_RANK[a.status],rb=BET_STATUS_RANK[b.status];if(ra!==rb)return ra-rb;
+    if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return -1;return a.due-b.due;
+  });
+  return rows;
+}
+// P2.2: betalda rader nedtonade (var(--text3), ingen färgad badge-bakgrund). Övriga behåller färgkodning.
+function _betBadge(r){
+  if(r.paid)return `<span style="color:var(--text3);font-size:11px;">Betald${r.it.PaymentDate?' '+formatDate(r.it.PaymentDate):''}</span>`;
+  if(r.status==='saknar')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:var(--surface2);color:var(--text3);font-size:11px;">Saknar fakturadatum</span>`;
+  const dl=daysLeft(r.due);
+  if(r.status==='forsenad')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(163,45,45,0.12);color:#A32D2D;font-size:11px;font-weight:600;">${-dl} dagar sen</span>`;
+  if(r.status==='snart')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#FCEFC7;color:#8A6D1B;font-size:11px;font-weight:500;">om ${dl} dagar</span>`;
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:var(--surface2);color:var(--text2);font-size:11px;">om ${dl} dagar</span>`;
+}
+function _betRowBg(r){return r.paid?'':(r.status==='forsenad'?'background:rgba(163,45,45,0.05);':(r.status==='snart'?'background:rgba(252,239,199,0.5);':''));}
+// P2.3 — stale-badge-fix: efter sparning uppdatera radens badge + bakgrund + sorteringsposition + korten
+// IN-PLACE via DOM (ingen full re-render) → det aktiva datumfältet behåller fokus. Rader flyttas via
+// appendChild (samma nod → fokus bevaras), inte återskapas.
+function betRefreshAfterSave(itemId){
+  const rows=_betComputeRows();
+  const setTxt=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  setTxt('bet-card-forsenade',rows.filter(r=>r.status==='forsenad').length);
+  setTxt('bet-card-snart',rows.filter(r=>r.status==='snart').length);
+  setTxt('bet-card-kommande',rows.filter(r=>r.status==='kommande').length);
+  setTxt('bet-card-vantat',fmtKr(rows.filter(r=>!r.paid).reduce((s,r)=>s+r.amount,0)));
+  const r=rows.find(x=>x.id===itemId);
+  if(r){const st=document.getElementById('bet-status-'+itemId);if(st)st.innerHTML=_betBadge(r);const tr=document.getElementById('bet-row-'+itemId);if(tr)tr.setAttribute('style',_betRowBg(r));}
+  const tb=document.getElementById('bet-tbody');if(tb)rows.forEach(rr=>{const tr=document.getElementById('bet-row-'+rr.id);if(tr)tb.appendChild(tr);});   // reordna (behåller noder/fokus)
+}
 // Spara ENBART betalningsprognosen. OBS: backendens huvud-UPDATE är OVILLKORAD → en bar
 // {expectedPaymentDate}-PUT skulle nolla Type/Amount/datum/Paid. Därför ekas hela kärnkroppen
 // (samma mönster som setRevenuePaid) + expectedPaymentDate; den villkorade UPDATE:en sätter fältet.
@@ -4036,8 +4087,9 @@ async function betSaveExpected(custId,itemId,val){
       vatRate:it.VatRate!=null?it.VatRate:null,
       expectedPaymentDate:val||null
     })});
-    it.ExpectedPaymentDate=val||null;   // cache-in-place → nästa render speglar värdet, ingen re-render behövs
+    it.ExpectedPaymentDate=val||null;   // cache-in-place
     const sv=document.getElementById('bet-saved-'+itemId);if(sv){sv.style.opacity='1';setTimeout(()=>{sv.style.opacity='0';},1500);}
+    betRefreshAfterSave(itemId);   // P2.3: badge/bg/position/kort in-place, fokus i fältet behålls
   }catch(e){}
 }
 async function betMarkPaid(custId,itemId){
@@ -4049,30 +4101,13 @@ async function renderBetalningar(){
   const el=document.getElementById('betalningar-content');if(!el)return;
   if(!Object.keys(custRevCache||{}).length){el.innerHTML='<div style="padding:20px;color:var(--text3);font-size:13px;">Laddar betalningsdata…</div>';try{await prefetchAllCustomerRevenues();}catch(e){}}
   const esc=s=>String(s||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  const custById={};(allCustomers||[]).forEach(c=>custById[c.Id]=c);
-  const typeSet = betSource==='vidarefakturering' ? new Set(['Vidarefakturering'])
-                : betSource==='avtal' ? new Set(BET_AVTAL_TYPES)
-                : new Set([...BET_AVTAL_TYPES,'Vidarefakturering']);
-  let rows=[];
-  Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{
-    if(!typeSet.has(it.Type))return;
-    const c=custById[Number(cid)];const due=_betDue(it);const paid=!!it.Paid;
-    let status;if(paid)status='betald';else if(!due)status='saknar';else{const dl=daysLeft(due);status=dl<0?'forsenad':(dl<=7?'snart':'kommande');}
-    rows.push({custId:Number(cid),id:it.Id,company:c?(c.Company||('Kund '+cid)):('Kund '+cid),amount:it.Amount||0,invoiceDate:it.InvoiceDate?String(it.InvoiceDate).substring(0,10):null,invoiceNumber:it.InvoiceNumber||'',due,paid,status,it});
-  });});
-  const q=betSearch.trim().toLowerCase();
-  if(q)rows=rows.filter(r=>r.company.toLowerCase().includes(q)||(r.invoiceNumber||'').toLowerCase().includes(q));
-  if(betStatus==='forsenade')rows=rows.filter(r=>r.status==='forsenad');
-  else if(betStatus==='snart')rows=rows.filter(r=>r.status==='snart');
-  else if(betStatus==='betalda')rows=rows.filter(r=>r.paid);
-  if(betSort==='belopp')rows.sort((a,b)=>b.amount-a.amount);
-  else rows.sort((a,b)=>{if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return -1;return a.due-b.due;});   // Förfaller; saknar-datum sist
+  const rows=_betComputeRows();
   const nForsenade=rows.filter(r=>r.status==='forsenad').length;
   const nSnart=rows.filter(r=>r.status==='snart').length;
   const nKommande=rows.filter(r=>r.status==='kommande').length;
   const vantatBelopp=rows.filter(r=>!r.paid).reduce((s,r)=>s+r.amount,0);
-  const card=(lbl,val,color,tint)=>`<div style="background:${tint};border:0.5px solid var(--border);border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--text3);margin-bottom:2px;">${lbl}</div><div style="font-size:20px;font-weight:600;color:${color};">${val}</div></div>`;
-  const cards=`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;">${card('Försenade',nForsenade,'#A32D2D','rgba(163,45,45,0.06)')}${card('Förfaller inom 7 dagar',nSnart,'#8A6D1B','#FCEFC7')}${card('Kommande',nKommande,'var(--text2)','var(--surface2)')}${card('Väntat belopp',fmtKr(vantatBelopp),'#D85A30','var(--surface2)')}</div>`;
+  const card=(id,lbl,val,color,tint)=>`<div style="background:${tint};border:0.5px solid var(--border);border-radius:8px;padding:10px 12px;"><div style="font-size:11px;color:var(--text3);margin-bottom:2px;">${lbl}</div><div id="${id}" style="font-size:20px;font-weight:600;color:${color};">${val}</div></div>`;
+  const cards=`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;">${card('bet-card-forsenade','Försenade',nForsenade,'#A32D2D','rgba(163,45,45,0.06)')}${card('bet-card-snart','Förfaller inom 7 dagar',nSnart,'#8A6D1B','#FCEFC7')}${card('bet-card-kommande','Kommande',nKommande,'var(--text2)','var(--surface2)')}${card('bet-card-vantat','Väntat belopp',fmtKr(vantatBelopp),'#D85A30','var(--surface2)')}</div>`;
   const srcBtn=(k,lbl,dis,tip)=>{const a=betSource===k;return `<button type="button" ${dis?`disabled title="${tip}"`:`onclick="betSetSource('${k}')"`} style="padding:4px 10px;border:0.5px solid ${a?'#1e2140':'var(--border)'};border-radius:6px;background:${a?'#1e2140':'none'};color:${dis?'var(--text3)':(a?'white':'var(--text2)')};font-family:inherit;font-size:11px;font-weight:500;cursor:${dis?'not-allowed':'pointer'};opacity:${dis?'0.55':'1'};">${lbl}</button>`;};
   const filterRow=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">${srcBtn('avtal','Avtal')}${srcBtn('vidarefakturering','Vidarefakturering')}${srcBtn('forn','Förnyelse',true,'Förnyelser är budgetprognoser utan fakturarad — visas inte här ännu')}${srcBtn('pipe','Pipe',true,'Pipeline är budgetprognoser utan fakturarad — visas inte här ännu')}${srcBtn('alla','Alla')}</div>`;
   const _selOpt=(v,cur,lbl)=>`<option value="${v}" ${v===cur?'selected':''}>${lbl}</option>`;
@@ -4081,28 +4116,21 @@ async function renderBetalningar(){
     <select onchange="betSetStatus(this.value)" style="padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;">${_selOpt('alla',betStatus,'Alla statusar')}${_selOpt('forsenade',betStatus,'Försenade')}${_selOpt('snart',betStatus,'Förfaller snart')}${_selOpt('betalda',betStatus,'Betalda')}</select>
     <select onchange="betSetSort(this.value)" style="padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;">${_selOpt('forfaller',betSort,'Sortera: Förfaller')}${_selOpt('belopp',betSort,'Sortera: Belopp')}</select>
   </div>`;
-  const badge=r=>{
-    if(r.paid)return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#E1F5EE;color:#0F6E56;font-size:11px;font-weight:500;">Betald${r.it.PaymentDate?' '+formatDate(r.it.PaymentDate):''}</span>`;
-    if(r.status==='saknar')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:var(--surface2);color:var(--text3);font-size:11px;">Saknar fakturadatum</span>`;
-    const dl=daysLeft(r.due);
-    if(r.status==='forsenad')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(163,45,45,0.12);color:#A32D2D;font-size:11px;font-weight:600;">${-dl} dagar sen</span>`;
-    if(r.status==='snart')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#FCEFC7;color:#8A6D1B;font-size:11px;font-weight:500;">om ${dl} dagar</span>`;
-    return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:var(--surface2);color:var(--text2);font-size:11px;">om ${dl} dagar</span>`;
-  };
-  const rowBg=r=>r.paid?'':(r.status==='forsenad'?'background:rgba(163,45,45,0.05);':(r.status==='snart'?'background:rgba(252,239,199,0.5);':''));
   const th=(t,align)=>`<th style="text-align:${align||'left'};font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap;">${t}</th>`;
-  const body=rows.length?rows.map(r=>`<tr style="${rowBg(r)}">
-    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);"><div style="font-size:13px;">${esc(r.company)}</div>${r.invoiceNumber?`<div style="font-size:10px;color:var(--text3);">${esc(r.invoiceNumber)}</div>`:''}</td>
-    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:13px;white-space:nowrap;">${fmtKr(r.amount)}</td>
-    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text2);white-space:nowrap;">${r.invoiceDate?formatDate(r.invoiceDate):'<span style="color:var(--text3);">–</span>'}</td>
+  const tcol=r=>r.paid?'color:var(--text3);':'';   // P2.2: nedtona betalda rader
+  const body=rows.length?rows.map(r=>`<tr id="bet-row-${r.id}" style="${_betRowBg(r)}">
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);"><span onclick="openModal(${r.custId})" style="font-size:13px;font-weight:500;cursor:pointer;${r.paid?'color:var(--text3);':'color:var(--accent);'}" onmouseenter="this.style.textDecoration='underline'" onmouseleave="this.style.textDecoration='none'" title="Öppna kundkort">${esc(r.company)}</span></td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);font-size:12px;white-space:nowrap;${tcol(r)||'color:var(--text2);'}">${r.invoiceNumber?esc(r.invoiceNumber):'<span style="color:var(--text3);">–</span>'}</td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);text-align:right;white-space:nowrap;${tcol(r)}"><div style="font-size:13px;">${fmtKr(r.amount)} <span style="font-size:9px;color:var(--text3);">ex</span></div><div style="font-size:10px;color:var(--text3);">${fmtKr(r.amount*(1+((r.it.VatRate!=null?r.it.VatRate:25)/100)))} inkl moms</div></td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);font-size:12px;white-space:nowrap;${tcol(r)||'color:var(--text2);'}">${r.invoiceDate?formatDate(r.invoiceDate):'<span style="color:var(--text3);">–</span>'}</td>
     <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;"><input type="date" value="${_betInputVal(r.it)}" onchange="betOnDateChange(${r.custId},${r.id},this.value)" style="padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;"> <span id="bet-saved-${r.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓ Sparat</span></td>
-    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;">${badge(r)}</td>
+    <td id="bet-status-${r.id}" style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;">${_betBadge(r)}</td>
     <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;text-align:right;">${r.paid?'':`<button onclick="betMarkPaid(${r.custId},${r.id})" style="padding:3px 10px;border:0.5px solid #5DCAA5;border-radius:6px;background:none;color:#0F6E56;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;">Betald</button>`}</td>
-  </tr>`).join(''):`<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--text3);font-size:13px;">Inga betalningar matchar.</td></tr>`;
+  </tr>`).join(''):`<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--text3);font-size:13px;">Inga betalningar matchar.</td></tr>`;
   const table=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">
-    <thead><tr>${th('Kund')}${th('Belopp','right')}${th('Fakturadatum')}${th('Förväntat betaldatum')}${th('Status')}${th('')}</tr></thead>
-    <tbody>${body}</tbody></table></div>`;
-  const note=`<div style="font-size:10px;color:var(--text3);margin-top:10px;">Förväntat betaldatum är en fritt redigerbar prognos (sparas direkt) — den rör aldrig fakturadatumet. Belopp visas ex moms. Förnyelse/Pipe är budgetprognoser utan fakturarad och visas inte här.</div>`;
+    <thead><tr>${th('Kund')}${th('Fakturanr')}${th('Belopp','right')}${th('Fakturadatum')}${th('Förväntat betaldatum')}${th('Status')}${th('')}</tr></thead>
+    <tbody id="bet-tbody">${body}</tbody></table></div>`;
+  const note=`<div style="font-size:10px;color:var(--text3);margin-top:10px;">Förväntat betaldatum är en fritt redigerbar prognos (sparas direkt) — den rör aldrig fakturadatumet. Belopp visas ex moms (med inkl moms under, VatRate eller 25%). Klicka på kundnamnet för att öppna kundkortet. Förnyelse/Pipe är budgetprognoser utan fakturarad och visas inte här.</div>`;
   el.innerHTML=`<div style="padding:16px 20px;">${cards}${filterRow}${controls}${table}${note}</div>`;
   if(betSearch){const si=document.getElementById('bet-search');if(si){si.focus();try{si.setSelectionRange(si.value.length,si.value.length);}catch(e){}}}
 }
@@ -8889,7 +8917,7 @@ async function deleteRevItem(customerId,itemId){await apiFetch(`${API}/customers
 // hämtar postens befintliga fält och PUT:ar dem oförändrade + ny paid/paymentDate.
 // paid=1 → paymentDate sätts till InvoiceDate+30 (inte dagens datum). paid=0 → null.
 async function setRevenuePaid(customerId,itemId,paid){const r=await apiFetch(`${API}/customers/${customerId}/revenues`);const items=await r.json();const it=items.find(x=>x.Id===itemId);if(!it)return;let paymentDate=null;if(paid&&it.InvoiceDate){const due=new Date(it.InvoiceDate);due.setDate(due.getDate()+30);const p=n=>String(n).padStart(2,'0');paymentDate=`${due.getFullYear()}-${p(due.getMonth()+1)}-${p(due.getDate())}`;}await apiFetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:it.Type,amount:it.Amount,dateFrom:it.DateFrom?it.DateFrom.substring(0,10):null,dateTo:it.DateTo?it.DateTo.substring(0,10):null,description:it.Description||null,invoiceDate:it.InvoiceDate?it.InvoiceDate.substring(0,10):null,paid:paid?1:0,paymentDate})});loadRevenueItems(customerId);}
-function editRevenueItem(customerId,itemId){apiFetch(`${API}/customers/${customerId}/revenues`).then(r=>r.json()).then(items=>{const item=items.find(i=>i.Id===itemId);if(!item)return;const c=allCustomers.find(x=>x.Id===customerId);const licStart=c?.LicenseStart?c.LicenseStart.substring(0,10):'';const licEnd=c?.LicenseEnd?c.LicenseEnd.substring(0,10):'';const v={type:item.Type,amount:item.Amount!=null?item.Amount:'',from:item.DateFrom?item.DateFrom.substring(0,10):'',to:item.DateTo?item.DateTo.substring(0,10):'',desc:item.Description||'',invoiceDate:item.InvoiceDate?item.InvoiceDate.substring(0,10):'',paid:!!item.Paid,paymentDate:item.PaymentDate?item.PaymentDate.substring(0,10):'',vat:item.VatRate!=null?item.VatRate:25,preset:revDerivePreset(item.DateFrom?item.DateFrom.substring(0,10):'',item.DateTo?item.DateTo.substring(0,10):''),accrualFrom:item.AccrualFrom?String(item.AccrualFrom).substring(0,10):'',accrualTo:item.AccrualTo?String(item.AccrualTo).substring(0,10):'',invoiceNumber:item.InvoiceNumber||'',parentAccrualTo:(()=>{const _p=item.RenewedFromId?items.find(x=>x.Id===item.RenewedFromId):null;return _p&&_p.AccrualTo?String(_p.AccrualTo).substring(0,10):'';})()};const _isLic=item.Type==='ARR'||item.Type==='Fastpris';let _linkCtrl='';if(_isLic){if(item.RenewedFromId){const _p=items.find(x=>x.Id===item.RenewedFromId);const _pl=_p?`${_p.Type} ${fmtRenewPeriod(_p.DateFrom,_p.DateTo)}`:'tidigare avtal';_linkCtrl=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;gap:5px;">↶ Förnyelse av <strong>${_pl}</strong></span><button onclick="(async()=>{const ok=await window._dialogSave();if(ok!==false){setRenewLink(${customerId},${itemId},null);document.getElementById('dialog-overlay')?.remove();}})()" style="background:none;border:none;padding:0;color:var(--text3);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:11px;">avlänka</button></div>`;}else{_linkCtrl=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"><button onclick="(async()=>{const ok=await window._dialogSave();if(ok!==false)openRenewLinkPicker(${customerId},${itemId});})()" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:0.5px solid var(--border);border-radius:5px;background:none;font-family:inherit;font-size:12px;color:var(--text2);cursor:pointer;" title="Länka till tidigare avtal"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 0 1 4-4h3a4 4 0 0 1 0 8h-1"/><path d="M15 12a4 4 0 0 1-4 4H8a4 4 0 0 1 0-8h1"/></svg>Länka till tidigare avtal</button></div>`;}}showDialog('Redigera intäkt',revFieldsHtml('ei',v,licStart,licEnd)+_linkCtrl,async()=>{const amount=parseInt(document.getElementById('ei-amount').value)||0;if(!amount)return false;await apiFetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('ei-type').value,amount,dateFrom:revEffectiveDateFrom('ei'),dateTo:revEffectiveDateTo('ei'),description:document.getElementById('ei-desc').value||null,invoiceDate:document.getElementById('ei-invoice-date')?.value||null,paid:document.getElementById('ei-paid')?.checked?1:0,paymentDate:document.getElementById('ei-payment-date')?.value||null,vatRate:vatVal('ei'),accrualFrom:revReadAccrualFrom('ei'),accrualTo:revReadAccrualTo('ei'),invoiceNumber:document.getElementById('ei-invoice-number')?.value||null,expectedPaymentDate:item.ExpectedPaymentDate?String(item.ExpectedPaymentDate).substring(0,10):null})});loadRevenueItems(customerId);return true;});updateRevDialogPeriodMode('ei');revSuggestAccrual('ei');revUpdateAccrualSummary('ei');updateRiPaymentExpected('ei');});}
+function editRevenueItem(customerId,itemId){apiFetch(`${API}/customers/${customerId}/revenues`).then(r=>r.json()).then(items=>{const item=items.find(i=>i.Id===itemId);if(!item)return;const c=allCustomers.find(x=>x.Id===customerId);const licStart=c?.LicenseStart?c.LicenseStart.substring(0,10):'';const licEnd=c?.LicenseEnd?c.LicenseEnd.substring(0,10):'';const v={type:item.Type,amount:item.Amount!=null?item.Amount:'',from:item.DateFrom?item.DateFrom.substring(0,10):'',to:item.DateTo?item.DateTo.substring(0,10):'',desc:item.Description||'',invoiceDate:item.InvoiceDate?item.InvoiceDate.substring(0,10):'',paid:!!item.Paid,paymentDate:item.PaymentDate?item.PaymentDate.substring(0,10):'',vat:item.VatRate!=null?item.VatRate:25,preset:revDerivePreset(item.DateFrom?item.DateFrom.substring(0,10):'',item.DateTo?item.DateTo.substring(0,10):''),accrualFrom:item.AccrualFrom?String(item.AccrualFrom).substring(0,10):'',accrualTo:item.AccrualTo?String(item.AccrualTo).substring(0,10):'',invoiceNumber:item.InvoiceNumber||'',expectedPaymentDate:item.ExpectedPaymentDate?String(item.ExpectedPaymentDate).substring(0,10):'',parentAccrualTo:(()=>{const _p=item.RenewedFromId?items.find(x=>x.Id===item.RenewedFromId):null;return _p&&_p.AccrualTo?String(_p.AccrualTo).substring(0,10):'';})()};const _isLic=item.Type==='ARR'||item.Type==='Fastpris';let _linkCtrl='';if(_isLic){if(item.RenewedFromId){const _p=items.find(x=>x.Id===item.RenewedFromId);const _pl=_p?`${_p.Type} ${fmtRenewPeriod(_p.DateFrom,_p.DateTo)}`:'tidigare avtal';_linkCtrl=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;gap:5px;">↶ Förnyelse av <strong>${_pl}</strong></span><button onclick="(async()=>{const ok=await window._dialogSave();if(ok!==false){setRenewLink(${customerId},${itemId},null);document.getElementById('dialog-overlay')?.remove();}})()" style="background:none;border:none;padding:0;color:var(--text3);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:11px;">avlänka</button></div>`;}else{_linkCtrl=`<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);"><button onclick="(async()=>{const ok=await window._dialogSave();if(ok!==false)openRenewLinkPicker(${customerId},${itemId});})()" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border:0.5px solid var(--border);border-radius:5px;background:none;font-family:inherit;font-size:12px;color:var(--text2);cursor:pointer;" title="Länka till tidigare avtal"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 0 1 4-4h3a4 4 0 0 1 0 8h-1"/><path d="M15 12a4 4 0 0 1-4 4H8a4 4 0 0 1 0-8h1"/></svg>Länka till tidigare avtal</button></div>`;}}showDialog('Redigera intäkt',revFieldsHtml('ei',v,licStart,licEnd)+_linkCtrl,async()=>{const amount=parseInt(document.getElementById('ei-amount').value)||0;if(!amount)return false;await apiFetch(`${API}/customers/${customerId}/revenues/${itemId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('ei-type').value,amount,dateFrom:revEffectiveDateFrom('ei'),dateTo:revEffectiveDateTo('ei'),description:document.getElementById('ei-desc').value||null,invoiceDate:document.getElementById('ei-invoice-date')?.value||null,paid:document.getElementById('ei-paid')?.checked?1:0,paymentDate:document.getElementById('ei-payment-date')?.value||null,vatRate:vatVal('ei'),accrualFrom:revReadAccrualFrom('ei'),accrualTo:revReadAccrualTo('ei'),invoiceNumber:document.getElementById('ei-invoice-number')?.value||null,expectedPaymentDate:document.getElementById('ei-expected-payment')?.value||null})});loadRevenueItems(customerId);return true;});updateRevDialogPeriodMode('ei');revSuggestAccrual('ei');revUpdateAccrualSummary('ei');updateRiPaymentExpected('ei');});}
 async function markCommPaid(commId,revenueId,customerId){await apiFetch(`${API}/commissions/${commId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({paidOut:1,paidOutDate:new Date().toISOString().slice(0,10)})});loadRevCommissions(revenueId,customerId);}
 async function deleteComm(commId,revenueId,customerId){await apiFetch(`${API}/commissions/${commId}`,{method:'DELETE'});loadRevCommissions(revenueId,customerId);}
 // Delade fält för intäktsmodalen — används av både "Lägg till intäkt" och
@@ -8924,6 +8952,7 @@ function revFieldsHtml(prefix,v,licStart,licEnd){
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">Fakturering</div>
     <div class="modal-grid"><div class="modal-field"><label>Faktureringsdatum</label><input id="${prefix}-invoice-date" type="date" class="edit-input" value="${v.invoiceDate||''}" oninput="updateRiPaymentExpected('${prefix}')"></div><div class="modal-field"><label>Fakturanummer</label><input id="${prefix}-invoice-number" class="edit-input" value="${(v.invoiceNumber||'').replace(/"/g,'&quot;')}" placeholder="F-1234"></div></div>
     <div class="modal-field" style="margin-top:6px;font-size:11px;color:var(--text3);">Betalning förväntas: <span id="${prefix}-payment-expected">–</span></div>
+    <div class="modal-field" style="margin-top:8px;"><label>Förväntat betaldatum (prognos, redigerbar)</label><input id="${prefix}-expected-payment" type="date" class="edit-input" value="${v.expectedPaymentDate||''}"></div>
     <div style="margin-top:10px;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="${prefix}-paid" style="width:16px;height:16px;cursor:pointer;flex:0 0 auto;" ${paid?'checked':''} onchange="document.getElementById('${prefix}-payment-date-wrap').style.display=this.checked?'block':'none';"><span style="font-size:13px;color:var(--text2);">Betalt</span></div>
     <div class="modal-field" id="${prefix}-payment-date-wrap" style="margin-top:10px;display:${paid?'block':'none'};"><label>Betalningsdatum</label><input id="${prefix}-payment-date" type="date" class="edit-input" value="${v.paymentDate||''}"></div>
     <div id="${prefix}-period-header" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">${isVf?'Period':(isLicType?'Leveransperiod':'Licensperiod')}</div>
@@ -8940,7 +8969,7 @@ function revFieldsHtml(prefix,v,licStart,licEnd){
     </div>
     <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="${prefix}-desc" class="edit-input" value="${(v.desc||'').replace(/"/g,'&quot;')}" placeholder="t.ex. Grundutbildning Q1 2026"></div>`;
 }
-function openAddRevenue(customerId){const c=allCustomers.find(x=>x.Id===customerId);const licStart=c?.LicenseStart?c.LicenseStart.substring(0,10):'';const licEnd=c?.LicenseEnd?c.LicenseEnd.substring(0,10):'';showDialog('Lägg till försäljning',revFieldsHtml('di',{preset:'12'},licStart,licEnd),async()=>{const type=document.getElementById('di-type').value;const amount=parseInt(document.getElementById('di-amount').value)||0;if(!amount)return false;await apiFetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,amount,dateFrom:revEffectiveDateFrom('di'),dateTo:revEffectiveDateTo('di'),description:document.getElementById('di-desc').value||null,invoiceDate:document.getElementById('di-invoice-date')?.value||null,paid:document.getElementById('di-paid')?.checked?1:0,paymentDate:document.getElementById('di-payment-date')?.value||null,vatRate:vatVal('di'),accrualFrom:revReadAccrualFrom('di'),accrualTo:revReadAccrualTo('di'),invoiceNumber:document.getElementById('di-invoice-number')?.value||null,expectedPaymentDate:null})});loadRevenueItems(customerId);return true;});updateRevDialogPeriodMode('di');revSuggestAccrual('di');revUpdateAccrualSummary('di');updateRiPaymentExpected('di');}
+function openAddRevenue(customerId){const c=allCustomers.find(x=>x.Id===customerId);const licStart=c?.LicenseStart?c.LicenseStart.substring(0,10):'';const licEnd=c?.LicenseEnd?c.LicenseEnd.substring(0,10):'';showDialog('Lägg till försäljning',revFieldsHtml('di',{preset:'12'},licStart,licEnd),async()=>{const type=document.getElementById('di-type').value;const amount=parseInt(document.getElementById('di-amount').value)||0;if(!amount)return false;await apiFetch(`${API}/customers/${customerId}/revenues`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,amount,dateFrom:revEffectiveDateFrom('di'),dateTo:revEffectiveDateTo('di'),description:document.getElementById('di-desc').value||null,invoiceDate:document.getElementById('di-invoice-date')?.value||null,paid:document.getElementById('di-paid')?.checked?1:0,paymentDate:document.getElementById('di-payment-date')?.value||null,vatRate:vatVal('di'),accrualFrom:revReadAccrualFrom('di'),accrualTo:revReadAccrualTo('di'),invoiceNumber:document.getElementById('di-invoice-number')?.value||null,expectedPaymentDate:document.getElementById('di-expected-payment')?.value||null})});loadRevenueItems(customerId);return true;});updateRevDialogPeriodMode('di');revSuggestAccrual('di');revUpdateAccrualSummary('di');updateRiPaymentExpected('di');}
 function updateRevDialogDates(licStart,licEnd,prefix){prefix=prefix||'di';const type=document.getElementById(prefix+'-type')?.value;const fromEl=document.getElementById(prefix+'-from');const toEl=document.getElementById(prefix+'-to');if(!fromEl||!toEl)return;if(type==='ARR'||type==='Fastpris'){fromEl.value=licStart;toEl.value=licEnd;}else{fromEl.value='';toEl.value='';}revApplyPreset(prefix);revSuggestAccrual(prefix);}
 // Period-rubriken i intäktsmodalen: Licens → Licensperiod, Consulting/Utbildning → Leveransperiod.
 function updateRevDialogHeaders(prefix){prefix=prefix||'di';const t=document.getElementById(prefix+'-type')?.value;const h=document.getElementById(prefix+'-period-header');if(!h)return;const base=(t==='Consulting'||t==='Utbildning')?'Leveransperiod':'Licensperiod';h.textContent=prefix==='pr'?base+' (preliminär)':base;}
