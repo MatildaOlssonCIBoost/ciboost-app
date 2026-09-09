@@ -1016,6 +1016,7 @@
         <button class="quick-btn" onclick="openImportActualsModal(currentBudgetVersionId)" id="btn-import-actuals" style="display:none;">⇪ Actuals/mån</button>
         <button class="quick-btn" onclick="openImportFornyelseModal(currentBudgetVersionId)" id="btn-import-fornyelse" style="display:none;">⟳ Förnyelser/mån</button>
         <button class="quick-btn" onclick="openImportPipelineModal(currentBudgetVersionId)" id="btn-import-pipeline-mod" style="display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg> Pipeline/mån</button>
+        <button class="quick-btn" onclick="openImportVidarefaktModal(currentBudgetVersionId)" id="btn-import-vidarefakt" style="display:none;">↪ Vidarefakturering/mån</button>
         <button class="quick-btn" onclick="openExcelImportModal()" id="btn-import-excel" title="Importera resultatbudget från ekonomens Excel-prognos">⇩ Excel import</button>
         <button class="quick-btn" onclick="openExcelExportModal()" id="btn-export-excel" title="Exportera budgeten i ekonomens radstruktur (.xlsx)">⇪ Excel export</button>
       </div>
@@ -1311,6 +1312,7 @@ const BUDGET_ROWS_DEF = [
   {section:'REVENUE', category:'Revenue', subCategory:'Utbildning', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Consulting', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Okvalificerat/okänt', type:'revenue'},
+  {section:'REVENUE', category:'Revenue', subCategory:'Vidarefakturering', type:'revenue'},   // DEL 2: fristående Cash in-rad, Source='Vidarefakturering'-import (NET30) — renderas separat FÖRE Övriga inbetalningar, ej som typ-sektion. Def krävs för att sumSection('REVENUE') ska räkna in importraden i Summa in.
   {section:'REVENUE', category:'Revenue', subCategory:'Övriga inbetalningar', type:'revenue'},   // fristående Cash in-rad (lån/konvertibler m.m.) — renderas separat, ej som typ-sektion
   // Kostnadsrader = ekonomens BAS-konton (COST_ROWS_DEF). section:'COST', category=grupp,
   // subCategory=namn, accountNo=kontonr. Personalroller utflyttade (kommande lönesida).
@@ -5364,6 +5366,36 @@ async function importMonthActuals(versionId,monthIndex,includedAvtalIds=null){
   const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
   return perType;
 }
+// DEL 2 — Vidarefakturering/mån-import. Kopia av importMonthActuals med tre skillnader: (a) typfilter
+// Type==='Vidarefakturering' (ej perType/SALES_TYPES-grinden), (b) Source='Vidarefakturering', (c) skriver
+// EN rad (Category='Revenue', SubCategory='Vidarefakturering') — ingen per-typ-uppdelning via REV_CAT_TO_SUB.
+// NET30 via kaCashflowDate (typ-agnostisk, samma som Avtal-raderna). INGEN egen "ny post ej importerad"-
+// minnesnyckel (⚠) — sällan-återkommande engångsutgift; möjlig framtida förbättring, ej byggd nu.
+async function importMonthVidarefakturering(versionId,monthIndex,includedIds=null){
+  if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(versionId));
+  if(!ver)return null;
+  const year=Number(ver.Year)||new Date().getFullYear();
+  let rows=[];try{rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();}catch(e){return null;}
+  const incl=includedIds?new Set(includedIds.map(String)):null;
+  let monthIncl=0;
+  Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{
+    if(it.Type!=='Vidarefakturering')return;
+    if(incl&&!incl.has(String(it.Id)))return;
+    const d=kaCashflowDate(it);
+    if(!d||d.getFullYear()!==year||d.getMonth()!==monthIndex)return;
+    monthIncl+=(it.Amount||0)*(1+(it.VatRate!=null?it.VatRate:25)/100);   // inkl moms (likviditet)
+  });});
+  const Mkey=MONTHS[monthIndex];const today=new Date().toISOString().substring(0,10);const SRC='Vidarefakturering';const SUB='Vidarefakturering';
+  let row=rows.find(r=>r.Category===REV_CATEGORY&&r.SubCategory===SUB&&(r.Source||'')===SRC);
+  if(!row){row={Category:REV_CATEGORY,SubCategory:SUB,Source:SRC,ImportedAt:today};MONTHS.forEach(m=>row[m]=0);rows.push(row);}
+  row[Mkey]=Math.round(monthIncl);row.ImportedAt=today;
+  const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
+  await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
+  const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();
+  return monthIncl;
+}
 // Avtalsväljar-modal: avtal vars NET30 faller i vald månad, grupperat per typ (värdekort-stil), → importMonthActuals.
 async function openImportActualsModal(versionId,preMonth){
   if(!Object.keys(custRevCache||{}).length){try{await prefetchAllCustomerRevenues();}catch(e){}}
@@ -5404,6 +5436,39 @@ async function openImportActualsModal(versionId,preMonth){
   // Markera vald månadsknapp (navy) + sätt dolt #ia-month + rendera. Ersätter dropdownens onchange.
   window._iaPickMonth=(mi)=>{document.getElementById('ia-month').value=mi;document.querySelectorAll('#ia-month-btns button').forEach((b,j)=>{const on=j===mi;b.style.background=on?'#1E2340':'transparent';b.style.color=on?'#fff':'var(--text2)';b.style.borderColor=on?'#1E2340':'var(--border)';b.style.fontWeight=on?'600':'400';});window._iaRender();};
   window._iaPickMonth(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
+}
+// DEL 2 — Vidarefakturering-väljare: poster med Type='Vidarefakturering' vars NET30 faller i vald månad.
+// Speglar openImportActualsModal men UTAN per-typ-grupper och UTAN id-set-minne (⚠). Default: alla ikryssade.
+async function openImportVidarefaktModal(versionId,preMonth){
+  if(!Object.keys(custRevCache||{}).length){try{await prefetchAllCustomerRevenues();}catch(e){}}
+  if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(versionId));if(!ver)return;
+  const year=Number(ver.Year)||new Date().getFullYear();
+  const ex=document.getElementById('import-vidarefakt-overlay');if(ex)ex.remove();
+  const ov=document.createElement('div');ov.id='import-vidarefakt-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:flex-start;padding-left:32px;';
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:540px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
+    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);"><h3 style="font-size:16px;font-weight:600;margin-bottom:10px;">Importera vidarefakturering · <span id="vf-month-lbl"></span> ${year}</h3><input type="hidden" id="vf-month"><div id="vf-month-btns" style="display:flex;gap:4px;flex-wrap:wrap;">${MONTHS.map((m,i)=>`<button type="button" onclick="window._vfPickMonth(${i})" style="flex:1;min-width:34px;padding:5px 4px;font-size:12px;font-family:inherit;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;">${m}</button>`).join('')}</div></div>
+    <div id="vf-body" style="padding:14px 22px;overflow:auto;flex:1;"></div>
+    <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><div id="vf-summary" style="font-size:12px;color:var(--text2);"></div><div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-vidarefakt-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="vf-import-btn" class="btn-primary" onclick="window._vfImport()" style="padding:8px 16px;">Importera</button></div></div>
+  </div>`;
+  document.body.appendChild(ov);
+  window._vfSummary=()=>{const cbs=[...document.querySelectorAll('.vf-cb:checked')];const totEx=cbs.reduce((s,c)=>s+(Number(c.dataset.amount)||0),0);const totIncl=cbs.reduce((s,c)=>s+(Number(c.dataset.incl)||0),0);const e=document.getElementById('vf-summary');if(e)e.textContent=`${cbs.length} poster · ${Math.round(totIncl).toLocaleString('sv-SE')} kr inkl moms (${Math.round(totEx).toLocaleString('sv-SE')} kr ex moms)`;};
+  window._vfRender=()=>{
+    const mi=Number(document.getElementById('vf-month').value);
+    document.getElementById('vf-month-lbl').textContent=MONTHS[mi];
+    document.getElementById('vf-import-btn').textContent='Importera till '+MONTHS[mi];
+    const custById={};(allCustomers||[]).forEach(c=>custById[c.Id]=c);
+    const arr=[];
+    Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{if(it.Type!=='Vidarefakturering')return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==year||d.getMonth()!==mi)return;const c=custById[Number(cid)];arr.push({id:it.Id,cust:c?(c.Company||('Kund '+cid)):('Kund '+cid),amount:it.Amount||0,desc:it.Description||'',net30:d.toISOString().substring(0,10),paid:!!it.Paid,vat:(it.VatRate!=null?it.VatRate:25)});});});
+    const fk=v=>Math.round(v).toLocaleString('sv-SE');let html='';
+    arr.forEach(a=>{html+=`<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;background:var(--surface);"><input type="checkbox" class="vf-cb" data-id="${a.id}" data-amount="${a.amount}" data-incl="${a.amount*(1+a.vat/100)}" checked onchange="window._vfSummary()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.cust}</div><div style="font-size:11px;color:var(--text3);">${a.desc?a.desc+' · ':''}NET30 ${a.net30}</div></div><div style="text-align:right;flex:0 0 auto;"><div style="font-size:13px;font-weight:700;">${fk(a.amount*(1+a.vat/100))} kr</div><div style="font-size:10px;color:var(--text3);">${fk(a.amount)} kr ex moms</div><div style="font-size:10px;color:${a.paid?'#1a7a50':'var(--text3)'};">${a.paid?'Betald':'Fakturerad'}</div></div></label>`;});
+    document.getElementById('vf-body').innerHTML=html||'<div style="color:var(--text3);font-size:13px;padding:30px;text-align:center;">Inga vidarefaktureringar med NET30 i denna månad.</div>';
+    window._vfSummary();
+  };
+  window._vfImport=async()=>{const mi=Number(document.getElementById('vf-month').value);const ids=[...document.querySelectorAll('.vf-cb:checked')].map(c=>Number(c.dataset.id));document.getElementById('vf-import-btn').textContent='Importerar…';await importMonthVidarefakturering(versionId,mi,ids);document.getElementById('import-vidarefakt-overlay')?.remove();};
+  window._vfPickMonth=(mi)=>{document.getElementById('vf-month').value=mi;document.querySelectorAll('#vf-month-btns button').forEach((b,j)=>{const on=j===mi;b.style.background=on?'#1E2340':'transparent';b.style.color=on?'#fff':'var(--text2)';b.style.borderColor=on?'#1E2340':'var(--border)';b.style.fontWeight=on?'600':'400';});window._vfRender();};
+  window._vfPickMonth(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
 }
 // Klickbar ändrings-popup för import-markörer (↻/✎): visar importerat vs nuvarande. enc = encodeURIComponent(JSON.stringify({saved,current,label})).
 function showImportDiff(enc){
@@ -6588,6 +6653,8 @@ async function loadBudgetVersion(){
   const iaBtn=document.getElementById('btn-import-actuals');if(iaBtn){iaBtn.style.display='flex';iaBtn.onclick=currentBudgetMode==='resultat'?()=>importAllAvtalResultat(currentBudgetVersionId):()=>openImportActualsModal(currentBudgetVersionId);const _avtalSvg='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>';iaBtn.innerHTML=currentBudgetMode==='resultat'?_avtalSvg+' Avtal (välj)':'⇪ Actuals/mån';}
   const frBtn=document.getElementById('btn-import-fornyelse');if(frBtn)frBtn.style.display='flex';
   const ppBtn=document.getElementById('btn-import-pipeline-mod');if(ppBtn)ppBtn.style.display='flex';
+  // DEL 2: Vidarefakturering/mån visas BARA i likviditetsläget (skriver NET30-kassaflödesrad; ingen resultatvariant byggd).
+  const vfBtn=document.getElementById('btn-import-vidarefakt');if(vfBtn)vfBtn.style.display=currentBudgetMode==='likviditet'?'flex':'none';
   await loadBudgetLocks(currentBudgetVersionId);
   try{renderBudgetTable();}
   catch(e){
@@ -7141,7 +7208,7 @@ function renderBudgetTable(){
   Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!_devCount[it.Type])return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==_bvYr)return;const _mi=d.getMonth();if(!_impSets[_mi].has(String(it.Id)))_devCount[it.Type][_mi]++;});});
   allBudgetRows().filter(r=>r.section==='REVENUE').forEach(rd=>{
     const cat=rd.category,sub=rd.subCategory,_type=SUB_TO_TYPE[sub];
-    if(sub==='Övriga inbetalningar')return;   // fristående rad — renderas separat nedan, ej som typ-sektion
+    if(sub==='Övriga inbetalningar'||sub==='Vidarefakturering')return;   // fristående rader — renderas separat nedan, ej som typ-sektioner
     // Tre importerade estimat-källor per (cat,sub) — PLAIN TEXT, ingen .budget-input → autospar fångar dem aldrig.
     const findSrc=tag=>visibleImportedRows.find(ir=>ir.Category===cat&&ir.SubCategory===sub&&(ir.Source||'')===tag);
     const avtalRow=findSrc('Avtal (likviditet)'),fornRow=findSrc('Förnyelse'),pipeRow=findSrc('Pipeline (viktat)');
@@ -7169,6 +7236,10 @@ function renderBudgetTable(){
     // = Summa — ren visning (text, ej .budget-input, ej i budgetRows → sparas aldrig)
     html+=`<tr style="background:var(--surface2);"><td style="padding-left:24px;font-size:11px;font-weight:700;">= Summa</td>${MONTHS.map((_,mi)=>`<td style="text-align:right;font-size:11px;font-weight:700;">${fmtK(sumVals[mi])}</td>`).join('')}<td style="font-weight:700;text-align:right;border-left:1px solid var(--border);">${fmtK(sum(sumVals))}</td></tr>`;
   });
+  // DEL 2 — Vidarefakturering — fristående Cash in-rad (Source='Vidarefakturering', NET30-import). Category='Revenue' → med i Summa in (sumSection, def i BUDGET_ROWS_DEF) + computeCashflow. Klick per månad → import-modal. Ej manuellt redigerbar (import-only).
+  const _vfImpRow=visibleImportedRows.find(ir=>ir.Category==='Revenue'&&ir.SubCategory==='Vidarefakturering'&&(ir.Source||'')==='Vidarefakturering');
+  const _vfVals=MONTHS.map((_,mi)=>_vfImpRow?getImportedVal(_vfImpRow,mi):0);
+  html+=`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">Vidarefakturering</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportVidarefaktModal(currentBudgetVersionId,${mi})" title="Visa/importera vidarefakturering för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text2);">${_vfVals[mi]?fmtK(_vfVals[mi]):'–'}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;border-left:1px solid var(--border);">${fmtK(sum(_vfVals))}</td></tr>`;
   // Övriga inbetalningar — fristående Cash in-rad (lån/konvertibler m.m.). Category='Revenue', Source=NULL → med i Summa in (sumSection) + computeCashflow (netto/saldo). Manuellt redigerbar + Excel-importerad (samma rad).
   const _oiSub='Övriga inbetalningar';const _oiVals=MONTHS.map((_,mi)=>getVal('Revenue',_oiSub,mi));
   html+=`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${_oiSub}</td>${MONTHS.map((_,mi)=>inputCell('Revenue',_oiSub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(_oiVals))}</td></tr>`;
@@ -7795,6 +7866,11 @@ async function copyBudgetVersion(){
 }
 // ─── BUDGET IMPORT ──────────────────────────────────────────
 // Mapping from CustomerRevenues.Type / RevenueCategory → BudgetRows.SubCategory
+// VARNING (DEL 2 / framtida budgetintegration): OM 'Vidarefakturering' någonsin läggs till i
+// REV_CAT_TO_SUB (för att flöda in i budget/actuals per typ), MÅSTE samtidigt ett tillägg
+// `&& isSale(it)` (eller `&& it.Type!=='Vidarefakturering'`) läggas bredvid REV_CAT_TO_SUB-grinden i
+// renderRevUnderlagResultat och _excelUnderlagAoa (Object.entries(custRevCache)…forEach → gate på
+// REV_CAT_TO_SUB[it.Type]). Annars läcker Vidarefakturering in i Avtal-underlaget/Excel-exporten.
 const REV_CAT_TO_SUB={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Utbildning:'Utbildning',Consulting:'Consulting'};
 const REV_CATEGORY='Revenue';
 // Delad helper: bygg om EN källas (source) BudgetRows-celler från entries [{amount,prob,date,type}] + POST hela /rows.
