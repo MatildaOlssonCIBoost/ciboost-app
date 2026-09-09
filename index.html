@@ -7698,7 +7698,7 @@ function _excelLikAoa(rows,ver){
   const avtalat=revBy(r=>String(r.Source||'').startsWith('Avtal ('));
   const fornPipe=revBy(r=>{const s=String(r.Source||'');return s==='Förnyelse'||s==='Pipeline (viktat)';});
   const okv=revBy(r=>!r.Source&&String(r.SubCategory||'')!=='Övriga inbetalningar');
-  const ovriga=revBy(r=>!r.Source&&String(r.SubCategory||'')==='Övriga inbetalningar');
+  const ovriga=revBy(r=>String(r.Source||'')==='Vidarefakturering'||(!r.Source&&String(r.SubCategory||'')==='Övriga inbetalningar'));
   const opening=(typeof getOpeningCash==='function')?getOpeningCash(ver.Id,ver.Year):0;
   const financing=(typeof getFinancing==='function')?getFinancing(ver.Id,ver.Year):null;
   const cf=computeCashflow(rows||[],opening,financing);
