@@ -4001,6 +4001,8 @@ let betSource='avtal', betStatus='alla', betSort='forfaller', betSearch='';
 let _betSaveTimers={};   // P2.4: per-rad debounce (keyed på itemId) — snabb redigering av två rader kastar inte den förstas sparning
 let betShowPaid=false;   // hopfälld "Se betalda"-sektion
 function betTogglePaidSection(){betShowPaid=!betShowPaid;renderBetalningar();}
+// DEL 1 — samma bock-ikon som kundkortets payBtn (loadRevenueItems), för visuell paritet.
+const _BET_CHK='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></svg>';
 const BET_AVTAL_TYPES=['ARR','Fastpris','Consulting','Utbildning'];
 function _betYmd(d){if(!d)return '';const p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
 // Förfallodatum-precedens: Betald→PaymentDate (faktiskt); annars ExpectedPaymentDate; annars InvoiceDate+30 (NET30); annars null (saknar fakturadatum).
@@ -4048,7 +4050,7 @@ function _betComputeRows(){
 }
 // P2.2: betalda rader nedtonade (var(--text3), ingen färgad badge-bakgrund). Övriga behåller färgkodning.
 function _betBadge(r){
-  if(r.paid)return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:#E1F5EE;color:#0F6E56;font-size:11px;font-weight:500;">Betald${r.it.PaymentDate?' '+formatDate(r.it.PaymentDate):''}</span>`;
+  if(r.paid)return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:#E1F5EE;color:#0F6E56;font-size:11px;font-weight:500;">${_BET_CHK}Betald${r.it.PaymentDate?' '+formatDate(r.it.PaymentDate):''}</span>`;
   if(r.status==='saknar')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:var(--surface2);color:var(--text3);font-size:11px;">Saknar fakturadatum</span>`;
   const dl=daysLeft(r.due);
   if(r.status==='forsenad')return `<span style="display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(163,45,45,0.12);color:#A32D2D;font-size:11px;font-weight:600;">${-dl} dagar sen</span>`;
@@ -4064,9 +4066,9 @@ function _betRowHtml(r){
   const inkl=r.amount*(1+((r.it.VatRate!=null?r.it.VatRate:25)/100));
   const action=r.paid
     ? `<button onclick="betMarkUnpaid(${r.custId},${r.id})" style="padding:3px 10px;border:0.5px solid var(--border);border-radius:6px;background:none;color:var(--text2);font-family:inherit;font-size:11px;cursor:pointer;">Ångra</button>`
-    : `<button onclick="betShowPayEditor(${r.custId},${r.id})" style="padding:3px 10px;border:0.5px solid #5DCAA5;border-radius:6px;background:none;color:#0F6E56;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;">Markera betald</button>`;
+    : `<button onclick="betShowPayEditor(${r.custId},${r.id})" style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border:0.5px solid #5DCAA5;border-radius:6px;background:none;color:#0F6E56;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;">${_BET_CHK}Markera betald</button>`;
   return `<tr id="bet-row-${r.id}" style="${_betRowBg(r)}">
-    <td id="bet-kcell-${r.id}" style="padding:5px 8px;border-bottom:0.5px solid var(--border);border-left:3px solid ${bc};"><span onclick="openModal(${r.custId})" style="font-size:13px;color:var(--text);cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px;" title="Öppna kundkort">${esc(r.company)}</span></td>
+    <td id="bet-kcell-${r.id}" style="padding:5px 8px;border-bottom:0.5px solid var(--border);border-left:3px solid ${bc};"><span onclick="openCustValueAtPost(${r.custId},${r.id})" style="font-size:13px;color:var(--text);cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px;" title="Öppna kundkort · hoppa till posten">${esc(r.company)}</span></td>
     <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text2);white-space:nowrap;">${r.invoiceNumber?esc(r.invoiceNumber):'<span style="color:var(--text3);">–</span>'}</td>
     <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:13px;color:var(--text2);white-space:nowrap;">${fmtKr(r.amount)}</td>
     <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:13px;color:var(--text2);white-space:nowrap;">${fmtKr(inkl)}</td>
@@ -4121,7 +4123,7 @@ function betShowPayEditor(custId,itemId){
   td.innerHTML=`<div style="display:inline-flex;align-items:center;gap:4px;"><input type="date" id="bet-pay-date-${itemId}" value="${pre}" style="padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;"><button onclick="betConfirmPaid(${custId},${itemId})" style="padding:3px 8px;border:0.5px solid #5DCAA5;border-radius:6px;background:#E1F5EE;color:#0F6E56;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;">Bekräfta</button><button onclick="betCancelPay(${custId},${itemId})" style="padding:3px 8px;border:0.5px solid var(--border);border-radius:6px;background:none;color:var(--text2);font-family:inherit;font-size:11px;cursor:pointer;">Avbryt</button></div>`;
   const inp=document.getElementById('bet-pay-date-'+itemId);if(inp)inp.focus();
 }
-function betCancelPay(custId,itemId){const td=document.getElementById('bet-action-'+itemId);if(td)td.innerHTML=`<button onclick="betShowPayEditor(${custId},${itemId})" style="padding:3px 10px;border:0.5px solid #5DCAA5;border-radius:6px;background:none;color:#0F6E56;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;">Markera betald</button>`;}
+function betCancelPay(custId,itemId){const td=document.getElementById('bet-action-'+itemId);if(td)td.innerHTML=`<button onclick="betShowPayEditor(${custId},${itemId})" style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border:0.5px solid #5DCAA5;border-radius:6px;background:none;color:#0F6E56;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;">${_BET_CHK}Markera betald</button>`;}
 async function betConfirmPaid(custId,itemId){
   const inp=document.getElementById('bet-pay-date-'+itemId);const val=inp?inp.value:'';
   await setRevenuePaid(custId,itemId,true,val||null);   // explicit VALT datum → paymentDate (ej hårdkodat InvoiceDate+30)
@@ -7035,6 +7037,25 @@ window.closeRevUnderlag=function(){const el=document.getElementById('budget-rev-
 // U-2: öppna kundkortet/prospektkortet på Värde-fliken från en underlagspost.
 // openModal/openProspectModal är async (returnerar promise) → .then; setTimeout-fallback om ej.
 window.openCustValue=function(id){const r=openModal(id);if(r&&typeof r.then==='function')r.then(()=>goToPage(3));else setTimeout(()=>goToPage(3),300);};
+// DEL 2 — öppna kundkortets Värde-flik OCH hoppa till en specifik revenue-post (id=ri-<itemId>).
+// Värde-fliken laddar revenue-listan async, och posten kan ligga i ett annat årsfilter → pollar tills
+// #ri-<itemId> finns; om listan renderats men posten saknas tvingas årsfiltret till "Alla" en gång.
+// scrollIntoView + kort box-shadow-highlight. Timeout ~3s → avbryt tyst (modalen förblir öppen).
+window.openCustValueAtPost=function(custId,itemId){
+  window.openCustValue(custId);
+  let tries=0,forcedAlla=false;
+  const iv=setInterval(()=>{
+    tries++;
+    const listEl=document.getElementById('revenue-items');
+    if(listEl&&!forcedAlla&&!document.getElementById('ri-'+itemId)){
+      forcedAlla=true;   // posten kanske i annat år → visa Alla
+      try{if(typeof window.setRevYear==='function')window.setRevYear(custId,0);}catch(e){}
+    }
+    const el=document.getElementById('ri-'+itemId);
+    if(el){clearInterval(iv);try{el.scrollIntoView({behavior:'smooth',block:'center'});el.style.transition='box-shadow .3s';el.style.boxShadow='0 0 0 2px var(--accent)';setTimeout(()=>{el.style.boxShadow='';},1800);}catch(e){}return;}
+    if(tries>=30)clearInterval(iv);   // ~3s timeout — modalen är öppen även om highlighten uteblir
+  },100);
+};
 window.openProspectValue=function(id){const r=openProspectModal(id);if(r&&typeof r.then==='function')r.then(()=>switchProspectTab(3));else setTimeout(()=>switchProspectTab(3),300);};
 // C5: period-medveten drill-down för RESULTATBUDGETEN. Visar avtalsperiod (ej likviditetsmånad),
 // summa = periodiserat årsbidrag (spreadPeriodAcrossMonths inom året), källtotaler = år-summa ur
