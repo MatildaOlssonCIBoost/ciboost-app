@@ -4007,6 +4007,10 @@ function betTogglePaidSection(){betShowPaid=!betShowPaid;renderBetalningar();}
 function betToggleGroup(gi){const g=_betGroups[gi];if(!g)return;if(betExpanded.has(g.key))betExpanded.delete(g.key);else betExpanded.add(g.key);renderBetalningar();}
 const _BET_CHK='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></svg>';
 const BET_ALL_TYPES=['ARR','Fastpris','Consulting','Utbildning','Vidarefakturering'];   // DEL 3.9: inga källfilter — alltid alla typer
+// Visningsetiketter (samma som i intäktsmodalens Typ-dropdown) — värdet i DB är den engelska nyckeln.
+const BET_TYPE_LABELS={ARR:'Prenumeration',Fastpris:'Fast pris',Utbildning:'Utbildning',Consulting:'Consulting',Vidarefakturering:'Vidarefakturering'};
+// Redigerbar Typ-dropdown (inline). small=true → kompaktare (utfällda underposter).
+function _betTypeSelect(cur,onchange,small){const h=small?26:28;const fs=small?11:12;return `<select onchange="${onchange}" style="height:${h}px;box-sizing:border-box;padding:2px 4px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:${fs}px;background:var(--surface);color:var(--text);">`+BET_ALL_TYPES.map(t=>`<option value="${t}" ${t===cur?'selected':''}>${(BET_TYPE_LABELS[t]||t).replace(/</g,'&lt;')}</option>`).join('')+`</select>`;}
 function _betYmd(d){if(!d)return '';const p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
 function _betKid(k){return String(k).replace(/[^A-Za-z0-9]/g,'_');}   // DOM-säkert id ur group.key
 function _betToday0(){const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime();}
@@ -4091,25 +4095,51 @@ function _betGroupRow(g){
   const notSent=!g.multi&&!g.invoiceNumber&&!!first.invoiceDate&&(new Date(first.invoiceDate+'T00:00:00').getTime()<_betToday0());
   const warn=notSent?`<span title="Fakturadatum har passerat men fakturan har inget nummer — glömdes den skickas?" style="display:inline-flex;margin-left:5px;">${_BET_WARN}</span>`:'';
   const chev=g.multi?`<span onclick="event.stopPropagation();betToggleGroup(${g._i})" style="cursor:pointer;color:var(--text3);font-size:10px;margin-right:6px;">${expanded?'▾':'▸'}</span>`:'';
+  // Typ: singel → redigerbar dropdown (post-nivå); multi → sammanfattning (delad typ eller "Blandat"), ej redigerbar.
+  const typeCell=g.multi
+    ? `<span style="font-size:12px;color:var(--text2);">${(()=>{const ts=[...new Set(g.members.map(m=>m.type))];return ts.length===1?esc(BET_TYPE_LABELS[ts[0]]||ts[0]):'Blandat';})()}</span>`
+    : _betTypeSelect(first.type,`betSavePostType(${first.custId},${first.id},this.value)`);
   const invCell=g.multi
     ? `<span onclick="betToggleGroup(${g._i})" title="Fakturanummer sätts per post — klicka för att expandera och ändra enskilda poster" style="cursor:pointer;"><input type="text" value="${esc(g.invoiceNumber)}" disabled style="width:90px;height:28px;box-sizing:border-box;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;background:var(--surface2);color:var(--text2);cursor:pointer;pointer-events:none;"></span> <span style="color:var(--text3);font-size:10px;">· ${g.members.length} poster</span>`
     : `<input type="text" value="${esc(g.invoiceNumber)}" oninput="betOnInvoiceNumberChange(${first.custId},${first.id},this.value)" placeholder="–" style="width:90px;height:28px;box-sizing:border-box;padding:3px 6px;border:0.5px solid ${notSent?'#e6a45c':'var(--border)'};border-radius:5px;font-family:inherit;font-size:12px;"> <span id="bet-invsaved-${first.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span>`;
+  // Ex moms: singel → redigerbart nummerfält; multi → summa (text, ej redigerbar där).
+  const exCell=g.multi
+    ? `<span id="bet-ex-${kid}">${fmtKr(g.amount)}</span>`
+    : `<input type="number" value="${first.amount}" oninput="betOnPostAmountChange(${first.custId},${first.id},this.value)" style="width:100px;height:28px;box-sizing:border-box;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;text-align:right;"> <span id="bet-amtsaved-${first.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span>`;
+  // Inkl moms: alltid härlett (uppdateras in-place vid beloppsändring).
+  const inklCell=`<span id="bet-inkl-${kid}">${fmtKr(g.inkl)}</span>`;
+  // Fakturadatum: singel → redigerbart datum (post-nivå); multi → text (kan vara "Olika").
   const invDate=g.invoiceDate==='__olika__'?'<span style="color:var(--text3);" title="Posterna har olika fakturadatum">Olika</span>':(g.invoiceDate?formatDate(g.invoiceDate):'<span style="color:var(--text3);">–</span>');
+  const invDateCell=g.multi
+    ? invDate
+    : `<input type="date" value="${first.invoiceDate||''}" onchange="betSavePostInvoiceDate(${first.custId},${first.id},this.value)" style="padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;">`;
   const action=g.paid
     ? `<button onclick="betGroupMarkUnpaid(${g._i})" style="padding:3px 10px;border:0.5px solid var(--border);border-radius:6px;background:none;color:var(--text2);font-family:inherit;font-size:11px;cursor:pointer;">Ångra</button>`
     : `<button onclick="betGroupShowPayEditor(${g._i})" style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border:0.5px solid #5DCAA5;border-radius:6px;background:none;color:#0F6E56;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;">${_BET_CHK}Markera betald</button>`;
   let html=`<tr id="bet-row-${kid}" style="${_betRowBg(g)}">
     <td id="bet-kcell-${kid}" style="padding:5px 8px;border-bottom:0.5px solid var(--border);border-left:3px solid ${bc};">${chev}<span onclick="openCustValueAtPost(${first.custId},${first.id})" style="font-size:13px;color:var(--text);cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px;" title="Öppna kundkort">${esc(g.company)}</span>${warn}</td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;">${typeCell}</td>
     <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;">${invCell}</td>
-    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:13px;color:var(--text2);white-space:nowrap;">${fmtKr(g.amount)}</td>
-    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:13px;color:var(--text2);white-space:nowrap;">${fmtKr(g.inkl)}</td>
-    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text2);white-space:nowrap;">${invDate}</td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:13px;color:var(--text2);white-space:nowrap;">${exCell}</td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:13px;color:var(--text2);white-space:nowrap;">${inklCell}</td>
+    <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text2);white-space:nowrap;">${invDateCell}</td>
     <td style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;"><input type="date" value="${g.inputVal}" onchange="betGroupOnDateChange(${g._i},this.value)" style="padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;"> <span id="bet-saved-${kid}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span></td>
     <td id="bet-status-${kid}" style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;">${_betBadge(g)}</td>
     <td id="bet-action-${kid}" style="padding:5px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;text-align:right;">${action}</td>
   </tr>`;
   if(g.multi&&expanded){
-    html+=g.members.map(m=>`<tr style="background:var(--surface2);"><td style="padding:4px 8px 4px 28px;border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text3);">↳ ${esc(m.company)}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);font-size:11px;color:var(--text3);white-space:nowrap;">${esc(m.type)}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:12px;color:var(--text3);">${fmtKr(m.amount)}</td><td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:12px;color:var(--text3);">${fmtKr(m.inkl)}</td><td colspan="4" style="border-bottom:0.5px solid var(--border);"></td></tr>`).join('');
+    const foljer='<span style="color:var(--text3);font-size:11px;" title="Sätts på hela fakturan — ändras via gruppraden">följer grupp</span>';
+    html+=g.members.map(m=>`<tr style="background:var(--surface2);">`
+      +`<td style="padding:4px 8px 4px 28px;border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text3);">↳ ${esc(m.company)}</td>`
+      +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;">${_betTypeSelect(m.type,`betSavePostType(${m.custId},${m.id},this.value)`,true)}</td>`
+      +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;"><input type="text" value="${esc(m.invoiceNumber)}" oninput="betOnInvoiceNumberChange(${m.custId},${m.id},this.value)" placeholder="–" style="width:90px;height:26px;box-sizing:border-box;padding:2px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:11px;"> <span id="bet-invsaved-${m.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span></td>`
+      +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;white-space:nowrap;"><input type="number" value="${m.amount}" oninput="betOnPostAmountChange(${m.custId},${m.id},this.value)" style="width:92px;height:26px;box-sizing:border-box;padding:2px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:11px;text-align:right;"> <span id="bet-amtsaved-${m.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span></td>`
+      +`<td id="bet-uinkl-${m.id}" style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:12px;color:var(--text3);">${fmtKr(m.inkl)}</td>`
+      +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${foljer}</td>`
+      +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${foljer}</td>`
+      +`<td style="border-bottom:0.5px solid var(--border);"></td>`
+      +`<td style="border-bottom:0.5px solid var(--border);"></td>`
+      +`</tr>`).join('');
   }
   return html;
 }
@@ -4150,6 +4180,37 @@ async function betSaveInvoiceNumber(custId,itemId,val){
   await _betPutCore(custId,itemId,{invoiceNumber:val||null});
   const it=(custRevCache[custId]||[]).find(x=>x.Id===itemId);if(it)it.InvoiceNumber=val||null;
   const sv=document.getElementById('bet-invsaved-'+itemId);if(sv){sv.style.opacity='1';setTimeout(()=>{sv.style.opacity='0';},1500);}
+}
+// Inline post-nivå-redigering (enskild rad + utfälld underpost). Alla ekar hela kärnkroppen (extra överskrider bas).
+// Typ (select, change): påverkar "Blandat"-sammanfattning → full re-render (utfällning bevaras via betExpanded).
+async function betSavePostType(custId,itemId,val){
+  await _betPutCore(custId,itemId,{type:val});
+  const it=(custRevCache[custId]||[]).find(x=>x.Id===itemId);if(it)it.Type=val;
+  renderBetalningar();
+}
+// Belopp ex moms (number, debounce): cache-in-place → uppdatera inkl + ev. gruppsumma + Väntat-kort, blänk. Ingen re-render (fokus).
+function betOnPostAmountChange(custId,itemId,val){clearTimeout(_betSaveTimers['amt'+itemId]);_betSaveTimers['amt'+itemId]=setTimeout(()=>betSavePostAmount(custId,itemId,val),500);}
+async function betSavePostAmount(custId,itemId,val){
+  const num=(val===''||val==null)?0:(parseFloat(val)||0);
+  await _betPutCore(custId,itemId,{amount:num});
+  const it=(custRevCache[custId]||[]).find(x=>x.Id===itemId);if(it)it.Amount=num;
+  const sv=document.getElementById('bet-amtsaved-'+itemId);if(sv){sv.style.opacity='1';setTimeout(()=>{sv.style.opacity='0';},1500);}
+  betAfterAmountSave(itemId);
+}
+// In-place: härledd inkl på posten, gruppens summa (ex/inkl) och Väntat-kortet. Ingen fokusförlust.
+function betAfterAmountSave(itemId){
+  const groups=betBuildGroups();
+  const setTxt=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  setTxt('bet-card-vantat',fmtKr(groups.filter(g=>!g.paid).reduce((s,g)=>s+g.amount,0)));
+  const g=groups.find(x=>x.members.some(m=>m.id===itemId));if(!g)return;const kid=_betKid(g.key);
+  setTxt('bet-ex-'+kid,fmtKr(g.amount));setTxt('bet-inkl-'+kid,fmtKr(g.inkl));
+  const m=g.members.find(x=>x.id===itemId);if(m)setTxt('bet-uinkl-'+itemId,fmtKr(m.inkl));
+}
+// Fakturadatum (date, change): endast enskilda rader. Påverkar due/status/varning → full re-render.
+async function betSavePostInvoiceDate(custId,itemId,val){
+  await _betPutCore(custId,itemId,{invoiceDate:val||null});
+  const it=(custRevCache[custId]||[]).find(x=>x.Id===itemId);if(it)it.InvoiceDate=val||null;
+  renderBetalningar();
 }
 // DEL 3.14 — Markera betald på grupp: inline datumval (förslag InvoiceDate+30), bekräftelse markerar ALLA medlemmar med samma datum.
 function betGroupShowPayEditor(gi){
@@ -4211,7 +4272,7 @@ async function renderBetalningar(){
     <select onchange="betSetSort(this.value)" style="padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;">${_selOpt('forfaller',betSort,'Sortera: Förfaller')}${_selOpt('belopp',betSort,'Sortera: Belopp')}</select>
   </div>`;
   const th=(t,align)=>`<th style="text-align:${align||'left'};font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap;">${t}</th>`;
-  const headRow=`<tr>${th('Kund')}${th('Fakturanr')}${th('Ex moms','right')}${th('Inkl moms','right')}${th('Fakturadatum')}${th('Förväntat betaldatum')}${th('Status')}${th('')}</tr>`;
+  const headRow=`<tr>${th('Kund')}${th('Typ')}${th('Fakturanr')}${th('Ex moms','right')}${th('Inkl moms','right')}${th('Fakturadatum')}${th('Förväntat betaldatum')}${th('Status')}${th('')}</tr>`;
   const sorted=[...groups];
   if(betSort==='belopp')sorted.sort((a,b)=>b.amount-a.amount);
   else sorted.sort((a,b)=>{const ra=BET_STATUS_RANK[a.status],rb=BET_STATUS_RANK[b.status];if(ra!==rb)return ra-rb;if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return -1;return a.due-b.due;});
@@ -4220,12 +4281,12 @@ async function renderBetalningar(){
   else if(betStatus==='snart')unpaid=unpaid.filter(g=>g.status==='snart');
   else if(betStatus==='kommande')unpaid=unpaid.filter(g=>g.status==='kommande');
   const paid=sorted.filter(g=>g.paid).sort((a,b)=>{const da=a.due?a.due.getTime():0,db=b.due?b.due.getTime():0;return db-da;});   // DEL 0.4 — nyast betaldatum först
-  const mainBody=unpaid.length?unpaid.map(_betGroupRow).join(''):`<tr><td colspan="8" style="padding:16px;text-align:center;color:var(--text3);font-size:13px;">Inga obetalda betalningar matchar.</td></tr>`;
+  const mainBody=unpaid.length?unpaid.map(_betGroupRow).join(''):`<tr><td colspan="9" style="padding:16px;text-align:center;color:var(--text3);font-size:13px;">Inga obetalda betalningar matchar.</td></tr>`;
   const table=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead>${headRow}</thead><tbody id="bet-tbody">${mainBody}</tbody></table></div>`;
   const paidToggle=`<div onclick="betTogglePaidSection()" style="cursor:pointer;margin-top:14px;font-size:12px;font-weight:600;color:var(--text2);user-select:none;">${betShowPaid?'▴':'▾'} Se betalda (${paid.length})</div>`;
-  const paidBody=paid.length?paid.map(_betGroupRow).join(''):`<tr><td colspan="8" style="padding:12px;text-align:center;color:var(--text3);font-size:12px;">Inga betalda poster.</td></tr>`;
+  const paidBody=paid.length?paid.map(_betGroupRow).join(''):`<tr><td colspan="9" style="padding:12px;text-align:center;color:var(--text3);font-size:12px;">Inga betalda poster.</td></tr>`;
   const paidTable=betShowPaid?`<div style="overflow-x:auto;margin-top:8px;"><table style="width:100%;border-collapse:collapse;"><thead>${headRow}</thead><tbody id="bet-paid-tbody">${paidBody}</tbody></table></div>`:'';
-  const note=`<div style="font-size:10px;color:var(--text3);margin-top:10px;">Rader med samma fakturanummer grupperas (klicka ▸ för poster). Belopp är summerat ex/inkl moms. Förväntat betaldatum och Markera betald gäller alla poster i gruppen. Gult = förfaller denna månad, rött = passerat obetalt. Fakturanr redigerbart på enskilda rader.</div>`;
+  const note=`<div style="font-size:10px;color:var(--text3);margin-top:10px;">Rader med samma fakturanummer grupperas (klicka ▸ för poster). Enskilda rader och utfällda underposter kan redigeras direkt (typ, fakturanr, belopp, fakturadatum). Fakturadatum och förväntat betaldatum gäller hela fakturan och ändras på gruppraden. Belopp/typ hör till den enskilda posten. Gult = förfaller denna månad, rött = passerat obetalt.</div>`;
   el.innerHTML=`<div style="padding:16px 20px;">${cards}${banner}${controls}${table}${paidToggle}${paidTable}${note}</div>`;
   if(betSearch){const si=document.getElementById('bet-search');if(si){si.focus();try{si.setSelectionRange(si.value.length,si.value.length);}catch(e){}}}
 }
