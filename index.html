@@ -7089,18 +7089,48 @@ function renderResultatBudgetTable(){
   const resGrpHdr=(label,monthly,total,grpId,pad)=>`<tr style="background:var(--surface2);cursor:pointer;" onclick="toggleBudgetGroup('${grpId.replace(/'/g,"\\'")}')"><td style="font-weight:600;padding-left:${pad||16}px;"><span class="bchev" data-bgrp-toggle="${grpId.replace(/"/g,'&quot;')}">▾</span> ${label}</td>${monthly.map(v=>`<td style="text-align:center;font-size:11px;font-weight:600;">${fmtK(v)}</td>`).join('')}<td style="text-align:center;font-weight:700;border-left:1px solid var(--border);">${fmtK(total)}</td></tr>`;
   const resTypeHdr=(cat,sub)=>{const tc=_resTC[sub]||{bg:'var(--surface2)',color:'var(--text2)'};const _g=resRevGrp(cat,sub);return `<tr data-bsec="${resRevSec(cat)}"><td colspan="${MONTHS.length+2}" onclick="toggleBudgetGroup('${_g.replace(/'/g,"\\'")}')" style="background:${tc.bg};color:${tc.color};font-weight:600;font-size:11px;padding:4px 10px;cursor:pointer;"><span class="bchev" data-bgrp-toggle="${_g.replace(/"/g,'&quot;')}">▾</span> ${sub}</td></tr>`;};
 
+  // Cash in-vy (typ/källa): delar cashInSourceView med Likviditetsbudgeten (rad ~1440). Togglen sitter
+  // bara i Periodiserade intäkter-rubriken men styr båda sektionerna nedan. Källvy = ren läsvy, ingen import.
+  const _rciBtn=(m,lbl)=>{const a=(cashInSourceView?'kalla':'typ')===m;return `<button type="button" onclick="event.stopPropagation();setCashInView('${m}')" style="padding:2px 8px;border:0.5px solid ${a?'#fff':'rgba(255,255,255,0.55)'};border-radius:5px;background:${a?'#fff':'transparent'};color:${a?'#E8823A':'#fff'};font-family:inherit;font-size:10px;font-weight:600;cursor:pointer;">${lbl}</button>`;};
+  const _srcRow=(bsec,lbl,vals)=>`<tr data-bsec="${bsec}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${lbl}</td>${MONTHS.map((_,mi)=>`<td style="text-align:right;font-size:11px;color:var(--text2);padding:2px 3px;">${vals[mi]?fmtK(vals[mi]):'–'}</td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;border-left:1px solid var(--border);">${fmtK(sum(vals))}</td></tr>`;
+
   // Periodiserade intäkter (Category-nyckel delar aldrig med likviditet) — ↳ Avtal (auto) + ↳ Manuell + = Summa per typ.
   const periodRows=[{cat:'Periodiserade intäkter',sub:'Licens (prenumeration)'},{cat:'Periodiserade intäkter',sub:'Licens (fast pris)'},{cat:'Periodiserade intäkter',sub:'Utbildning'},{cat:'Periodiserade intäkter',sub:'Consulting'}];
-  html+=resSecHdr('Periodiserade intäkter','rperiod',WARM_BG,WARM_TEXT);
-  periodRows.forEach(r=>{html+=resTypeHdr(r.cat,r.sub);html+=resAutoSlot('Avtal',r.cat,r.sub,'Avtal (resultat)','importAllAvtalResultat','#3B6D11');html+=resManuellRow(r.cat,r.sub);html+=resSumRow(r.cat,r.sub,['Avtal (resultat)']);});
+  html+=`<tr><td colspan="${MONTHS.length+2}" style="background:${WARM_BG};color:${WARM_TEXT};font-weight:600;font-size:11px;padding:5px 10px;letter-spacing:0.04em;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span onclick="toggleBudgetSection('rperiod')" style="cursor:pointer;flex:1;"><span class="bchev" data-bsec-toggle="rperiod">▾</span> Periodiserade intäkter</span><span style="display:inline-flex;gap:4px;flex:0 0 auto;">${_rciBtn('typ','Per intäktsslag')}${_rciBtn('kalla','Per säkerhet')}</span></div></td></tr>`;
   const periodMonthly=sumRowsMonthly(periodRows);
+  if(!cashInSourceView){
+    periodRows.forEach(r=>{html+=resTypeHdr(r.cat,r.sub);html+=resAutoSlot('Avtal',r.cat,r.sub,'Avtal (resultat)','importAllAvtalResultat','#3B6D11');html+=resManuellRow(r.cat,r.sub);html+=resSumRow(r.cat,r.sub,['Avtal (resultat)']);});
+  }else{
+    // Källvy: en källa (Avtal) → sektionens summa visas direkt som "Avtalat".
+    html+=_srcRow('rperiod','Avtalat',periodMonthly);
+  }
   html+=groupSumRow('Summa periodiserade intäkter',periodMonthly,sum(periodMonthly),10,'rperiod');
 
   // Nyförsäljning — ↳ Förnyelse + ↳ Pipe (auto) + ↳ Manuell + = Summa per typ. Okvalificerat: bara Manuell + Summa.
-  const nyRows=[{cat:'Nyförsäljning',sub:'Licens (prenumeration)'},{cat:'Nyförsäljning',sub:'Licens (fast pris)'},{cat:'Nyförsäljning',sub:'Utbildning'},{cat:'Nyförsäljning',sub:'Consulting'},{cat:'Nyförsäljning',sub:'Okvalificerat/okänt'}];
+  // Vidarefakturering: egen periodiserad rad (Source='Vidarefakturering (resultat)') — ingen typ-sektion
+  // (ingen Förnyelse/Pipe/Manuell för den), bara raden själv. Se rebuildVidarefaktResultatRows/importVFResultat.
+  const nyRows=[{cat:'Nyförsäljning',sub:'Licens (prenumeration)'},{cat:'Nyförsäljning',sub:'Licens (fast pris)'},{cat:'Nyförsäljning',sub:'Utbildning'},{cat:'Nyförsäljning',sub:'Consulting'},{cat:'Nyförsäljning',sub:'Okvalificerat/okänt'},{cat:'Nyförsäljning',sub:'Vidarefakturering'}];
   html+=resSecHdr('Nyförsäljning','rny',WARM_BG,WARM_TEXT);
-  nyRows.forEach(r=>{html+=resTypeHdr(r.cat,r.sub);const auto=r.sub==='Okvalificerat/okänt'?[]:['Förnyelse (resultat)','Pipeline (resultat)'];if(r.sub!=='Okvalificerat/okänt'){html+=resAutoSlot('Förnyelse',r.cat,r.sub,'Förnyelse (resultat)','openImportFornyelseModal','#BA7517');html+=resAutoSlot('Pipe',r.cat,r.sub,'Pipeline (resultat)','openImportPipelineModal','var(--text3)');}html+=resManuellRow(r.cat,r.sub);html+=resSumRow(r.cat,r.sub,auto);});
   const nyMonthly=sumRowsMonthly(nyRows);
+  if(!cashInSourceView){
+    nyRows.forEach(r=>{
+      if(r.sub==='Vidarefakturering')return;   // renderas separat nedan (egen rad, ingen typ-sektion)
+      html+=resTypeHdr(r.cat,r.sub);const auto=r.sub==='Okvalificerat/okänt'?[]:['Förnyelse (resultat)','Pipeline (resultat)'];if(r.sub!=='Okvalificerat/okänt'){html+=resAutoSlot('Förnyelse',r.cat,r.sub,'Förnyelse (resultat)','openImportFornyelseModal','#BA7517');html+=resAutoSlot('Pipe',r.cat,r.sub,'Pipeline (resultat)','openImportPipelineModal','var(--text3)');}html+=resManuellRow(r.cat,r.sub);html+=resSumRow(r.cat,r.sub,auto);
+    });
+    html+=resAutoSlot('Vidarefakturering','Nyförsäljning','Vidarefakturering','Vidarefakturering (resultat)','importVFResultat','var(--text3)');
+  }else{
+    // Källvy: tre rader — Förnyelse+Pipe (auto-källor över alla nyRows utom VF), Okänt (manuella belopp
+    // utan källa, inkl. Okvalificerat/okänt), Övriga inbetalningar (Vidarefaktureringens periodiserade belopp).
+    const fpVals=MONTHS.map(()=>0),okantVals=MONTHS.map(()=>0);
+    nyRows.filter(r=>r.sub!=='Vidarefakturering').forEach(r=>{
+      const f=resSrcVals(r.cat,r.sub,'Förnyelse (resultat)'),p=resSrcVals(r.cat,r.sub,'Pipeline (resultat)');
+      MONTHS.forEach((_,mi)=>{fpVals[mi]+=(f[mi]||0)+(p[mi]||0);okantVals[mi]+=getVal(r.cat,r.sub,mi);});
+    });
+    const vfVals=resSrcVals('Nyförsäljning','Vidarefakturering','Vidarefakturering (resultat)');
+    html+=_srcRow('rny','Förnyelse + Pipe',fpVals);
+    html+=_srcRow('rny','Okänt',okantVals);
+    html+=_srcRow('rny','Övriga inbetalningar',vfVals);
+  }
   html+=groupSumRow('Summa nyförsäljning',nyMonthly,sum(nyMonthly),10,'rny');
 
   // Rörelsens intäkter (varm beige — intäktssektion)
@@ -8319,6 +8349,29 @@ async function rebuildSourceRowsPeriodized(versionId,source,category,entries){
   await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   return rows;
 }
+// VIDAREFAKTURERING (resultat): periodiserad Nyförsäljning-rad. REV_CAT_TO_SUB gatear avsiktligt INTE
+// Vidarefakturering (se varningskommentaren ovan REV_CAT_TO_SUB) → rebuildSourceRowsPeriodized (som
+// gatear på REV_CAT_TO_SUB[e.type]) kan inte återanvändas rakt av. Egen liten full-replace-skrivare,
+// hårdkodad på Category='Nyförsäljning'/SubCategory='Vidarefakturering'/Source='Vidarefakturering (resultat)'.
+async function rebuildVidarefaktResultatRows(versionId,entries){
+  const today=new Date().toISOString().substring(0,10);
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(versionId));
+  const year=Number(ver&&ver.Year)||new Date().getFullYear();
+  const category='Nyförsäljning',sub='Vidarefakturering',source='Vidarefakturering (resultat)';
+  let rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();
+  if(!Array.isArray(rows))rows=[];
+  rows.forEach(r=>{if(r.Category===category&&r.SubCategory===sub&&(r.Source||'')===source)MONTHS.forEach(m=>r[m]=0);});   // nollställ FÖRE ackumulering
+  (entries||[]).forEach(e=>{
+    const months=spreadPeriodAcrossMonths(Math.round(e.amount||0),e.dateFrom,e.dateTo,year);   // periodisering (dag-overlap), årsguard inuti
+    if(!months.some(v=>v>0))return;
+    let row=rows.find(r=>r.Category===category&&r.SubCategory===sub&&(r.Source||'')===source);
+    if(!row){row={Category:category,SubCategory:sub,Source:source,ImportedAt:today};MONTHS.forEach(mm=>row[mm]=0);rows.push(row);}
+    MONTHS.forEach((m,i)=>{row[m]=(row[m]||0)+months[i];});row.ImportedAt=today;
+  });
+  const vfPayload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
+  await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(vfPayload)});
+  return rows;
+}
 // AVTAL (resultat): tabellmodal — välj vilka avtal ur custRevCache som periodiseras in i 'Avtal (resultat)'
 // under Periodiserade intäkter (ex moms, via rebuildSourceRowsPeriodized). Ersätter tidigare bulk+confirm.
 // Går EJ via per-månads-importMonthActuals (kassaflödesformad). Regenererbart (källa=custRevCache), inga assumptions.
@@ -8421,6 +8474,105 @@ async function importAllAvtalResultat(versionId){
     if(typeof showSaveIndicator==='function')showSaveIndicator(`✓ ${sel.length} avtal importerade (periodiserat)`,'#1a7a50');
   };
   window._iarSummary();
+}
+// VIDAREFAKTURERING (resultat): tabellmodal — samma UX-mönster som importAllAvtalResultat (snapshot-
+// diffing Ny/Ändrad/Borttagen, bmGet/bmSet + localStorage-fallback), men filtrerad på
+// Type==='Vidarefakturering' (INTE REV_CAT_TO_SUB-grinden) och utan typ-kolumn (bara en typ).
+// Skriver via rebuildVidarefaktResultatRows till Nyförsäljning/Vidarefakturering.
+async function importVFResultat(versionId){
+  if(!Object.keys(custRevCache||{}).length){try{await prefetchAllCustomerRevenues();}catch(e){}}
+  if(!budgetVersions||!budgetVersions.length){try{await loadBudgetVersions();}catch(e){}}
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(versionId));if(!ver)return;
+  const year=Number(ver.Year)||new Date().getFullYear();
+  const fk=v=>v?Math.round(v).toLocaleString('sv-SE'):'–';
+  const M_ABBR=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+  const _per=d=>{if(!d)return'?';const dt=new Date(d);return isNaN(dt)?'?':M_ABBR[dt.getMonth()]+' '+String(dt.getFullYear()).slice(2);};
+  const esc=s=>String(s||'').replace(/</g,'&lt;');
+  const snapKey='importedVFResultat_'+versionId;
+  if(_bmCache[versionId]===undefined){try{await bmLoad(versionId);}catch(e){}}
+  let snap=bmGet(versionId,'vfResultatSnapshot');   // DB vinner
+  if(snap===undefined){try{snap=JSON.parse(localStorage.getItem(snapKey)||'null');}catch(e){snap=null;}}
+  const hasSnap=!!(snap&&snap.items);
+  const custById={};(allCustomers||[]).forEach(c=>custById[c.Id]=c);
+  const rows=[];
+  Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{
+    if(it.Type!=='Vidarefakturering'||!(it.Amount>0))return;
+    const from=it.AccrualFrom?String(it.AccrualFrom).substring(0,10):(it.DateFrom?String(it.DateFrom).substring(0,10):null),to=it.AccrualTo?String(it.AccrualTo).substring(0,10):(it.DateTo?String(it.DateTo).substring(0,10):null);
+    const months=spreadPeriodAcrossMonths(Math.round(it.Amount),from,to,year);
+    if(!months.some(v=>v>0))return;   // ingen periodisering i versionsåret → hoppa
+    const c=custById[Number(cid)];
+    rows.push({id:it.Id,company:c?(c.Company||('Kund '+cid)):('Kund '+cid),desc:it.Description||'',from,to,amount:Math.round(it.Amount),months,yrsum:months.reduce((a,b)=>a+b,0)});
+  });});
+  rows.forEach(r=>{const s=hasSnap?snap.items[r.id]:null;
+    if(!hasSnap){r.flag='';r.checked=false;}                                                   // första gången → allt avkryssat
+    else if(!s){r.flag='new';r.checked=false;}                                                 // Ny → rosa, avkryssad
+    else if(s.amount!==r.amount||(s.from||null)!==r.from||(s.to||null)!==r.to){r.flag='changed';r.checked=true;r.old=s;}   // Ändrad → amber, förkryssad
+    else{r.flag='';r.checked=true;}                                                            // oförändrad → förkryssad
+  });
+  const presentIds=new Set(rows.map(r=>String(r.id)));
+  const deleted=hasSnap?Object.entries(snap.items).filter(([id])=>!presentIds.has(String(id))).map(([id,s])=>({id,...s})):[];
+  rows.sort((a,b)=>String(a.company).localeCompare(String(b.company),'sv'));
+  const changeCnt=rows.filter(r=>r.flag).length+deleted.length;
+  const ex=document.getElementById('import-vfres-overlay');if(ex)ex.remove();
+  const ov=document.createElement('div');ov.id='import-vfres-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px;';
+  const thM=MONTHS.map(m=>`<th style="padding:6px 4px;font-size:10px;color:var(--text3);font-weight:600;text-align:right;">${m}</th>`).join('');
+  const rowHtml=r=>{
+    const bg=r.flag==='new'?'#fdf3f3':(r.flag==='changed'?'#fdf7ec':'var(--surface)');
+    const bl=r.flag==='new'?'#d99':(r.flag==='changed'?'#d9a441':'transparent');
+    const flagTxt=r.flag==='new'?' <span style="color:#a32d2d;font-size:10px;font-weight:600;">● Ny</span>':(r.flag==='changed'?' <span style="color:#a5761b;font-size:10px;font-weight:600;">● Ändrad</span>':'');
+    const chgSub=r.flag==='changed'?`<div style="font-size:10px;color:#a5761b;">Importerat ${fk(r.old.amount)} → nu ${fk(r.amount)}</div>`:'';
+    const cells=r.months.map(v=>`<td style="text-align:right;font-size:11px;padding:2px 4px;">${v>0?fk(v):'<span style="color:var(--text3);">–</span>'}</td>`).join('');
+    return `<tr style="background:${bg};border-left:3px solid ${bl};">
+      <td style="padding:6px 8px;text-align:center;"><input type="checkbox" class="ivr-cb" data-id="${r.id}" data-yr="${r.yrsum}" ${r.checked?'checked':''} onchange="window._ivrSummary()" style="width:16px;height:16px;cursor:pointer;"></td>
+      <td style="padding:6px 8px;min-width:170px;"><div style="font-size:13px;font-weight:500;">${esc(r.company)}${flagTxt}</div>${r.desc?`<div style="font-size:10px;color:var(--text3);">${esc(r.desc)}</div>`:''}${chgSub}</td>
+      <td style="padding:6px 8px;font-size:11px;color:var(--text2);white-space:nowrap;">${_per(r.from)} → ${_per(r.to)}</td>
+      ${cells}
+      <td style="padding:6px 8px;text-align:right;font-weight:700;font-size:12px;">${fk(r.yrsum)}</td>
+    </tr>`;
+  };
+  const delHtml=deleted.map(d=>`<tr style="background:var(--surface2);opacity:0.6;"><td style="padding:6px 8px;text-align:center;color:var(--text3);">–</td><td style="padding:6px 8px;text-decoration:line-through;color:var(--text3);font-size:12px;">Vidarefakturering #${esc(d.id)} <span style="font-size:10px;">(borttaget)</span></td><td colspan="${MONTHS.length+2}" style="font-size:11px;color:var(--text3);padding:6px 8px;">Fanns i förra importen — rensas vid re-import</td></tr>`).join('');
+  const introSnap=hasSnap?`<br>Senast importerad ${esc(String(snap.importedAt||'').substring(0,10))}${changeCnt?` · <b>${changeCnt}</b> ändring${changeCnt>1?'ar':''} sedan dess`:''}`:'';
+  ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:1040px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
+    <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);">
+      <h3 style="font-size:16px;font-weight:600;margin-bottom:6px;">Importera vidarefakturering · periodiserat ${year}</h3>
+      <div style="font-size:11px;color:var(--text3);line-height:1.5;">Kryssade poster skrivs periodiserat (ex moms) till <b>Nyförsäljning</b> i <b>${esc(ver.Name)}</b>. Ersätter tidigare vidarefaktureringsimport.${introSnap}</div>
+    </div>
+    <div style="overflow:auto;flex:1;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead style="position:sticky;top:0;background:var(--surface);box-shadow:0 1px 0 var(--border);z-index:1;"><tr>
+          <th style="padding:8px;text-align:center;"><input type="checkbox" id="ivr-all" onchange="window._ivrToggleAll(this.checked)" title="Markera alla" style="width:16px;height:16px;cursor:pointer;"></th>
+          <th style="padding:8px;text-align:left;font-size:10px;color:var(--text3);font-weight:600;">Kund</th>
+          <th style="padding:8px;text-align:left;font-size:10px;color:var(--text3);font-weight:600;">Period</th>
+          ${thM}
+          <th style="padding:8px;text-align:right;font-size:10px;color:var(--text3);font-weight:600;">Årssumma</th>
+        </tr></thead>
+        <tbody>${rows.map(rowHtml).join('')||`<tr><td colspan="${MONTHS.length+4}" style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">Ingen vidarefakturering med periodisering i ${year}.</td></tr>`}${delHtml}</tbody>
+      </table>
+    </div>
+    <div style="padding:12px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div id="ivr-summary" style="font-size:12px;color:var(--text2);"></div>
+      <div style="display:flex;gap:8px;"><button onclick="document.getElementById('import-vfres-overlay').remove();" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:none;font-family:inherit;font-size:13px;cursor:pointer;">Avbryt</button><button id="ivr-import-btn" class="btn-primary" onclick="window._ivrImport()" style="padding:8px 16px;">Importera valda</button></div>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  window._ivrSummary=()=>{const cbs=[...document.querySelectorAll('.ivr-cb:checked')];const tot=cbs.reduce((s,c)=>s+(Number(c.dataset.yr)||0),0);const e=document.getElementById('ivr-summary');if(e)e.textContent=`${cbs.length} poster ikryssade · ${Math.round(tot).toLocaleString('sv-SE')} kr periodiserat ${year}`;const all=document.getElementById('ivr-all');const total=document.querySelectorAll('.ivr-cb').length;if(all)all.checked=total>0&&cbs.length===total;};
+  window._ivrToggleAll=(on)=>{document.querySelectorAll('.ivr-cb').forEach(cb=>cb.checked=on);window._ivrSummary();};
+  window._ivrImport=async()=>{
+    const chSet=new Set([...document.querySelectorAll('.ivr-cb:checked')].map(c=>String(c.dataset.id)));
+    const sel=rows.filter(r=>chSet.has(String(r.id)));
+    const entries=sel.map(r=>({amount:r.amount,dateFrom:r.from,dateTo:r.to}));
+    const btn=document.getElementById('ivr-import-btn');if(btn)btn.textContent='Importerar…';
+    try{await rebuildVidarefaktResultatRows(versionId,entries);}catch(e){alert('Kunde inte importera vidarefakturering.');if(btn)btn.textContent='Importera valda';return;}
+    const items={};sel.forEach(r=>{items[r.id]={amount:r.amount,from:r.from,to:r.to};});
+    const _snapObj={importedAt:new Date().toISOString().substring(0,10),items};
+    try{localStorage.setItem(snapKey,JSON.stringify(_snapObj));}catch(e){}
+    bmSet(versionId,'vfResultatSnapshot',_snapObj);   // dubbelskriv till delat minne
+    if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
+    document.getElementById('import-vfres-overlay')?.remove();
+    if(typeof showSaveIndicator==='function')showSaveIndicator(`✓ ${sel.length} vidarefaktureringsposter importerade (periodiserat)`,'#1a7a50');
+  };
+  window._ivrSummary();
 }
 // Display-helpers (#3): översätter DATAVÄRDEN (SubCategory / Type) → UI-etikett.
 // Rör ALDRIG datavärdena själva (de lagras i DB BudgetRows.SubCategory / CustomerRevenues.Type
