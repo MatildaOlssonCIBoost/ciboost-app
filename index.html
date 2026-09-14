@@ -4013,16 +4013,18 @@ let betStatus='alla', betSort='forfaller', betSearch='';
 let _betSaveTimers={};
 let betShowPaid=false;
 let betExpanded=new Set();          // utfällda grupper (keyed på group.key)
+const betEditingRows=new Set();     // rader i redigeringsläge (keyed på kid resp. 'm'+m.id)
 let betBannerDismissed=false, betBannerReview=false;   // DEL 2 månadsskifte-banner
 let _betGroups=[];                  // render-tidens grupper (insättningsordning) — handlers slår upp via index gi=g._i
 function betTogglePaidSection(){betShowPaid=!betShowPaid;renderBetalningar();}
 function betToggleGroup(gi){const g=_betGroups[gi];if(!g)return;if(betExpanded.has(g.key))betExpanded.delete(g.key);else betExpanded.add(g.key);renderBetalningar();}
 const _BET_CHK='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></svg>';
+const _BET_EDIT_BTN='width:20px;height:20px;border:0.5px solid var(--border);border-radius:5px;background:none;cursor:pointer;color:var(--accent);font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;padding:0;';
 const BET_ALL_TYPES=['ARR','Fastpris','Consulting','Utbildning','Vidarefakturering'];   // DEL 3.9: inga källfilter — alltid alla typer
 // Visningsetiketter (samma som i intäktsmodalens Typ-dropdown) — värdet i DB är den engelska nyckeln.
 const BET_TYPE_LABELS={ARR:'Prenumeration',Fastpris:'Fast pris',Utbildning:'Utbildning',Consulting:'Consulting',Vidarefakturering:'Vidarefakturering'};
 // Redigerbar Typ-dropdown (inline). small=true → kompaktare (utfällda underposter).
-function _betTypeSelect(cur,onchange,small){const h=small?26:28;const fs=small?11:12;return `<select onchange="${onchange}" style="height:${h}px;box-sizing:border-box;padding:2px 4px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:${fs}px;background:var(--surface);color:var(--text);">`+BET_ALL_TYPES.map(t=>`<option value="${t}" ${t===cur?'selected':''}>${(BET_TYPE_LABELS[t]||t).replace(/</g,'&lt;')}</option>`).join('')+`</select>`;}
+function _betTypeSelect(cur,onchange,small,editId){const h=small?26:28;const fs=small?11:12;const attr=editId?` data-bet-editrow="${editId}"`:'';return `<select onchange="${onchange}"${attr} style="height:${h}px;box-sizing:border-box;padding:2px 4px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:${fs}px;background:var(--surface);color:var(--text);">`+BET_ALL_TYPES.map(t=>`<option value="${t}" ${t===cur?'selected':''}>${(BET_TYPE_LABELS[t]||t).replace(/</g,'&lt;')}</option>`).join('')+`</select>`;}
 function _betYmd(d){if(!d)return '';const p=x=>String(x).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
 function _betKid(k){return String(k).replace(/[^A-Za-z0-9]/g,'_');}   // DOM-säkert id ur group.key
 function _betToday0(){const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime();}
@@ -4098,6 +4100,29 @@ function _betBadge(g){
 }
 function _betRowBg(g){return g.paid?'background:rgba(26,122,80,0.05);':(g.status==='forsenad'?'background:rgba(163,45,45,0.05);':(g.status==='snart'?'background:rgba(252,239,199,0.5);':''));}
 function _betRowBorder(g){return g.paid?'#1a7a50':(g.status==='forsenad'?'#A32D2D':(g.status==='snart'?'#C88A2E':'transparent'));}
+// Radnivå-redigeringstoggle: lås/lås upp Typ/Fakturanr/Belopp(/Fakturadatum) för en rad. Klick utanför låser.
+// En enda global lyssnare (sätts upp en gång) kollar ALLA öppna rader vid varje klick, så flera
+// samtidigt upplåsta rader stängs korrekt var för sig vid klick utanför dem.
+let _betOutsideListenerAttached=false;
+function _betAttachOutsideListenerOnce(){
+  if(_betOutsideListenerAttached)return;
+  _betOutsideListenerAttached=true;
+  document.addEventListener('click',function(e){
+    if(betEditingRows.size===0)return;
+    [...betEditingRows].forEach(id=>{
+      const inside=[...document.querySelectorAll(`[data-bet-editrow="${id}"]`)].some(el=>el.contains(e.target));
+      if(!inside)betExitEdit(id);
+    });
+  });
+}
+function betEnterEdit(id){
+  _betAttachOutsideListenerOnce();
+  setTimeout(()=>{betEditingRows.add(id);renderBetalningar();},0);
+}
+function betExitEdit(id){
+  betEditingRows.delete(id);
+  renderBetalningar();
+}
 // DEL 3 — grupp-/singelrad (8 kolumner). Multi-grupp: läs-only fakturanr + chevron för utfällning + summerat belopp.
 // Singel: redigerbart fakturanr (DEL 1). Neutral text, status via vänsterkant + badge.
 function _betGroupRow(g){
@@ -4107,24 +4132,33 @@ function _betGroupRow(g){
   const notSent=!g.multi&&!g.invoiceNumber&&!!first.invoiceDate&&(new Date(first.invoiceDate+'T00:00:00').getTime()<_betToday0());
   const warn=notSent?`<span title="Fakturadatum har passerat men fakturan har inget nummer — glömdes den skickas?" style="display:inline-flex;margin-left:5px;">${_BET_WARN}</span>`:'';
   const chev=g.multi?`<span onclick="event.stopPropagation();betToggleGroup(${g._i})" style="cursor:pointer;color:var(--text3);font-size:10px;margin-right:6px;">${expanded?'▾':'▸'}</span>`:'';
-  // Typ: singel → redigerbar dropdown (post-nivå); multi → sammanfattning (delad typ eller "Blandat"), ej redigerbar.
+  const rowEditing=!g.multi&&betEditingRows.has(kid);
+  // Typ: singel → redigerbar dropdown bakom radens redigeringstoggle; multi → sammanfattning (delad typ eller "Blandat"), ej redigerbar.
   const typeCell=g.multi
     ? `<span style="font-size:12px;color:var(--text2);">${(()=>{const ts=[...new Set(g.members.map(m=>m.type))];return ts.length===1?esc(BET_TYPE_LABELS[ts[0]]||ts[0]):'Blandat';})()}</span>`
-    : _betTypeSelect(first.type,`betSavePostType(${first.custId},${first.id},this.value)`);
+    : (rowEditing
+      ? _betTypeSelect(first.type,`betSavePostType(${first.custId},${first.id},this.value)`,false,kid)
+      : `<span data-bet-editrow="${kid}" style="font-size:12px;color:var(--text);">${esc(BET_TYPE_LABELS[first.type]||first.type)}</span>`);
   const invCell=g.multi
     ? `<span onclick="betToggleGroup(${g._i})" title="Fakturanummer sätts per post — klicka för att expandera och ändra enskilda poster" style="cursor:pointer;"><input type="text" value="${esc(g.invoiceNumber)}" disabled style="width:90px;height:28px;box-sizing:border-box;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;background:var(--surface2);color:var(--text2);cursor:pointer;pointer-events:none;"></span> <span style="color:var(--text3);font-size:10px;">· ${g.members.length} poster</span>`
-    : `<input type="text" value="${esc(g.invoiceNumber)}" oninput="betOnInvoiceNumberChange(${first.custId},${first.id},this.value)" placeholder="–" style="width:90px;height:28px;box-sizing:border-box;padding:3px 6px;border:0.5px solid ${notSent?'#e6a45c':'var(--border)'};border-radius:5px;font-family:inherit;font-size:12px;"> <span id="bet-invsaved-${first.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span>`;
-  // Ex moms: singel → redigerbart nummerfält; multi → summa (text, ej redigerbar där).
+    : (rowEditing
+      ? `<input type="text" data-bet-editrow="${kid}" value="${esc(g.invoiceNumber)}" oninput="betOnInvoiceNumberChange(${first.custId},${first.id},this.value)" placeholder="–" style="width:90px;height:28px;box-sizing:border-box;padding:3px 6px;border:0.5px solid ${notSent?'#e6a45c':'var(--border)'};border-radius:5px;font-family:inherit;font-size:12px;"> <span id="bet-invsaved-${first.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span>`
+      : `<span data-bet-editrow="${kid}" style="font-size:12px;color:var(--text);">${g.invoiceNumber?esc(g.invoiceNumber):'<span style="color:var(--text3);">–</span>'}</span>`);
+  // Ex moms: singel → redigerbart nummerfält bakom radens redigeringstoggle; multi → summa (text, ej redigerbar där).
   const exCell=g.multi
     ? `<span id="bet-ex-${kid}">${fmtKr(g.amount)}</span>`
-    : `<input type="number" value="${first.amount}" oninput="betOnPostAmountChange(${first.custId},${first.id},this.value)" style="width:100px;height:28px;box-sizing:border-box;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;text-align:right;"> <span id="bet-amtsaved-${first.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span>`;
+    : (rowEditing
+      ? `<input type="number" data-bet-editrow="${kid}" value="${first.amount}" oninput="betOnPostAmountChange(${first.custId},${first.id},this.value)" style="width:100px;height:28px;box-sizing:border-box;padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;text-align:right;"> <span id="bet-amtsaved-${first.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span>`
+      : `<span data-bet-editrow="${kid}" style="font-size:13px;color:var(--text2);">${fmtKr(first.amount)}</span>`);
   // Inkl moms: alltid härlett (uppdateras in-place vid beloppsändring).
   const inklCell=`<span id="bet-inkl-${kid}">${fmtKr(g.inkl)}</span>`;
-  // Fakturadatum: singel → redigerbart datum (post-nivå); multi → text (kan vara "Olika").
+  // Fakturadatum: singel → redigerbart datum bakom radens redigeringstoggle (penna/bock); multi → text (kan vara "Olika").
   const invDate=g.invoiceDate==='__olika__'?'<span style="color:var(--text3);" title="Posterna har olika fakturadatum">Olika</span>':(g.invoiceDate?formatDate(g.invoiceDate):'<span style="color:var(--text3);">–</span>');
   const invDateCell=g.multi
     ? invDate
-    : `<input type="date" value="${first.invoiceDate||''}" onchange="betSavePostInvoiceDate(${first.custId},${first.id},this.value)" style="padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;">`;
+    : (rowEditing
+      ? `<input type="date" data-bet-editrow="${kid}" value="${first.invoiceDate||''}" onchange="betSavePostInvoiceDate(${first.custId},${first.id},this.value)" style="padding:3px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:12px;"> <button data-bet-editrow="${kid}" onclick="betExitEdit('${kid}')" title="Klar" style="${_BET_EDIT_BTN}">${_BET_CHK}</button>`
+      : `<span data-bet-editrow="${kid}" style="font-size:12px;color:var(--text2);">${first.invoiceDate?formatDate(first.invoiceDate):'<span style="color:var(--text3);">–</span>'}</span> <button data-bet-editrow="${kid}" onclick="betEnterEdit('${kid}')" title="Redigera" style="${_BET_EDIT_BTN}">✎</button>`);
   const action=g.paid
     ? `<button onclick="betGroupMarkUnpaid(${g._i})" style="padding:3px 10px;border:0.5px solid var(--border);border-radius:6px;background:none;color:var(--text2);font-family:inherit;font-size:11px;cursor:pointer;">Ångra</button>`
     : `<button onclick="betGroupShowPayEditor(${g._i})" style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border:0.5px solid #5DCAA5;border-radius:6px;background:none;color:#0F6E56;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;">${_BET_CHK}Markera betald</button>`;
@@ -4141,17 +4175,29 @@ function _betGroupRow(g){
   </tr>`;
   if(g.multi&&expanded){
     const foljer='<span style="color:var(--text3);font-size:11px;" title="Sätts på hela fakturan — ändras via gruppraden">följer grupp</span>';
-    html+=g.members.map(m=>`<tr style="background:var(--surface2);">`
-      +`<td style="padding:4px 8px 4px 28px;border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text3);">↳ ${esc(m.company)}</td>`
-      +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;">${_betTypeSelect(m.type,`betSavePostType(${m.custId},${m.id},this.value)`,true)}</td>`
-      +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;"><input type="text" value="${esc(m.invoiceNumber)}" oninput="betOnInvoiceNumberChange(${m.custId},${m.id},this.value)" placeholder="–" style="width:90px;height:26px;box-sizing:border-box;padding:2px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:11px;"> <span id="bet-invsaved-${m.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span></td>`
-      +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;white-space:nowrap;"><input type="number" value="${m.amount}" oninput="betOnPostAmountChange(${m.custId},${m.id},this.value)" style="width:92px;height:26px;box-sizing:border-box;padding:2px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:11px;text-align:right;"> <span id="bet-amtsaved-${m.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span></td>`
-      +`<td id="bet-uinkl-${m.id}" style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:12px;color:var(--text3);">${fmtKr(m.inkl)}</td>`
-      +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${foljer}</td>`
-      +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${foljer}</td>`
-      +`<td style="border-bottom:0.5px solid var(--border);"></td>`
-      +`<td style="border-bottom:0.5px solid var(--border);"></td>`
-      +`</tr>`).join('');
+    html+=g.members.map(m=>{
+      const mid='m'+m.id;const mEditing=betEditingRows.has(mid);
+      const mTypeCell=mEditing
+        ? _betTypeSelect(m.type,`betSavePostType(${m.custId},${m.id},this.value)`,true,mid)
+        : `<span data-bet-editrow="${mid}" style="font-size:11px;color:var(--text);">${esc(BET_TYPE_LABELS[m.type]||m.type)}</span>`;
+      const mInvCell=mEditing
+        ? `<input type="text" data-bet-editrow="${mid}" value="${esc(m.invoiceNumber)}" oninput="betOnInvoiceNumberChange(${m.custId},${m.id},this.value)" placeholder="–" style="width:90px;height:26px;box-sizing:border-box;padding:2px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:11px;"> <span id="bet-invsaved-${m.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span>`
+        : `<span data-bet-editrow="${mid}" style="font-size:11px;color:var(--text);">${m.invoiceNumber?esc(m.invoiceNumber):'<span style="color:var(--text3);">–</span>'}</span>`;
+      const mExCell=mEditing
+        ? `<input type="number" data-bet-editrow="${mid}" value="${m.amount}" oninput="betOnPostAmountChange(${m.custId},${m.id},this.value)" style="width:92px;height:26px;box-sizing:border-box;padding:2px 6px;border:0.5px solid var(--border);border-radius:5px;font-family:inherit;font-size:11px;text-align:right;"> <span id="bet-amtsaved-${m.id}" style="opacity:0;transition:opacity .3s;color:#1a7a50;font-size:11px;">✓</span> <button data-bet-editrow="${mid}" onclick="betExitEdit('${mid}')" title="Klar" style="${_BET_EDIT_BTN}">${_BET_CHK}</button>`
+        : `<span data-bet-editrow="${mid}" style="font-size:12px;color:var(--text2);">${fmtKr(m.amount)}</span> <button data-bet-editrow="${mid}" onclick="betEnterEdit('${mid}')" title="Redigera" style="${_BET_EDIT_BTN}">✎</button>`;
+      return `<tr style="background:var(--surface2);">`
+        +`<td style="padding:4px 8px 4px 28px;border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text3);">↳ ${esc(m.company)}</td>`
+        +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;">${mTypeCell}</td>`
+        +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);white-space:nowrap;">${mInvCell}</td>`
+        +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;white-space:nowrap;">${mExCell}</td>`
+        +`<td id="bet-uinkl-${m.id}" style="padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:right;font-size:12px;color:var(--text3);">${fmtKr(m.inkl)}</td>`
+        +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${foljer}</td>`
+        +`<td style="padding:4px 8px;border-bottom:0.5px solid var(--border);">${foljer}</td>`
+        +`<td style="border-bottom:0.5px solid var(--border);"></td>`
+        +`<td style="border-bottom:0.5px solid var(--border);"></td>`
+        +`</tr>`;
+    }).join('');
   }
   return html;
 }
