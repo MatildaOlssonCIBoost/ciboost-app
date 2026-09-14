@@ -8470,8 +8470,11 @@ function aggregateAvtalRows(customers,allRevenues,year,today){
     items.forEach(it=>{
       const sub=REV_CAT_TO_SUB[it.Type];
       if(!sub)return;
-      const per=spreadPeriodAcrossMonths(it.Amount||0,it.DateFrom,it.DateTo,year);
-      const cash=placeCashflowMonth(it.Amount||0,it.InvoiceDate,it.DateFrom,year);
+      const _accFrom=it.AccrualFrom||it.DateFrom, _accTo=it.AccrualTo||it.DateTo;
+      const per=spreadPeriodAcrossMonths(it.Amount||0,_accFrom,_accTo,year);
+      const _cd=kaCashflowDate(it);
+      const cash=new Array(12).fill(0);
+      if(_cd&&_cd.getFullYear()===year)cash[_cd.getMonth()]=it.Amount||0;
       if(!periodized[sub])periodized[sub]=new Array(12).fill(0);
       if(!cashflow[sub])cashflow[sub]=new Array(12).fill(0);
       per.forEach((v,i)=>{periodized[sub][i]+=v;});
