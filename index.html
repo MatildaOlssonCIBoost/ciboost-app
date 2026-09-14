@@ -8345,7 +8345,7 @@ async function importAllAvtalResultat(versionId){
   const rows=[];
   Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{
     if(!REV_CAT_TO_SUB[it.Type]||!(it.Amount>0))return;
-    const from=it.DateFrom?String(it.DateFrom).substring(0,10):null,to=it.DateTo?String(it.DateTo).substring(0,10):null;
+    const from=it.AccrualFrom?String(it.AccrualFrom).substring(0,10):(it.DateFrom?String(it.DateFrom).substring(0,10):null),to=it.AccrualTo?String(it.AccrualTo).substring(0,10):(it.DateTo?String(it.DateTo).substring(0,10):null);
     const months=spreadPeriodAcrossMonths(Math.round(it.Amount),from,to,year);
     if(!months.some(v=>v>0))return;   // ingen periodisering i versionsåret → hoppa (som rebuildSourceRowsPeriodized)
     const c=custById[Number(cid)];
