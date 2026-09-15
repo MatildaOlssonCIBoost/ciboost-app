@@ -2353,6 +2353,7 @@ async function loadProspectRevenuesUI(id){
 function openAddProspectRevenue(id){
   showDialog('Lägg till intäktspost',
     `<div class="modal-field"><label>Typ</label><select id="pr-type" class="edit-input" onchange="updateRevDialogHeaders('pr')"><option value="ARR">Prenumeration</option><option value="Fastpris">Fast pris</option><option value="Utbildning">Utbildning</option><option value="Consulting">Consulting</option></select></div>
+    <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="pr-desc" class="edit-input"></div>
     <div class="modal-grid" style="margin-top:10px;"><div class="modal-field"><label>Belopp ex moms (kr)</label><input id="pr-amount" type="number" class="edit-input" placeholder="0" oninput="updateVatIncl('pr')"></div><div class="modal-field"><label>Moms %</label><input id="pr-vat" type="number" step="0.01" class="edit-input" value="25" oninput="updateVatIncl('pr')"></div></div>
     <div class="modal-field" style="margin-top:6px;font-size:11px;color:var(--text3);"><span id="pr-vat-incl">–</span> inkl. moms (importeras)</div>
     <div class="modal-field" style="margin-top:10px;"><label>Sannolikhet (viktning)</label><select id="pr-prob-weight" class="edit-input">${[...Array(21)].map((_,k)=>k*5).map(v=>`<option value="${v}">${v}%</option>`).join('')}</select></div>
@@ -2363,17 +2364,24 @@ function openAddProspectRevenue(id){
     <div class="modal-field" id="pr-payment-date-wrap" style="margin-top:10px;display:none;"><label>Betalningsdatum</label><input id="pr-payment-date" type="date" class="edit-input"></div>
     <div id="pr-period-header" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">Licensperiod · Estimerad</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <div class="modal-field"><label>Från datum</label><input id="pr-from" type="date" class="edit-input"></div>
-      <div class="modal-field"><label>Till datum</label><input id="pr-to" type="date" class="edit-input"></div>
+      <div class="modal-field"><label>Från datum</label><input id="pr-from" type="date" class="edit-input" oninput="revOnFromChange('pr')"></div>
+      <div class="modal-field"><label>Till datum</label><input id="pr-to" type="date" class="edit-input" oninput="revOnToManualEdit('pr')"></div>
     </div>
-    <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="pr-desc" class="edit-input"></div>`,
+    <div id="pr-accrual-row" data-parent-accrual-to="" data-accrual-touched="0" style="margin-top:8px;">
+      <button type="button" id="pr-accrual-toggle" onclick="revToggleAccrual('pr')" style="display:inline-flex;align-items:center;gap:5px;background:none;border:none;padding:2px 0;color:var(--text3);font-family:inherit;font-size:12px;cursor:pointer;"><span id="pr-accrual-chevron">▾</span> Periodisering: <span id="pr-accrual-summary" style="color:var(--text2);">–</span></button>
+      <div id="pr-accrual-panel" style="display:none;margin-top:6px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div class="modal-field"><label>Periodisering från</label><input id="pr-accrual-from" class="edit-input" type="month" oninput="revOnAccrualManualEdit('pr')"></div><div class="modal-field"><label>Periodisering till</label><input id="pr-accrual-to" class="edit-input" type="month" oninput="revOnAccrualManualEdit('pr')"></div></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;">Auto-förslag från licensperioden (estimerad) — redigera fritt.</div>
+      </div>
+    </div>`,
     async()=>{
       const amount=parseInt(document.getElementById('pr-amount').value)||0;if(!amount)return false;
-      await saveProspectRevenue(id,{Type:document.getElementById('pr-type').value,Amount:amount,Probability:parseInt(document.getElementById('pr-prob-weight').value)||0,DateFrom:document.getElementById('pr-from').value||null,DateTo:document.getElementById('pr-to').value||null,Description:document.getElementById('pr-desc').value||null,InvoiceDate:document.getElementById('pr-invoice-date').value||null,Paid:document.getElementById('pr-paid').checked?1:0,PaymentDate:document.getElementById('pr-payment-date').value||null,VatRate:vatVal('pr')});
+      await saveProspectRevenue(id,{Type:document.getElementById('pr-type').value,Amount:amount,Probability:parseInt(document.getElementById('pr-prob-weight').value)||0,DateFrom:document.getElementById('pr-from').value||null,DateTo:document.getElementById('pr-to').value||null,Description:document.getElementById('pr-desc').value||null,InvoiceDate:document.getElementById('pr-invoice-date').value||null,Paid:document.getElementById('pr-paid').checked?1:0,PaymentDate:document.getElementById('pr-payment-date').value||null,VatRate:vatVal('pr'),AccrualFrom:revReadAccrualFrom('pr'),AccrualTo:revReadAccrualTo('pr')});
       loadProspectRevenuesUI(id);renderKanban();
       return true;
     }
   );
+  revSuggestAccrual('pr');revUpdateAccrualSummary('pr');
 }
 function updateRiPaymentExpected(prefix){
   const v=document.getElementById(`${prefix}-invoice-date`)?.value;
@@ -2420,8 +2428,12 @@ async function editProspectRevItem(id,itemId){
   const items=await loadProspectRevenues(id);
   const it=items.find(x=>x.Id===itemId);if(!it)return;
   const invExp=it.InvoiceDate?(()=>{const d=new Date(it.InvoiceDate);d.setDate(d.getDate()+30);return d.toLocaleDateString('sv-SE')+' (+30 dagar)';})():'–';
+  const accFromYM=it.AccrualFrom?String(it.AccrualFrom).substring(0,7):'';
+  const accToYM=it.AccrualTo?String(it.AccrualTo).substring(0,7):'';
+  const accTouched=(accFromYM||accToYM)?'1':'0';
   showDialog('Redigera intäktspost',
     `<div class="modal-field"><label>Typ</label><select id="pr-type" class="edit-input" onchange="updateRevDialogHeaders('pr')"><option value="ARR" ${it.Type==='ARR'?'selected':''}>Prenumeration</option><option value="Fastpris" ${it.Type==='Fastpris'?'selected':''}>Fast pris</option><option value="Utbildning" ${it.Type==='Utbildning'?'selected':''}>Utbildning</option><option value="Consulting" ${it.Type==='Consulting'?'selected':''}>Consulting</option></select></div>
+    <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="pr-desc" class="edit-input" value="${(it.Description||'').replace(/"/g,'&quot;')}"></div>
     <div class="modal-grid" style="margin-top:10px;"><div class="modal-field"><label>Belopp ex moms (kr)</label><input id="pr-amount" type="number" class="edit-input" value="${it.Amount||0}" oninput="updateVatIncl('pr')"></div><div class="modal-field"><label>Moms %</label><input id="pr-vat" type="number" step="0.01" class="edit-input" value="${it.VatRate!=null?it.VatRate:25}" oninput="updateVatIncl('pr')"></div></div>
     <div class="modal-field" style="margin-top:6px;font-size:11px;color:var(--text3);"><span id="pr-vat-incl">${Math.round((it.Amount||0)*(1+(it.VatRate!=null?it.VatRate:25)/100)).toLocaleString('sv-SE')} kr</span> inkl. moms (importeras)</div>
     <div class="modal-field" style="margin-top:10px;"><label>Sannolikhet (viktning)</label><select id="pr-prob-weight" class="edit-input">${[...Array(21)].map((_,k)=>k*5).map(v=>`<option value="${v}" ${(it.Probability||0)===v?'selected':''}>${v}%</option>`).join('')}</select></div>
@@ -2432,16 +2444,23 @@ async function editProspectRevItem(id,itemId){
     <div class="modal-field" id="pr-payment-date-wrap" style="margin-top:10px;display:${it.Paid?'block':'none'};"><label>Betalningsdatum</label><input id="pr-payment-date" type="date" class="edit-input" value="${it.PaymentDate?it.PaymentDate.substring(0,10):''}"></div>
     <div id="pr-period-header" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-top:14px;margin-bottom:4px;">${(it.Type==='Consulting'||it.Type==='Utbildning')?'Leveransperiod':'Licensperiod'} · Estimerad</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <div class="modal-field"><label>Från datum</label><input id="pr-from" type="date" class="edit-input" value="${it.DateFrom?it.DateFrom.substring(0,10):''}"></div>
-      <div class="modal-field"><label>Till datum</label><input id="pr-to" type="date" class="edit-input" value="${it.DateTo?it.DateTo.substring(0,10):''}"></div>
+      <div class="modal-field"><label>Från datum</label><input id="pr-from" type="date" class="edit-input" value="${it.DateFrom?it.DateFrom.substring(0,10):''}" oninput="revOnFromChange('pr')"></div>
+      <div class="modal-field"><label>Till datum</label><input id="pr-to" type="date" class="edit-input" value="${it.DateTo?it.DateTo.substring(0,10):''}" oninput="revOnToManualEdit('pr')"></div>
     </div>
-    <div class="modal-field" style="margin-top:10px;"><label>Beskrivning</label><input id="pr-desc" class="edit-input" value="${(it.Description||'').replace(/"/g,'&quot;')}"></div>`,
+    <div id="pr-accrual-row" data-parent-accrual-to="" data-accrual-touched="${accTouched}" style="margin-top:8px;">
+      <button type="button" id="pr-accrual-toggle" onclick="revToggleAccrual('pr')" style="display:inline-flex;align-items:center;gap:5px;background:none;border:none;padding:2px 0;color:var(--text3);font-family:inherit;font-size:12px;cursor:pointer;"><span id="pr-accrual-chevron">▾</span> Periodisering: <span id="pr-accrual-summary" style="color:var(--text2);">–</span></button>
+      <div id="pr-accrual-panel" style="display:none;margin-top:6px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div class="modal-field"><label>Periodisering från</label><input id="pr-accrual-from" class="edit-input" type="month" value="${accFromYM}" oninput="revOnAccrualManualEdit('pr')"></div><div class="modal-field"><label>Periodisering till</label><input id="pr-accrual-to" class="edit-input" type="month" value="${accToYM}" oninput="revOnAccrualManualEdit('pr')"></div></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;">Auto-förslag från licensperioden (estimerad) — redigera fritt.</div>
+      </div>
+    </div>`,
     async()=>{
-      await saveProspectRevenue(id,{Id:itemId,Type:document.getElementById('pr-type').value,Amount:parseInt(document.getElementById('pr-amount').value)||0,Probability:parseInt(document.getElementById('pr-prob-weight').value)||0,DateFrom:document.getElementById('pr-from').value||null,DateTo:document.getElementById('pr-to').value||null,Description:document.getElementById('pr-desc').value||null,InvoiceDate:document.getElementById('pr-invoice-date').value||null,Paid:document.getElementById('pr-paid').checked?1:0,PaymentDate:document.getElementById('pr-payment-date').value||null,VatRate:vatVal('pr')});
+      await saveProspectRevenue(id,{Id:itemId,Type:document.getElementById('pr-type').value,Amount:parseInt(document.getElementById('pr-amount').value)||0,Probability:parseInt(document.getElementById('pr-prob-weight').value)||0,DateFrom:document.getElementById('pr-from').value||null,DateTo:document.getElementById('pr-to').value||null,Description:document.getElementById('pr-desc').value||null,InvoiceDate:document.getElementById('pr-invoice-date').value||null,Paid:document.getElementById('pr-paid').checked?1:0,PaymentDate:document.getElementById('pr-payment-date').value||null,VatRate:vatVal('pr'),AccrualFrom:revReadAccrualFrom('pr'),AccrualTo:revReadAccrualTo('pr')});
       loadProspectRevenuesUI(id);renderKanban();
       return true;
     }
   );
+  revSuggestAccrual('pr');revUpdateAccrualSummary('pr');
 }
 async function deleteProspectRevItemUI(id,itemId){
   if(!confirm('Ta bort intäktsposten?'))return;
@@ -6399,7 +6418,7 @@ async function openImportPipelineManad(versionId,preMonth){
     Object.entries(_ppSavedAll||{}).forEach(([k,e])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));merged[k]={amount:_ppParse(e.amount),prob:_ppParse(e.prob),date:e.date,type:it?it.Type:null,vatRate:e.vatRate};});
     picks.forEach(p=>{const it=(prospectRevCache[p.prospectId]||[]).find(x=>String(x.Id)===String(p.itemId));merged[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,type:it?it.Type:null,vatRate:(it&&it.VatRate!=null)?it.VatRate:null};});
     removals.forEach(k=>{delete merged[k];});
-    if(currentBudgetMode==='resultat'){const entriesP=Object.entries(merged).map(([k,m])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));const ed=(window._ppEdits||{})[k]||{};const df=(ed.dateFrom!=null&&ed.dateFrom!=='')?ed.dateFrom:(it&&it.DateFrom?String(it.DateFrom).substring(0,10):null);const dt=(ed.dateTo!=null&&ed.dateTo!=='')?ed.dateTo:(it&&it.DateTo?String(it.DateTo).substring(0,10):null);return {amount:m.amount,prob:m.prob,dateFrom:df,dateTo:dt,type:m.type};});try{await rebuildSourceRowsPeriodized(versionId,'Pipeline (resultat)','Nyförsäljning',entriesP);}catch(e){alert('Kunde inte spara importen.');return;}}
+    if(currentBudgetMode==='resultat'){const entriesP=Object.entries(merged).map(([k,m])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));const ed=(window._ppEdits||{})[k]||{};const df=(ed.dateFrom!=null&&ed.dateFrom!=='')?ed.dateFrom:(it&&it.AccrualFrom?String(it.AccrualFrom).substring(0,10):(it&&it.DateFrom?String(it.DateFrom).substring(0,10):null));const dt=(ed.dateTo!=null&&ed.dateTo!=='')?ed.dateTo:(it&&it.AccrualTo?String(it.AccrualTo).substring(0,10):(it&&it.DateTo?String(it.DateTo).substring(0,10):null));return {amount:m.amount,prob:m.prob,dateFrom:df,dateTo:dt,type:m.type};});try{await rebuildSourceRowsPeriodized(versionId,'Pipeline (resultat)','Nyförsäljning',entriesP);}catch(e){alert('Kunde inte spara importen.');return;}}
     else try{await rebuildSourceRows(versionId,'Pipeline (viktat)',Object.values(merged));}catch(e){alert('Kunde inte spara importen.');return;}
     localStorage.setItem('pipelineImport_'+versionId,JSON.stringify(saved));
     const _prevSnap=bmGet(versionId,'pipelineSnapshot');const _snapOut=Object.assign({},saved);if(_prevSnap&&_prevSnap._mirror)_snapOut._mirror=_prevSnap._mirror;bmSet(versionId,'pipelineSnapshot',_snapOut);   // ROLLBACK: dubbelskriv urval till delat minne (5B-symmetri, behall _mirror)
@@ -6595,7 +6614,7 @@ async function openImportPipelineTabell(versionId,preMonth){
     Object.entries(_ppSavedAll||{}).forEach(([k,e])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));merged[k]={amount:_ppParse(e.amount),prob:_ppParse(e.prob),date:e.date,type:it?it.Type:null,vatRate:e.vatRate};});
     picks.forEach(p=>{const it=(prospectRevCache[p.prospectId]||[]).find(x=>String(x.Id)===String(p.itemId));merged[p.prospectId+'_'+p.itemId]={amount:p.amount,prob:p.prob,date:p.date,type:it?it.Type:null,vatRate:(it&&it.VatRate!=null)?it.VatRate:null};});
     removals.forEach(k=>{delete merged[k];});
-    if(currentBudgetMode==='resultat'){const entriesP=Object.entries(merged).map(([k,m])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));const ed=(window._ppEdits||{})[k]||{};const df=(ed.dateFrom!=null&&ed.dateFrom!=='')?ed.dateFrom:(it&&it.DateFrom?String(it.DateFrom).substring(0,10):null);const dt=(ed.dateTo!=null&&ed.dateTo!=='')?ed.dateTo:(it&&it.DateTo?String(it.DateTo).substring(0,10):null);return {amount:m.amount,prob:m.prob,dateFrom:df,dateTo:dt,type:m.type};});try{await rebuildSourceRowsPeriodized(versionId,'Pipeline (resultat)','Nyförsäljning',entriesP);}catch(e){alert('Kunde inte spara importen.');return;}}
+    if(currentBudgetMode==='resultat'){const entriesP=Object.entries(merged).map(([k,m])=>{const us=k.split('_');const itemId=us.pop();const pid=us.join('_');const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(itemId));const ed=(window._ppEdits||{})[k]||{};const df=(ed.dateFrom!=null&&ed.dateFrom!=='')?ed.dateFrom:(it&&it.AccrualFrom?String(it.AccrualFrom).substring(0,10):(it&&it.DateFrom?String(it.DateFrom).substring(0,10):null));const dt=(ed.dateTo!=null&&ed.dateTo!=='')?ed.dateTo:(it&&it.AccrualTo?String(it.AccrualTo).substring(0,10):(it&&it.DateTo?String(it.DateTo).substring(0,10):null));return {amount:m.amount,prob:m.prob,dateFrom:df,dateTo:dt,type:m.type};});try{await rebuildSourceRowsPeriodized(versionId,'Pipeline (resultat)','Nyförsäljning',entriesP);}catch(e){alert('Kunde inte spara importen.');return;}}
     else try{await rebuildSourceRows(versionId,'Pipeline (viktat)',Object.values(merged));}catch(e){alert('Kunde inte spara importen.');return;}
     localStorage.setItem('pipelineImport_'+versionId,JSON.stringify(saved));
     const _prevSnap=bmGet(versionId,'pipelineSnapshot');const _snapOut=Object.assign({},saved);if(_prevSnap&&_prevSnap._mirror)_snapOut._mirror=_prevSnap._mirror;bmSet(versionId,'pipelineSnapshot',_snapOut);   // ETAPP 5B: dubbelskriv urval till delat minne (behåll _mirror)
@@ -8900,7 +8919,7 @@ async function _underlagAfterRemove(vid,source){
     if(!isForn){const _pids=[...new Set(rem.map(a=>String(a.ItemKey||'').split('_')[0]))];await Promise.all(_pids.map(pid=>prospectRevCache[pid]?Promise.resolve():loadProspectRevenues(pid).then(items=>{prospectRevCache[pid]=Array.isArray(items)?items:[];}).catch(()=>{prospectRevCache[pid]=[];})));}
     const entries=rem.map(a=>{const us=String(a.ItemKey||'').split('_');const ed=(isForn?(window._frEdits||{}):(window._ppEdits||{}))[a.ItemKey]||{};let from=ed.dateFrom||null,to=ed.dateTo||null;
       if(isForn){if(!from||!to){let o=a.RefDate?String(a.RefDate).substring(0,10):null;if(o){const s=new Date(o);s.setDate(s.getDate()+1);if(!from)from=s.toISOString().substring(0,10);const e2=new Date(s);e2.setFullYear(e2.getFullYear()+1);e2.setDate(e2.getDate()-1);if(!to)to=e2.toISOString().substring(0,10);}}}
-      else{const pit=(prospectRevCache[us[0]]||[]).find(x=>String(x.Id)===String(us[1]));from=from||(pit&&pit.DateFrom?String(pit.DateFrom).substring(0,10):null);to=to||(pit&&pit.DateTo?String(pit.DateTo).substring(0,10):null);}
+      else{const pit=(prospectRevCache[us[0]]||[]).find(x=>String(x.Id)===String(us[1]));from=from||(pit&&pit.AccrualFrom?String(pit.AccrualFrom).substring(0,10):null)||(pit&&pit.DateFrom?String(pit.DateFrom).substring(0,10):null);to=to||(pit&&pit.AccrualTo?String(pit.AccrualTo).substring(0,10):null)||(pit&&pit.DateTo?String(pit.DateTo).substring(0,10):null);}
       return {amount:a.Amount,prob:a.Prob,dateFrom:from,dateTo:to,type:a.Type};});
     await rebuildSourceRowsPeriodized(vid,source,cat,entries);
   }else{
