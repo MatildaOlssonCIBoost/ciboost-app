@@ -1242,23 +1242,29 @@ const SALES_TYPES = ['ARR','Fastpris','Utbildning','Consulting'];
 const isSale = it => SALES_TYPES.includes(it && it.Type);
 // Ekonomens exakta BAS-konton (gemensam kostnadsdef för likviditet + resultat). group =
 // resultaträknings-grupp, account = BAS-kontonr ('' = ingen kontokoppling), name = radnamn.
-// 4 grupper inkl Personalkostnader. Dubblettkonton (5990/6540) har DISTINKTA namn (disambigueras i import via kol C — DEF-2).
+// 4 grupper inkl Personalkostnader. Dubblettkonton (5900/5990/6540) har DISTINKTA namn (disambigueras i import via kol C — DEF-2).
+// RENAME-1: name = EXAKT ekonomens "Import Sune" kol C (master framåt, inkl. hennes stavning). aliases = tidigare
+// radnamn som redan ligger sparade som SubCategory i äldre budgetversioner → matchas som samma rad (sparad data
+// döps ALDRIG om). legacy:true = rad som bara finns kvar för historiska versioner: matchas ALDRIG av Excel-import
+// och renderas bara när versionen redan har en sparad rad för den.
 const COST_ROWS_DEF = [
   // Varu- och materialkostnader
-  { group:'Varu- och materialkostnader', account:'4611', name:'Underkonsulter extern' },
+  { group:'Varu- och materialkostnader', account:'4611', name:'Compileit', aliases:['Underkonsulter extern'] },
   { group:'Varu- och materialkostnader', account:'4699', name:'Vidarefakturerade kostnader' },
   // Övriga externa kostnader
   { group:'Övriga externa kostnader', account:'5090', name:'Service fee koncern' },
-  { group:'Övriga externa kostnader', account:'5420', name:'Programvaror & licenser' },
+  { group:'Övriga externa kostnader', account:'5420', name:'Microsoftlicenser +ad hoc', aliases:['Programvaror & licenser'] },
   { group:'Övriga externa kostnader', account:'58xx', name:'Resekostnader' },
-  { group:'Övriga externa kostnader', account:'5900', name:'Reklam och PR' },
-  { group:'Övriga externa kostnader', account:'5990', name:'Marknadsföring och reklam - Wow Media AB' },
-  { group:'Övriga externa kostnader', account:'5990', name:'Marknadsföring och reklam - LinkedIn' },
-  { group:'Övriga externa kostnader', account:'6212', name:'Telefonikostnader' },
-  { group:'Övriga externa kostnader', account:'6540', name:'IT-tjänster - Amanda AI' },
-  { group:'Övriga externa kostnader', account:'6540', name:'IT-tjänster - Utlägg' },
+  { group:'Övriga externa kostnader', account:'5900', name:'Reklam och PR', legacy:true },
+  { group:'Övriga externa kostnader', account:'5900', name:'Linkedin' },
+  { group:'Övriga externa kostnader', account:'5900', name:'Övrig marknadsföring och reklam' },
+  { group:'Övriga externa kostnader', account:'5990', name:'Wow Media AB', aliases:['Marknadsföring och reklam - Wow Media AB'] },
+  { group:'Övriga externa kostnader', account:'5990', name:'Marknadsföring och reklam - LinkedIn', legacy:true },
+  { group:'Övriga externa kostnader', account:'6212', name:'Tele2', aliases:['Telefonikostnader'] },
+  { group:'Övriga externa kostnader', account:'6540', name:'Amanda AI', aliases:['IT-tjänster - Amanda AI'] },
+  { group:'Övriga externa kostnader', account:'6540', name:'Övriga IT-tjänster (tex Twillo, OpenAI,Slack,Bitable, AWS)', aliases:['IT-tjänster - Utlägg'] },
   { group:'Övriga externa kostnader', account:'6570', name:'Bankkostnader' },
-  { group:'Övriga externa kostnader', account:'',     name:'Övrig kostnad' },
+  { group:'Övriga externa kostnader', account:'',     name:'Övirga kostnader (representation, konsult, mobil- och datorinköp)', aliases:['Övrig kostnad'] },
   // Personalkostnader (importeras från ekonomens fil; lönesida-formelintegration supersedad)
   { group:'Personalkostnader', account:'7210', name:'Lön tjänstemän' },
   { group:'Personalkostnader', account:'7290', name:'Förändr sem löneskuld' },
@@ -1270,17 +1276,47 @@ const COST_ROWS_DEF = [
   { group:'Personalkostnader', account:'7510', name:'Arbetsgivaravgifter' },
   { group:'Personalkostnader', account:'7519', name:'Soc.avgifter uppl semester' },
   { group:'Personalkostnader', account:'7530', name:'Särskild löneskatt' },
-  { group:'Personalkostnader', account:'7570', name:'AMF enl avtal' },
-  { group:'Personalkostnader', account:'7621', name:'Friskvård avdragsgill' },
-  { group:'Personalkostnader', account:'7622', name:'Sjukvårdsförsäkring avdragsgill' },
+  { group:'Personalkostnader', account:'7570', name:'AMF enl avtal (29 kr)', aliases:['AMF enl avtal'] },
+  { group:'Personalkostnader', account:'7621', name:'Friskvård, avdragsgill', aliases:['Friskvård avdragsgill'] },
+  { group:'Personalkostnader', account:'7622', name:'Sjukvårdsförsäkring (484 kr)', aliases:['Sjukvårdsförsäkring avdragsgill'] },
+  { group:'Personalkostnader', account:'',     name:'Övriga personalkostnader' },
   // Avskrivningar och finansiella poster
-  { group:'Avskrivningar', account:'7810', name:'Avskrivningar immateriella' },
+  { group:'Avskrivningar', account:'7810', name:'Avskrivningar på aktiverat arbete', aliases:['Avskrivningar immateriella'] },
   { group:'Avskrivningar', account:'8xxx', name:'Finansiella poster' },
 ];
 // RES-1: Aktiverat arbete för egen räkning (intäktssidan). Egen def — importeras (3850/3870), renderas mellan Summa nettoomsättning och Summa rörelsens intäkter.
 const AKTIVERAT_ROWS_DEF = [
   { group:'Aktiverat arbete', account:'3850', name:'Aktiverat arbete (omkostnader)' },
   { group:'Aktiverat arbete', account:'3870', name:'Aktiverat arbete (personal)' },
+];
+// RENAME-1: alias-index (group__namn|alias → def.name). canonSub = kanoniskt def-namn för en sparad
+// (Category, SubCategory); okänd rad (intäkter, egna rader) → oförändrad. subMatches = sparad rad ↔ def-rad.
+const _defAliasIdx=(()=>{const m={};[...COST_ROWS_DEF,...AKTIVERAT_ROWS_DEF].forEach(d=>{[d.name,...(d.aliases||[])].forEach(n=>{m[d.group+'__'+n]=d.name;});});return m;})();
+const canonSub=(cat,sub)=>_defAliasIdx[cat+'__'+sub]||sub;
+const subMatches=(cat,storedSub,defSub)=>storedSub===defSub||canonSub(cat,storedSub)===canonSub(cat,defSub);
+// Sparat SubCategory-namn för en def-rad i en versions rader (exakt namn före alias); saknas → def-namnet.
+// Används som data-sub/notnyckel så äldre versioner fortsätter skriva till sin befintliga rad.
+const storedSubFor=(rows,cat,name)=>{const own=(rows||[]).filter(r=>!r.Source&&r.Category===cat);const r=own.find(x=>x.SubCategory===name)||own.find(x=>subMatches(cat,x.SubCategory,name));return r?r.SubCategory:name;};
+// legacy-rad visas bara om versionen redan har en sparad (manuell) rad för den.
+const defVisibleIn=(rows,d)=>!d.legacy||(rows||[]).some(r=>!r.Source&&r.Category===d.group&&subMatches(d.group,r.SubCategory,d.name));
+// RES-B: driftrader i EXAKT ordning enligt ekonomens Import Sune-flik (delas av resultatrendern + Sune-exporten).
+// legacy-raderna ligger direkt efter sina efterträdare (visas bara i versioner som har data i dem).
+const RES_DRIFT_ORDER=[
+  {cat:'Varu- och materialkostnader',sub:'Compileit'},
+  {cat:'Övriga externa kostnader',sub:'Wow Media AB'},
+  {cat:'Övriga externa kostnader',sub:'Marknadsföring och reklam - LinkedIn'},
+  {cat:'Övriga externa kostnader',sub:'Linkedin'},
+  {cat:'Övriga externa kostnader',sub:'Övrig marknadsföring och reklam'},
+  {cat:'Övriga externa kostnader',sub:'Reklam och PR'},
+  {cat:'Övriga externa kostnader',sub:'Amanda AI'},
+  {cat:'Övriga externa kostnader',sub:'Övriga IT-tjänster (tex Twillo, OpenAI,Slack,Bitable, AWS)'},
+  {cat:'Övriga externa kostnader',sub:'Microsoftlicenser +ad hoc'},
+  {cat:'Övriga externa kostnader',sub:'Tele2'},
+  {cat:'Övriga externa kostnader',sub:'Resekostnader'},
+  {cat:'Övriga externa kostnader',sub:'Övirga kostnader (representation, konsult, mobil- och datorinköp)'},
+  {cat:'Övriga externa kostnader',sub:'Bankkostnader'},
+  {cat:'Varu- och materialkostnader',sub:'Vidarefakturerade kostnader'},
+  {cat:'Övriga externa kostnader',sub:'Service fee koncern'},
 ];
 // LEV-AB: fast leverantörslista för likviditetsbudgeten. Ordning enligt ekonomens Sune-flik (bild).
 // Rader lagras som BudgetRows med Source='Leverantör', Category='Leverantör', SubCategory=namn (verbatim, styr import/export-matchning).
@@ -7051,15 +7087,16 @@ async function loadBudgetVersion(){
 function renderResultatBudgetTable(){
   const versionYear=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId))?.Year;
   const year=versionYear||new Date().getFullYear();
+  // RENAME-1: nyckel = kanoniskt def-namn (alias → name) så äldre versioners radnamn hittas; exakt namn vinner.
   const editableRowMap={};
-  budgetRows.filter(r=>!r.Source).forEach(r=>{editableRowMap[`${r.Category}__${r.SubCategory}`]=r;});
+  budgetRows.filter(r=>!r.Source).forEach(r=>{const cs=canonSub(r.Category,r.SubCategory),k=`${r.Category}__${cs}`;if(!editableRowMap[k]||r.SubCategory===cs)editableRowMap[k]=r;});
   const sum=arr=>arr.reduce((a,b)=>a+b,0);
   const fmtK=v=>v===0?'-':Math.round(v).toLocaleString('sv-SE');
-  const getVal=(cat,sub,mi)=>{const s=editableRowMap[`${cat}__${sub}`]||{};return s[MONTHS[mi]]||0;};
+  const getVal=(cat,sub,mi)=>{const s=editableRowMap[`${cat}__${canonSub(cat,sub)}`]||{};return s[MONTHS[mi]]||0;};
   // Imported (Source-tagged) rows for this resultat version — periodiserade
   // Avtal under "Periodiserade intäkter", Förnyelse/Pipeline under "Nyförsäljning".
   const importedRows=budgetRows.filter(r=>r.Source);
-  const importedFor=(cat,sub)=>importedRows.filter(r=>r.Category===cat&&r.SubCategory===sub);
+  const importedFor=(cat,sub)=>importedRows.filter(r=>r.Category===cat&&subMatches(cat,r.SubCategory,sub));
   const getImp=(cat,sub,mi)=>importedFor(cat,sub).reduce((s,r)=>s+(r[MONTHS[mi]]||0),0);
   const leafVal=(cat,sub,mi)=>getVal(cat,sub,mi)+getImp(cat,sub,mi);
   const rowMonthly=(cat,sub)=>MONTHS.map((_,mi)=>getVal(cat,sub,mi)); // manual only (row's egen total)
@@ -7091,7 +7128,7 @@ function renderResultatBudgetTable(){
   // + redigerbar Manuell (Source=tom) + Summa, per typ. Egna resultat-Source-taggar (delar aldrig
   // med likviditeten). importedSubRows ersätts av denna modell för intäktstyperna.
   const _resTC={'Licens (prenumeration)':{bg:'#EAF3DE',color:'#3B6D11'},'Licens (fast pris)':{bg:'#E6F1FB',color:'#185FA5'},'Utbildning':{bg:'#FAEEDA',color:'#854F0B'},'Consulting':{bg:'#EEEDFE',color:'#3C3489'},'Okvalificerat/okänt':{bg:'var(--surface2)',color:'var(--text2)'}};
-  const resFindSrc=(cat,sub,tag)=>importedRows.find(ir=>ir.Category===cat&&ir.SubCategory===sub&&(ir.Source||'')===tag);
+  const resFindSrc=(cat,sub,tag)=>importedRows.find(ir=>ir.Category===cat&&subMatches(cat,ir.SubCategory,sub)&&(ir.Source||'')===tag);
   const resSrcVals=(cat,sub,tag)=>{const r=resFindSrc(cat,sub,tag);return MONTHS.map((_,mi)=>r?(r[MONTHS[mi]]||0):0);};
   const resDelBtn=(cat,sub,tag)=>resFindSrc(cat,sub,tag)?`<button onclick="deleteImportedBudgetRow('${cat.replace(/'/g,"\\'")}','${sub.replace(/'/g,"\\'")}','${tag.replace(/'/g,"\\'")}')" title="Ta bort importerad rad" style="width:16px;height:16px;border:0.5px solid var(--border);border-radius:3px;background:none;cursor:pointer;color:var(--red);font-size:11px;line-height:1;padding:0;margin-left:6px;">×</button>`:'';
   // K-COST-5: collapse-id:n (återanvänder K-COST-4-infran; state i budgetCollapse_resultat via mode-suffix).
@@ -7171,30 +7208,15 @@ function renderResultatBudgetTable(){
 
   // K-COST-3: BAS-kontogrupp ur COST_ROWS_DEF (cat=grupp, sub=namn → matchar BUDGET_ROWS_DEF-spreaden,
   // så saveBudget-berikningen sätter accountNo automatiskt). costAccountRow = redigerbar rad "{konto} {namn}".
-  const basGroupRows=grp=>COST_ROWS_DEF.filter(c=>c.group===grp).map(c=>({cat:grp,sub:c.name,account:c.account}));
-  const costAccountRow=(grp,c,bsec,bgrp)=>{const acct=c.account?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>`:'';const _bgrp=bgrp||('rc_'+grp);return `<tr data-bsec="${bsec}" data-bgrp="${String(_bgrp).replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;">${acct}${c.sub}</td>${MONTHS.map((_,mi)=>inputCell(grp,c.sub,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(grp,c.sub)))}</td></tr>`;};
+  // RENAME-1: sub = def-namn (visas), key = versionens sparade SubCategory (alias-träff → gammalt namn) → data-sub/notnyckel, så saveBudget skriver tillbaka till befintlig rad.
+  const basGroupRows=grp=>COST_ROWS_DEF.filter(c=>c.group===grp&&defVisibleIn(budgetRows,c)).map(c=>({cat:grp,sub:c.name,key:storedSubFor(budgetRows,grp,c.name),account:c.account}));
+  const costAccountRow=(grp,c,bsec,bgrp)=>{const acct=c.account?`<span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>`:'';const _bgrp=bgrp||('rc_'+grp);const k=c.key||c.sub;return `<tr data-bsec="${bsec}" data-bgrp="${String(_bgrp).replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;">${acct}${c.sub}</td>${MONTHS.map((_,mi)=>inputCell(grp,k,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly(grp,k)))}</td></tr>`;};
 
   // Rörelsens kostnader (mörk) — Varu/Övriga externa = BAS-konton (data-drivet); Personalkostnader = inline (lönesida).
-  // RES-B: en samlad "Rörelsens kostnader"-sektion, driftrader i fast bild-ordning (ordning från render-listan, group-fälten i DEF orörda så DB-nycklar matchar).
+  // RES-B: en samlad "Rörelsens kostnader"-sektion, driftrader i fast bild-ordning (RES_DRIFT_ORDER, group-fälten i DEF orörda så DB-nycklar matchar).
   html+=resSecHdr('Rörelsens kostnader','rrorelse',DARK);
-  // Driftrader i EXAKT ordning enligt ekonomens Sune-flik. {cat,sub} måste matcha COST_ROWS_DEF verbatim (group + name).
-  const driftOrder=[
-    {cat:'Varu- och materialkostnader',sub:'Underkonsulter extern'},
-    {cat:'Övriga externa kostnader',sub:'Reklam och PR'},
-    {cat:'Övriga externa kostnader',sub:'Marknadsföring och reklam - Wow Media AB'},
-    {cat:'Övriga externa kostnader',sub:'Marknadsföring och reklam - LinkedIn'},
-    {cat:'Övriga externa kostnader',sub:'Programvaror & licenser'},
-    {cat:'Övriga externa kostnader',sub:'Telefonikostnader'},
-    {cat:'Övriga externa kostnader',sub:'IT-tjänster - Amanda AI'},
-    {cat:'Övriga externa kostnader',sub:'IT-tjänster - Utlägg'},
-    {cat:'Övriga externa kostnader',sub:'Resekostnader'},
-    {cat:'Övriga externa kostnader',sub:'Övrig kostnad'},
-    {cat:'Övriga externa kostnader',sub:'Bankkostnader'},
-    {cat:'Varu- och materialkostnader',sub:'Vidarefakturerade kostnader'},
-    {cat:'Övriga externa kostnader',sub:'Service fee koncern'},
-  ];
-  // koppla varje driftrad till dess COST_ROWS_DEF-post (för konto-nr + verifiering att alla matchar)
-  const driftRows=driftOrder.map(d=>{const def=COST_ROWS_DEF.find(c=>c.group===d.cat&&c.name===d.sub);return def?{cat:def.group,sub:def.name,account:def.account}:{cat:d.cat,sub:d.sub,account:'',_MISSING:true};});
+  // koppla varje driftrad till dess COST_ROWS_DEF-post (för konto-nr + verifiering att alla matchar); legacy-rader utan sparad data hoppas
+  const driftRows=RES_DRIFT_ORDER.map(d=>{const def=COST_ROWS_DEF.find(c=>c.group===d.cat&&c.name===d.sub);return def?(defVisibleIn(budgetRows,def)?{cat:def.group,sub:def.name,key:storedSubFor(budgetRows,def.group,def.name),account:def.account}:null):{cat:d.cat,sub:d.sub,account:'',_MISSING:true};}).filter(Boolean);
   const driftMonthly=sumRowsMonthly(driftRows.map(c=>({cat:c.cat,sub:c.sub})));
   html+=resGrpHdr('Rörelsens kostnader',driftMonthly,sum(driftMonthly),'rc_Rörelsens kostnader',16);
   driftRows.forEach(c=>html+=costAccountRow(c.cat,c,'rrorelse','rc_Rörelsens kostnader'));
@@ -7510,7 +7532,7 @@ function renderBudgetTable(){
   // Editable rows are keyed by Category+SubCategory and have no Source.
   // Imported rows have a Source string and are filtered by the active mode for "Avtal".
   const editableRowMap={};
-  budgetRows.filter(r=>!r.Source).forEach(r=>{editableRowMap[`${r.Category}__${r.SubCategory}`]=r;});
+  budgetRows.filter(r=>!r.Source).forEach(r=>{const cs=canonSub(r.Category,r.SubCategory),k=`${r.Category}__${cs}`;if(!editableRowMap[k]||r.SubCategory===cs)editableRowMap[k]=r;});   // RENAME-1: alias → kanoniskt namn
   const visibleImportedRows=budgetRows.filter(r=>{
     if(!r.Source)return false;
     if(r.Source.startsWith('Avtal (')){return r.Source==='Avtal ('+currentBudgetMode+')';}
@@ -7518,7 +7540,7 @@ function renderBudgetTable(){
   });
 
   const getVal=(category,sub,mi)=>{
-    const saved=editableRowMap[`${category}__${sub}`]||{};
+    const saved=editableRowMap[`${category}__${canonSub(category,sub)}`]||{};
     return saved[MONTHS[mi]]||0;
   };
   const getImportedVal=(row,mi)=>row[MONTHS[mi]]||0;
@@ -7528,7 +7550,7 @@ function renderBudgetTable(){
     return MONTHS.map((_,mi)=>{
       let total=editableDefs.reduce((s,r)=>s+getVal(r.category,r.subCategory,mi),0);
       visibleImportedRows.forEach(ir=>{
-        const def=allBudgetRows().find(d=>d.category===ir.Category&&d.subCategory===ir.SubCategory);
+        const def=allBudgetRows().find(d=>d.category===ir.Category&&subMatches(d.category,ir.SubCategory,d.subCategory));
         if(def&&def.section===section)total+=getImportedVal(ir,mi);
       });
       return total;
@@ -7642,7 +7664,7 @@ function renderBudgetTable(){
     const cat=rd.category,sub=rd.subCategory,_type=SUB_TO_TYPE[sub];
     if(sub==='Övriga inbetalningar'||sub==='Vidarefakturering')return;   // fristående rader — renderas separat nedan, ej som typ-sektioner
     // Tre importerade estimat-källor per (cat,sub) — PLAIN TEXT, ingen .budget-input → autospar fångar dem aldrig.
-    const findSrc=tag=>visibleImportedRows.find(ir=>ir.Category===cat&&ir.SubCategory===sub&&(ir.Source||'')===tag);
+    const findSrc=tag=>visibleImportedRows.find(ir=>ir.Category===cat&&subMatches(cat,ir.SubCategory,sub)&&(ir.Source||'')===tag);
     const avtalRow=findSrc('Avtal (likviditet)'),fornRow=findSrc('Förnyelse'),pipeRow=findSrc('Pipeline (viktat)');
     const avtalVals=MONTHS.map((_,mi)=>avtalRow?getImportedVal(avtalRow,mi):0);
     const fornVals=MONTHS.map((_,mi)=>fornRow?getImportedVal(fornRow,mi):0);
@@ -7803,15 +7825,17 @@ function parseExcelResult(wb){
     // RES-AKT: ekonomens EXAKTA klumprad (trim, case-ins.) → Aktiverat arbete. Excel har EN rad; Sunes modell TVÅ (3850/3870).
     // Minst invasiva vägen: skriv klumpen till 3850 (Category='Aktiverat arbete', SubCategory='Aktiverat arbete (omkostnader)'), lämna 3870.
     // Godkänt undantag från intäktsgränsen (aktiverat arbete = hennes bokföring). Positiva månadsvärden D-O, rått tecken.
-    if(/^aktiverat arbete för egen räkning$/i.test(nmeStr)){
+    // RENAME-1: Ajlas nya fil har etiketten bara i kol C (kol B tom) → testa båda.
+    if(/^aktiverat arbete för egen räkning$/i.test(nmeStr)||/^aktiverat arbete för egen räkning$/i.test(String(cv(r,2)||'').trim())){
       const arow={accountNo:'3850',name:nmeStr,colCWord:'',section:'aktiverat',defGroup:'Aktiverat arbete',defName:'Aktiverat arbete (omkostnader)'};
       MONTHS.forEach((m,i)=>{const v=cv(r,3+i);arow[m]=(typeof v==='number')?v:(parseFloat(v)||0);});
       out.push(arow);window._excelAktiveratWrote=true;continue;
     }
-    // Konto-lös namn-fallback: släpp igenom rader med TOM kol A vars namn börjar med "övrig k" (Övrig kst, moms). Övriga konto-lösa (rubriker/Summa) hoppas.
-    if(!/^[0-9]{1,4}(xx|xxx)?$/i.test(acctStr)&&!(!acctStr&&/^övrig k/i.test(nmeStr)))continue;   // numeriska konton + aggregat-strängar (58xx, 8xxx) + Övrig k-fallback
-    const colC=cv(r,2);const colCWord=colC!=null?String(colC).trim().split(/\s+/)[0]:'';   // kol C första ord → dubblett-disambiguering (5990/6540)
-    const def=findResultDef(acctStr,colCWord,name);
+    const colC=cv(r,2);const colCStr=colC!=null?String(colC).trim():'';const colCWord=colCStr?colCStr.split(/\s+/)[0]:'';   // kol C (hela + första ord) → dubblett-disambiguering (5900/5990/6540)
+    // Konto-lös namn-fallback: släpp igenom rader med TOM kol A vars kol C/B matchar en konto-lös def (RENAME-1: Övriga personalkostnader m.fl.)
+    // eller vars namn börjar med "övrig k" (Övrig kst, moms). Övriga konto-lösa (rubriker/Summa) hoppas.
+    if(!/^[0-9]{1,4}(xx|xxx)?$/i.test(acctStr)&&!(!acctStr&&(/^övrig k/i.test(nmeStr)||_accountlessDef(colCStr,nmeStr))))continue;   // numeriska konton + aggregat-strängar (58xx, 8xxx) + konto-lösa defs
+    const def=findResultDef(acctStr,colCWord,name,colCStr);
     if(!def){if(acctStr&&!/^[38]/.test(acctStr))unmatched.push(acctStr+' '+nmeStr);continue;}   // äkta bortfall (D). AVSIKTLIGT hoppade räknas ej: 3xxx intäkter (appens egna källor; 3850/3870 har defs) + 8xxx finans (8xxx-literalen har def; övriga 8-konton = RES-2)
     const row={accountNo:acctStr,name:name!=null?String(name).trim():'',colCWord,section:def.section,defGroup:def.group,defName:def.name};
     MONTHS.forEach((m,i)=>{const v=cv(r,3+i);row[m]=(typeof v==='number')?v:(parseFloat(v)||0);});   // D-O = c 3..14
@@ -7871,16 +7895,23 @@ async function handleExcelFile(e){
   }catch(err){console.error('[handleExcelFile]',err);window._excelResult=null;window._excelLiquidity=null;if(prev)prev.innerHTML='<span style="color:var(--red);">Kunde inte läsa filen — är det en giltig .xlsx?</span>';}
 }
 // RES-1: section-taggad master-def — mappa importens accountNo → {group,name,section} över COST ∪ AKTIVERAT (FINANS i RES-2).
-// Cost: dubblett-disambiguering via kol C (5990/6540). Aktiverat: 3850/3870. Okänt (3000-serien intäkter = appens slots; 8xxx tills RES-2) → null → hoppas.
-function findResultDef(accountNo,colCWord,name){
+// Cost: dubblett-disambiguering via kol C (5900/5990/6540). Aktiverat: 3850/3870. Okänt (3000-serien intäkter = appens slots; 8xxx tills RES-2) → null → hoppas.
+// RENAME-1: legacy-defs matchas aldrig. Kol C jämförs först EXAKT (trim, case-ins.) mot name/aliases, sedan gamla första-ord-fallbacken.
+const _defNamesLc=d=>[d.name,...(d.aliases||[])].map(n=>n.trim().toLowerCase());
+const _accountlessDef=(colC,name)=>{const ks=[colC,name].map(s=>String(s||'').trim().toLowerCase()).filter(Boolean);return COST_ROWS_DEF.find(c=>!c.legacy&&c.account===''&&_defNamesLc(c).some(n=>ks.includes(n)))||null;};
+function findResultDef(accountNo,colCWord,name,colC){
   const acct=String(accountNo||'').trim();
-  const costs=COST_ROWS_DEF.filter(c=>c.account&&c.account===acct);
+  const costs=COST_ROWS_DEF.filter(c=>!c.legacy&&c.account&&c.account===acct);
   if(costs.length===1)return {group:costs[0].group,name:costs[0].name,section:'cost'};                          // vanligt kostnadskonto → unik def
-  if(costs.length>1){const w=String(colCWord||'').trim().toLowerCase();const d=(w&&costs.find(x=>x.name.toLowerCase().includes(w)))||costs[0];return {group:d.group,name:d.name,section:'cost'};}   // dubblett → kol C
+  if(costs.length>1){const full=String(colC||'').trim().toLowerCase(),w=String(colCWord||'').trim().toLowerCase();const d=(full&&costs.find(x=>_defNamesLc(x).includes(full)))||(w&&costs.find(x=>x.name.toLowerCase().includes(w)))||costs[0];return {group:d.group,name:d.name,section:'cost'};}   // dubblett → kol C
   const akt=AKTIVERAT_ROWS_DEF.find(c=>c.account===acct);
   if(akt)return {group:akt.group,name:akt.name,section:'aktiverat'};                                            // aktiverat arbete (3850/3870)
-  // Konto-lös fallback (utlovad ovan): tom kol A + namn "Övrig k..." → defen med account:'' (Övrig kostnad).
-  if(!acct&&/^övrig k/i.test(String(name||'').trim())){const d=COST_ROWS_DEF.find(c=>c.account===''&&c.name==='Övrig kostnad');if(d)return {group:d.group,name:d.name,section:'cost'};}
+  if(!acct){
+    // Konto-lösa defs: exakt kol C/B-träff (Övriga personalkostnader, Övirga kostnader …).
+    const ex=_accountlessDef(colC,name);if(ex)return {group:ex.group,name:ex.name,section:'cost'};
+    // Konto-lös fallback (utlovad ovan): tom kol A + namn "Övrig k..." → defen som har alias 'Övrig kostnad'.
+    if(/^övrig k/i.test(String(name||'').trim())){const d=COST_ROWS_DEF.find(c=>c.account===''&&canonSub(c.group,'Övrig kostnad')===c.name);if(d)return {group:d.group,name:d.name,section:'cost'};}
+  }
   return null;                                                                                                  // 3000-serien / 8xxx → hoppas
 }
 // Skriv resultat → /rows. DEF-2: varje importrad → def-rad (Category=grupp, SubCategory=def-namn) så resultat-rendern (def-driven) visar den.
@@ -7888,14 +7919,23 @@ function findResultDef(accountNo,colCWord,name){
 async function writeExcelResult(rows,tid){
   let existing=await (await apiFetch(`${API}/budget-versions/${tid}/rows`)).json();
   if(!Array.isArray(existing))existing=[];
+  const wrote={};   // RENAME-1: group__konto → månader som importen skriver (styr legacy-nollningen nedan)
   rows.forEach(ir=>{
     // RES-1: parse har redan resolvat def (defGroup/defName/section) → route: cost→kostnadsgrupp, aktiverat→'Aktiverat arbete'. Match på def-nyckel (Category+SubCategory).
     const cat=ir.defGroup,sub=ir.defName;
     if(!cat||!sub)return;
-    let row=existing.find(r=>r.Category===cat&&r.SubCategory===sub);          // DEF-NYCKEL (distinkt för dubbletterna)
+    const wk=cat+'__'+String(ir.accountNo||'');(wrote[wk]=wrote[wk]||new Set());MONTHS.forEach(m=>wrote[wk].add(m));
+    // DEF-NYCKEL (distinkt för dubbletterna). RENAME-1: exakt namn först, annars alias → äldre version skrivs i sin befintliga rad (döps ej om, ingen dubblett).
+    let row=existing.find(r=>r.Category===cat&&r.SubCategory===sub)||existing.find(r=>!r.Source&&r.Category===cat&&subMatches(cat,r.SubCategory,sub));
     if(!row){row={Category:cat,SubCategory:sub,AccountNo:ir.accountNo};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
     // SIGN: lagra rått Excel-tecken (kostnader negativa) — samma konvention genom hela appen.
     MONTHS.forEach(m=>row[m]=Math.round(Number(ir[m])||0));
+  });
+  // RENAME-1: legacy-rader (Reklam och PR 5900, Marknadsföring och reklam - LinkedIn 5990) är ersatta av importens rader på samma
+  // konto → nollställ dem för de månader importen skriver där, annars dubbelräknas marknadsföringen. Övriga månader/rader rörs ej.
+  COST_ROWS_DEF.filter(d=>d.legacy).forEach(d=>{
+    const ms=wrote[d.group+'__'+d.account];if(!ms)return;
+    existing.filter(r=>!r.Source&&r.Category===d.group&&subMatches(d.group,r.SubCategory,d.name)).forEach(r=>ms.forEach(m=>{r[m]=0;}));
   });
   const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
   await apiFetch(`${API}/budget-versions/${tid}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
@@ -8045,10 +8085,11 @@ function _excelStyleSheet(built,ncols){
 }
 // Resultatflik (ex moms, Sunes tecken). Aggregering identisk med renderResultatBudgetTable (leafVal = manuell + Source-rader). Returnerar {aoa,roles}.
 function _excelResultAoa(rows,ver){
-  const edit={};(rows||[]).filter(r=>!r.Source).forEach(r=>{edit[r.Category+'__'+r.SubCategory]=r;});
+  // RENAME-1: alias-medveten nyckel (samma som renderResultatBudgetTable) → äldre versioners radnamn räknas in.
+  const edit={};(rows||[]).filter(r=>!r.Source).forEach(r=>{const cs=canonSub(r.Category,r.SubCategory),k=r.Category+'__'+cs;if(!edit[k]||r.SubCategory===cs)edit[k]=r;});
   const imp=(rows||[]).filter(r=>r.Source);
-  const gv=(c,s,mi)=>{const r=edit[c+'__'+s];return r?Math.round(Number(r[MONTHS[mi]])||0):0;};
-  const gi=(c,s,mi)=>imp.filter(r=>r.Category===c&&r.SubCategory===s).reduce((a,r)=>a+Math.round(Number(r[MONTHS[mi]])||0),0);
+  const gv=(c,s,mi)=>{const r=edit[c+'__'+canonSub(c,s)];return r?Math.round(Number(r[MONTHS[mi]])||0):0;};
+  const gi=(c,s,mi)=>imp.filter(r=>r.Category===c&&subMatches(c,r.SubCategory,s)).reduce((a,r)=>a+Math.round(Number(r[MONTHS[mi]])||0),0);
   const leaf=(c,s,mi)=>gv(c,s,mi)+gi(c,s,mi);
   const sumP=pairs=>MONTHS.map((_,mi)=>pairs.reduce((a,p)=>a+leaf(p.cat,p.sub,mi),0));
   const add=(a,b)=>a.map((v,i)=>v+b[i]);
@@ -8059,26 +8100,12 @@ function _excelResultAoa(rows,ver){
   const nettoMonthly=add(add(periodMonthly,nyExOkv),okvMonthly);
   const aktMonthly=sumP(AKTIVERAT_ROWS_DEF.map(c=>({cat:c.group,sub:c.name})));
   const rorIntakt=add(nettoMonthly,aktMonthly);
-  const driftOrder=[
-    {cat:'Varu- och materialkostnader',sub:'Underkonsulter extern'},
-    {cat:'Övriga externa kostnader',sub:'Reklam och PR'},
-    {cat:'Övriga externa kostnader',sub:'Marknadsföring och reklam - Wow Media AB'},
-    {cat:'Övriga externa kostnader',sub:'Marknadsföring och reklam - LinkedIn'},
-    {cat:'Övriga externa kostnader',sub:'Programvaror & licenser'},
-    {cat:'Övriga externa kostnader',sub:'Telefonikostnader'},
-    {cat:'Övriga externa kostnader',sub:'IT-tjänster - Amanda AI'},
-    {cat:'Övriga externa kostnader',sub:'IT-tjänster - Utlägg'},
-    {cat:'Övriga externa kostnader',sub:'Resekostnader'},
-    {cat:'Övriga externa kostnader',sub:'Övrig kostnad'},
-    {cat:'Övriga externa kostnader',sub:'Bankkostnader'},
-    {cat:'Varu- och materialkostnader',sub:'Vidarefakturerade kostnader'},
-    {cat:'Övriga externa kostnader',sub:'Service fee koncern'},
-  ];
+  const driftOrder=RES_DRIFT_ORDER.filter(d=>{const def=COST_ROWS_DEF.find(c=>c.group===d.cat&&c.name===d.sub);return !def||defVisibleIn(rows,def);});   // legacy-rader bara om versionen har dem
   const driftMonthly=sumP(driftOrder);
-  const persDefs=COST_ROWS_DEF.filter(c=>c.group==='Personalkostnader');
+  const persDefs=COST_ROWS_DEF.filter(c=>c.group==='Personalkostnader'&&defVisibleIn(rows,c));
   const persMonthly=sumP(persDefs.map(c=>({cat:'Personalkostnader',sub:c.name})));
   const resultatMonthly=add(rorIntakt,add(driftMonthly,persMonthly));
-  const avskDefs=COST_ROWS_DEF.filter(c=>c.group==='Avskrivningar');
+  const avskDefs=COST_ROWS_DEF.filter(c=>c.group==='Avskrivningar'&&defVisibleIn(rows,c));
   const avskMonthly=sumP(avskDefs.map(c=>({cat:'Avskrivningar',sub:c.name})));
   const beraknat=add(resultatMonthly,avskMonthly);
   const acct=(grp,name)=>{const d=COST_ROWS_DEF.find(c=>c.group===grp&&c.name===name);return d&&d.account?d.account+' ':'';};
@@ -8981,7 +9008,7 @@ async function saveBudget(silent){
   });
   const rows=Object.values(rowData);
   // K-COST: berika kostnadsrader med kontonr ur def:en (→ AccountNo-kolumnen). Intäktsrader saknar konto → null.
-  rows.forEach(o=>{if(o.accountNo==null){const def=allBudgetRows().find(d=>d.category===o.category&&d.subCategory===o.subCategory);if(def&&def.accountNo!=null)o.accountNo=def.accountNo;}});
+  rows.forEach(o=>{if(o.accountNo==null){const def=allBudgetRows().find(d=>d.category===o.category&&subMatches(d.category,o.subCategory,d.subCategory));if(def&&def.accountNo!=null)o.accountNo=def.accountNo;}});   // RENAME-1: alias-medveten
   try{
     if(!silent)showSaveIndicator('Sparar...');
     await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rows)});
