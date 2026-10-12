@@ -1011,6 +1011,8 @@
           <div class="rev-dd-item" id="mi-rolling" onclick="toggleBudgetRolling()" style="display:none;">⟳ Sätt som löpande</div>
           <div id="mi-sep2" style="display:none;height:1px;background:var(--border);margin:4px 6px;"></div>
           <div class="rev-dd-item" id="mi-delete" onclick="deleteBudgetVersion()" style="display:none;color:var(--red);">🗑 Radera version</div>
+          <div style="height:1px;background:var(--border);margin:4px 6px;"></div>
+          <div class="rev-dd-item" onclick="revDiffBackfillAll()" title="Engångsbackfill: ger alla redan importerade poster i alla budgetversioner en startpunkt för ändringsbevakningen">⚠ Backfill ändringsbevakning</div>
         </div>
       </div>
       <span class="badge b-blue" id="budget-type-badge" style="display:none;"></span>
@@ -3704,7 +3706,9 @@ async function revDiffBaselineSetMany(versionId,source,entries){
   const store=Object.assign({},bmGet(versionId,'revDiffBaseline')||{});
   store[source]=Object.assign({},store[source]||{});
   entries.forEach(e=>{const snap=revDiffSnapshot(e.item,kind);if(snap)store[source][String(e.itemKey)]=snap;});
+  store._importedAt=Object.assign({},store._importedAt||{},{[source]:new Date().toISOString()});   // senaste import per källa → avgör "Ny"
   await bmSet(versionId,'revDiffBaseline',store);
+  if(kind!=='rev'&&typeof revDiffInvalidateSources==='function')revDiffInvalidateSources(versionId);   // nya antaganden → läs om vid nästa rendering
 }
 // Tar bort baslinjer för itemKeys som inte längre ska bevakas (post raderad/bekräftad hanterad).
 async function revDiffBaselineRemove(versionId,source,itemKeys){
@@ -3778,6 +3782,131 @@ async function revDiffBackfillAll(){
     }catch(e){console.warn('[revDiffBackfillAll] fel för version',versionId,e);nErr++;}
   }
   alert(`Backfill klar: ${nOk} budgetversioner uppdaterade${nErr?`, ${nErr} misslyckades (se konsolen)`:''}. Vidarefakturering (likviditet) hade ingen historisk import-spårning att backfilla — bevakas från nästa import.`);
+}
+// ─── STEG 2: cellflaggor — alla fyra källor (Avtal, VF, Förnyelse, Pipe) i båda vyerna ───
+// Statusar per post (en post kan bidra till flera månader): overdue (Förfallen, bara likviditet, signerad
+// post) · removed (Borttagen ur källan) · changed (Ändrad, liq/res enligt vy) · new (Ny: signerad post för
+// ny kund/affär, skapad efter senaste import av källan) · renewal (Klar förlängning: signerad post länkad
+// till ett avtal som ligger i budgeten, ej importerad) · unchanged. Pipe och ren Förnyelse-prognos får
+// aldrig "Ny" — de hör till "Ej importerade" (steg 8). Cellen visar EN ambertriangel om något är flaggat.
+// Förnyelse-/Pipe-antagandena (BudgetImportAssumptions) + pipe-posterna laddas lazy per version (samma
+// mönster som custRevCache-prefetchen i likviditetsrendern): första renderingen saknar dem → inga flaggor
+// för de källorna, tabellen ritas om en gång när de kommit.
+const _rdSrcCache={};   // versionId → {loaded:true, assumptions:[...]} | {loading:true}
+function revDiffEnsureSources(versionId,onReady){
+  if(versionId==null)return;const c=_rdSrcCache[versionId];if(c&&(c.loaded||c.loading))return;
+  _rdSrcCache[versionId]={loading:true,assumptions:[]};
+  (async()=>{
+    try{if(_bmCache[versionId]===undefined)await bmLoad(versionId);}catch(e){}
+    let a=[];try{const r=await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`);if(r.ok)a=await r.json();}catch(e){}
+    if(!Array.isArray(a))a=[];
+    const pids=[...new Set(a.filter(x=>String(x.Source||'').indexOf('Pipeline')===0).map(x=>String(x.ItemKey||'').split('_')[0]))];
+    for(const pid of pids){if(prospectRevCache[pid])continue;try{const items=await loadProspectRevenues(pid);prospectRevCache[pid]=Array.isArray(items)?items:[];}catch(e){prospectRevCache[pid]=[];}}
+    if(linksCache===null){try{await prefetchRevenueLinks();}catch(e){}}
+    _rdSrcCache[versionId]={loaded:true,assumptions:a};
+    if(String(versionId)===String(currentBudgetVersionId)&&typeof onReady==='function')onReady();
+  })();
+}
+// Efter Förnyelse-/Pipe-import (nya antaganden) → läs om vid nästa rendering.
+function revDiffInvalidateSources(versionId){delete _rdSrcCache[versionId];}
+// Senaste importtidpunkt per källa (sätts av revDiffBaselineSetMany) — avgör "Ny" (skapad efter importen).
+function revDiffImportedAt(versionId,source){const st=bmGet(versionId,'revDiffBaseline')||{};return(st._importedAt||{})[source]||null;}
+// Föregående avtal för en signerad post: RenewedFromId, annars RevenueLinks (From → To).
+function _rdRenewedFrom(it){
+  if(!it)return null;if(it.RenewedFromId!=null)return it.RenewedFromId;
+  const l=(Array.isArray(linksCache)?linksCache:[]).find(x=>String(x.ToRevenueId)===String(it.Id));return l?l.FromRevenueId:null;
+}
+// Likviditetsmånad: betaldatum (faktiskt/väntat), annars faktura- eller licensstart + 30 (= kaCashflowDate).
+function _rdCashMonth(snap,year){
+  if(!snap)return null;let d=null;
+  if(snap.payDate)d=new Date(snap.payDate+'T00:00:00');
+  else{const b=snap.invoiceDate||snap.licFrom||snap.licTo;if(!b)return null;d=new Date(b+'T00:00:00');d.setDate(d.getDate()+30);}
+  return(!isNaN(d)&&d.getFullYear()===year)?d.getMonth():null;
+}
+// Resultatmånader: periodisering, annars licensperiod. Prognos utan sparad period: avtalets slut + 1 dag, ett år.
+function _rdResMonths(snap,year){
+  if(!snap)return[];let f=snap.accFrom||snap.licFrom,t=snap.accTo||snap.licTo;
+  if((!f||!t)&&snap.kind==='forecast'&&snap.contract&&snap.contract.licTo){const s=new Date(snap.contract.licTo+'T00:00:00');s.setDate(s.getDate()+1);const e=new Date(s);e.setFullYear(e.getFullYear()+1);e.setDate(e.getDate()-1);f=_betYmd(s);t=_betYmd(e);}
+  if(!f||!t)return[];
+  return spreadPeriodAcrossMonths(100000,f,t,year).map((v,i)=>v>0?i:-1).filter(i=>i>=0);
+}
+function revDiffCellFlags(mode,source,cat,sub,year){
+  const months=Array.from({length:12},()=>({overdue:[],removed:[],changed:[],new:[],renewal:[],unchanged:[]}));
+  const vid=currentBudgetVersionId;if(vid==null)return months;
+  if(!Object.keys(custRevCache||{}).length)return months;   // källdata ej laddad → aldrig falsklarm "Borttagen"
+  const kind=revDiffKind(source);const baseline=revDiffBaselineAll(vid,source);
+  const isVF=String(source).indexOf('Vidarefakturering')===0;
+  const typeOk=t=>isVF?t==='Vidarefakturering':(!!t&&REV_CAT_TO_SUB[t]===sub);
+  const src=_rdSrcCache[vid];const assumps=(src&&src.loaded)?src.assumptions:null;
+  if(kind!=='rev'&&!assumps)return months;
+  const res=mode==='resultat';
+  const today0=(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate());})();
+  // Var bidrar posten i budgeten? Likviditet: Förnyelse/Pipe placeras på antagandets datum + 30 (rebuildSourceRows).
+  const monthsOf=(snap,assump)=>{
+    if(res)return _rdResMonths(snap,year);
+    if(assump&&assump.AssumeDate&&kind!=='rev'){const m=_rdCashMonth({invoiceDate:_rdYmd(assump.AssumeDate)},year);return m==null?[]:[m];}
+    const m=_rdCashMonth(snap,year);return m==null?[]:[m];
+  };
+  const push=(mi,status,entry)=>{if(mi!=null&&mi>=0&&mi<12)months[mi][status].push(entry);};
+  // Alla signerade poster i budgeten (för Klar förlängning): rev-startpunkter i versionen + avtalen bakom prognoser.
+  const store=bmGet(vid,'revDiffBaseline')||{};
+  const signedInBudget=new Set();const forecastContracts=new Set();
+  Object.entries(store).forEach(([s,map])=>{if(s==='_importedAt'||!map)return;const k=revDiffKind(s);Object.entries(map).forEach(([key,bl])=>{if(!bl)return;if(k==='rev')signedInBudget.add(String(key));if(k==='forecast'&&bl.contract)forecastContracts.add(String(bl.contract.id));});});
+  // 1) Poster i budgeten (startpunkt finns).
+  Object.entries(baseline).forEach(([key,bl])=>{
+    if(!bl)return;
+    const blType=bl.type||(kind==='forecast'?String(key).split('_').pop():null);
+    if(!typeOk(blType))return;
+    let cur=null,assump=null,gone=false;
+    if(kind==='rev'){const it=_findCustRevItem(key);if(it)cur=revDiffSnapshot(it,'rev');else gone=true;}
+    else{
+      assump=assumps.find(a=>a.Source===source&&String(a.ItemKey)===String(key));
+      if(!assump)return;   // antagandet borta = borttaget ur budgeten (inte ur källan) → ingen flagga här
+      if(kind==='pipe'){const us=String(key).split('_');const iid=us.pop();const pid=us.join('_');const items=prospectRevCache[pid];if(!items)return;const it=items.find(x=>String(x.Id)===String(iid));if(it)cur=revDiffSnapshot(it,'pipe');else gone=true;}
+      else{cur=revDiffSnapshot(revDiffForecastSrc(vid,assump),'forecast');if(bl.contract&&!cur.contract)gone=true;}
+    }
+    let status;
+    if(gone)status='removed';
+    else if(kind==='forecast'&&bl.contract&&cur.contract&&String(cur.contract.id)!==String(bl.contract.id)&&String(_rdRenewedFrom(_findCustRevItem(cur.contract.id)))===String(bl.contract.id)&&!signedInBudget.has(String(cur.contract.id)))status='renewal';
+    else status=revDiffCompare(bl,cur)[res?'res':'liq']?'changed':'unchanged';
+    const entry={source,itemKey:String(key),baseline:bl,cur,status,assumption:assump};
+    new Set([...monthsOf(bl,assump),...(cur?monthsOf(cur,assump):[])]).forEach(mi=>push(mi,status,entry));
+    if(!res&&kind==='rev'&&cur&&!cur.paid){const it=_findCustRevItem(key);const due=it?kaCashflowDate(it):null;if(due&&!isNaN(due)&&due<today0&&due.getFullYear()===year)push(due.getMonth(),'overdue',Object.assign({},entry,{status:'overdue',due}));}
+  });
+  // 2) Signerade poster som inte ligger i budgeten: Ny / Klar förlängning (bara Avtal/VF).
+  if(kind==='rev'){
+    const impAt=revDiffImportedAt(vid,source);
+    // Likviditet importeras per månad → "Ny" bara i månader som faktiskt importerats (annars är allt i en framtida månad "nytt").
+    const impMonths=new Set();
+    if(!res){if(isVF){Object.values(baseline).forEach(bl=>{const m=_rdCashMonth(bl,year);if(m!=null)impMonths.add(m);});}else{for(let mi=0;mi<12;mi++)if(getImportedActualsSet(vid,mi)!=null)impMonths.add(mi);}}
+    Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{
+      if(!typeOk(it.Type)||!(it.Amount>0)||baseline[String(it.Id)])return;
+      const prev=_rdRenewedFrom(it);let status=null;
+      // Klar förlängning = signerad post länkad (RenewedFromId/länktabell) till ett TIDIGARE signerat avtal — oavsett om
+      // det avtalet ligger i den här versionen (kunden fanns innan → aldrig "Ny"). Föregående avtal i budgeten → alltid;
+      // annars när förlängningen dykt upp sedan senaste importen (samma tidsregel som Ny, så medvetet utelämnade gamla
+      // förlängningar inte flaggas för evigt). Förlängning av en Förnyelse-prognos avtal → visas i Förnyelse-cellen.
+      const createdAfter=!!(impAt&&it.CreatedAt&&new Date(it.CreatedAt)>new Date(impAt));
+      const prevInBudget=prev!=null&&signedInBudget.has(String(prev));
+      if(prev!=null){if(forecastContracts.has(String(prev)))return;if(prevInBudget||createdAfter)status='renewal';}
+      else if(createdAfter)status='new';
+      if(!status)return;
+      const timeBased=!prevInBudget;   // tidsbaserade statusar: i likviditet bara i månader som faktiskt importerats
+      const cur=revDiffSnapshot(it,'rev');
+      monthsOf(cur,null).forEach(mi=>{if(timeBased&&!res&&!impMonths.has(mi))return;push(mi,status,{source,itemKey:String(it.Id),baseline:null,cur,status,custId:Number(cid)});});
+    });});
+  }
+  return months;
+}
+// En ambertriangel per cell (ingen multi-badge). Tooltip sammanfattar statusarna; klick → cellens vanliga
+// modal tills drilldown-vyn kommer i steg 3. extraTitle = ev. befintlig cellvarning som slås ihop hit.
+const _REV_STATUS_LABEL={overdue:'förfallen',removed:'borttagen ur källan',changed:'ändrad',new:'ny',renewal:'klar förlängning'};
+function revDiffCellBadge(flagsMonth,extraTitle){
+  const parts=[];
+  if(flagsMonth)['overdue','removed','changed','new','renewal'].forEach(s=>{const n=new Set(flagsMonth[s].map(e=>e.itemKey)).size;if(n)parts.push(n+' '+_REV_STATUS_LABEL[s]);});
+  if(extraTitle)parts.push(extraTitle);
+  if(!parts.length)return'';
+  return`<span title="Skiljer sig från källan: ${parts.join(' · ')}" style="display:inline-flex;line-height:0;margin-left:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="#c17f1e" aria-hidden="true"><path d="M12 2.5 1.5 21h21L12 2.5Z"/><rect x="11" y="9" width="2" height="6" fill="#fff"/><rect x="11" y="16.3" width="2" height="2" fill="#fff"/></svg></span>`;
 }
 function kaSetMode(m){kaMode=m;const per=document.getElementById('ka-mode-per'),liq=document.getElementById('ka-mode-liq');if(per)per.classList.toggle('active',m==='periodiserat');if(liq)liq.classList.toggle('active',m==='likviditet');renderKundanalys();}
 let kaCache={aggEntries:[],kpiYear:new Date().getFullYear()};
@@ -7283,6 +7412,7 @@ async function loadBudgetVersion(){
 function renderResultatBudgetTable(){
   const versionYear=budgetVersions.find(v=>String(v.Id)===String(currentBudgetVersionId))?.Year;
   const year=versionYear||new Date().getFullYear();
+  revDiffEnsureSources(currentBudgetVersionId,()=>renderBudgetTable());   // Förnyelse-/Pipe-antaganden för cellflaggorna (lazy, ritar om en gång)
   // RENAME-1: nyckel = kanoniskt def-namn (alias → name) så äldre versioners radnamn hittas; exakt namn vinner.
   const editableRowMap={};
   budgetRows.filter(r=>!r.Source).forEach(r=>{const cs=canonSub(r.Category,r.SubCategory),k=`${r.Category}__${cs}`;if(!editableRowMap[k]||r.SubCategory===cs)editableRowMap[k]=r;});
@@ -7331,7 +7461,7 @@ function renderResultatBudgetTable(){
   const resRevSec=cat=>cat==='Periodiserade intäkter'?'rperiod':'rny';
   const resRevGrp=(cat,sub)=>(cat==='Periodiserade intäkter'?'rp_':'rn_')+sub;
   // ↳ auto-slot: read-only celler (EJ .budget-input → Source-isolering håller, saveBudget rör dem aldrig), klickbara per månad → modal.
-  const resAutoSlot=(label,cat,sub,tag,modalFn,color)=>{const vals=resSrcVals(cat,sub,tag);return `<tr data-bsec="${resRevSec(cat)}" data-bgrp="${resRevGrp(cat,sub).replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ ${label}${resDelBtn(cat,sub,tag)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="${modalFn}(currentBudgetVersionId,${mi})" title="Visa/importera ${label.toLowerCase()} (${sub}) för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:${color};">${vals[mi]?fmtK(vals[mi]):'–'}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:${color};border-left:1px solid var(--border);">${fmtK(sum(vals))}</td></tr>`;};
+  const resAutoSlot=(label,cat,sub,tag,modalFn,color)=>{const vals=resSrcVals(cat,sub,tag);const _rdF=revDiffCellFlags('resultat',tag,cat,sub,year);return `<tr data-bsec="${resRevSec(cat)}" data-bgrp="${resRevGrp(cat,sub).replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ ${label}${resDelBtn(cat,sub,tag)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="${modalFn}(currentBudgetVersionId,${mi})" title="Visa/importera ${label.toLowerCase()} (${sub}) för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:${color};">${vals[mi]?fmtK(vals[mi]):'–'}${revDiffCellBadge(_rdF[mi])}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:${color};border-left:1px solid var(--border);">${fmtK(sum(vals))}</td></tr>`;};   // ändringsvarningar: ambertriangel per cell (steg 2)
   // ↳ Manuell: redigerbar inputCell (Source=tom), autosparad.
   const resManuellRow=(cat,sub)=>`<tr data-bsec="${resRevSec(cat)}" data-bgrp="${resRevGrp(cat,sub).replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text3);">↳ Manuell</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(rowMonthly(cat,sub)))}</td></tr>`;
   // = Summa per typ = auto-källor + manuell (= leafVal; matchar groupSumRow).
@@ -7854,6 +7984,7 @@ function renderBudgetTable(){
   // FIX D: _budgetRevPrefetchTried sätts OVILLKORLIGT före prefetch → max ett försök/page-session
   // oavsett utfall → ingen re-render-loop om allCustomers är tom/API failar. Re-render bara på .then.
   if(!Object.keys(custRevCache||{}).length&&!window._budgetRevPrefetchTried){window._budgetRevPrefetchTried=true;prefetchAllCustomerRevenues().then(()=>{if(currentBudgetMode==='likviditet')renderBudgetTable();}).catch(()=>{});}
+  revDiffEnsureSources(_bvId,()=>{if(currentBudgetMode==='likviditet')renderBudgetTable();});   // Förnyelse-/Pipe-antaganden för cellflaggorna (lazy)
   Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{if(!_devCount[it.Type])return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==_bvYr)return;const _mi=d.getMonth();if(!_impSets[_mi].has(String(it.Id)))_devCount[it.Type][_mi]++;});});
   if(!cashInSourceView){
   allBudgetRows().filter(r=>r.section==='REVENUE').forEach(rd=>{
@@ -7865,6 +7996,7 @@ function renderBudgetTable(){
     const avtalVals=MONTHS.map((_,mi)=>avtalRow?getImportedVal(avtalRow,mi):0);
     const fornVals=MONTHS.map((_,mi)=>fornRow?getImportedVal(fornRow,mi):0);
     const pipeVals=MONTHS.map((_,mi)=>pipeRow?getImportedVal(pipeRow,mi):0);
+    const _rdF={avtal:revDiffCellFlags('likviditet','Avtal (likviditet)',cat,sub,_bvYr),forn:revDiffCellFlags('likviditet','Förnyelse',cat,sub,_bvYr),pipe:revDiffCellFlags('likviditet','Pipeline (viktat)',cat,sub,_bvYr)};   // ändringsvarningar (steg 2)
     const manVals=MONTHS.map((_,mi)=>getVal(cat,sub,mi));
     const sumVals=MONTHS.map((_,i)=>avtalVals[i]+fornVals[i]+pipeVals[i]+manVals[i]);   // = Avtal+Förnyelse+Pipe+Manuell → matchar sumSection
     const tc=_revTC[sub]||{bg:'var(--surface2)',color:'var(--text2)'};
@@ -7875,11 +8007,11 @@ function renderBudgetTable(){
     // Estimat-rader (Avtal/Förnyelse/Pipe) — döljs för 'Okvalificerat/okänt' (bara Manuell + Summa där).
     if(sub!=='Okvalificerat/okänt'){
     // ↳ Avtal — PLAIN TEXT. Klick → actuals-modal; ⚠ vid ej-importerade nya avtal.
-    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Avtal${delBtnFor('Avtal (likviditet)',avtalRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportActualsModal(currentBudgetVersionId,${mi})" title="${(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade — klicka för att importera':'Visa/importera underlag för '+MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:11px;color:#3B6D11;">${avtalVals[mi]?fmtK(avtalVals[mi]):'–'}${(_type&&_devCount[_type][mi]>0)?'<span style="color:#d9820a;font-weight:700;">⚠</span>':''}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#3B6D11;border-left:1px solid var(--border);">${fmtK(sum(avtalVals))}</td></tr>`;
+    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Avtal${delBtnFor('Avtal (likviditet)',avtalRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportActualsModal(currentBudgetVersionId,${mi})" title="${(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade — klicka för att importera':'Visa/importera underlag för '+MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:11px;color:#3B6D11;">${avtalVals[mi]?fmtK(avtalVals[mi]):'–'}${revDiffCellBadge(_rdF.avtal[mi],(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade':'')}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#3B6D11;border-left:1px solid var(--border);">${fmtK(sum(avtalVals))}</td></tr>`;
     // ↳ Förnyelse — PLAIN TEXT. Klick → förnyelse-modal med förvald månad.
-    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Förnyelse${delBtnFor('Förnyelse',fornRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportFornyelseModal(currentBudgetVersionId,${mi})" title="Visa/importera förnyelser för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:#BA7517;">${fornVals[mi]?fmtK(fornVals[mi]):'–'}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#BA7517;border-left:1px solid var(--border);">${fmtK(sum(fornVals))}</td></tr>`;
+    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Förnyelse${delBtnFor('Förnyelse',fornRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportFornyelseModal(currentBudgetVersionId,${mi})" title="Visa/importera förnyelser för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:#BA7517;">${fornVals[mi]?fmtK(fornVals[mi]):'–'}${revDiffCellBadge(_rdF.forn[mi])}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#BA7517;border-left:1px solid var(--border);">${fmtK(sum(fornVals))}</td></tr>`;
     // ↳ Pipe — PLAIN TEXT. Klick → pipeline-modal med förvald månad.
-    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Pipe${delBtnFor('Pipeline (viktat)',pipeRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportPipelineModal(currentBudgetVersionId,${mi})" title="Visa/importera pipeline för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text3);">${pipeVals[mi]?fmtK(pipeVals[mi]):'–'}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:var(--text3);border-left:1px solid var(--border);">${fmtK(sum(pipeVals))}</td></tr>`;
+    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Pipe${delBtnFor('Pipeline (viktat)',pipeRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportPipelineModal(currentBudgetVersionId,${mi})" title="Visa/importera pipeline för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text3);">${pipeVals[mi]?fmtK(pipeVals[mi]):'–'}${revDiffCellBadge(_rdF.pipe[mi])}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:var(--text3);border-left:1px solid var(--border);">${fmtK(sum(pipeVals))}</td></tr>`;
     }
     // ↳ Manuell — OFÖRÄNDRAD inputCell (.budget-input → autospar intakt)
     html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text3);">↳ Manuell</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(manVals))}</td></tr>`;
@@ -7889,7 +8021,8 @@ function renderBudgetTable(){
   // DEL 2 — Vidarefakturering — fristående Cash in-rad (Source='Vidarefakturering', NET30-import). Category='Revenue' → med i Summa in (sumSection, def i BUDGET_ROWS_DEF) + computeCashflow. Klick per månad → import-modal. Ej manuellt redigerbar (import-only).
   const _vfImpRow=visibleImportedRows.find(ir=>ir.Category==='Revenue'&&ir.SubCategory==='Vidarefakturering'&&(ir.Source||'')==='Vidarefakturering');
   const _vfVals=MONTHS.map((_,mi)=>_vfImpRow?getImportedVal(_vfImpRow,mi):0);
-  html+=`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">Vidarefakturering</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportVidarefaktModal(currentBudgetVersionId,${mi})" title="Visa/importera vidarefakturering för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text2);">${_vfVals[mi]?fmtK(_vfVals[mi]):'–'}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;border-left:1px solid var(--border);">${fmtK(sum(_vfVals))}</td></tr>`;
+  const _rdVF=revDiffCellFlags('likviditet','Vidarefakturering','Revenue','Vidarefakturering',_bvYr);   // ändringsvarningar (steg 2)
+  html+=`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">Vidarefakturering</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportVidarefaktModal(currentBudgetVersionId,${mi})" title="Visa/importera vidarefakturering för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text2);">${_vfVals[mi]?fmtK(_vfVals[mi]):'–'}${revDiffCellBadge(_rdVF[mi])}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;border-left:1px solid var(--border);">${fmtK(sum(_vfVals))}</td></tr>`;
   // Övriga inbetalningar — fristående Cash in-rad (lån/konvertibler m.m.). Category='Revenue', Source=NULL → med i Summa in (sumSection) + computeCashflow (netto/saldo). Manuellt redigerbar + Excel-importerad (samma rad).
   const _oiSub='Övriga inbetalningar';const _oiVals=MONTHS.map((_,mi)=>getVal('Revenue',_oiSub,mi));
   html+=`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${_oiSub}</td>${MONTHS.map((_,mi)=>inputCell('Revenue',_oiSub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(_oiVals))}</td></tr>`;
