@@ -8599,23 +8599,27 @@ async function importVFResultat(versionId){
 function subLabel(sub){return ({'Licens (prenumeration)':'Prenumeration','Licens (fast pris)':'Fast pris'})[sub]||sub;}
 function typeLabel(type){return ({ARR:'Prenumeration',Fastpris:'Fast pris'})[type]||type;}
 
-// Spread an amount across months of a given year, weighted by the day-overlap
-// between [from,to] and each month — same logic as loadRevenueItems' calcYearTotal.
+// Spread an amount across months of a given year — MÅNADSBASERAT (ej dagbaserat): beloppet delas
+// lika mellan ALLA kalendermånader perioden spänner (28/29/30/31 dagar ger ingen skillnad), inte
+// viktat efter dagantal. Matchar Sunes/Clears periodisering (identifierat av Ajla 2026-10-09 — den
+// gamla dagviktningen gav några kronors diff per period, extra märkbart runt februari/skottår).
+// Avrundningsdifferensen läggs på den SISTA månaden i hela perioden (kan hamna i ett annat kalenderår
+// än `year` om perioden spänner årsskiftet — det årets anrop får då ingen diff, nästa års gör det).
 function spreadPeriodAcrossMonths(amount,from,to,year){
   const out=new Array(12).fill(0);
   if(!amount)return out;
   const f=from?new Date(from):null;
   const t=to?new Date(to):null;
   if(!f||!t){const mi=f?f.getMonth():0;if(f&&f.getFullYear()===year)out[mi]=amount;return out;}
-  const totalDays=Math.max(1,Math.round((t-f)/86400000)+1);
+  const fKey=f.getFullYear()*12+f.getMonth();
+  const tKey=t.getFullYear()*12+t.getMonth();
+  const totalMonths=Math.max(1,tKey-fKey+1);
+  const base=Math.floor(amount/totalMonths);
+  const remainder=amount-base*totalMonths;
   for(let mi=0;mi<12;mi++){
-    const mStart=new Date(year,mi,1);
-    const mEnd=new Date(year,mi+1,0);
-    if(t<mStart||f>mEnd)continue;
-    const os=f>mStart?f:mStart;
-    const oe=t<mEnd?t:mEnd;
-    const od=Math.max(0,Math.round((oe-os)/86400000)+1);
-    out[mi]=Math.round(amount*od/totalDays);
+    const key=year*12+mi;
+    if(key<fKey||key>tKey)continue;
+    out[mi]=base+(key===tKey?remainder:0);
   }
   return out;
 }
