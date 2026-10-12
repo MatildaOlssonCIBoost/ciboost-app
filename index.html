@@ -1269,8 +1269,8 @@ const COST_ROWS_DEF = [
   { group:'Personalkostnader', account:'7210', name:'Lön tjänstemän' },
   { group:'Personalkostnader', account:'7290', name:'Förändr sem löneskuld' },
   { group:'Personalkostnader', account:'7299', name:'Periodisering lönekostnader' },
-  { group:'Personalkostnader', account:'7389', name:'Förmån sjukvårdsförsäkring' },
-  { group:'Personalkostnader', account:'7399', name:'Motkontering av förmån' },
+  { group:'Personalkostnader', account:'7389', name:'Förmån sjukvårdsförsäkring', legacy:true },   // finns ej i Ajlas Excel → bara historik
+  { group:'Personalkostnader', account:'7399', name:'Motkontering av förmån', legacy:true },
   { group:'Personalkostnader', account:'7410', name:'Pensionsförsäkringspremier' },
   { group:'Personalkostnader', account:'7415', name:'Löneväxling pension' },
   { group:'Personalkostnader', account:'7510', name:'Arbetsgivaravgifter' },
@@ -1284,10 +1284,13 @@ const COST_ROWS_DEF = [
   { group:'Avskrivningar', account:'7810', name:'Avskrivningar på aktiverat arbete', aliases:['Avskrivningar immateriella'] },
   { group:'Avskrivningar', account:'8xxx', name:'Finansiella poster' },
 ];
-// RES-1: Aktiverat arbete för egen räkning (intäktssidan). Egen def — importeras (3850/3870), renderas mellan Summa nettoomsättning och Summa rörelsens intäkter.
+// RES-1: Aktiverat arbete för egen räkning (intäktssidan). Egen def — importeras, renderas mellan Summa nettoomsättning och Summa rörelsens intäkter.
+// RENAME-2: EN rad som i Ajlas Excel (hela importbeloppet). Gamla split-raderna 3850/3870 = legacy (syns bara där de har värden);
+// replacedBy → nollställs när importen skriver den sammanslagna raden (annars dubbelräkning vid reimport i gammal version).
 const AKTIVERAT_ROWS_DEF = [
-  { group:'Aktiverat arbete', account:'3850', name:'Aktiverat arbete (omkostnader)' },
-  { group:'Aktiverat arbete', account:'3870', name:'Aktiverat arbete (personal)' },
+  { group:'Aktiverat arbete', account:'3850', name:'Aktiverat arbete för egen räkning' },
+  { group:'Aktiverat arbete', account:'3850', name:'Aktiverat arbete (omkostnader)', legacy:true, replacedBy:'Aktiverat arbete för egen räkning' },
+  { group:'Aktiverat arbete', account:'3870', name:'Aktiverat arbete (personal)', legacy:true, replacedBy:'Aktiverat arbete för egen räkning' },
 ];
 // RENAME-1: alias-index (group__namn|alias → def.name). canonSub = kanoniskt def-namn för en sparad
 // (Category, SubCategory); okänd rad (intäkter, egna rader) → oförändrad. subMatches = sparad rad ↔ def-rad.
@@ -1297,8 +1300,8 @@ const subMatches=(cat,storedSub,defSub)=>storedSub===defSub||canonSub(cat,stored
 // Sparat SubCategory-namn för en def-rad i en versions rader (exakt namn före alias); saknas → def-namnet.
 // Används som data-sub/notnyckel så äldre versioner fortsätter skriva till sin befintliga rad.
 const storedSubFor=(rows,cat,name)=>{const own=(rows||[]).filter(r=>!r.Source&&r.Category===cat);const r=own.find(x=>x.SubCategory===name)||own.find(x=>subMatches(cat,x.SubCategory,name));return r?r.SubCategory:name;};
-// legacy-rad visas bara om versionen redan har en sparad (manuell) rad för den.
-const defVisibleIn=(rows,d)=>!d.legacy||(rows||[]).some(r=>!r.Source&&r.Category===d.group&&subMatches(d.group,r.SubCategory,d.name));
+// legacy-rad visas bara om versionen redan har värden (≠0) i en sparad (manuell) rad för den — tomma/nollställda legacy-rader döljs.
+const defVisibleIn=(rows,d)=>!d.legacy||(rows||[]).some(r=>!r.Source&&r.Category===d.group&&subMatches(d.group,r.SubCategory,d.name)&&MONTHS.some(m=>Number(r[m])||0));
 // RES-B: driftrader i EXAKT ordning enligt ekonomens Import Sune-flik (delas av resultatrendern + Sune-exporten).
 // legacy-raderna ligger direkt efter sina efterträdare (visas bara i versioner som har data i dem).
 const RES_DRIFT_ORDER=[
@@ -7198,7 +7201,7 @@ function renderResultatBudgetTable(){
   // RES-1: Aktiverat arbete för egen räkning (3850/3870) — INTÄKTSSIDAN (def-drivet), mellan Summa nettoomsättning och Summa rörelsens intäkter.
   // Rader renderas inline (costAccountRow def:as senare i funktionen) — editbara, autosparas som Category='Aktiverat arbete'.
   html+=resSecHdr('Aktiverat arbete för egen räkning','raktiverat',WARM_BG,WARM_TEXT);
-  AKTIVERAT_ROWS_DEF.forEach(c=>{html+=`<tr data-bsec="raktiverat" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;"><span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>${c.name}</td>${MONTHS.map((_,mi)=>inputCell('Aktiverat arbete',c.name,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly('Aktiverat arbete',c.name)))}</td></tr>`;});
+  AKTIVERAT_ROWS_DEF.filter(c=>defVisibleIn(budgetRows,c)).forEach(c=>{html+=`<tr data-bsec="raktiverat" style="background:var(--surface);"><td style="padding-left:36px;font-size:12px;"><span style="color:var(--text3);font-variant-numeric:tabular-nums;margin-right:6px;">${c.account}</span>${c.name}</td>${MONTHS.map((_,mi)=>inputCell('Aktiverat arbete',c.name,mi)).join('')}<td style="font-weight:500;text-align:center;border-left:1px solid var(--border);background:var(--surface2);">${fmtK(sum(rowMonthly('Aktiverat arbete',c.name)))}</td></tr>`;});
   const aktiveratMonthly=sumRowsMonthly(AKTIVERAT_ROWS_DEF.map(c=>({cat:c.group,sub:c.name})));
   html+=groupSumRow('Summa aktiverat arbete för egen räkning',aktiveratMonthly,sum(aktiveratMonthly),10,'raktiverat');
 
@@ -7822,12 +7825,13 @@ function parseExcelResult(wb){
     const acct=cv(r,0),name=cv(r,1);
     const acctStr=acct!=null?String(acct).trim():'';
     const nmeStr=String(name||'').trim();
-    // RES-AKT: ekonomens EXAKTA klumprad (trim, case-ins.) → Aktiverat arbete. Excel har EN rad; Sunes modell TVÅ (3850/3870).
-    // Minst invasiva vägen: skriv klumpen till 3850 (Category='Aktiverat arbete', SubCategory='Aktiverat arbete (omkostnader)'), lämna 3870.
+    // RES-AKT: ekonomens EXAKTA klumprad (trim, case-ins.) → Aktiverat arbete. RENAME-2: Excel och Sune har nu EN rad —
+    // hela beloppet skrivs till den sammanslagna def:en (Category='Aktiverat arbete', SubCategory='Aktiverat arbete för egen räkning').
     // Godkänt undantag från intäktsgränsen (aktiverat arbete = hennes bokföring). Positiva månadsvärden D-O, rått tecken.
     // RENAME-1: Ajlas nya fil har etiketten bara i kol C (kol B tom) → testa båda.
     if(/^aktiverat arbete för egen räkning$/i.test(nmeStr)||/^aktiverat arbete för egen räkning$/i.test(String(cv(r,2)||'').trim())){
-      const arow={accountNo:'3850',name:nmeStr,colCWord:'',section:'aktiverat',defGroup:'Aktiverat arbete',defName:'Aktiverat arbete (omkostnader)'};
+      const akt=AKTIVERAT_ROWS_DEF.find(c=>!c.legacy);
+      const arow={accountNo:akt.account,name:nmeStr,colCWord:'',section:'aktiverat',defGroup:akt.group,defName:akt.name};
       MONTHS.forEach((m,i)=>{const v=cv(r,3+i);arow[m]=(typeof v==='number')?v:(parseFloat(v)||0);});
       out.push(arow);window._excelAktiveratWrote=true;continue;
     }
@@ -7904,7 +7908,7 @@ function findResultDef(accountNo,colCWord,name,colC){
   const costs=COST_ROWS_DEF.filter(c=>!c.legacy&&c.account&&c.account===acct);
   if(costs.length===1)return {group:costs[0].group,name:costs[0].name,section:'cost'};                          // vanligt kostnadskonto → unik def
   if(costs.length>1){const full=String(colC||'').trim().toLowerCase(),w=String(colCWord||'').trim().toLowerCase();const d=(full&&costs.find(x=>_defNamesLc(x).includes(full)))||(w&&costs.find(x=>x.name.toLowerCase().includes(w)))||costs[0];return {group:d.group,name:d.name,section:'cost'};}   // dubblett → kol C
-  const akt=AKTIVERAT_ROWS_DEF.find(c=>c.account===acct);
+  const akt=AKTIVERAT_ROWS_DEF.find(c=>!c.legacy&&c.account===acct);
   if(akt)return {group:akt.group,name:akt.name,section:'aktiverat'};                                            // aktiverat arbete (3850/3870)
   if(!acct){
     // Konto-lösa defs: exakt kol C/B-träff (Övriga personalkostnader, Övirga kostnader …).
@@ -7924,7 +7928,7 @@ async function writeExcelResult(rows,tid){
     // RES-1: parse har redan resolvat def (defGroup/defName/section) → route: cost→kostnadsgrupp, aktiverat→'Aktiverat arbete'. Match på def-nyckel (Category+SubCategory).
     const cat=ir.defGroup,sub=ir.defName;
     if(!cat||!sub)return;
-    const wk=cat+'__'+String(ir.accountNo||'');(wrote[wk]=wrote[wk]||new Set());MONTHS.forEach(m=>wrote[wk].add(m));
+    [cat+'__'+String(ir.accountNo||''),cat+'__name__'+sub].forEach(wk=>{(wrote[wk]=wrote[wk]||new Set());MONTHS.forEach(m=>wrote[wk].add(m));});   // per konto + per def-namn (replacedBy)
     // DEF-NYCKEL (distinkt för dubbletterna). RENAME-1: exakt namn först, annars alias → äldre version skrivs i sin befintliga rad (döps ej om, ingen dubblett).
     let row=existing.find(r=>r.Category===cat&&r.SubCategory===sub)||existing.find(r=>!r.Source&&r.Category===cat&&subMatches(cat,r.SubCategory,sub));
     if(!row){row={Category:cat,SubCategory:sub,AccountNo:ir.accountNo};MONTHS.forEach(m=>row[m]=0);existing.push(row);}
@@ -7933,8 +7937,9 @@ async function writeExcelResult(rows,tid){
   });
   // RENAME-1: legacy-rader (Reklam och PR 5900, Marknadsföring och reklam - LinkedIn 5990) är ersatta av importens rader på samma
   // konto → nollställ dem för de månader importen skriver där, annars dubbelräknas marknadsföringen. Övriga månader/rader rörs ej.
-  COST_ROWS_DEF.filter(d=>d.legacy).forEach(d=>{
-    const ms=wrote[d.group+'__'+d.account];if(!ms)return;
+  // RENAME-2: samma för Aktiverat 3850/3870 via replacedBy (3870 delar inte konto med den sammanslagna raden). 7389/7399 importeras aldrig → orörda.
+  [...COST_ROWS_DEF,...AKTIVERAT_ROWS_DEF].filter(d=>d.legacy).forEach(d=>{
+    const ms=wrote[d.group+'__'+d.account]||(d.replacedBy&&wrote[d.group+'__name__'+d.replacedBy]);if(!ms)return;
     existing.filter(r=>!r.Source&&r.Category===d.group&&subMatches(d.group,r.SubCategory,d.name)).forEach(r=>ms.forEach(m=>{r[m]=0;}));
   });
   const payload=existing.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
@@ -8122,7 +8127,7 @@ function _excelResultAoa(rows,ver){
   P('data',R('Nyförsäljning (prognos)',nyExOkv));
   P('data',R('Okvalificerat/okänt',okvMonthly));
   P('sum',R('Summa nettoomsättning',nettoMonthly));
-  AKTIVERAT_ROWS_DEF.forEach(c=>P('data',R(c.account+' '+c.name,sumP([{cat:c.group,sub:c.name}]))));
+  AKTIVERAT_ROWS_DEF.filter(c=>defVisibleIn(rows,c)).forEach(c=>P('data',R(c.account+' '+c.name,sumP([{cat:c.group,sub:c.name}]))));   // legacy 3850/3870 bara om de har värden
   P('sum',R('Summa aktiverat arbete för egen räkning',aktMonthly));
   P('sum',R('Summa rörelsens intäkter',rorIntakt));
   P('blank',BLANK);
