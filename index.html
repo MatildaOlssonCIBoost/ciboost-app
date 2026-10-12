@@ -7878,21 +7878,37 @@ function parseExcelLiquidity(wb){
   if(!ws||!ws['!ref'])return null;
   const range=XLSX.utils.decode_range(ws['!ref']);
   const cv=(r,c)=>{const cell=ws[XLSX.utils.encode_cell({r,c})];return cell?cell.v:null;};
+  // ROBUST-1: hitta månadskolumnerna (Jan..Dec) dynamiskt i rubrikraden i stället för hårdkodat
+  // "kol Z-AK" — tål att Ajla lägger till/tar bort kolumner i likviditetsblocket (hände 2026-10,
+  // bröt tyst med fast offset: Övriga inbetalningars april-belopp hamnade under februari).
+  // Sök bara från kol P (c=15) och höger, så vi aldrig matchar resultatblockets egna Jan-Dec-rubriker (kol D-O).
+  let monthCol=null;
+  for(let r=0;r<Math.min(15,range.e.r+1)&&!monthCol;r++){
+    const map={};
+    for(let c=15;c<=range.e.c;c++){
+      const v=cv(r,c);if(v==null)continue;
+      const idx=MONTHS.findIndex(m=>m.toLowerCase()===String(v).trim().toLowerCase());
+      if(idx>=0)map[idx]=c;
+    }
+    if(Object.keys(map).length>=10)monthCol=map;   // kräv minst 10 av 12 träffar för att räkna raden som rubrikrad
+  }
+  if(!monthCol){console.error('[parseExcelLiquidity] hittade inte månadsrubrikerna Jan–Dec i likviditetsblocket.');return null;}
+  const mc=i=>monthCol[i];
   const SKIP=/summa|netto|saldo/i;
   const out=[];let inPayments=false;
-  window._excelOpeningCash=null;   // STEG 3/D: ingående saldo ur importen (nollställs per parse)
-  window._excelOtherIncome=null;   // Övriga inbetalningar-raden (12 månader) ur importen (nollställs per parse)
+  window._excelOpeningCash=null;
+  window._excelOtherIncome=null;
   for(let r=0;r<=range.e.r;r++){
-    const name=cv(r,21);   // kol V
-    if(name!=null&&/^ingående saldo/i.test(String(name).trim())){const _o=cv(r,25);window._excelOpeningCash=(typeof _o==='number')?Math.round(_o):(parseFloat(String(_o).replace(/[^0-9.\-]/g,''))||null);continue;}   // första månad (kol Z) → ingående kassa
-    if(name!=null&&String(name).trim().toLowerCase()==='övriga inbetalningar'){window._excelOtherIncome=MONTHS.map((_,i)=>{const v=cv(r,25+i);return (typeof v==='number')?Math.round(v):Math.round(parseFloat(v)||0);});continue;}   // EXAKT etikett (trim/case-ins.) → positiva månadsvärden Z–AK. Skrivs som Revenue-rad; ingen annan intäktsrad importeras.
-    if(name!=null&&/^summa in/i.test(String(name).trim())){inPayments=true;continue;}   // inbetalningar slut → utbetalningar börjar
-    if(name!=null&&/^summa ut/i.test(String(name).trim()))break;                          // utbetalningar slut
-    if(!inPayments)continue;                                                              // inbetalningssektion → hoppa
+    const name=cv(r,21);   // kol V = namnkolumnen, antas stabil (ingen rubriktext att läsa av den mot)
+    if(name!=null&&/^ingående saldo/i.test(String(name).trim())){const _o=cv(r,mc(0));window._excelOpeningCash=(typeof _o==='number')?Math.round(_o):(parseFloat(String(_o).replace(/[^0-9.\-]/g,''))||null);continue;}
+    if(name!=null&&String(name).trim().toLowerCase()==='övriga inbetalningar'){window._excelOtherIncome=MONTHS.map((_,i)=>{const v=cv(r,mc(i));return (typeof v==='number')?Math.round(v):Math.round(parseFloat(v)||0);});continue;}
+    if(name!=null&&/^summa in/i.test(String(name).trim())){inPayments=true;continue;}
+    if(name!=null&&/^summa ut/i.test(String(name).trim())){inPayments=false;continue;}   // ROBUST-1b: sluta samla utbetalningsrader, men fortsätt leta "Ingående saldo" längre ner
+    if(!inPayments)continue;
     if(name==null||String(name).trim()==='')continue;
-    if(SKIP.test(String(name)))continue;                                                  // summa/netto/saldo → hoppa
+    if(SKIP.test(String(name)))continue;
     const row={name:String(name).trim()};
-    MONTHS.forEach((m,i)=>{const v=cv(r,25+i);row[m]=(typeof v==='number')?v:(parseFloat(v)||0);});   // Z-AK = c 25..36
+    MONTHS.forEach((m,i)=>{const v=cv(r,mc(i));row[m]=(typeof v==='number')?v:(parseFloat(v)||0);});
     out.push(row);
   }
   return out;
