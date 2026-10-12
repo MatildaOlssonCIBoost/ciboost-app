@@ -1332,8 +1332,9 @@ const LEVERANTOR_ROWS_DEF = [
   {name:'Amanda AI', grupp:'lev'},
   {name:'Wow Media', grupp:'lev'},
   {name:'Entercard (linkedin)', grupp:'lev'},
-  {name:'Influence', grupp:'lev'},
-  {name:'IT-partner', grupp:'lev'},
+  {name:'Influence + IT-partner', grupp:'lev'},
+  {name:'Influence', grupp:'lev', legacy:true},   // RENAME-3: ersatt av sammanslagen rad, matchas ej av import
+  {name:'IT-partner', grupp:'lev', legacy:true},  // RENAME-3: ersatt av sammanslagen rad, matchas ej av import
   {name:'Tele2', grupp:'lev'},
   {name:'Bankavg', grupp:'lev'},
   {name:'Övrigt', grupp:'lev'},
@@ -1350,6 +1351,8 @@ const LEV_GROUPS = [
   {key:'koncern', label:'Delsumma koncernbetalningar'},
   {key:'skv', label:'Delsumma SKV'},
 ];
+// RENAME-3: legacy-leverantörsrad visas bara i versioner som redan har värden (≠0) i den — annars döljs den.
+const levVisibleIn=(rows,d)=>!d.legacy||(rows||[]).some(r=>(r.Source||'')==='Leverantör'&&r.Category==='Leverantör'&&String(r.SubCategory||'').trim().toLowerCase()===d.name.trim().toLowerCase()&&MONTHS.some(m=>Number(r[m])||0));
 const BUDGET_ROWS_DEF = [
   {section:'REVENUE', category:'Revenue', subCategory:'Licens (prenumeration)', type:'revenue'},
   {section:'REVENUE', category:'Revenue', subCategory:'Licens (fast pris)', type:'revenue'},
@@ -7743,7 +7746,7 @@ function renderBudgetTable(){
   // STEG 3: gruppvis rendering (Excel-ordning) med delsumma per grupp, sedan Summa ut / Månadens netto / saldokedja.
   const utMonthly=Array(12).fill(0);
   LEV_GROUPS.forEach(g=>{
-    const gr=LEVERANTOR_ROWS_DEF.filter(r=>r.grupp===g.key);
+    const gr=LEVERANTOR_ROWS_DEF.filter(r=>r.grupp===g.key&&levVisibleIn(budgetRows,r));
     gr.forEach(r=>{
       const vals=levRowMonthly(r.name);const tot=vals.reduce((a,b)=>a+b,0);
       const nm=String(r.name).replace(/</g,'&lt;');
@@ -7962,7 +7965,7 @@ async function writeExcelResult(rows,tid){
 // SIGN: Excel-utbetalningar ar NEGATIVA -> lagras RATT (negativt) enligt ekonomens konvention. Ingen negering.
 // Skriver BARA rader vars namn finns i LEVERANTOR_ROWS_DEF (exakt, case-insensitivt) -> delsummor/inbetalningar/okanda hoppas.
 async function writeExcelLiquidity(rows,lid){
-  const defSet=new Set(LEVERANTOR_ROWS_DEF.map(r=>r.name.trim().toLowerCase()));
+  const defSet=new Set(LEVERANTOR_ROWS_DEF.filter(r=>!r.legacy).map(r=>r.name.trim().toLowerCase()));
   let existing=await (await apiFetch(`${API}/budget-versions/${lid}/rows`)).json();
   if(!Array.isArray(existing))existing=[];
   rows.forEach(ir=>{
@@ -8189,7 +8192,7 @@ function _excelLikAoa(rows,ver){
   P('blank',BLANK);
   P('section',SEC('CASH OUT'));
   LEV_GROUPS.forEach(g=>{
-    const gr=LEVERANTOR_ROWS_DEF.filter(r=>r.grupp===g.key);
+    const gr=LEVERANTOR_ROWS_DEF.filter(r=>r.grupp===g.key&&levVisibleIn(rows,r));
     gr.forEach(r=>P('data',R(r.name,M.map((_,mi)=>levOf(r.name,mi)))));
     P('sum',R(g.label,M.map((_,mi)=>gr.reduce((s,r)=>s+levOf(r.name,mi),0))));
   });
