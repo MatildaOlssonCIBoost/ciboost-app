@@ -5597,7 +5597,7 @@ function computeCashflow(rows,opening,financing){
 function getFinancing(vId,year){try{const a=JSON.parse(localStorage.getItem('financingByMonth_'+vId+'_'+year)||'[]');return Array.from({length:12},(_,i)=>Math.round(Number(a[i])||0));}catch(e){return Array(12).fill(0);}}
 function setFinancing(vId,year,monthIdx,val){const a=getFinancing(vId,year);a[monthIdx]=Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0);localStorage.setItem('financingByMonth_'+vId+'_'+year,JSON.stringify(a));const kp=document.getElementById('budget-kassaflode-panel');if(kp&&kp.style.display!=='none')renderBudgetCashflow();}
 // ETAPP 3C: ingående saldo per VERSION (bmSet 'openingCash', {value}). Union-läs med gammal per-år-localStorage som fallback.
-function getOpeningCash(versionId,year){const v=bmGet(versionId,'openingCash');if(v&&v.value!=null)return Math.round(Number(v.value)||0);return Math.round(Number(localStorage.getItem('openingCash_'+year))||0);}
+function getOpeningCash(versionId,year){const v=bmGet(versionId,'openingCash');return (v&&v.value!=null)?Math.round(Number(v.value)||0):0;}   // BUGG-OPENCASH: ingen localStorage-fallback per år längre — ny version startar på 0, ärver inte en annan versions saldo
 function setOpeningCash(versionId,year,val){const n=Math.round(Number(String(val).replace(/[^0-9.\-]/g,''))||0);localStorage.setItem('openingCash_'+year,String(n));bmSet(versionId,'openingCash',{value:n});
   // Re-rendera bara den panel som FAKTISKT syns (offsetParent===null när elementet/förälder är display:none).
   // Tidigare buggen: styrelse-panelens style.display blev '' efter ett besök och låg kvar → fel panel uppdaterades.
@@ -6969,8 +6969,8 @@ async function _bmMigrate(versionId){
   const c=_bmCache[versionId]||{};
   if(c.avtalSnapshot===undefined){try{const ls=JSON.parse(localStorage.getItem('importedAvtalResultat_'+versionId)||'null');if(ls&&ls.items)await bmSet(versionId,'avtalSnapshot',ls);}catch(e){}}
   if(c.fornyelsePeriods===undefined){try{const fi=JSON.parse(localStorage.getItem('fornyelseImport_'+versionId)||'null');if(fi){const pm={};Object.entries(fi).forEach(([k,v])=>{if(v&&(v.dateFrom||v.dateTo))pm[k]={dateFrom:v.dateFrom||null,dateTo:v.dateTo||null};});if(Object.keys(pm).length)await bmSet(versionId,'fornyelsePeriods',pm);}}catch(e){}}
-  // ETAPP 3C: årets lokala ingående saldo blir denna versions startvärde (engångs, per version).
-  if(c.openingCash===undefined){try{const _v=(budgetVersions||[]).find(x=>String(x.Id)===String(versionId));const _y=_v&&_v.Year;const _ls=_y!=null?localStorage.getItem('openingCash_'+_y):null;if(_ls!=null&&_ls!=='')await bmSet(versionId,'openingCash',{value:Math.round(Number(_ls)||0)});}catch(e){}}
+  // BUGG-OPENCASH: ETAPP 3C borttagen (2026-10-12) — kopierade tidigare årets localStorage-saldo till VARJE
+  // ny version av samma år, så en nystartad tom budget visade ett ingående saldo som hörde till en annan version.
   // ETAPP 5B: pipelineurval (samma mönster som avtalSnapshot) + actuals-id-set (månads-map).
   if(c.pipelineSnapshot===undefined){try{const ls=JSON.parse(localStorage.getItem('pipelineImport_'+versionId)||'null');if(ls&&Object.keys(ls).length)await bmSet(versionId,'pipelineSnapshot',ls);}catch(e){}}
   if(c.importedActuals===undefined){try{const m={};for(let mi=0;mi<12;mi++){const v=localStorage.getItem('importedAvtal_'+versionId+'_'+mi);if(v!=null)m[mi]=JSON.parse(v);}if(Object.keys(m).length)await bmSet(versionId,'importedActuals',m);}catch(e){}}
