@@ -3898,16 +3898,171 @@ function revDiffCellFlags(mode,source,cat,sub,year){
   }
   return months;
 }
-// En ambertriangel per cell (ingen multi-badge). Tooltip sammanfattar statusarna; klick → cellens vanliga
-// modal tills drilldown-vyn kommer i steg 3. extraTitle = ev. befintlig cellvarning som slås ihop hit.
+// En ambertriangel per cell (ingen multi-badge). Tooltip sammanfattar statusarna. ctx={mode,source,cat,sub,mi} →
+// klick öppnar drilldown-vyn (steg 3) när cellen har flaggor; extraTitle = ev. befintlig cellvarning som slås ihop hit
+// (enbart den → klicket går vidare till cellens vanliga importmodal).
 const _REV_STATUS_LABEL={overdue:'förfallen',removed:'borttagen ur källan',changed:'ändrad',new:'ny',renewal:'klar förlängning'};
-function revDiffCellBadge(flagsMonth,extraTitle){
+function revDiffCellBadge(flagsMonth,extraTitle,ctx){
   const parts=[];
   if(flagsMonth)['overdue','removed','changed','new','renewal'].forEach(s=>{const n=new Set(flagsMonth[s].map(e=>e.itemKey)).size;if(n)parts.push(n+' '+_REV_STATUS_LABEL[s]);});
   if(extraTitle)parts.push(extraTitle);
   if(!parts.length)return'';
-  return`<span title="Skiljer sig från källan: ${parts.join(' · ')}" style="display:inline-flex;line-height:0;margin-left:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="#c17f1e" aria-hidden="true"><path d="M12 2.5 1.5 21h21L12 2.5Z"/><rect x="11" y="9" width="2" height="6" fill="#fff"/><rect x="11" y="16.3" width="2" height="2" fill="#fff"/></svg></span>`;
+  const hasFlags=parts.length>(extraTitle?1:0);
+  const click=(hasFlags&&ctx)?` role="button" tabindex="0" onclick="event.stopPropagation();openRevDiffModal('${encodeURIComponent(JSON.stringify(ctx))}')"`:'';
+  return`<span${click} title="Skiljer sig från källan: ${parts.join(' · ')}${hasFlags&&ctx?' — klicka för detaljer':''}" style="display:inline-flex;line-height:0;margin-left:4px;${hasFlags&&ctx?'cursor:pointer;':''}"><svg width="12" height="12" viewBox="0 0 24 24" fill="#c17f1e" aria-hidden="true"><path d="M12 2.5 1.5 21h21L12 2.5Z"/><rect x="11" y="9" width="2" height="6" fill="#fff"/><rect x="11" y="16.3" width="2" height="2" fill="#fff"/></svg></span>`;
 }
+// ─── STEG 3: drilldown "Stämmer cellens belopp mot dagens underlag?" ───
+// Öppnas från cellens ambertriangel. Visar ALLA poster som bidrar till cellen (oavsett fakturamånad), en
+// status per post (prioritet Förfallen > Borttagen > Ändrad > Klar förlängning > Ny > Oförändrad), fälten i
+// FAST ordning (Belopp, Fakturadatum, Betaldatum, Licensperiod, Viktning — låsta när ej tillämpliga), "förra: X"
+// på ändrade fält och "Fakt <mån>"-tagg. "Underlaget idag" räknas om live ur källan med SAMMA formler som
+// importen/rebuild-funktionerna (NET30 + moms i likviditet; viktat belopp på antagandets datum;
+// periodisering i resultat via spreadPeriodAcrossMonths). Redigering (steg 4), batch (5), Oförändrade-listan (6), Ta bort (7) och Ej
+// importerade (8) byggs ovanpå denna vy.
+const _REV_STATUS_ORDER=['overdue','removed','changed','renewal','new','unchanged'];
+const _REV_STATUS_META={
+  overdue:{label:'Förfallen',help:'obekräftad, försenad betalning',bg:'#FDECEC',fg:'#a32d2d'},
+  changed:{label:'Ändrad',help:'ett fält skiljer sig mot förra importen',bg:'#FBF1DE',fg:'#8a5a0b'},
+  new:{label:'Ny',help:'fanns inte i systemet innan',bg:'#E6F1FB',fg:'#185FA5'},
+  renewal:{label:'Klar förlängning',help:'befintlig kund, förlängning ej importerad',bg:'#EAF3DE',fg:'#3B6D11'},
+  removed:{label:'Borttagen',help:'finns inte kvar i källan',bg:'#F0EEE7',fg:'#55534c'},
+  unchanged:{label:'Oförändrad',help:'',bg:'#F0EEE7',fg:'#55534c'},
+};
+const _REV_SOURCE_LABEL=s=>String(s).replace(/ \((likviditet|resultat|viktat)\)$/,'').replace('Pipeline','Pipe');
+// Postens bidrag till cellen (mode, källa, månad) — samma formler som importen. snap = startpunkt eller nuläge.
+function revDiffContribution(mode,source,snap,assump,mi,year){
+  if(!snap)return 0;
+  const kind=revDiffKind(source);
+  if(mode==='likviditet'){
+    if(kind==='rev')return _rdCashMonth(snap,year)===mi?snap.amount:0;
+    // Förnyelse/Pipe (rebuildSourceRows): belopp × viktning × moms på antagandets datum + 30.
+    const at=assump&&assump.AssumeDate?_rdYmd(assump.AssumeDate):snap.invoiceDate;
+    if(_rdCashMonth({invoiceDate:at},year)!==mi)return 0;
+    return Math.round((snap.exAmount||0)*((snap.prob!=null?snap.prob:0)/100)*(1+(snap.vat!=null?snap.vat:25)/100));
+  }
+  // Resultat (rebuildSourceRowsPeriodized / rebuildVidarefaktResultatRows): viktat ex moms, periodiserat med spreadPeriodAcrossMonths.
+  const prob=kind==='rev'?100:(snap.prob!=null?snap.prob:0);
+  let f=snap.accFrom||snap.licFrom,t=snap.accTo||snap.licTo;
+  if((!f||!t)&&kind==='forecast'&&snap.contract&&snap.contract.licTo){const s=new Date(snap.contract.licTo+'T00:00:00');s.setDate(s.getDate()+1);const e=new Date(s);e.setFullYear(e.getFullYear()+1);e.setDate(e.getDate()-1);f=_betYmd(s);t=_betYmd(e);}
+  if(!f||!t)return 0;
+  return spreadPeriodAcrossMonths(Math.round((snap.exAmount||0)*prob/100),f,t,year)[mi]||0;
+}
+// Cellens innehåll: en rad per post (deduplicerad efter prioritet) + sparat värde + underlaget idag.
+function revDiffCellDetail(mode,source,cat,sub,mi,year){
+  const flags=revDiffCellFlags(mode,source,cat,sub,year)[mi];
+  const byKey=new Map();
+  _REV_STATUS_ORDER.forEach(st=>(flags[st]||[]).forEach(e=>{if(!byKey.has(e.itemKey))byKey.set(e.itemKey,Object.assign({},e,{status:st}));}));
+  const entries=[...byKey.values()];
+  entries.forEach(e=>{
+    e.today=e.status==='removed'?0:revDiffContribution(mode,source,e.cur,e.assumption,mi,year);
+    e.before=e.baseline?revDiffContribution(mode,source,e.baseline,e.assumption,mi,year):0;
+  });
+  const row=(budgetRows||[]).find(r=>r.Category===cat&&r.SubCategory===sub&&(r.Source||'')===source);
+  const saved=row?Math.round(Number(row[MONTHS[mi]])||0):0;
+  const today=Math.round(entries.reduce((s,e)=>s+(e.today||0),0));
+  return{entries,saved,today};
+}
+// Visningsnamn för postens kund/prospekt.
+function _rdOwnerName(source,e){
+  const kind=revDiffKind(source);
+  if(kind==='pipe'){const pid=String(e.itemKey).split('_')[0];const p=(allProspects||[]).find(x=>String(x.Id)===pid);return p?(p.Company||('Prospekt '+pid)):('Prospekt '+pid);}
+  let cid=e.custId;
+  if(cid==null&&kind==='forecast'){const us=String(e.itemKey).split('_');us.pop();cid=us.join('_');}
+  if(cid==null){for(const[c,items]of Object.entries(custRevCache||{})){if(Array.isArray(items)&&items.some(x=>String(x.Id)===String(e.itemKey))){cid=c;break;}}}
+  const c=(allCustomers||[]).find(x=>String(x.Id)===String(cid));return c?(c.Company||('Kund '+cid)):(cid!=null?'Kund '+cid:'Okänd');
+}
+function openRevDiffModal(enc){
+  let ctx;try{ctx=JSON.parse(decodeURIComponent(enc));}catch(e){return;}
+  const{mode,source,cat,sub,mi}=ctx;
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(currentBudgetVersionId));
+  const year=Number(ver&&ver.Year)||new Date().getFullYear();
+  const kind=revDiffKind(source);const res=mode==='resultat';
+  const{entries,saved,today}=revDiffCellDetail(mode,source,cat,sub,mi,year);
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const fk=v=>Math.round(v||0).toLocaleString('sv-SE');
+  const M=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+  const monName=['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'][mi];
+  const fakt=d=>{if(!d)return'';const x=new Date(d+'T00:00:00');return isNaN(x)?'':'Fakt '+M[x.getMonth()];};
+  const net30=d=>{if(!d)return'';const x=new Date(d+'T00:00:00');x.setDate(x.getDate()+30);return _betYmd(x);};
+  const factMonths=new Set(entries.filter(e=>e.status!=='removed').map(e=>{const s=e.cur||e.baseline;return s&&s.invoiceDate?s.invoiceDate.substring(0,7):null;}).filter(Boolean));
+  const badge=st=>{const m=_REV_STATUS_META[st];return`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;white-space:nowrap;background:${m.bg};color:${m.fg};">● ${m.label}</span>`;};
+  // Fältrutnät i FAST ordning. Ej tillämpliga fält: låsta/gråtonade i samma position.
+  const fieldGrid=e=>{
+    const cur=e.cur||e.baseline||{},bl=e.baseline,ch=(e.status!=='removed'&&bl&&e.cur)?revDiffCompare(bl,e.cur).fields:{};
+    const amt=s=>s?fk(res?s.exAmount:s.amount)+' kr':'';
+    const per=s=>s&&(s.licFrom||s.licTo)?`${s.licFrom||'?'} – ${s.licTo||'?'}`:'';
+    const pay=s=>s?(s.payDate||(s.kind==='rev'&&s.invoiceDate?'≈ '+net30(s.invoiceDate)+' (NET30)':'')):'';
+    const prob=s=>s&&s.prob!=null?s.prob+' %':'';
+    const F=[
+      {k:'amount',label:'Belopp'+(res?' (ex moms)':' (inkl moms)'),val:amt(cur),prev:amt(bl),na:false},
+      {k:'invoiceDate',label:'Fakturadatum',val:cur.invoiceDate||'',prev:bl&&bl.invoiceDate,na:false},
+      {k:'payDate',label:'Betaldatum',val:kind==='rev'?pay(cur):(cur.invoiceDate?'≈ '+net30(cur.invoiceDate)+' (NET30)':''),prev:pay(bl),na:kind!=='rev'},
+      {k:'licPeriod',label:'Licensperiod',val:per(cur),prev:per(bl),na:false},
+      {k:'prob',label:'Viktning',val:kind==='rev'?'100 % (tecknat)':prob(cur),prev:prob(bl),na:kind==='rev'},
+    ];
+    return`<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;">${F.map(f=>{const changed=!!ch[f.k];return`<div style="display:flex;flex-direction:column;gap:3px;min-width:0;"><label style="font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#a6a399;">${f.label}</label><input type="text" readonly value="${esc(f.val||'–')}" style="font-size:12px;border:1px solid ${changed?'#EADDBA':(f.na?'#EFEDE4':'#E8E6DD')};background:${changed?'#FBF4E8':(f.na?'#F7F6F2':'#fff')};color:${f.na?'#a6a399':'#141413'};border-radius:6px;padding:5px 7px;font-family:inherit;width:100%;box-sizing:border-box;">${changed?`<div style="font-size:9px;color:#b5b2a7;">förra: <b style="color:#9a6b15;">${esc(f.prev||'–')}</b></div>`:''}</div>`;}).join('')}</div>`;
+  };
+  const _encCtx=encodeURIComponent(JSON.stringify(ctx));
+  const rowHtml=(e,i)=>{
+    const s=e.cur||e.baseline||{};const tag=fakt(s.invoiceDate);
+    const sub2=e.status==='removed'?'Finns inte kvar i källan — ligger kvar i budgeten tills raden uppdateras.':(e.status==='renewal'?'Befintlig kund — förlängning ej importerad till den här budgetversionen.':(e.status==='new'?'Ny i källan sedan senaste importen.':(e.status==='overdue'?`Väntat betaldatum ${e.due?_betYmd(e.due):''} passerat, obekräftad.`:'Ett eller flera fält skiljer sig mot förra importen.')));
+    let actions='';
+    if(e.status==='overdue'&&kind==='rev'){const it=_findCustRevItem(e.itemKey);const cid=e.custId!=null?e.custId:(()=>{for(const[c,items]of Object.entries(custRevCache||{}))if(Array.isArray(items)&&items.includes(it))return c;return null;})();
+      if(it&&cid!=null)actions=`<div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;"><button type="button" onclick="window._revDiffConfirmPaid(${Number(cid)},${it.Id},'${_encCtx}')" style="padding:5px 10px;border-radius:6px;border:1px solid #b8d9c6;background:#fff;color:#1a7a50;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">✓ Bekräfta betald</button><button type="button" onclick="window._revDiffShiftOne(${Number(cid)},${it.Id},'${_encCtx}')" style="padding:5px 10px;border-radius:6px;border:1px solid #E8E6DD;background:#fff;color:#55534c;font-size:11px;cursor:pointer;font-family:inherit;">→ Flytta till ${M[new Date().getMonth()]}</button></div>`;}   // _betShiftDate: innevarande månad, samma dag
+    return`<div style="border:1px solid #E8E6DD;border-radius:9px;margin-bottom:8px;background:#fff;overflow:hidden;">
+      <button type="button" onclick="const b=document.getElementById('rdx-${i}');const o=b.style.display==='none';b.style.display=o?'block':'none';this.querySelector('.rdchev').textContent=o?'▾':'▸';" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;">
+        ${badge(e.status)}
+        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;color:#141413;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(_rdOwnerName(source,e))}</div><div style="font-size:11px;color:#8a8780;">${esc(sub2)}</div></div>
+        ${tag?`<span style="font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#8a8780;background:#F0EEE7;border-radius:5px;padding:2px 6px;white-space:nowrap;">${tag}</span>`:''}
+        <span style="font-size:13px;font-weight:600;color:#141413;white-space:nowrap;min-width:70px;text-align:right;">${e.status==='removed'?`<s style="color:#a6a399;">${fk(e.before)}</s>`:fk(e.today)}</span>
+        <span class="rdchev" style="color:#a6a399;font-size:11px;">▸</span>
+      </button>
+      <div id="rdx-${i}" style="display:none;padding:4px 14px 14px;border-top:1px solid #F3F1EA;">${fieldGrid(e)}${actions}</div>
+    </div>`;
+  };
+  const flagged=entries.filter(e=>e.status!=='unchanged');
+  const unchanged=entries.filter(e=>e.status==='unchanged');
+  const diff=today-saved;
+  const ex=document.getElementById('revdiff-overlay');if(ex)ex.remove();
+  const ov=document.createElement('div');ov.id='revdiff-overlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;';
+  ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
+  ov.innerHTML=`<div role="dialog" aria-label="Stämmer cellens belopp mot dagens underlag?" style="background:#FAF9F5;border-radius:12px;width:920px;max-width:96vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);font-family:inherit;">
+    <div style="padding:20px 24px 14px;display:flex;justify-content:space-between;gap:12px;">
+      <div><div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a6a399;">${res?'Resultatbudget':'Likviditetsbudget'} · ${esc(_REV_SOURCE_LABEL(source))}${kind==='rev'&&!/Vidarefakturering/.test(source)?' · '+esc(sub):''} · ${monName} ${year}</div>
+      <h3 style="font-size:19px;font-weight:600;color:#141413;margin:4px 0 2px;">Stämmer cellens belopp mot dagens underlag?</h3>
+      <div style="font-size:12px;color:#8a8780;">${entries.length} post${entries.length===1?'':'er'}${factMonths.size?` · från ${factMonths.size} olika fakturamånad${factMonths.size===1?'':'er'}`:''}.</div></div>
+      <button type="button" onclick="document.getElementById('revdiff-overlay').remove()" style="align-self:flex-start;padding:6px 12px;border:1px solid #E8E6DD;border-radius:8px;background:#fff;color:#55534c;font-size:12px;cursor:pointer;font-family:inherit;">✕ Stäng</button>
+    </div>
+    <div style="overflow:auto;flex:1;padding:0 24px 20px;">
+      <div style="display:flex;align-items:stretch;gap:12px;margin-bottom:14px;">
+        <div style="flex:1;background:#fff;border:1px solid #E8E6DD;border-radius:10px;padding:12px 16px;"><div style="font-size:11px;color:#8a8780;">I budgeten (sparat)</div><div style="font-size:22px;font-weight:700;color:#141413;">${fk(saved)} kr</div><div style="font-size:11px;color:#a6a399;">Det cellen visar just nu</div></div>
+        <div style="align-self:center;color:#a6a399;font-size:18px;" aria-hidden="true">→</div>
+        <div style="flex:1;background:#fff;border:1px solid #E8E6DD;border-radius:10px;padding:12px 16px;"><div style="font-size:11px;color:#8a8780;">Underlaget idag (om du uppdaterar)</div><div style="font-size:22px;font-weight:700;color:#141413;">${fk(today)} kr</div><div style="font-size:11px;color:${diff?'#8a5a0b':'#a6a399'};">${diff?(diff>0?'+':'−')+fk(Math.abs(diff))+' kr mot budgeten':'Samma som budgeten'}</div></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:14px;font-size:11px;color:#8a8780;">${['overdue','changed','new','renewal','removed'].map(st=>`<span style="display:inline-flex;align-items:center;gap:5px;">${badge(st)} ${_REV_STATUS_META[st].help}</span>`).join('')}</div>
+      ${flagged.map(rowHtml).join('')||'<div style="font-size:12px;color:#8a8780;padding:10px 0;">Inga avvikelser mot källan i den här cellen.</div>'}
+      ${unchanged.length?`<div style="border:1px solid #E8E6DD;border-radius:9px;background:#fff;padding:11px 14px;display:flex;align-items:center;gap:10px;"><span style="font-size:12px;font-weight:600;color:#3B6D11;">✓ Oförändrade</span><span style="flex:1;font-size:11px;color:#8a8780;">${esc(_rdOwnerName(source,unchanged[0]))}${unchanged.length>1?` + ${unchanged.length-1} till`:''} — samma som senaste importen</span><span style="font-size:13px;font-weight:600;color:#141413;">${fk(unchanged.reduce((s,e)=>s+(e.today||0),0))}</span></div>`:''}
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+// Förfallen-åtgärder (skriver till kundkortet via befintliga Betalningar-hjälpare), därefter uppdaterad tabell + vy.
+async function _revDiffAfterAction(enc){
+  document.getElementById('revdiff-overlay')?.remove();
+  if(currentBudgetVersionId){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();renderBudgetTable();}catch(e){}}
+  if(enc)openRevDiffModal(enc);
+}
+window._revDiffConfirmPaid=async(custId,itemId,enc)=>{
+  try{await _betPutCore(custId,itemId,{paid:1,paymentDate:_betYmd(new Date())});await _betReloadCust(custId);}catch(e){alert('Kunde inte markera som betald.');return;}
+  await _revDiffAfterAction(enc);
+};
+window._revDiffShiftOne=async(custId,itemId,enc)=>{
+  const it=(custRevCache[custId]||[]).find(x=>x.Id===itemId);if(!it)return;
+  const due=kaCashflowDate(it);if(!due)return;
+  try{await _betPutCore(custId,itemId,{expectedPaymentDate:_betShiftDate(due)});await _betReloadCust(custId);}catch(e){alert('Kunde inte flytta betaldatumet.');return;}
+  await _revDiffAfterAction(enc);
+};
 function kaSetMode(m){kaMode=m;const per=document.getElementById('ka-mode-per'),liq=document.getElementById('ka-mode-liq');if(per)per.classList.toggle('active',m==='periodiserat');if(liq)liq.classList.toggle('active',m==='likviditet');renderKundanalys();}
 let kaCache={aggEntries:[],kpiYear:new Date().getFullYear()};
 let kaAllSort={col:'cur',asc:false};
@@ -7461,7 +7616,7 @@ function renderResultatBudgetTable(){
   const resRevSec=cat=>cat==='Periodiserade intäkter'?'rperiod':'rny';
   const resRevGrp=(cat,sub)=>(cat==='Periodiserade intäkter'?'rp_':'rn_')+sub;
   // ↳ auto-slot: read-only celler (EJ .budget-input → Source-isolering håller, saveBudget rör dem aldrig), klickbara per månad → modal.
-  const resAutoSlot=(label,cat,sub,tag,modalFn,color)=>{const vals=resSrcVals(cat,sub,tag);const _rdF=revDiffCellFlags('resultat',tag,cat,sub,year);return `<tr data-bsec="${resRevSec(cat)}" data-bgrp="${resRevGrp(cat,sub).replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ ${label}${resDelBtn(cat,sub,tag)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="${modalFn}(currentBudgetVersionId,${mi})" title="Visa/importera ${label.toLowerCase()} (${sub}) för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:${color};">${vals[mi]?fmtK(vals[mi]):'–'}${revDiffCellBadge(_rdF[mi])}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:${color};border-left:1px solid var(--border);">${fmtK(sum(vals))}</td></tr>`;};   // ändringsvarningar: ambertriangel per cell (steg 2)
+  const resAutoSlot=(label,cat,sub,tag,modalFn,color)=>{const vals=resSrcVals(cat,sub,tag);const _rdF=revDiffCellFlags('resultat',tag,cat,sub,year);return `<tr data-bsec="${resRevSec(cat)}" data-bgrp="${resRevGrp(cat,sub).replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ ${label}${resDelBtn(cat,sub,tag)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="${modalFn}(currentBudgetVersionId,${mi})" title="Visa/importera ${label.toLowerCase()} (${sub}) för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:${color};">${vals[mi]?fmtK(vals[mi]):'–'}${revDiffCellBadge(_rdF[mi],'',{mode:'resultat',source:tag,cat,sub,mi})}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:${color};border-left:1px solid var(--border);">${fmtK(sum(vals))}</td></tr>`;};   // ändringsvarningar: ambertriangel per cell (steg 2)
   // ↳ Manuell: redigerbar inputCell (Source=tom), autosparad.
   const resManuellRow=(cat,sub)=>`<tr data-bsec="${resRevSec(cat)}" data-bgrp="${resRevGrp(cat,sub).replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text3);">↳ Manuell</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(rowMonthly(cat,sub)))}</td></tr>`;
   // = Summa per typ = auto-källor + manuell (= leafVal; matchar groupSumRow).
@@ -8007,11 +8162,11 @@ function renderBudgetTable(){
     // Estimat-rader (Avtal/Förnyelse/Pipe) — döljs för 'Okvalificerat/okänt' (bara Manuell + Summa där).
     if(sub!=='Okvalificerat/okänt'){
     // ↳ Avtal — PLAIN TEXT. Klick → actuals-modal; ⚠ vid ej-importerade nya avtal.
-    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Avtal${delBtnFor('Avtal (likviditet)',avtalRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportActualsModal(currentBudgetVersionId,${mi})" title="${(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade — klicka för att importera':'Visa/importera underlag för '+MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:11px;color:#3B6D11;">${avtalVals[mi]?fmtK(avtalVals[mi]):'–'}${revDiffCellBadge(_rdF.avtal[mi],(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade':'')}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#3B6D11;border-left:1px solid var(--border);">${fmtK(sum(avtalVals))}</td></tr>`;
+    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Avtal${delBtnFor('Avtal (likviditet)',avtalRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportActualsModal(currentBudgetVersionId,${mi})" title="${(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade — klicka för att importera':'Visa/importera underlag för '+MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;font-size:11px;color:#3B6D11;">${avtalVals[mi]?fmtK(avtalVals[mi]):'–'}${revDiffCellBadge(_rdF.avtal[mi],(_type&&_devCount[_type][mi]>0)?_devCount[_type][mi]+' nya avtal ej importerade':'',{mode:'likviditet',source:'Avtal (likviditet)',cat,sub,mi})}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#3B6D11;border-left:1px solid var(--border);">${fmtK(sum(avtalVals))}</td></tr>`;
     // ↳ Förnyelse — PLAIN TEXT. Klick → förnyelse-modal med förvald månad.
-    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Förnyelse${delBtnFor('Förnyelse',fornRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportFornyelseModal(currentBudgetVersionId,${mi})" title="Visa/importera förnyelser för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:#BA7517;">${fornVals[mi]?fmtK(fornVals[mi]):'–'}${revDiffCellBadge(_rdF.forn[mi])}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#BA7517;border-left:1px solid var(--border);">${fmtK(sum(fornVals))}</td></tr>`;
+    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Förnyelse${delBtnFor('Förnyelse',fornRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportFornyelseModal(currentBudgetVersionId,${mi})" title="Visa/importera förnyelser för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:#BA7517;">${fornVals[mi]?fmtK(fornVals[mi]):'–'}${revDiffCellBadge(_rdF.forn[mi],'',{mode:'likviditet',source:'Förnyelse',cat,sub,mi})}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:#BA7517;border-left:1px solid var(--border);">${fmtK(sum(fornVals))}</td></tr>`;
     // ↳ Pipe — PLAIN TEXT. Klick → pipeline-modal med förvald månad.
-    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Pipe${delBtnFor('Pipeline (viktat)',pipeRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportPipelineModal(currentBudgetVersionId,${mi})" title="Visa/importera pipeline för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text3);">${pipeVals[mi]?fmtK(pipeVals[mi]):'–'}${revDiffCellBadge(_rdF.pipe[mi])}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:var(--text3);border-left:1px solid var(--border);">${fmtK(sum(pipeVals))}</td></tr>`;
+    html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">↳ Pipe${delBtnFor('Pipeline (viktat)',pipeRow)}</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportPipelineModal(currentBudgetVersionId,${mi})" title="Visa/importera pipeline för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text3);">${pipeVals[mi]?fmtK(pipeVals[mi]):'–'}${revDiffCellBadge(_rdF.pipe[mi],'',{mode:'likviditet',source:'Pipeline (viktat)',cat,sub,mi})}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;color:var(--text3);border-left:1px solid var(--border);">${fmtK(sum(pipeVals))}</td></tr>`;
     }
     // ↳ Manuell — OFÖRÄNDRAD inputCell (.budget-input → autospar intakt)
     html+=`<tr data-bsec="rev" data-bgrp="${_grpId.replace(/"/g,'&quot;')}" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text3);">↳ Manuell</td>${MONTHS.map((_,mi)=>inputCell(cat,sub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(manVals))}</td></tr>`;
@@ -8022,7 +8177,7 @@ function renderBudgetTable(){
   const _vfImpRow=visibleImportedRows.find(ir=>ir.Category==='Revenue'&&ir.SubCategory==='Vidarefakturering'&&(ir.Source||'')==='Vidarefakturering');
   const _vfVals=MONTHS.map((_,mi)=>_vfImpRow?getImportedVal(_vfImpRow,mi):0);
   const _rdVF=revDiffCellFlags('likviditet','Vidarefakturering','Revenue','Vidarefakturering',_bvYr);   // ändringsvarningar (steg 2)
-  html+=`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">Vidarefakturering</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportVidarefaktModal(currentBudgetVersionId,${mi})" title="Visa/importera vidarefakturering för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text2);">${_vfVals[mi]?fmtK(_vfVals[mi]):'–'}${revDiffCellBadge(_rdVF[mi])}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;border-left:1px solid var(--border);">${fmtK(sum(_vfVals))}</td></tr>`;
+  html+=`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">Vidarefakturering</td>${MONTHS.map((_,mi)=>`<td style="padding:2px 3px;cursor:pointer;" onclick="openImportVidarefaktModal(currentBudgetVersionId,${mi})" title="Visa/importera vidarefakturering för ${MONTHS[mi]}"><div style="display:flex;align-items:center;justify-content:flex-end;font-size:11px;color:var(--text2);">${_vfVals[mi]?fmtK(_vfVals[mi]):'–'}${revDiffCellBadge(_rdVF[mi],'',{mode:'likviditet',source:'Vidarefakturering',cat:'Revenue',sub:'Vidarefakturering',mi})}</div></td>`).join('')}<td style="text-align:right;font-size:11px;font-weight:500;border-left:1px solid var(--border);">${fmtK(sum(_vfVals))}</td></tr>`;
   // Övriga inbetalningar — fristående Cash in-rad (lån/konvertibler m.m.). Category='Revenue', Source=NULL → med i Summa in (sumSection) + computeCashflow (netto/saldo). Manuellt redigerbar + Excel-importerad (samma rad).
   const _oiSub='Övriga inbetalningar';const _oiVals=MONTHS.map((_,mi)=>getVal('Revenue',_oiSub,mi));
   html+=`<tr data-bsec="rev" style="background:var(--surface);"><td style="padding-left:24px;font-size:11px;color:var(--text2);">${_oiSub}</td>${MONTHS.map((_,mi)=>inputCell('Revenue',_oiSub,mi)).join('')}<td style="font-weight:500;text-align:right;border-left:1px solid var(--border);background:var(--surface);">${fmtK(sum(_oiVals))}</td></tr>`;
