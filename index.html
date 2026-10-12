@@ -5834,7 +5834,7 @@ async function openImportActualsModal(versionId,preMonth){
   document.body.appendChild(ov);
   const _tc={ARR:{bg:'#EAF3DE',color:'#3B6D11'},Fastpris:{bg:'#E6F1FB',color:'#185FA5'},Utbildning:{bg:'#FAEEDA',color:'#854F0B'},Consulting:{bg:'#EEEDFE',color:'#3C3489'}};
   const _tl={ARR:'Licens (prenumeration)',Fastpris:'Licens (fast pris)',Utbildning:'Utbildning',Consulting:'Consulting'};
-  window._iaSummary=()=>{const cbs=[...document.querySelectorAll('.ia-cb:checked')];const totEx=cbs.reduce((s,c)=>s+(Number(c.dataset.amount)||0),0);const totIncl=cbs.reduce((s,c)=>s+(Number(c.dataset.incl)||0),0);const e=document.getElementById('ia-summary');if(e)e.textContent=`${cbs.length} avtal · ${Math.round(totIncl).toLocaleString('sv-SE')} kr inkl moms (${Math.round(totEx).toLocaleString('sv-SE')} kr ex moms)`;};
+  window._iaSummary=()=>{const cbs=[...document.querySelectorAll('.ia-cb:checked')];const vfs=[...document.querySelectorAll('.ia-vf-cb:checked')];const all=cbs.concat(vfs);const totEx=all.reduce((s,c)=>s+(Number(c.dataset.amount)||0),0);const totIncl=all.reduce((s,c)=>s+(Number(c.dataset.incl)||0),0);const e=document.getElementById('ia-summary');if(e)e.textContent=`${cbs.length} avtal${document.querySelector('.ia-vf-cb')?` + ${vfs.length} vidarefakt.`:''} · ${Math.round(totIncl).toLocaleString('sv-SE')} kr inkl moms (${Math.round(totEx).toLocaleString('sv-SE')} kr ex moms)`;};
   window._iaRender=()=>{
     const mi=Number(document.getElementById('ia-month').value);
     document.getElementById('ia-month-lbl').textContent=MONTHS[mi];
@@ -5849,10 +5849,23 @@ async function openImportActualsModal(versionId,preMonth){
       arr.forEach(a=>{const checked=hasImp?impSet.has(String(a.id)):true;const isNew=hasImp&&!impSet.has(String(a.id));
         html+=`<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid ${isNew?'#d99':'var(--border)'};border-left:3px solid ${impSet.has(String(a.id))?'#1D9E75':(isNew?'#d99':'var(--border)')};border-radius:8px;margin-bottom:6px;cursor:pointer;background:${isNew?'#fdf3f3':'var(--surface)'};"><input type="checkbox" class="ia-cb" data-id="${a.id}" data-amount="${a.amount}" data-incl="${a.amount*(1+a.vat/100)}" ${checked?'checked':''} onchange="window._iaSummary()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.cust}${isNew?' <span style="color:#a32d2d;font-size:10px;font-weight:600;">● Ny</span>':''}</div><div style="font-size:11px;color:var(--text3);">${a.desc?a.desc+' · ':''}NET30 ${a.net30}</div></div><div style="text-align:right;flex:0 0 auto;"><div style="font-size:13px;font-weight:700;">${fk(a.amount*(1+a.vat/100))} kr</div><div style="font-size:10px;color:var(--text3);">${fk(a.amount)} kr ex moms</div><div style="font-size:10px;color:${a.paid?'#1a7a50':'var(--text3)'};">${a.paid?'Betald':'Avtalat'}</div></div></label>`;});
       html+=`</div>`;});
+    // VF-IN-ACTUALS: Vidarefakturering (NET30 i vald månad) som eget avsnitt i SAMMA modal → importeras i samma klick
+    // via importMonthVidarefakturering (oförändrad; ↪-knappen finns kvar för separat import). Visas bara om månaden har VF-poster.
+    const vfArr=[];
+    Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{if(it.Type!=='Vidarefakturering')return;const d=kaCashflowDate(it);if(!d||d.getFullYear()!==year||d.getMonth()!==mi)return;const c=custById[Number(cid)];vfArr.push({id:it.Id,cust:c?(c.Company||('Kund '+cid)):('Kund '+cid),amount:it.Amount||0,desc:it.Description||'',net30:d.toISOString().substring(0,10),paid:!!it.Paid,vat:(it.VatRate!=null?it.VatRate:25)});});});
+    if(vfArr.length){
+      const _vfRow=String(versionId)===String(currentBudgetVersionId)?(budgetRows||[]).find(r=>r.Category===REV_CATEGORY&&r.SubCategory==='Vidarefakturering'&&(r.Source||'')==='Vidarefakturering'):null;
+      const _vfNow=_vfRow?Math.round(Number(_vfRow[MONTHS[mi]])||0):null;
+      html+=`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text2);background:var(--surface2);border-radius:6px;padding:4px 10px;margin-bottom:4px;display:inline-block;">Vidarefakturering</div><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Importeras samtidigt till raden Vidarefakturering${_vfNow!=null?` (i budgeten nu: ${fk(_vfNow)} kr)`:''}. Urkryssade poster räknas inte med.</div>`;
+      vfArr.forEach(a=>{html+=`<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;background:var(--surface);"><input type="checkbox" class="ia-vf-cb" data-id="${a.id}" data-amount="${a.amount}" data-incl="${a.amount*(1+a.vat/100)}" checked onchange="window._iaSummary()" style="width:16px;height:16px;flex:0 0 auto;cursor:pointer;"><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.cust}</div><div style="font-size:11px;color:var(--text3);">${a.desc?a.desc+' · ':''}NET30 ${a.net30}</div></div><div style="text-align:right;flex:0 0 auto;"><div style="font-size:13px;font-weight:700;">${fk(a.amount*(1+a.vat/100))} kr</div><div style="font-size:10px;color:var(--text3);">${fk(a.amount)} kr ex moms</div><div style="font-size:10px;color:${a.paid?'#1a7a50':'var(--text3)'};">${a.paid?'Betald':'Fakturerad'}</div></div></label>`;});
+      html+=`</div>`;
+    }
     document.getElementById('ia-body').innerHTML=html||'<div style="color:var(--text3);font-size:13px;padding:30px;text-align:center;">Inga avtal med NET30 i denna månad.</div>';
     window._iaSummary();
   };
-  window._iaImport=async()=>{const mi=Number(document.getElementById('ia-month').value);const ids=[...document.querySelectorAll('.ia-cb:checked')].map(c=>Number(c.dataset.id));document.getElementById('ia-import-btn').textContent='Importerar…';await importMonthActuals(versionId,mi,ids);document.getElementById('import-actuals-overlay')?.remove();};
+  // VF-IN-ACTUALS: VF importeras bara om avsnittet visades (månaden har VF-poster) — annars rörs VF-raden inte alls.
+  // Alla VF urkryssade = samma som separata modalen med allt urkryssat (månaden nollas), men det kräver ett aktivt val.
+  window._iaImport=async()=>{const mi=Number(document.getElementById('ia-month').value);const ids=[...document.querySelectorAll('.ia-cb:checked')].map(c=>Number(c.dataset.id));const vfShown=!!document.querySelector('.ia-vf-cb');const vfIds=[...document.querySelectorAll('.ia-vf-cb:checked')].map(c=>Number(c.dataset.id));document.getElementById('ia-import-btn').textContent='Importerar…';await importMonthActuals(versionId,mi,ids);if(vfShown)await importMonthVidarefakturering(versionId,mi,vfIds);document.getElementById('import-actuals-overlay')?.remove();};
   // Markera vald månadsknapp (navy) + sätt dolt #ia-month + rendera. Ersätter dropdownens onchange.
   window._iaPickMonth=(mi)=>{document.getElementById('ia-month').value=mi;document.querySelectorAll('#ia-month-btns button').forEach((b,j)=>{const on=j===mi;b.style.background=on?'#1E2340':'transparent';b.style.color=on?'#fff':'var(--text2)';b.style.borderColor=on?'#1E2340':'var(--border)';b.style.fontWeight=on?'600':'400';});window._iaRender();};
   window._iaPickMonth(preMonth!=null?preMonth:Math.min(new Date().getMonth(),11));
@@ -8485,10 +8498,13 @@ async function importAllAvtalResultat(versionId){
   };
   const delHtml=deleted.map(d=>`<tr style="background:var(--surface2);opacity:0.6;"><td style="padding:6px 8px;text-align:center;color:var(--text3);">–</td><td style="padding:6px 8px;text-decoration:line-through;color:var(--text3);font-size:12px;">Avtal #${esc(d.id)} <span style="font-size:10px;">(borttaget)</span></td><td colspan="${MONTHS.length+2}" style="font-size:11px;color:var(--text3);padding:6px 8px;">Fanns i förra importen — rensas vid re-import</td></tr>`).join('');
   const introSnap=hasSnap?`<br>Senast importerad ${esc(String(snap.importedAt||'').substring(0,10))}${changeCnt?` · <b>${changeCnt}</b> ändring${changeCnt>1?'ar':''} sedan dess`:''}`:'';
+  // VF-IN-ACTUALS: antal VF-poster med periodisering i året (samma filter som importVFResultat) → steg 2 efter importen.
+  let _vfResCount=0;Object.values(custRevCache||{}).forEach(items=>{if(!Array.isArray(items))return;items.forEach(it=>{if(it.Type!=='Vidarefakturering'||!(it.Amount>0))return;const f=it.AccrualFrom?String(it.AccrualFrom).substring(0,10):(it.DateFrom?String(it.DateFrom).substring(0,10):null),t=it.AccrualTo?String(it.AccrualTo).substring(0,10):(it.DateTo?String(it.DateTo).substring(0,10):null);if(spreadPeriodAcrossMonths(Math.round(it.Amount),f,t,year).some(v=>v>0))_vfResCount++;});});
+  const introVf=_vfResCount?`<br><b>Steg 2:</b> Vidarefakturering (${_vfResCount} post${_vfResCount>1?'er':''} i ${year}) öppnas direkt efter importen.`:'';
   ov.innerHTML=`<div style="background:var(--surface);border-radius:12px;width:1040px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md);">
     <div style="padding:18px 22px 12px;border-bottom:1px solid var(--border);">
       <h3 style="font-size:16px;font-weight:600;margin-bottom:6px;">Importera avtal · periodiserat ${year}</h3>
-      <div style="font-size:11px;color:var(--text3);line-height:1.5;">Kryssade avtal skrivs periodiserat (ex moms) till <b>Periodiserade intäkter</b> i <b>${esc(ver.Name)}</b>. Ersätter tidigare avtalsimport.${introSnap}</div>
+      <div style="font-size:11px;color:var(--text3);line-height:1.5;">Kryssade avtal skrivs periodiserat (ex moms) till <b>Periodiserade intäkter</b> i <b>${esc(ver.Name)}</b>. Ersätter tidigare avtalsimport.${introSnap}${introVf}</div>
     </div>
     <div style="overflow:auto;flex:1;">
       <table style="width:100%;border-collapse:collapse;">
@@ -8523,6 +8539,8 @@ async function importAllAvtalResultat(versionId){
     if(String(versionId)===String(currentBudgetVersionId)){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();renderBudgetTable();}catch(e){}}
     document.getElementById('import-avtalres-overlay')?.remove();
     if(typeof showSaveIndicator==='function')showSaveIndicator(`✓ ${sel.length} avtal importerade (periodiserat)`,'#1a7a50');
+    // VF-IN-ACTUALS: steg 2 i samma flöde — finns VF-poster med periodisering i året öppnas VF-modalen direkt (Avbryt där = hoppa över).
+    if(_vfResCount)await importVFResultat(versionId);
   };
   window._iarSummary();
 }
