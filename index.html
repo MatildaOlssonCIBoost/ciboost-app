@@ -3835,6 +3835,7 @@ function revDiffCellFlags(mode,source,cat,sub,year){
   const vid=currentBudgetVersionId;if(vid==null)return months;
   if(!Object.keys(custRevCache||{}).length)return months;   // källdata ej laddad → aldrig falsklarm "Borttagen"
   const kind=revDiffKind(source);const baseline=revDiffBaselineAll(vid,source);
+  const removedMap=revDiffRemovedAll(vid,source);   // manuellt borttagna ur budgeten → aldrig flaggade (steg 7)
   const isVF=String(source).indexOf('Vidarefakturering')===0;
   const typeOk=t=>isVF?t==='Vidarefakturering':(!!t&&REV_CAT_TO_SUB[t]===sub);
   const src=_rdSrcCache[vid];const assumps=(src&&src.loaded)?src.assumptions:null;
@@ -3854,7 +3855,7 @@ function revDiffCellFlags(mode,source,cat,sub,year){
   Object.entries(store).forEach(([s,map])=>{if(s==='_importedAt'||!map)return;const k=revDiffKind(s);Object.entries(map).forEach(([key,bl])=>{if(!bl)return;if(k==='rev')signedInBudget.add(String(key));if(k==='forecast'&&bl.contract)forecastContracts.add(String(bl.contract.id));});});
   // 1) Poster i budgeten (startpunkt finns).
   Object.entries(baseline).forEach(([key,bl])=>{
-    if(!bl)return;
+    if(!bl||removedMap[String(key)])return;
     const blType=bl.type||(kind==='forecast'?String(key).split('_').pop():null);
     if(!typeOk(blType))return;
     let cur=null,assump=null,gone=false;
@@ -3880,7 +3881,7 @@ function revDiffCellFlags(mode,source,cat,sub,year){
     const impMonths=new Set();
     if(!res){if(isVF){Object.values(baseline).forEach(bl=>{const m=_rdCashMonth(bl,year);if(m!=null)impMonths.add(m);});}else{for(let mi=0;mi<12;mi++)if(getImportedActualsSet(vid,mi)!=null)impMonths.add(mi);}}
     Object.entries(custRevCache||{}).forEach(([cid,items])=>{if(!Array.isArray(items))return;items.forEach(it=>{
-      if(!typeOk(it.Type)||!(it.Amount>0)||baseline[String(it.Id)])return;
+      if(!typeOk(it.Type)||!(it.Amount>0)||baseline[String(it.Id)]||removedMap[String(it.Id)])return;
       const prev=_rdRenewedFrom(it);let status=null;
       // Klar förlängning = signerad post länkad (RenewedFromId/länktabell) till ett TIDIGARE signerat avtal — oavsett om
       // det avtalet ligger i den här versionen (kunden fanns innan → aldrig "Ny"). Föregående avtal i budgeten → alltid;
@@ -3955,7 +3956,7 @@ function revDiffCellDetail(mode,source,cat,sub,mi,year){
   const entries=[...byKey.values()];
   entries.forEach(e=>{
     e.today=e.status==='removed'?0:revDiffContribution(mode,source,e.cur,e.assumption,mi,year);
-    e.before=e.baseline?revDiffContribution(mode,source,e.baseline,e.assumption,mi,year):0;
+    const _bs=_rdBudgetSnap(source,e);e.before=_bs?revDiffContribution(mode,source,_bs,null,mi,year):0;   // det budgeten innehåller (pipe: antagandet)
   });
   const row=(budgetRows||[]).find(r=>r.Category===cat&&r.SubCategory===sub&&(r.Source||'')===source);
   const saved=row?Math.round(Number(row[MONTHS[mi]])||0):0;
@@ -3971,13 +3972,218 @@ function _rdOwnerName(source,e){
   if(cid==null){for(const[c,items]of Object.entries(custRevCache||{})){if(Array.isArray(items)&&items.some(x=>String(x.Id)===String(e.itemKey))){cid=c;break;}}}
   const c=(allCustomers||[]).find(x=>String(x.Id)===String(cid));return c?(c.Company||('Kund '+cid)):(cid!=null?'Kund '+cid:'Okänd');
 }
-function openRevDiffModal(enc){
-  let ctx;try{ctx=JSON.parse(decodeURIComponent(enc));}catch(e){return;}
+// ─── STEG 4–8: redigering, Uppdatera/Importera markerade, Oförändrade, Ta bort/Borttagna, Ej importerade ───
+// Skrivningar till BUDGETEN sker som DELTAN på berörda celler: (nytt bidrag − nuvarande bidrag) per månad, med
+// samma formler som importen (revDiffContribution). Allt annat i cellen (andra poster, manuella justeringar,
+// avrundning) lämnas orört. En färsk GET + EN POST för alla berörda rader per åtgärd (samma fullreplace-mönster
+// som rebuild-funktionerna). Spårningen som importmodalerna läser hålls i synk (antaganden, importedActuals,
+// avtalSnapshot/vfResultatSnapshot) så en senare vanlig import räknar på samma poster.
+// Skrivningar till KÄLLAN (fältredigering): kundpost → kundkortet (_betPutCore), pipe-post → pipe-kortet
+// (saveProspectRevenue), ren Förnyelse-prognos → antagandet (BudgetImportAssumptions + fornyelsePeriods);
+// Klar förlängning → den signerade förlängningen på kundkortet. Periodisering redigeras inte här.
+const _RD_PP_STAGES=['Qualified Lead','Evaluation & Proposal','Closed Won'];   // samma som Pipeline-importmodalerna
+const _rdTypeOfSub=sub=>Object.keys(REV_CAT_TO_SUB).find(t=>REV_CAT_TO_SUB[t]===sub)||null;
+// Mjukt borttagna poster per version: {[source]:{[itemKey]:{by,at,status,snap,budget,assumption}}}.
+function revDiffRemovedAll(versionId,source){return((bmGet(versionId,'revDiffRemoved')||{})[source])||{};}
+async function _rdRemovedSet(versionId,source,itemKey,rec){
+  const st=Object.assign({},bmGet(versionId,'revDiffRemoved')||{});st[source]=Object.assign({},st[source]||{});
+  if(rec)st[source][String(itemKey)]=rec;else delete st[source][String(itemKey)];
+  await bmSet(versionId,'revDiffRemoved',st);
+}
+// Vad budgeten innehåller för posten just nu. Pipe: antagandets belopp/viktning/datum (kan ha justerats i
+// importmodalen) — inte pipe-postens. Övriga: startpunkten från importen.
+function _rdBudgetSnap(source,e){
+  if(!e||!e.baseline)return null;
+  if(revDiffKind(source)==='pipe'&&e.assumption){const a=e.assumption,bl=e.baseline;return Object.assign({},bl,{exAmount:Math.round(Number(a.Amount)||0),prob:_rdNum(a.Prob),vat:a.VatRate!=null?Number(a.VatRate):bl.vat,invoiceDate:_rdYmd(a.AssumeDate)||bl.invoiceDate});}
+  return e.baseline;
+}
+const _rdContribAll=(mode,source,snap,assump,year)=>MONTHS.map((_,i)=>revDiffContribution(mode,source,snap,assump,i,year));
+// Cellraden (BudgetRows) en källa skriver till.
+function _rdTarget(mode,source,type){
+  const sub=String(source).indexOf('Vidarefakturering')===0?'Vidarefakturering':REV_CAT_TO_SUB[type];
+  if(mode==='likviditet')return{source,cat:REV_CATEGORY,sub};
+  if(String(source).indexOf('Avtal')===0)return{source,cat:'Periodiserade intäkter',sub};
+  return{source,cat:'Nyförsäljning',sub};
+}
+// Kundpostens ägare (kund-id) i custRevCache.
+function _rdCustOf(id){for(const[c,items]of Object.entries(custRevCache||{})){if(Array.isArray(items)&&items.some(x=>String(x.Id)===String(id)))return c;}return null;}
+// Läs om versionens antaganden + pipe-poster (väntar in, till skillnad från lazy-varianten).
+async function _rdReloadSources(versionId){revDiffInvalidateSources(versionId);await new Promise(res=>{revDiffEnsureSources(versionId,res);setTimeout(res,8000);});}
+// EN färsk GET + EN POST för alla delta-rader.
+async function _rdApplyDeltas(versionId,deltas){
+  const list=deltas.filter(d=>d.delta.some(v=>Math.round(v)!==0));if(!list.length)return;
+  const today=new Date().toISOString().substring(0,10);
+  let rows=await (await apiFetch(`${API}/budget-versions/${versionId}/rows`)).json();if(!Array.isArray(rows))rows=[];
+  list.forEach(d=>{
+    let row=rows.find(r=>r.Category===d.cat&&r.SubCategory===d.sub&&(r.Source||'')===d.source);
+    if(!row){row={Category:d.cat,SubCategory:d.sub,Source:d.source,ImportedAt:today};MONTHS.forEach(m=>row[m]=0);rows.push(row);}
+    MONTHS.forEach((m,i)=>{row[m]=Math.round((Number(row[m])||0)+(d.delta[i]||0));});row.ImportedAt=today;
+  });
+  const payload=rows.map(r=>{const o={category:r.Category,subCategory:r.SubCategory,source:r.Source||'',importedAt:r.ImportedAt?String(r.ImportedAt).substring(0,10):null};if(r.AccountNo!=null)o.accountNo=r.AccountNo;MONTHS.forEach(m=>o[m]=r[m]||0);return o;});
+  await apiFetch(`${API}/budget-versions/${versionId}/rows`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+}
+// Spårning som importmodalerna läser (Avtal-likviditet per månad; Avtal/VF-resultat snapshot).
+async function _rdTrack(versionId,source,item,add,year){
+  if(!item)return;const id=item.Id;
+  if(source==='Avtal (likviditet)'){
+    for(let mi=0;mi<12;mi++){const set=getImportedActualsSet(versionId,mi);if(set&&set.map(String).includes(String(id))&&(!add||_rdCashMonth(revDiffSnapshot(item,'rev'),year)!==mi))setImportedActualsMonth(versionId,mi,set.filter(x=>String(x)!==String(id)));}
+    if(add){const m=_rdCashMonth(revDiffSnapshot(item,'rev'),year);if(m!=null){const set=getImportedActualsSet(versionId,m)||[];if(!set.map(String).includes(String(id)))setImportedActualsMonth(versionId,m,set.concat([id]));}}
+    return;
+  }
+  const key=source==='Avtal (resultat)'?['avtalSnapshot','importedAvtalResultat_']:(source==='Vidarefakturering (resultat)'?['vfResultatSnapshot','importedVFResultat_']:null);
+  if(!key)return;
+  const snap=Object.assign({importedAt:new Date().toISOString().substring(0,10)},bmGet(versionId,key[0])||{});snap.items=Object.assign({},snap.items||{});
+  if(add){const s=revDiffSnapshot(item,'rev');snap.items[id]={amount:Math.round(Number(item.Amount)||0),from:s.accFrom||s.licFrom,to:s.accTo||s.licTo};}else delete snap.items[id];
+  try{localStorage.setItem(key[1]+versionId,JSON.stringify(snap));}catch(e){}
+  await bmSet(versionId,key[0],snap);
+}
+async function _rdPutAssumptions(versionId,source,assumptions,remove){
+  if(!(assumptions&&assumptions.length)&&!(remove&&remove.length))return;
+  await apiFetch(`${API}/budget-versions/${versionId}/import-assumptions`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({source,assumptions:assumptions||[],remove:remove||[]})});
+}
+const _rdAssumpBody=a=>({itemKey:a.ItemKey,amount:a.Amount!=null?Math.round(Number(a.Amount)):null,prob:a.Prob!=null?Math.round(Number(a.Prob)):null,assumeDate:_rdYmd(a.AssumeDate),refDate:_rdYmd(a.RefDate),type:a.Type||null,importedBy:a.ImportedBy||null,srcAmount:a.SrcAmount!=null?a.SrcAmount:null,srcProb:a.SrcProb!=null?a.SrcProb:null,srcDate:_rdYmd(a.SrcDate),vatRate:a.VatRate!=null?a.VatRate:null});
+async function _rdUserName(){try{const u=await getUserInfo();if(u&&u.name)return u.name;}catch(e){}return window._currentUserName||'okänd';}
+
+// Kör en lista åtgärder för en cell. ops: [{op,e}] — op: update | add | remove | restore | import.
+// Ordning: källspårning (antaganden) → budgetcellerna (en POST) → startpunkter/spårning, STRIKT sekventiellt.
+async function revDiffRunOps(ctx,ops){
+  const vid=currentBudgetVersionId;if(vid==null||!ops.length)return;
+  const{mode,source}=ctx;const kind=revDiffKind(source);
+  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(vid));const year=Number(ver&&ver.Year)||new Date().getFullYear();
+  const deltas={};const addDelta=(tgt,arr,sign)=>{const k=tgt.source+'|'+tgt.cat+'|'+tgt.sub;const d=deltas[k]||(deltas[k]=Object.assign({},tgt,{delta:Array(12).fill(0)}));arr.forEach((v,i)=>{d.delta[i]+=sign*(v||0);});};
+  const upserts={},removes={};const up=(src,a)=>{(upserts[src]=upserts[src]||[]).push(_rdAssumpBody(a));};const rm=(src,k)=>{(removes[src]=removes[src]||[]).push(String(k));};
+  const after=[];const by=await _rdUserName();const now=new Date().toISOString();
+  const self=e=>_rdTarget(mode,source,(e.cur||e.baseline||{}).type||_rdTypeOfSub(ctx.sub));
+  for(const{op,e}of ops){
+    const tgt=self(e);
+    if(op==='update'){
+      const before=_rdBudgetSnap(source,e);
+      addDelta(tgt,_rdContribAll(mode,source,before,null,year),-1);
+      if(kind==='pipe'){
+        const it=e.item;const a=Object.assign({},e.assumption,{Amount:it.Amount,Prob:it.Probability!=null?it.Probability:e.assumption.Prob,AssumeDate:_rdYmd(it.InvoiceDate)||_rdYmd(e.assumption.AssumeDate),VatRate:it.VatRate!=null?it.VatRate:e.assumption.VatRate,SrcAmount:it.Amount,SrcProb:it.Probability});
+        up(source,a);addDelta(tgt,_rdContribAll(mode,source,_rdBudgetSnap(source,{baseline:e.cur,assumption:a}),null,year),1);
+        after.push(()=>revDiffBaselineSetMany(vid,source,[{itemKey:e.itemKey,item:it}]));
+      }else if(kind==='forecast'&&e.status==='renewal'){
+        // Klar förlängning i Förnyelse-cellen: den signerade förlängningen ERSÄTTER prognosen — prognosen ut ur
+        // Förnyelse-raden (antagande + startpunkt bort), förlängningen in i Avtal-raden som en vanlig avtalspost.
+        rm(source,e.itemKey);after.push(()=>revDiffBaselineRemove(vid,source,[e.itemKey]));
+        const ren=_findCustRevItem(e.cur.contract.id);
+        if(ren){const avtalSrc=mode==='likviditet'?'Avtal (likviditet)':'Avtal (resultat)';const at=_rdTarget(mode,avtalSrc,ren.Type);
+          addDelta(at,_rdContribAll(mode,avtalSrc,revDiffSnapshot(ren,'rev'),null,year),1);
+          after.push(()=>revDiffBaselineSetMany(vid,avtalSrc,[{itemKey:ren.Id,item:ren}]));after.push(()=>_rdTrack(vid,avtalSrc,ren,true,year));}
+      }else{
+        addDelta(tgt,_rdContribAll(mode,source,e.cur,null,year),1);
+        if(kind==='rev'){const it=_findCustRevItem(e.itemKey);after.push(()=>revDiffBaselineSetMany(vid,source,[{itemKey:e.itemKey,item:it}]));after.push(()=>_rdTrack(vid,source,it,true,year));}
+        else after.push(()=>revDiffBaselineSetMany(vid,source,[{itemKey:e.itemKey,item:revDiffForecastSrc(vid,e.assumption)}]));
+      }
+    }else if(op==='add'){   // Ny / Klar förlängning (signerad post som inte ligger i budgeten)
+      const it=_findCustRevItem(e.itemKey);if(!it)continue;
+      addDelta(tgt,_rdContribAll(mode,source,revDiffSnapshot(it,'rev'),null,year),1);
+      after.push(()=>revDiffBaselineSetMany(vid,source,[{itemKey:e.itemKey,item:it}]));after.push(()=>_rdTrack(vid,source,it,true,year));
+    }else if(op==='remove'){   // mjuk borttagning ur budgeten (manuell)
+      const before=_rdBudgetSnap(source,e);
+      if(before){
+        addDelta(tgt,_rdContribAll(mode,source,before,null,year),-1);
+        after.push(()=>revDiffBaselineRemove(vid,source,[e.itemKey]));
+        if(kind==='rev')after.push(()=>_rdTrack(vid,source,_findCustRevItem(e.itemKey)||{Id:e.itemKey},false,year));
+        else rm(source,e.itemKey);
+      }
+      const rec={by,at:now,status:e.status,inBudget:!!before,snap:e.cur||e.baseline||null,budget:before,assumption:e.assumption||null};
+      after.push(()=>_rdRemovedSet(vid,source,e.itemKey,rec));
+    }else if(op==='restore'){   // ↺ Lägg till igen — med dagens värden ur källan
+      const rec=e.rec;
+      if(kind==='rev'){const it=_findCustRevItem(e.itemKey);if(it){addDelta(tgt,_rdContribAll(mode,source,revDiffSnapshot(it,'rev'),null,year),1);after.push(()=>revDiffBaselineSetMany(vid,source,[{itemKey:e.itemKey,item:it}]));after.push(()=>_rdTrack(vid,source,it,true,year));}}
+      else if(kind==='pipe'){const it=e.item;const a0=rec.assumption||{ItemKey:e.itemKey,Type:it&&it.Type};
+        if(it){const a=Object.assign({},a0,{ItemKey:e.itemKey,Amount:it.Amount,Prob:it.Probability,AssumeDate:_rdYmd(it.InvoiceDate)||_rdYmd(a0.AssumeDate),VatRate:it.VatRate,Type:it.Type});up(source,a);
+          addDelta(tgt,_rdContribAll(mode,source,_rdBudgetSnap(source,{baseline:revDiffSnapshot(it,'pipe'),assumption:a}),null,year),1);after.push(()=>revDiffBaselineSetMany(vid,source,[{itemKey:e.itemKey,item:it}]));}}
+      else if(rec.assumption){const a=rec.assumption;up(source,a);const src=revDiffForecastSrc(vid,a);
+        addDelta(tgt,_rdContribAll(mode,source,revDiffSnapshot(src,'forecast'),null,year),1);after.push(()=>revDiffBaselineSetMany(vid,source,[{itemKey:e.itemKey,item:src}]));}
+      after.push(()=>_rdRemovedSet(vid,source,e.itemKey,null));
+    }else if(op==='import'){   // Ej importerade → in i budgeten (nytt antagande)
+      const a=e.assumption;up(source,a);
+      if(kind==='pipe'){addDelta(tgt,_rdContribAll(mode,source,_rdBudgetSnap(source,{baseline:revDiffSnapshot(e.item,'pipe'),assumption:a}),null,year),1);after.push(()=>revDiffBaselineSetMany(vid,source,[{itemKey:e.itemKey,item:e.item}]));}
+      else{const src={assumption:a,period:null,contract:e.contract};addDelta(tgt,_rdContribAll(mode,source,revDiffSnapshot(src,'forecast'),null,year),1);after.push(()=>revDiffBaselineSetMany(vid,source,[{itemKey:e.itemKey,item:src}]));}
+    }
+  }
+  for(const src of new Set([...Object.keys(upserts),...Object.keys(removes)]))await _rdPutAssumptions(vid,src,upserts[src],removes[src]);
+  await _rdApplyDeltas(vid,Object.values(deltas));
+  for(const f of after)await f();
+  if(kind!=='rev'||Object.keys(upserts).length||Object.keys(removes).length)await _rdReloadSources(vid);
+}
+
+// Fältredigering → källan. patch: {amount (ex moms), invoiceDate, payDate, licFrom, licTo, prob}.
+async function revDiffWriteSource(source,e,patch){
+  const kind=revDiffKind(source);
+  const signed=kind==='rev'?_findCustRevItem(e.itemKey):(kind==='forecast'&&e.status==='renewal'&&e.cur&&e.cur.contract?_findCustRevItem(e.cur.contract.id):null);
+  if(signed){
+    const cid=_rdCustOf(signed.Id);if(cid==null)throw new Error('kundpost saknas');
+    const x={};
+    if('amount'in patch)x.amount=patch.amount;
+    if('invoiceDate'in patch)x.invoiceDate=patch.invoiceDate||null;
+    if('licFrom'in patch)x.dateFrom=patch.licFrom||null;
+    if('licTo'in patch)x.dateTo=patch.licTo||null;
+    if('payDate'in patch){if(signed.Paid)x.paymentDate=patch.payDate||null;else x.expectedPaymentDate=patch.payDate||null;}
+    await _betPutCore(Number(cid),signed.Id,x);await _betReloadCust(Number(cid));return;
+  }
+  if(kind==='pipe'){
+    const us=String(e.itemKey).split('_');const iid=us.pop();const pid=us.join('_');
+    const it=(prospectRevCache[pid]||[]).find(x=>String(x.Id)===String(iid));if(!it)throw new Error('pipe-post saknas');
+    const u=Object.assign({},it);
+    if('amount'in patch)u.Amount=patch.amount;if('invoiceDate'in patch)u.InvoiceDate=patch.invoiceDate||null;
+    if('licFrom'in patch)u.DateFrom=patch.licFrom||null;if('licTo'in patch)u.DateTo=patch.licTo||null;if('prob'in patch)u.Probability=patch.prob;
+    await saveProspectRevenue(pid,u);
+    try{prospectRevCache[pid]=await loadProspectRevenues(pid);}catch(err){}
+    return;
+  }
+  // Ren Förnyelse-prognos: antagandet är källan.
+  const vid=currentBudgetVersionId;const a=Object.assign({},e.assumption);
+  if('amount'in patch)a.Amount=patch.amount;if('invoiceDate'in patch)a.AssumeDate=patch.invoiceDate;if('prob'in patch)a.Prob=patch.prob;
+  await _rdPutAssumptions(vid,source,[_rdAssumpBody(a)],[]);   // API-format (itemKey/amount/prob …), inte DB-radens
+  if('licFrom'in patch||'licTo'in patch){const map=Object.assign({},bmGet(vid,'fornyelsePeriods')||{});const cur=map[e.itemKey]||{};map[e.itemKey]={dateFrom:'licFrom'in patch?patch.licFrom:cur.dateFrom||null,dateTo:'licTo'in patch?patch.licTo:cur.dateTo||null};await bmSet(vid,'fornyelsePeriods',map);}
+  await _rdReloadSources(vid);
+}
+
+// Ej importerade: pipe-/förnyelseposter som ALDRIG legat i den här versionen och som hamnar i cellen.
+function revDiffNotImported(mode,source,cat,sub,mi,year){
+  const kind=revDiffKind(source);if(kind==='rev')return[];
+  const vid=currentBudgetVersionId;const type=_rdTypeOfSub(sub);if(!type)return[];
+  const src=_rdSrcCache[vid];const known=new Set([...((src&&src.assumptions)||[]).filter(a=>a.Source===source).map(a=>String(a.ItemKey)),...Object.keys(revDiffBaselineAll(vid,source)),...Object.keys(revDiffRemovedAll(vid,source))]);
+  const lands=(date,from,to)=>mode==='likviditet'?_rdCashMonth({invoiceDate:_rdYmd(date)},year)===mi:_rdResMonths({licFrom:_rdYmd(from),licTo:_rdYmd(to)},year).includes(mi);
+  const out=[];
+  if(kind==='pipe'){
+    (allProspects||[]).filter(p=>_RD_PP_STAGES.includes(p.Stage)).forEach(p=>{(prospectRevCache[p.Id]||[]).forEach(it=>{
+      if(it.Type!==type||!(it.Amount>0))return;const key=p.Id+'_'+it.Id;if(known.has(key))return;
+      if(!lands(it.InvoiceDate,it.AccrualFrom||it.DateFrom,it.AccrualTo||it.DateTo))return;
+      out.push({itemKey:key,name:p.Company||('Prospekt '+p.Id),sub2:(p.Stage||'')+(it.Description?' · '+it.Description:''),item:it,
+        assumption:{ItemKey:key,Amount:it.Amount,Prob:it.Probability||0,AssumeDate:_rdYmd(it.InvoiceDate),RefDate:_rdYmd(it.InvoiceDate),Type:it.Type,VatRate:it.VatRate,SrcAmount:it.Amount,SrcProb:it.Probability,SrcDate:_rdYmd(it.InvoiceDate)}});
+    });});
+  }else{
+    (allCustomers||[]).forEach(c=>{const ct=_rdLatestOfType(c.Id,type);if(!ct||!ct.DateTo)return;const key=c.Id+'_'+type;if(known.has(key))return;
+      const s=new Date(_rdYmd(ct.DateTo)+'T00:00:00');s.setDate(s.getDate()+1);const e2=new Date(s);e2.setFullYear(e2.getFullYear()+1);e2.setDate(e2.getDate()-1);
+      if(!lands(ct.DateTo,_betYmd(s),_betYmd(e2)))return;
+      let prob=0;try{prob=calculateRiskScoreClient(c).renewalProb;}catch(err){}
+      out.push({itemKey:key,name:c.Company||('Kund '+c.Id),sub2:'Avtalet löper ut '+_rdYmd(ct.DateTo),contract:ct,
+        assumption:{ItemKey:key,Amount:ct.Amount,Prob:prob,AssumeDate:_rdYmd(ct.DateTo),RefDate:_rdYmd(ct.DateTo),Type:type,VatRate:ct.VatRate,SrcAmount:ct.Amount,SrcProb:prob,SrcDate:_rdYmd(ct.DateTo)}});
+    });
+  }
+  return out;
+}
+
+// Vyn. opts.expand = itemKey som ska vara utfälld (efter en redigering).
+async function openRevDiffModal(enc,opts){
+  opts=opts||{};let ctx;try{ctx=JSON.parse(decodeURIComponent(enc));}catch(e){return;}
   const{mode,source,cat,sub,mi}=ctx;
-  const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(currentBudgetVersionId));
+  const vid=currentBudgetVersionId;const ver=(budgetVersions||[]).find(v=>String(v.Id)===String(vid));
   const year=Number(ver&&ver.Year)||new Date().getFullYear();
   const kind=revDiffKind(source);const res=mode==='resultat';
+  if(kind==='pipe'&&!opts.prefetched){const pp=(allProspects||[]).filter(p=>_RD_PP_STAGES.includes(p.Stage)&&!prospectRevCache[p.Id]);if(pp.length){try{await prefetchProspectRevenues(pp);}catch(e){}}}
   const{entries,saved,today}=revDiffCellDetail(mode,source,cat,sub,mi,year);
+  const removedMap=revDiffRemovedAll(vid,source);
+  const removed=Object.entries(removedMap).map(([k,rec])=>{const live=kind==='rev'?_findCustRevItem(k):null;const s=rec.budget||rec.snap;const lands=s?revDiffContribution(mode,source,s,null,mi,year):0;
+    return{itemKey:k,rec,status:'removed-manual',cur:live?revDiffSnapshot(live,'rev'):(rec.snap||null),baseline:rec.budget||null,assumption:rec.assumption,item:kind==='pipe'?(()=>{const us=String(k).split('_');const iid=us.pop();return(prospectRevCache[us.join('_')]||[]).find(x=>String(x.Id)===iid)||null;})():null,lands};}).filter(r=>r.lands||(r.cur&&revDiffContribution(mode,source,r.cur,r.assumption,mi,year)));
+  const cands=revDiffNotImported(mode,source,cat,sub,mi,year);
+  entries.forEach(e=>{if(kind==='pipe'){const us=String(e.itemKey).split('_');const iid=us.pop();e.item=(prospectRevCache[us.join('_')]||[]).find(x=>String(x.Id)===iid)||null;}});
+  window._rdState={enc,ctx,entries,removed,cands,candEdits:{}};
   const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const fk=v=>Math.round(v||0).toLocaleString('sv-SE');
   const M=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
@@ -3986,42 +4192,82 @@ function openRevDiffModal(enc){
   const net30=d=>{if(!d)return'';const x=new Date(d+'T00:00:00');x.setDate(x.getDate()+30);return _betYmd(x);};
   const factMonths=new Set(entries.filter(e=>e.status!=='removed').map(e=>{const s=e.cur||e.baseline;return s&&s.invoiceDate?s.invoiceDate.substring(0,7):null;}).filter(Boolean));
   const badge=st=>{const m=_REV_STATUS_META[st];return`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;white-space:nowrap;background:${m.bg};color:${m.fg};">● ${m.label}</span>`;};
-  // Fältrutnät i FAST ordning. Ej tillämpliga fält: låsta/gråtonade i samma position.
-  const fieldGrid=e=>{
-    const cur=e.cur||e.baseline||{},bl=e.baseline,ch=(e.status!=='removed'&&bl&&e.cur)?revDiffCompare(bl,e.cur).fields:{};
-    const amt=s=>s?fk(res?s.exAmount:s.amount)+' kr':'';
+  const btn=(label,on,style)=>`<button type="button" onclick="${on}" style="padding:5px 10px;border-radius:6px;border:1px solid #E8E6DD;background:#fff;color:#55534c;font-size:11px;cursor:pointer;font-family:inherit;${style||''}">${label}</button>`;
+  // Fältrutnät i FAST ordning; redigerbart (skriver till källan vid ändring). grp: e=post i cellen, r=borttagen.
+  const fieldGrid=(e,grp)=>{
+    const cur=e.cur||e.baseline||{},bl=e.baseline,ch=(grp==='e'&&e.status!=='removed'&&bl&&e.cur)?revDiffCompare(bl,e.cur).fields:{};
+    const signed=kind==='rev'||(kind==='forecast'&&e.status==='renewal');
+    const editable=grp!=='x'&&e.status!=='removed';
+    const amtV=s=>s?Math.round(res?s.exAmount:s.amount):'';
+    const prevAmt=s=>s?fk(res?s.exAmount:s.amount)+' kr':'';
     const per=s=>s&&(s.licFrom||s.licTo)?`${s.licFrom||'?'} – ${s.licTo||'?'}`:'';
-    const pay=s=>s?(s.payDate||(s.kind==='rev'&&s.invoiceDate?'≈ '+net30(s.invoiceDate)+' (NET30)':'')):'';
-    const prob=s=>s&&s.prob!=null?s.prob+' %':'';
-    const F=[
-      {k:'amount',label:'Belopp'+(res?' (ex moms)':' (inkl moms)'),val:amt(cur),prev:amt(bl),na:false},
-      {k:'invoiceDate',label:'Fakturadatum',val:cur.invoiceDate||'',prev:bl&&bl.invoiceDate,na:false},
-      {k:'payDate',label:'Betaldatum',val:kind==='rev'?pay(cur):(cur.invoiceDate?'≈ '+net30(cur.invoiceDate)+' (NET30)':''),prev:pay(bl),na:kind!=='rev'},
-      {k:'licPeriod',label:'Licensperiod',val:per(cur),prev:per(bl),na:false},
-      {k:'prob',label:'Viktning',val:kind==='rev'?'100 % (tecknat)':prob(cur),prev:prob(bl),na:kind==='rev'},
-    ];
-    return`<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;">${F.map(f=>{const changed=!!ch[f.k];return`<div style="display:flex;flex-direction:column;gap:3px;min-width:0;"><label style="font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#a6a399;">${f.label}</label><input type="text" readonly value="${esc(f.val||'–')}" style="font-size:12px;border:1px solid ${changed?'#EADDBA':(f.na?'#EFEDE4':'#E8E6DD')};background:${changed?'#FBF4E8':(f.na?'#F7F6F2':'#fff')};color:${f.na?'#a6a399':'#141413'};border-radius:6px;padding:5px 7px;font-family:inherit;width:100%;box-sizing:border-box;">${changed?`<div style="font-size:9px;color:#b5b2a7;">förra: <b style="color:#9a6b15;">${esc(f.prev||'–')}</b></div>`:''}</div>`;}).join('')}</div>`;
+    const payV=signed?(cur.payDate||''):'';
+    const inp=(k,type,val,na,extra)=>`<input type="${type}" ${na||!editable?'disabled':''} data-grp="${grp}" data-key="${esc(e.itemKey)}" data-k="${k}" value="${esc(val)}" onchange="window._rdField(this)" ${extra||''} style="font-size:12px;border:1px solid ${ch[k==='licFrom'||k==='licTo'?'licPeriod':k]?'#EADDBA':(na?'#EFEDE4':'#E8E6DD')};background:${ch[k==='licFrom'||k==='licTo'?'licPeriod':k]?'#FBF4E8':(na?'#F7F6F2':'#fff')};color:${na?'#a6a399':'#141413'};border-radius:6px;padding:5px 7px;font-family:inherit;width:100%;box-sizing:border-box;">`;
+    const prev=(k,val)=>ch[k]?`<div style="font-size:9px;color:#b5b2a7;">förra: <b style="color:#9a6b15;">${esc(val||'–')}</b></div>`:'';
+    const lbl=t=>`<label style="font-size:9.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#a6a399;">${t}</label>`;
+    const cell=c=>`<div style="display:flex;flex-direction:column;gap:3px;min-width:0;">${c}</div>`;
+    return`<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;">`
+      +cell(lbl('Belopp'+(res?' (ex moms)':' (inkl moms)'))+inp('amount','number',amtV(cur),false,'step="1"')+prev('amount',prevAmt(bl)))
+      +cell(lbl('Fakturadatum')+inp('invoiceDate','date',cur.invoiceDate||'',false)+prev('invoiceDate',bl&&bl.invoiceDate))
+      +cell(lbl('Betaldatum')+(signed?inp('payDate','date',payV,false,`title="Tomt = fakturadatum + 30 (${esc(net30(cur.invoiceDate))})"`):inp('payDate','text',cur.invoiceDate?'≈ '+net30(cur.invoiceDate)+' (NET30)':'',true))+prev('payDate',bl&&(bl.payDate||'NET30')))
+      +cell(lbl('Licensperiod')+inp('licFrom','date',cur.licFrom||'',false)+inp('licTo','date',cur.licTo||'',false)+prev('licPeriod',per(bl)))
+      +cell(lbl('Viktning')+(signed?inp('prob','text','100 % (tecknat)',true):inp('prob','number',cur.prob!=null?cur.prob:'',false,'min="0" max="100" step="1"'))+prev('prob',bl&&bl.prob!=null?bl.prob+' %':''))
+      +`</div><div style="font-size:10.5px;color:#8a8780;margin-top:8px;">Ändringar sparas direkt ${signed?'på kundkortet':(kind==='pipe'?'på pipe-kortet':'i förnyelseantagandet')} och syns i cellen först när posten uppdateras. Periodisering redigeras i resultatbudgeten.</div>`;
   };
-  const _encCtx=encodeURIComponent(JSON.stringify(ctx));
+  const _q=s=>String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const rowHtml=(e,i)=>{
-    const s=e.cur||e.baseline||{};const tag=fakt(s.invoiceDate);
-    const sub2=e.status==='removed'?'Finns inte kvar i källan — ligger kvar i budgeten tills raden uppdateras.':(e.status==='renewal'?'Befintlig kund — förlängning ej importerad till den här budgetversionen.':(e.status==='new'?'Ny i källan sedan senaste importen.':(e.status==='overdue'?`Väntat betaldatum ${e.due?_betYmd(e.due):''} passerat, obekräftad.`:'Ett eller flera fält skiljer sig mot förra importen.')));
+    const s=e.cur||e.baseline||{};const tag=fakt(s.invoiceDate);const isOpen=String(opts.expand)===String(e.itemKey);
+    const sub2=e.status==='removed'?'Finns inte kvar i källan — ligger kvar i budgeten tills du tar bort den.':(e.status==='renewal'?(kind==='forecast'?'Förlängningen är signerad — ersätter prognosen när du uppdaterar.':'Befintlig kund — förlängning ej importerad till den här budgetversionen.'):(e.status==='new'?'Ny i källan sedan senaste importen.':(e.status==='overdue'?`Väntat betaldatum ${e.due?_betYmd(e.due):''} passerat, obekräftad.`:'Ett eller flera fält skiljer sig mot förra importen.')));
+    const selectable=['changed','new','renewal'].includes(e.status);
     let actions='';
-    if(e.status==='overdue'&&kind==='rev'){const it=_findCustRevItem(e.itemKey);const cid=e.custId!=null?e.custId:(()=>{for(const[c,items]of Object.entries(custRevCache||{}))if(Array.isArray(items)&&items.includes(it))return c;return null;})();
-      if(it&&cid!=null)actions=`<div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;"><button type="button" onclick="window._revDiffConfirmPaid(${Number(cid)},${it.Id},'${_encCtx}')" style="padding:5px 10px;border-radius:6px;border:1px solid #b8d9c6;background:#fff;color:#1a7a50;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">✓ Bekräfta betald</button><button type="button" onclick="window._revDiffShiftOne(${Number(cid)},${it.Id},'${_encCtx}')" style="padding:5px 10px;border-radius:6px;border:1px solid #E8E6DD;background:#fff;color:#55534c;font-size:11px;cursor:pointer;font-family:inherit;">→ Flytta till ${M[new Date().getMonth()]}</button></div>`;}   // _betShiftDate: innevarande månad, samma dag
+    if(e.status==='overdue'&&kind==='rev'){const cid=_rdCustOf(e.itemKey);if(cid!=null)actions+=btn('✓ Bekräfta betald',`window._revDiffConfirmPaid(${Number(cid)},${Number(e.itemKey)})`,'border-color:#b8d9c6;color:#1a7a50;font-weight:600;')+btn('→ Flytta till '+M[new Date().getMonth()],`window._revDiffShiftOne(${Number(cid)},${Number(e.itemKey)})`);}   // _betShiftDate: innevarande månad
+    if(selectable)actions+=btn(e.status==='changed'?'↻ Uppdatera rad':'+ Lägg till i budgeten',`window._rdRun('${e.status==='changed'?'update':(e.status==='renewal'&&kind==='forecast'?'update':'add')}','${_q(e.itemKey)}')`,'background:#D97757;border-color:#D97757;color:#fff;font-weight:600;');
+    actions+=btn('✕ Ta bort ur budget',`window._rdRun('remove','${_q(e.itemKey)}')`,'color:#a32d2d;');
     return`<div style="border:1px solid #E8E6DD;border-radius:9px;margin-bottom:8px;background:#fff;overflow:hidden;">
-      <button type="button" onclick="const b=document.getElementById('rdx-${i}');const o=b.style.display==='none';b.style.display=o?'block':'none';this.querySelector('.rdchev').textContent=o?'▾':'▸';" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;">
-        ${badge(e.status)}
-        <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;color:#141413;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(_rdOwnerName(source,e))}</div><div style="font-size:11px;color:#8a8780;">${esc(sub2)}</div></div>
-        ${tag?`<span style="font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#8a8780;background:#F0EEE7;border-radius:5px;padding:2px 6px;white-space:nowrap;">${tag}</span>`:''}
-        <span style="font-size:13px;font-weight:600;color:#141413;white-space:nowrap;min-width:70px;text-align:right;">${e.status==='removed'?`<s style="color:#a6a399;">${fk(e.before)}</s>`:fk(e.today)}</span>
-        <span class="rdchev" style="color:#a6a399;font-size:11px;">▸</span>
-      </button>
-      <div id="rdx-${i}" style="display:none;padding:4px 14px 14px;border-top:1px solid #F3F1EA;">${fieldGrid(e)}${actions}</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;">
+        ${selectable?`<input type="checkbox" class="rd-sel" data-key="${esc(e.itemKey)}" onchange="window._rdCount()" aria-label="Markera för uppdatering" style="width:15px;height:15px;accent-color:#D97757;cursor:pointer;flex-shrink:0;">`:'<span style="width:15px;flex-shrink:0;"></span>'}
+        <button type="button" onclick="const b=document.getElementById('rdx-${i}');const o=b.style.display==='none';b.style.display=o?'block':'none';this.querySelector('.rdchev').textContent=o?'▾':'▸';" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;padding:0;">
+          ${badge(e.status)}
+          <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;color:#141413;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(_rdOwnerName(source,e))}</div><div style="font-size:11px;color:#8a8780;">${esc(sub2)}</div></div>
+          ${tag?`<span style="font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#8a8780;background:#F0EEE7;border-radius:5px;padding:2px 6px;white-space:nowrap;">${tag}</span>`:''}
+          <span style="font-size:13px;font-weight:600;color:#141413;white-space:nowrap;min-width:70px;text-align:right;">${e.status==='removed'?`<s style="color:#a6a399;">${fk(e.before)}</s>`:fk(e.today)}</span>
+          <span class="rdchev" style="color:#a6a399;font-size:11px;">${isOpen?'▾':'▸'}</span>
+        </button>
+      </div>
+      <div id="rdx-${i}" style="display:${isOpen?'block':'none'};padding:4px 14px 14px;border-top:1px solid #F3F1EA;">${fieldGrid(e,'e')}<div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;">${actions}</div></div>
     </div>`;
   };
   const flagged=entries.filter(e=>e.status!=='unchanged');
   const unchanged=entries.filter(e=>e.status==='unchanged');
+  const unchOpen=unchanged.some(e=>String(e.itemKey)===String(opts.expand));
+  const unchHtml=unchanged.length?`<div style="border:1px solid #E8E6DD;border-radius:9px;background:#fff;margin-bottom:8px;overflow:hidden;">
+    <button type="button" onclick="const b=document.getElementById('rd-unch');const o=b.style.display==='none';b.style.display=o?'block':'none';this.querySelector('.rdchev').textContent=o?'▾':'▸';" style="display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;">
+      <span style="width:15px;"></span><span style="font-size:12px;font-weight:600;color:#3B6D11;">✓ Oförändrade</span><span style="flex:1;font-size:11px;color:#8a8780;">${unchanged.length} post${unchanged.length===1?'':'er'} — samma belopp, datum och period som senaste importen</span><span style="font-size:13px;font-weight:600;color:#141413;">${fk(unchanged.reduce((s,e)=>s+(e.today||0),0))}</span><span class="rdchev" style="color:#a6a399;font-size:11px;">${unchOpen?'▾':'▸'}</span>
+    </button>
+    <div id="rd-unch" style="display:${unchOpen?'block':'none'};padding:0 14px 10px;border-top:1px solid #F3F1EA;">${unchanged.map((e,i)=>{const s=e.cur||{};const open=String(opts.expand)===String(e.itemKey);return`<div style="padding:8px 0;border-bottom:1px solid #F3F1EA;">
+      <div style="display:flex;align-items:center;gap:10px;font-size:12px;"><span style="flex:1;color:#141413;">${esc(_rdOwnerName(source,e))} <span style="color:#a6a399;">· ${esc(fakt(s.invoiceDate).toLowerCase())}${s.licFrom?` · period ${esc(s.licFrom)}–${esc(s.licTo||'')}`:''}</span></span><span style="font-weight:600;">${fk(e.today)} kr</span>
+      <button type="button" aria-label="Redigera" onclick="const b=document.getElementById('rdu-${i}');b.style.display=b.style.display==='none'?'block':'none';" style="width:22px;height:22px;border-radius:6px;border:1px solid #E8E6DD;background:#fff;color:#8a8780;font-size:11px;cursor:pointer;padding:0;">✎</button>
+      ${btn('✕ Ta bort ur budget',`window._rdRun('remove','${_q(e.itemKey)}')`,'color:#a32d2d;')}</div>
+      <div id="rdu-${i}" style="display:${open?'block':'none'};margin-top:8px;">${fieldGrid(e,'e')}</div></div>`;}).join('')}</div></div>`:'';
+  const candContrib=c=>{const ed=window._rdState.candEdits[c.itemKey]||{};const a=Object.assign({},c.assumption,ed.amount!=null?{Amount:ed.amount}:{},ed.prob!=null?{Prob:ed.prob}:{},ed.date?{AssumeDate:ed.date}:{});
+    return revDiffContribution(mode,source,kind==='pipe'?_rdBudgetSnap(source,{baseline:revDiffSnapshot(c.item,'pipe'),assumption:a}):revDiffSnapshot({assumption:a,contract:c.contract},'forecast'),null,mi,year);};
+  const candTotal=cands.reduce((s,c)=>s+candContrib(c),0);
+  const candHtml=cands.length?`<div style="border:1px dashed #D9D6CB;border-radius:9px;background:#fff;margin-bottom:8px;overflow:hidden;">
+    <div style="padding:11px 14px;"><div style="font-size:12px;font-weight:600;color:#141413;">Ej importerade — finns i ${kind==='pipe'?'pipen':'källan'}, syns inte i cellen ännu</div><div style="font-size:11px;color:#8a8780;">viktat ${fk(candTotal)} kr · inte med i ${fk(saved)} kr ovan</div>
+    <div style="font-size:10.5px;color:#8a8780;margin-top:6px;line-height:1.5;">Skillnad mot "Ny" / "Klar förlängning" ovan: de har redan förväntats i den här budgetversionen och saknas därför. De här har aldrig legat i budgeten — ingen avvikelse, bara ännu inte en del av den. "Uppdatera" synkar poster som borde finnas med; "Importera" lägger till helt nya.</div></div>
+    ${cands.map(c=>`<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid #F3F1EA;flex-wrap:wrap;">
+      <input type="checkbox" class="rd-imp" data-key="${esc(c.itemKey)}" onchange="window._rdCount()" aria-label="Markera för import" style="width:15px;height:15px;accent-color:#D97757;cursor:pointer;">
+      <div style="flex:1;min-width:150px;"><div style="font-size:13px;font-weight:500;color:#141413;">${esc(c.name)}</div><div style="font-size:11px;color:#8a8780;">${esc(c.sub2)}</div></div>
+      ${['amount','date','prob'].map(k=>`<div style="display:flex;flex-direction:column;gap:2px;"><label style="font-size:8.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:#b5b2a7;">${k==='amount'?'Belopp (ex moms)':(k==='date'?'Faktura':'Viktning %')}</label><input type="${k==='date'?'date':'number'}" data-grp="c" data-key="${esc(c.itemKey)}" data-k="${k}" value="${esc(k==='amount'?Math.round(Number(c.assumption.Amount)||0):(k==='date'?c.assumption.AssumeDate||'':c.assumption.Prob))}" onchange="window._rdField(this)" style="font-size:12px;border:1px solid #E8E6DD;border-radius:6px;padding:4px 7px;font-family:inherit;width:${k==='date'?'130':'90'}px;box-sizing:border-box;"></div>`).join('')}
+      <div style="font-size:12px;color:#55534c;min-width:90px;text-align:right;">${fk(candContrib(c))} kr viktat</div>
+    </div>`).join('')}</div>`:'';
+  const remHtml=removed.length?`<div style="border:1px solid #E8E6DD;border-radius:9px;background:#fff;overflow:hidden;">
+    <button type="button" onclick="const b=document.getElementById('rd-rem');const o=b.style.display==='none';b.style.display=o?'block':'none';" style="display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;font-size:12px;color:#55534c;">⊘ Borttagna — ${removed.length} post${removed.length===1?'':'er'} borttagen${removed.length===1?'':'a'} ur den här budgetversionen</button>
+    <div id="rd-rem" style="display:${removed.some(r=>String(r.itemKey)===String(opts.expand))?'block':'none'};padding:0 14px 10px;border-top:1px solid #F3F1EA;">${removed.map((r,i)=>`<div style="padding:8px 0;border-bottom:1px solid #F3F1EA;">
+      <div style="display:flex;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap;"><span style="flex:1;color:#55534c;">${esc(_rdOwnerName(source,r))} <span style="color:#a6a399;">· borttagen av ${esc(r.rec.by||'okänd')} ${esc(String(r.rec.at||'').substring(0,10))}</span></span><s style="color:#a6a399;">${fk(r.lands)} kr</s>
+      <button type="button" aria-label="Redigera" onclick="const b=document.getElementById('rdr-${i}');b.style.display=b.style.display==='none'?'block':'none';" style="width:22px;height:22px;border-radius:6px;border:1px solid #E8E6DD;background:#fff;color:#8a8780;font-size:11px;cursor:pointer;padding:0;">✎</button>
+      ${btn('↺ Lägg till igen',`window._rdRun('restore','${_q(r.itemKey)}')`)}</div>
+      <div id="rdr-${i}" style="display:${String(opts.expand)===String(r.itemKey)?'block':'none'};margin-top:8px;">${fieldGrid(r,'r')}</div></div>`).join('')}</div></div>`:'';
   const diff=today-saved;
   const ex=document.getElementById('revdiff-overlay');if(ex)ex.remove();
   const ov=document.createElement('div');ov.id='revdiff-overlay';
@@ -4031,37 +4277,98 @@ function openRevDiffModal(enc){
     <div style="padding:20px 24px 14px;display:flex;justify-content:space-between;gap:12px;">
       <div><div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a6a399;">${res?'Resultatbudget':'Likviditetsbudget'} · ${esc(_REV_SOURCE_LABEL(source))}${kind==='rev'&&!/Vidarefakturering/.test(source)?' · '+esc(sub):''} · ${monName} ${year}</div>
       <h3 style="font-size:19px;font-weight:600;color:#141413;margin:4px 0 2px;">Stämmer cellens belopp mot dagens underlag?</h3>
-      <div style="font-size:12px;color:#8a8780;">${entries.length} post${entries.length===1?'':'er'}${factMonths.size?` · från ${factMonths.size} olika fakturamånad${factMonths.size===1?'':'er'}`:''}.</div></div>
+      <div style="font-size:12px;color:#8a8780;">${entries.length} post${entries.length===1?'':'er'}${factMonths.size?` · från ${factMonths.size} olika fakturamånad${factMonths.size===1?'':'er'}`:''}. Ändringar som redigeras här sparas även ${kind==='pipe'?'på pipe-korten':'på kundkorten'}.</div></div>
       <button type="button" onclick="document.getElementById('revdiff-overlay').remove()" style="align-self:flex-start;padding:6px 12px;border:1px solid #E8E6DD;border-radius:8px;background:#fff;color:#55534c;font-size:12px;cursor:pointer;font-family:inherit;">✕ Stäng</button>
     </div>
-    <div style="overflow:auto;flex:1;padding:0 24px 20px;">
+    <div style="overflow:auto;flex:1;padding:0 24px 16px;">
       <div style="display:flex;align-items:stretch;gap:12px;margin-bottom:14px;">
         <div style="flex:1;background:#fff;border:1px solid #E8E6DD;border-radius:10px;padding:12px 16px;"><div style="font-size:11px;color:#8a8780;">I budgeten (sparat)</div><div style="font-size:22px;font-weight:700;color:#141413;">${fk(saved)} kr</div><div style="font-size:11px;color:#a6a399;">Det cellen visar just nu</div></div>
         <div style="align-self:center;color:#a6a399;font-size:18px;" aria-hidden="true">→</div>
         <div style="flex:1;background:#fff;border:1px solid #E8E6DD;border-radius:10px;padding:12px 16px;"><div style="font-size:11px;color:#8a8780;">Underlaget idag (om du uppdaterar)</div><div style="font-size:22px;font-weight:700;color:#141413;">${fk(today)} kr</div><div style="font-size:11px;color:${diff?'#8a5a0b':'#a6a399'};">${diff?(diff>0?'+':'−')+fk(Math.abs(diff))+' kr mot budgeten':'Samma som budgeten'}</div></div>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:14px;font-size:11px;color:#8a8780;">${['overdue','changed','new','renewal','removed'].map(st=>`<span style="display:inline-flex;align-items:center;gap:5px;">${badge(st)} ${_REV_STATUS_META[st].help}</span>`).join('')}</div>
-      ${flagged.map(rowHtml).join('')||'<div style="font-size:12px;color:#8a8780;padding:10px 0;">Inga avvikelser mot källan i den här cellen.</div>'}
-      ${unchanged.length?`<div style="border:1px solid #E8E6DD;border-radius:9px;background:#fff;padding:11px 14px;display:flex;align-items:center;gap:10px;"><span style="font-size:12px;font-weight:600;color:#3B6D11;">✓ Oförändrade</span><span style="flex:1;font-size:11px;color:#8a8780;">${esc(_rdOwnerName(source,unchanged[0]))}${unchanged.length>1?` + ${unchanged.length-1} till`:''} — samma som senaste importen</span><span style="font-size:13px;font-weight:600;color:#141413;">${fk(unchanged.reduce((s,e)=>s+(e.today||0),0))}</span></div>`:''}
+      ${flagged.map(rowHtml).join('')||'<div style="font-size:12px;color:#8a8780;padding:6px 0 10px;">Inga avvikelser mot källan i den här cellen.</div>'}
+      ${unchHtml}${candHtml}${remHtml}
+      <div id="rd-msg" style="font-size:11px;color:#a32d2d;margin-top:8px;"></div>
+    </div>
+    <div style="padding:12px 24px;border-top:1px solid #E8E6DD;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border-radius:0 0 12px 12px;">
+      <div style="font-size:10.5px;color:#8a8780;max-width:420px;">Förfallen och Borttagen hanteras alltid var för sig och ingår aldrig i en markering.</div>
+      <div style="display:flex;gap:8px;">
+        ${cands.length?`<button type="button" id="rd-imp-btn" disabled onclick="window._rdBatch('import')" style="padding:8px 14px;border:1px solid #E8E6DD;border-radius:8px;background:#fff;color:#55534c;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Importera 0 markerade</button>`:''}
+        <button type="button" id="rd-upd-btn" disabled onclick="window._rdBatch('update')" style="padding:8px 14px;border:none;border-radius:8px;background:#E8E6DD;color:#a6a399;font-size:12px;font-weight:600;cursor:default;font-family:inherit;">Uppdatera 0 markerade</button>
+      </div>
     </div>
   </div>`;
   document.body.appendChild(ov);
 }
-// Förfallen-åtgärder (skriver till kundkortet via befintliga Betalningar-hjälpare), därefter uppdaterad tabell + vy.
-async function _revDiffAfterAction(enc){
-  document.getElementById('revdiff-overlay')?.remove();
-  if(currentBudgetVersionId){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();renderBudgetTable();}catch(e){}}
-  if(enc)openRevDiffModal(enc);
-}
-window._revDiffConfirmPaid=async(custId,itemId,enc)=>{
-  try{await _betPutCore(custId,itemId,{paid:1,paymentDate:_betYmd(new Date())});await _betReloadCust(custId);}catch(e){alert('Kunde inte markera som betald.');return;}
-  await _revDiffAfterAction(enc);
+window._rdCount=()=>{
+  const n=document.querySelectorAll('.rd-sel:checked').length,m=document.querySelectorAll('.rd-imp:checked').length;
+  const u=document.getElementById('rd-upd-btn');if(u){u.disabled=!n;u.textContent=`Uppdatera ${n} markerade`;u.style.background=n?'#D97757':'#E8E6DD';u.style.color=n?'#fff':'#a6a399';u.style.cursor=n?'pointer':'default';}
+  const i=document.getElementById('rd-imp-btn');if(i){i.disabled=!m;i.textContent=`Importera ${m} markerade`;}
 };
-window._revDiffShiftOne=async(custId,itemId,enc)=>{
+async function _rdAfter(expand){
+  const st=window._rdState;if(!st)return;
+  if(currentBudgetVersionId){try{budgetRows=await (await apiFetch(`${API}/budget-versions/${currentBudgetVersionId}/rows`)).json();renderBudgetTable();}catch(e){}}
+  await openRevDiffModal(st.enc,{expand,prefetched:true});
+}
+const _rdMsg=t=>{const e=document.getElementById('rd-msg');if(e)e.textContent=t;};
+// En post: update / add / remove / restore.
+window._rdRun=async(op,key)=>{
+  const st=window._rdState;if(!st)return;
+  const e=op==='restore'?st.removed.find(r=>String(r.itemKey)===String(key)):st.entries.find(x=>String(x.itemKey)===String(key));if(!e)return;
+  if(op==='remove'&&!confirm('Ta bort posten ur den här budgetversionen? Den hamnar under "Borttagna" och kan läggas till igen.'))return;
+  try{await revDiffRunOps(st.ctx,[{op,e:op==='restore'?Object.assign({},e,{rec:e.rec}):e}]);}catch(err){console.error('[revDiff]',err);_rdMsg('Kunde inte spara — försök igen.');return;}
+  await _rdAfter(op==='remove'||op==='restore'?key:null);
+};
+// Footer: Uppdatera N markerade (Ändrad/Ny/Klar förlängning — aldrig Förfallen/Borttagen) · Importera N markerade (Ej importerade).
+window._rdBatch=async(which)=>{
+  const st=window._rdState;if(!st)return;
+  let ops=[];
+  if(which==='update'){
+    const keys=new Set([...document.querySelectorAll('.rd-sel:checked')].map(c=>String(c.dataset.key)));
+    ops=st.entries.filter(e=>keys.has(String(e.itemKey))&&['changed','new','renewal'].includes(e.status)).map(e=>({op:e.status==='changed'||(e.status==='renewal'&&revDiffKind(st.ctx.source)==='forecast')?'update':'add',e}));
+  }else{
+    const keys=new Set([...document.querySelectorAll('.rd-imp:checked')].map(c=>String(c.dataset.key)));
+    ops=st.cands.filter(c=>keys.has(String(c.itemKey))).map(c=>{const ed=st.candEdits[c.itemKey]||{};const a=Object.assign({},c.assumption);if(ed.amount!=null)a.Amount=ed.amount;if(ed.prob!=null)a.Prob=ed.prob;if(ed.date)a.AssumeDate=ed.date;return{op:'import',e:Object.assign({},c,{assumption:a})};});
+  }
+  if(!ops.length)return;
+  try{await revDiffRunOps(st.ctx,ops);}catch(err){console.error('[revDiff]',err);_rdMsg('Kunde inte spara — försök igen.');return;}
+  await _rdAfter(null);
+};
+// Ett fält ändrat. Poster i cellen/Borttagna → skriv till källan. Ej importerade: pipe → pipe-kortet; förnyelse → bara importvärdet.
+window._rdField=async(el)=>{
+  const st=window._rdState;if(!st)return;
+  const{grp,key,k}=el.dataset;const src=st.ctx.source;const kind=revDiffKind(src);const res=st.ctx.mode==='resultat';
+  const raw=el.value;
+  if(grp==='c'){
+    const c=st.cands.find(x=>String(x.itemKey)===String(key));if(!c)return;
+    const ed=st.candEdits[key]=st.candEdits[key]||{};
+    if(k==='amount')ed.amount=Math.round(Number(raw)||0);else if(k==='prob')ed.prob=Math.max(0,Math.min(100,Math.round(Number(raw)||0)));else ed.date=raw||null;
+    if(kind==='pipe'){const patch=k==='amount'?{amount:ed.amount}:(k==='prob'?{prob:ed.prob}:{invoiceDate:ed.date});try{await revDiffWriteSource(src,{itemKey:key},patch);}catch(err){_rdMsg('Kunde inte spara på pipe-kortet.');return;}Object.assign(c.assumption,k==='amount'?{Amount:ed.amount}:(k==='prob'?{Prob:ed.prob}:{AssumeDate:ed.date}));}
+    return;
+  }
+  const e=grp==='r'?st.removed.find(x=>String(x.itemKey)===String(key)):st.entries.find(x=>String(x.itemKey)===String(key));if(!e)return;
+  const s=e.cur||e.baseline||{};const patch={};
+  if(grp==='r'&&kind==='forecast'){const rec=Object.assign({},e.rec);const a=Object.assign({},rec.assumption||{});const v=raw||null;
+    if(k==='amount')a.Amount=res?Math.round(Number(raw)||0):Math.round((Number(raw)||0)/(1+((s.vat!=null?s.vat:25)/100)));else if(k==='prob')a.Prob=Math.max(0,Math.min(100,Math.round(Number(raw)||0)));else if(k==='invoiceDate')a.AssumeDate=v;
+    rec.assumption=a;rec.snap=revDiffSnapshot({assumption:a,contract:(rec.snap&&rec.snap.contract)?_findCustRevItem(rec.snap.contract.id):null},'forecast');
+    try{await _rdRemovedSet(currentBudgetVersionId,src,key,rec);}catch(err){_rdMsg('Kunde inte spara.');return;}await _rdAfter(key);return;}
+  if(k==='amount'){const v=Math.round(Number(raw)||0);patch.amount=res?v:Math.round(v/(1+((s.vat!=null?s.vat:25)/100)));}
+  else if(k==='prob')patch.prob=Math.max(0,Math.min(100,Math.round(Number(raw)||0)));
+  else patch[k]=raw||null;
+  el.disabled=true;_rdMsg('');
+  try{await revDiffWriteSource(src,e,patch);}catch(err){console.error('[revDiff]',err);el.disabled=false;_rdMsg('Kunde inte spara ändringen i källan — försök igen.');return;}
+  await _rdAfter(key);
+};
+window._revDiffConfirmPaid=async(custId,itemId)=>{
+  try{await _betPutCore(custId,itemId,{paid:1,paymentDate:_betYmd(new Date())});await _betReloadCust(custId);}catch(e){_rdMsg('Kunde inte markera som betald.');return;}
+  await _rdAfter(String(itemId));
+};
+window._revDiffShiftOne=async(custId,itemId)=>{
   const it=(custRevCache[custId]||[]).find(x=>x.Id===itemId);if(!it)return;
   const due=kaCashflowDate(it);if(!due)return;
-  try{await _betPutCore(custId,itemId,{expectedPaymentDate:_betShiftDate(due)});await _betReloadCust(custId);}catch(e){alert('Kunde inte flytta betaldatumet.');return;}
-  await _revDiffAfterAction(enc);
+  try{await _betPutCore(custId,itemId,{expectedPaymentDate:_betShiftDate(due)});await _betReloadCust(custId);}catch(e){_rdMsg('Kunde inte flytta betaldatumet.');return;}
+  await _rdAfter(String(itemId));
 };
 function kaSetMode(m){kaMode=m;const per=document.getElementById('ka-mode-per'),liq=document.getElementById('ka-mode-liq');if(per)per.classList.toggle('active',m==='periodiserat');if(liq)liq.classList.toggle('active',m==='likviditet');renderKundanalys();}
 let kaCache={aggEntries:[],kpiYear:new Date().getFullYear()};
